@@ -249,9 +249,18 @@ class ConfigPipelineBuilder:
         """
         Construye el paso de ETL desde la configuración.
 
+        Soporta dos formatos:
+        1. ETL único (legacy): etl: {enabled: true, output_path: "..."}
+        2. Múltiples ETLs con dependencias: etls: {etl1: {...}, etl2: {...}}
+
         Returns:
             PipelineStep: Paso de ETL o None si no está configurado
         """
+        # Verificar si hay múltiples ETLs
+        if "etls" in self.config:
+            return self._build_multi_etl_step()
+
+        # ETL único (formato legacy)
         etl_config = self.config.get("etl", {})
         if not etl_config:
             return None
@@ -267,6 +276,49 @@ class ConfigPipelineBuilder:
             return etl_class(**etl_config)
 
         return None
+
+    def _build_multi_etl_step(self) -> Optional[PipelineStep]:
+        """
+        Construye un paso que orquesta múltiples ETLs con dependencias.
+
+        Returns:
+            PipelineStep: MultiETLStep o None si no hay ETLs configuradas
+        """
+        from energizados.core.base import PipelineStep
+        from energizados.etl.orchestrator import ETLOrchestrator
+
+        etl_configs = self.config.get("etls", {})
+        if not etl_configs:
+            return None
+
+        orchestrator = ETLOrchestrator(etl_configs)
+
+        class MultiETLStep(PipelineStep):
+            """Paso del pipeline que ejecuta múltiples ETLs."""
+
+            def __init__(self, orchestrator: ETLOrchestrator):
+                self.orchestrator = orchestrator
+
+            def validate_input(self, context: Dict[str, Any]) -> bool:
+                # Las ETLs no requieren input previo del contexto
+                return True
+
+            def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+                # Ejecutar todas las ETLs en orden topológico
+                results = self.orchestrator.run()
+
+                # Pasar el output de la última ETL al contexto
+                if self.orchestrator.execution_order:
+                    last_etl = self.orchestrator.execution_order[-1]
+                    context["data"] = results[last_etl]
+
+                context["etl_results"] = results
+                return context
+
+            def get_required_keys(self) -> List[str]:
+                return []
+
+        return MultiETLStep(orchestrator)
 
     def _build_feature_selection_step(self) -> Optional[PipelineStep]:
         """

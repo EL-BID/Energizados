@@ -133,3 +133,23 @@ class ETLError(EnergizadosError):
         else:
             full_message = message
         super().__init__(full_message)
+
+
+class ETLDependencyError(EnergizadosError):
+    """
+    Excepción levantada cuando hay errores en dependencias entre ETLs.
+
+    Esta excepción se utiliza cuando:
+    - Una ETL referencia una dependencia inexistente
+    - Hay un ciclo en el grafo de dependencias
+    - Una dependencia no se ejecutó correctamente
+    """
+
+    def __init__(self, message: str):
+        """
+        Inicializa la excepción.
+
+        Args:
+            message: Mensaje de error descriptivo
+        """
+        super().__init__(message)

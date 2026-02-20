@@ -2,6 +2,41 @@
 
 # Energizados
 
+**Framework para detección de fraude en consumo energético mediante Machine Learning.**
+
+***
+
+## 🚀 Modo Framework (NUEVO)
+
+Energizados ahora puede usarse como un **framework extensible** con CLI:
+
+```bash
+# Instalación
+pip install -e .
+
+# Inicializar un nuevo proyecto
+energizados init mi_proyecto
+
+# Ejecutar pipeline completo
+energizados run --config configs/pipeline.yaml
+
+# Validar configuración
+energizados validate --config configs/pipeline.yaml
+```
+
+### Características del Framework
+
+- **ETL multi-fuente con dependencias**: Define múltiples ETLs que se ejecutan en orden topológico
+- **Clases base extensibles**: Personaliza ETL, selección de features y modelos
+- **Configuración YAML**: Workflow predefinido sin escribir código
+- **Modelos pre-construidos**: LightGBM, CatBoost, Neural Networks, LSTM
+
+Para más información, ver la [documentación del framework](docs/GETTING_STARTED.md).
+
+### Nota
+
+El **modo notebook** (original) continúa funcionando sin cambios. Ver [Notebook Paso a Paso](notebooks/ejecucion_paso_paso.ipynb).
+
 ***
 <div id='insignias' />
 
