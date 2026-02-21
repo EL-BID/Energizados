@@ -97,20 +97,27 @@ transformación y carga de datos.
 
 ### 2. Configurar Múltiples ETLs
 
-Edita `config/pipeline.yaml` y usa la sección `etls` en lugar de `etl`:
+Edita `config/pipeline.yaml` y usa la sección `etls`:
 
 ```yaml
 etls:
   consumos:
+    enabled: true
     input: "data/raw/consumos.csv"
     output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      name: "consumos"
+      source_path: "data/raw/consumos.csv"
     depends_on: []
 
   merge:
+    enabled: true
     input:
       - "@consumos"
       - "data/raw/clientes.csv"
     output: "data/processed/merged.parquet"
+    custom_class: "energizados.etl.pipeline.MultiSourceETL"
     depends_on: ["consumos"]
 ```
 

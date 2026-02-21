@@ -198,31 +198,26 @@ class ETLOrchestrator:
         """
         Instancia las clases de ETL según la configuración.
 
-        Crea instancias de DefaultETL o clases personalizadas según
-        la configuración de cada ETL.
+        Requiere que cada ETL especifique una custom_class.
         """
-        from energizados.etl.default import DefaultETL
-
         for etl_name, config in self.etl_configs.items():
             if not config.get("enabled", True):
                 continue
 
+            if "custom_class" not in config:
+                raise ETLError(
+                    f"ETL '{etl_name}': debe especificar 'custom_class'. "
+                    f"Ejemplo: SourceETL, MultiSourceETL, MergeETL, o una clase personalizada."
+                )
+
+            etl_class = self._import_class(config["custom_class"])
+            params = config.get("params", {})
             input_paths = self.resolve_input_paths(etl_name)
             output_path = config["output"]
 
-            if "custom_class" in config:
-                etl_class = self._import_class(config["custom_class"])
-                params = config.get("params", {})
-                params["input_paths"] = input_paths
-                params["output_path"] = output_path
-                self.etl_instances[etl_name] = etl_class(**params)
-            else:
-                source_path = input_paths[0] if len(input_paths) == 1 else input_paths
-                self.etl_instances[etl_name] = DefaultETL(
-                    sources=[source_path] if isinstance(source_path, str) else source_path,
-                    output_path=output_path,
-                    **config.get("params", {}),
-                )
+            params["input_paths"] = input_paths
+            params["output_path"] = output_path
+            self.etl_instances[etl_name] = etl_class(**params)
 
     def run(self, parallel: bool = False) -> Dict[str, pd.DataFrame]:
         """

@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from energizados.core.base import BaseETL
 from energizados.core.exceptions import ETLError
+from energizados.etl.base import BaseETL
 
 
 class SourceETL(BaseETL):

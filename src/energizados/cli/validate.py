@@ -104,32 +104,44 @@ def _validate_project_section(config: Dict[str, Any], result: ValidationResult):
 
 
 def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección etl."""
-    if "etl" not in config:
-        result.add_error("Sección 'etl' requerida no encontrada")
+    """Valida la sección etls (múltiples ETLs con dependencias)."""
+    if "etls" not in config:
+        result.add_error("Sección 'etls' requerida no encontrada")
         return
 
-    etl = config["etl"]
-    if not isinstance(etl, dict):
-        result.add_error("Sección 'etl' debe ser un diccionario")
+    etls = config["etls"]
+    if not isinstance(etls, dict):
+        result.add_error("Sección 'etls' debe ser un diccionario")
         return
 
-    # Verificar configuración
-    if etl.get("enabled", True):
-        if "output_path" not in etl:
-            result.add_warning("etl.output_path no definido, usando valor por defecto")
+    if not etls:
+        result.add_warning("Sección 'etls' está vacía")
+        return
 
-        # Verificar que tenga type o custom_class
-        has_type = "type" in etl
-        has_custom = "custom_class" in etl
+    # Validar cada ETL
+    for etl_name, etl_config in etls.items():
+        if not isinstance(etl_config, dict):
+            result.add_error(f"ETL '{etl_name}': debe ser un diccionario")
+            continue
 
-        if not has_type and not has_custom:
-            result.add_warning("etl: no se especificó 'type' ni 'custom_class', usando 'default'")
+        # Verificar campos requeridos
+        if "input" not in etl_config:
+            result.add_error(f"ETL '{etl_name}': campo 'input' requerido")
 
-        if has_custom:
-            _validate_class_reference(etl["custom_class"], result)
+        if "output" not in etl_config:
+            result.add_error(f"ETL '{etl_name}': campo 'output' requerido")
 
-        result.add_info(f"ETL: {'habilitado' if etl.get('enabled', True) else 'deshabilitado'}")
+        if "depends_on" not in etl_config:
+            result.add_warning(f"ETL '{etl_name}': campo 'depends_on' no encontrado, usando []")
+
+        # custom_class es obligatorio
+        if "custom_class" not in etl_config:
+            result.add_error(f"ETL '{etl_name}': debe especificar 'custom_class'")
+        else:
+            _validate_class_reference(etl_config["custom_class"], result)
+
+        enabled = etl_config.get("enabled", True)
+        result.add_info(f"ETL '{etl_name}': {'habilitado' if enabled else 'deshabilitado'}")
 
 
 def _validate_preprocessing_section(config: Dict[str, Any], result: ValidationResult):

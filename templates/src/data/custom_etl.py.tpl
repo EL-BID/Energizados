@@ -7,7 +7,7 @@ específica para este proyecto.
 Edita los métodos extract(), transform() y load() según tus necesidades.
 """
 
-from energizados.core.base import BaseETL
+from energizados.base import BaseETL
 import pandas as pd
 
 

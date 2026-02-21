@@ -223,8 +223,8 @@ class ConfigPipelineBuilder:
         """
         pipeline = Pipeline(config=self.config)
 
-        # Paso 1: ETL
-        if self.config.get("etl", {}).get("enabled", True):
+        # Paso 1: ETL (múltiples ETLs con dependencias)
+        if "etls" in self.config:
             etl_step = self._build_etl_step()
             if etl_step is not None:
                 pipeline.add_step(etl_step)
@@ -264,32 +264,13 @@ class ConfigPipelineBuilder:
         """
         Construye el paso de ETL desde la configuración.
 
-        Soporta dos formatos:
-        1. ETL único (legacy): etl: {enabled: true, output_path: "..."}
-        2. Múltiples ETLs con dependencias: etls: {etl1: {...}, etl2: {...}}
+        Usa múltiples ETLs con dependencias (sección 'etls:').
 
         Returns:
             PipelineStep: Paso de ETL o None si no está configurado
         """
-        # Verificar si hay múltiples ETLs
         if "etls" in self.config:
             return self._build_multi_etl_step()
-
-        # ETL único (formato legacy)
-        etl_config = self.config.get("etl", {})
-        if not etl_config:
-            return None
-
-        # Si el usuario especificó una clase personalizada
-        if "custom_class" in etl_config:
-            return self._import_and_instantiate(etl_config["custom_class"], etl_config.get("params", {}))
-
-        # Usa implementación del registry
-        etl_type = etl_config.get("type", "default")
-        etl_class = self.ETL_REGISTRY.get(etl_type)
-        if etl_class:
-            return etl_class(**etl_config)
-
         return None
 
     def _build_multi_etl_step(self) -> Optional[PipelineStep]:

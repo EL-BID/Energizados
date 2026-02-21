@@ -124,13 +124,7 @@ def execute_etl(config_path: str, etl_name: str = None, dry_run: bool = False) -
     etl_configs = config.get("etls")
 
     if not etl_configs:
-        # Verificar si hay ETL único (formato legacy)
-        legacy_etl = config.get("etl", {})
-        if legacy_etl and legacy_etl.get("enabled", True):
-            print("Configuración de ETL único detectada. Ejecutando pipeline completo...")
-            return execute_step(config_path, "etl")
-        else:
-            raise PipelineError("No hay ETLs configuradas. Use 'etl' para ETL único o 'etls' para múltiples.")
+        raise PipelineError("No hay ETLs configuradas. Use la sección 'etls:' para configurar múltiples ETLs.")
 
     # Si se solicita una ETL específica, filtrar sus dependencias
     if etl_name:

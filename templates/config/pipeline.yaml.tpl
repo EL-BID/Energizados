@@ -2,101 +2,76 @@
 #
 # Este archivo define el workflow completo de ML para detección de fraude
 #
-# Soporta dos formatos para ETL:
-# 1. ETL único (simple): usa la sección 'etl'
-# 2. Múltiples ETLs con dependencias: usa la sección 'etls' (comentar 'etl' y descomentar 'etls')
+# El pipeline usa múltiples ETLs con dependencias.
 
 project:
   name: "{{project_name}}"
   version: "1.0.0"
 
 # ============================================
-# Opción 1: ETL Único (Simple)
+# Múltiples ETLs con Dependencias
 # ============================================
-etl:
-  enabled: true
-  output_path: "data/processed/dataset_limpio.parquet"
+etls:
+  # ETL 1: Consumos - No tiene dependencias
+  consumos:
+    enabled: true
+    description: "Procesa datos de consumo mensual"
+    input: "data/raw/consumos.csv"
+    output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      name: "consumos"
+      source_path: "data/raw/consumos.csv"
+    depends_on: []
 
-  # Usa implementación por defecto del framework
-  type: "default"
+  # ETL 2: Clientes - No tiene dependencias
+  clientes:
+    enabled: true
+    description: "Procesa datos de clientes"
+    input: "data/raw/clientes.csv"
+    output: "data/processed/clientes.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      name: "clientes"
+      source_path: "data/raw/clientes.csv"
+    depends_on: []
 
-  # O usa tu propia implementación:
-  # custom_class: "{{project_name}}.src.data.custom_etl.CustomETL"
-  # params:
-  #   source_path: "data/raw/"
+  # ETL 3: Merge - Depende de consumos y clientes
+  # Input puede ser múltiples archivos
+  merge_dataset:
+    enabled: true
+    description: "Combina consumos y clientes"
+    input:
+      - "data/processed/consumos.parquet"
+      - "data/processed/clientes.parquet"
+    output: "data/processed/dataset_limpio.parquet"
+    custom_class: "energizados.etl.pipeline.MultiSourceETL"
+    # Dependencias de otras ETLs
+    depends_on:
+      - "consumos"
+      - "clientes"
 
-# ============================================
-# Opción 2: Múltiples ETLs con Dependencias
-# ============================================
-# etls:
-#   # ETL 1: Consumos - No tiene dependencias
-#   consumos:
-#     enabled: true
-#     description: "Procesa datos de consumo mensual"
-#
-#     # Input: puede ser un archivo, lista, glob, o referencia (@etl_name)
-#     input: "data/raw/consumos.csv"
-#
-#     # Salida
-#     output: "data/processed/consumos.parquet"
-#
-#     # Dependencias (vacío = ETL raíz)
-#     depends_on: []
-#
-#   # ETL 2: Clientes - No tiene dependencias
-#   clientes:
-#     enabled: true
-#     description: "Procesa datos de clientes"
-#
-#     input: "data/raw/clientes.csv"
-#     output: "data/processed/clientes.parquet"
-#     depends_on: []
-#
-#   # ETL 3: Merge - Depende de consumos y clientes
-#   # Input puede ser múltiples archivos
-#   merge_dataset:
-#     enabled: true
-#     description: "Combina consumos y clientes"
-#
-#     input:
-#       - "data/processed/consumos.parquet"
-#       - "data/processed/clientes.parquet"
-#
-#     output: "data/processed/dataset_limpio.parquet"
-#
-#     # Dependencias de otras ETLs
-#     depends_on:
-#       - "consumos"
-#       - "clientes"
-#
-#     # Custom ETL para merge (opcional)
-#     # custom_class: "{{project_name}}.etl.MergeETL"
-#     # params:
-#     #   merge_key: "id_cliente"
-#
-#   # ETL 4: Ejemplo usando referencia a otra ETL
-#   enriquecido:
-#     enabled: false
-#     description: "Dataset enriquecido"
-#
-#     # Usar referencia @etl_name en lugar de path hardcoded
-#     input:
-#       - "@merge_dataset"  # Se resuelve al output de merge_dataset
-#
-#     output: "data/processed/dataset_final.parquet"
-#     depends_on:
-#       - "merge_dataset"
-#
-#   # ETL 5: Ejemplo usando glob para múltiples archivos
-#   batch_process:
-#     enabled: false
-#     description: "Procesa múltiples CSVs"
-#
-#     # Glob para capturar múltiples archivos
-#     input: "data/raw/*.csv"
-#
-#     output: "data/processed/batch.parquet"
-#     depends_on: []
+  # ETL 4: Ejemplo usando referencia a otra ETL
+  enriquecido:
+    enabled: false
+    description: "Dataset enriquecido"
+    # Usar referencia @etl_name en lugar de path hardcoded
+    input:
+      - "@merge_dataset"  # Se resuelve al output de merge_dataset
+    output: "data/processed/dataset_final.parquet"
+    custom_class: "energizados.etl.pipeline.MultiSourceETL"
+    depends_on:
+      - "merge_dataset"
+
+  # ETL 5: Ejemplo usando glob para múltiples archivos
+  batch_process:
+    enabled: false
+    description: "Procesa múltiples CSVs"
+    # Glob para capturar múltiples archivos
+    input: "data/raw/*.csv"
+    output: "data/processed/batch.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    depends_on: []
 
 # ============================================
 # Preprocessing Step - Preprocesamiento de datos

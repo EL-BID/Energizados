@@ -170,16 +170,18 @@ class TestETLOrchestratorIntegration:
                 "description": "Procesa consumos",
                 "input": "data/raw/consumos.csv",
                 "output": "data/consumos.parquet",
+                "custom_class": "energizados.etl.pipeline.SourceETL",
+                "params": {"name": "consumos", "source_path": "data/raw/consumos.csv"},
                 "depends_on": [],
-                "type": "default",
             },
             "clientes": {
                 "enabled": True,
                 "description": "Procesa clientes",
                 "input": "data/raw/clientes.csv",
                 "output": "data/clientes.parquet",
+                "custom_class": "energizados.etl.pipeline.SourceETL",
+                "params": {"name": "clientes", "source_path": "data/raw/clientes.csv"},
                 "depends_on": [],
-                "type": "default",
             },
         }
 
@@ -304,8 +306,14 @@ project:
   name: "test"
   version: "1.0.0"
 
-etl:
-  enabled: false
+etls:
+  consumos:
+    enabled: false
+    description: "Procesa datos de consumo"
+    input: "data/raw/consumos.csv"
+    output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    depends_on: []
 
 preprocessing:
   enabled: false
