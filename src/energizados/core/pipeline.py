@@ -5,6 +5,7 @@ Este módulo contiene las clases que orquestan la ejecución del workflow
 de ML, coordinando los diferentes pasos del pipeline.
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +17,8 @@ from energizados.core.exceptions import (
     PipelineError,
     StepValidationError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _load_yaml_config(path: str) -> Dict:
@@ -129,9 +132,9 @@ class Pipeline:
         for i, step in enumerate(self.steps, 1):
             step_name = step.__class__.__name__
 
-            print(f"\n{'=' * 60}")
-            print(f"PASO {i}/{total_steps}: {step_name}")
-            print(f"{'=' * 60}")
+            logger.info(f"\n{'=' * 60}")
+            logger.info(f"PASO {i}/{total_steps}: {step_name}")
+            logger.info(f"{'=' * 60}")
 
             # Validar entrada
             if not step.validate_input(self.context):
@@ -141,13 +144,13 @@ class Pipeline:
             # Ejecutar paso
             try:
                 self.context = step.execute(self.context)
-                print(f"✓ Paso {step_name} completado")
+                logger.info(f"✓ Paso {step_name} completado")
             except Exception as e:
                 raise PipelineError(f"Error ejecutando paso {step_name}: {e}", step=step_name)
 
-        print(f"\n{'=' * 60}")
-        print("PIPELINE COMPLETADO EXITOSAMENTE")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("PIPELINE COMPLETADO EXITOSAMENTE")
+        logger.info(f"{'=' * 60}")
 
         return self.context
 
@@ -189,15 +192,22 @@ class ConfigPipelineBuilder:
     PREPROCESSOR_REGISTRY = {}
     INFERENCE_REGISTRY = {}
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str = None, config: Dict = None):
         """
         Inicializa el builder.
 
         Args:
-            config_path: Ruta al archivo de configuración YAML
+            config_path: Ruta al archivo de configuración YAML (opcional)
+            config: Diccionario de configuración (opcional, tiene prioridad sobre config_path)
         """
-        self.config_path = config_path
-        self.config = self._load_config(config_path)
+        if config is not None:
+            self.config = config
+            self.config_path = None
+        elif config_path is not None:
+            self.config_path = config_path
+            self.config = self._load_config(config_path)
+        else:
+            raise ValueError("Debe proporcionar config_path o config")
 
     def _load_config(self, path: str) -> Dict:
         """
@@ -229,30 +239,24 @@ class ConfigPipelineBuilder:
             if etl_step is not None:
                 pipeline.add_step(etl_step)
 
-        # Paso 2: Preprocessing
-        if self.config.get("preprocessing", {}).get("enabled", True):
-            prep_step = self._build_preprocessing_step()
-            if prep_step is not None:
-                pipeline.add_step(prep_step)
+        # Paso 2: Feature Pipeline (preprocessing + feature_selection unificados)
+        if self.config.get("feature_pipeline", {}).get("enabled", True):
+            fp_step = self._build_feature_pipeline_step()
+            if fp_step is not None:
+                pipeline.add_step(fp_step)
 
-        # Paso 3: Feature Selection
-        if self.config.get("feature_selection", {}).get("enabled", False):
-            fs_step = self._build_feature_selection_step()
-            if fs_step is not None:
-                pipeline.add_step(fs_step)
-
-        # Paso 4: Training
+        # Paso 3: Training
         train_step = self._build_training_step()
         if train_step is not None:
             pipeline.add_step(train_step)
 
-        # Paso 5: Evaluation
+        # Paso 4: Evaluation
         if self.config.get("evaluation", {}).get("enabled", True):
             eval_step = self._build_evaluation_step()
             if eval_step is not None:
                 pipeline.add_step(eval_step)
 
-        # Paso 6: Inference
+        # Paso 5: Inference
         if self.config.get("inference", {}).get("enabled", False):
             inference_step = self._build_inference_step()
             if inference_step is not None:
@@ -278,7 +282,7 @@ class ConfigPipelineBuilder:
         Construye un paso que orquesta múltiples ETLs con dependencias.
 
         Returns:
-            PipelineStep: MultiETLStep o None si no hay ETLs configuradas
+            PipelineStep: ETLStep o None si no hay ETLs configuradas
         """
         from energizados.core.base import PipelineStep
         from energizados.etl.orchestrator import ETLOrchestrator
@@ -289,7 +293,7 @@ class ConfigPipelineBuilder:
 
         orchestrator = ETLOrchestrator(etl_configs)
 
-        class MultiETLStep(PipelineStep):
+        class ETLStep(PipelineStep):
             """Paso del pipeline que ejecuta múltiples ETLs."""
 
             def __init__(self, orchestrator: ETLOrchestrator):
@@ -314,31 +318,118 @@ class ConfigPipelineBuilder:
             def get_required_keys(self) -> List[str]:
                 return []
 
-        return MultiETLStep(orchestrator)
+        return ETLStep(orchestrator)
 
-    def _build_feature_selection_step(self) -> Optional[PipelineStep]:
+    def _build_feature_pipeline_step(self) -> Optional[PipelineStep]:
         """
-        Construye el paso de feature selection desde la configuración.
+        Construye el paso de feature pipeline desde la configuración.
+
+        Este paso unifica preprocessing y feature_selection en un solo paso.
 
         Returns:
-            PipelineStep: Paso de feature selection o None si no está configurado
+            PipelineStep: Paso de feature pipeline o None si no está configurado
         """
-        fs_config = self.config.get("feature_selection", {})
-        if not fs_config:
+        from energizados.core.base import PipelineStep
+        from energizados.feature_pipeline.default import DefaultFeaturePipeline
+
+        fp_config = self.config.get("feature_pipeline", {})
+        if not fp_config:
             return None
 
         # Si el usuario especificó una clase personalizada
-        if "custom_class" in fs_config:
-            return self._import_and_instantiate(fs_config["custom_class"], fs_config.get("params", {}))
+        if "custom_class" in fp_config:
+            pipeline_instance = self._import_and_instantiate(fp_config["custom_class"], fp_config.get("params", {}))
+        else:
+            # Usar DefaultFeaturePipeline
+            preprocessing_config = fp_config.get("preprocessing", {})
+            fs_config = fp_config.get("feature_selection", {})
 
-        # Usa método del registry
-        method = fs_config.get("method")
-        if method:
-            selector_class = self.SELECTOR_REGISTRY.get(method)
-            if selector_class:
-                return selector_class(**fs_config.get("params", {}))
+            pipeline_instance = DefaultFeaturePipeline(
+                preprocessor_num=preprocessing_config.get("preprocessor_num", 4),
+                categorical_features=preprocessing_config.get("categorical_features", []),
+                feature_selection_config=fs_config,
+            )
 
-        return None
+        # Envolver en un PipelineStep
+        input_path = fp_config.get("input_path")
+        output_pkl = fp_config.get("output_pkl")
+        output_parquet = fp_config.get("output_parquet")
+
+        class FeaturePipelineStep(PipelineStep):
+            """Paso del pipeline que ejecuta preprocessing + feature_selection."""
+
+            def __init__(self, feature_pipeline, config):
+                self.feature_pipeline = feature_pipeline
+                self.config = config
+
+            def validate_input(self, context: Dict[str, Any]) -> bool:
+                # Verificar que haya datos disponibles
+                if input_path:
+                    # Se leerán desde archivo
+                    return True
+                return "data" in context or "etl_results" in context
+
+            def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+                # Obtener datos
+                if input_path:
+                    import pandas as pd
+
+                    data = pd.read_parquet(input_path)
+                elif "data" in context:
+                    data = context["data"]
+                elif "etl_results" in context:
+                    # Usar el último resultado de ETL
+                    last_etl = list(context["etl_results"].keys())[-1]
+                    data = context["etl_results"][last_etl]
+                else:
+                    raise ValueError("No se encontraron datos para el feature pipeline")
+
+                # Separar features y target si existe
+                target_col = self.config.get("target_column", "target")
+                if target_col in data.columns:
+                    X = data.drop(columns=[target_col])
+                    y = data[target_col]
+                else:
+                    X = data
+                    y = None
+
+                # Fit y transform
+                if y is not None:
+                    X_transformed = self.feature_pipeline.fit_transform(X, y)
+                else:
+                    X_transformed = self.feature_pipeline.transform(X)
+
+                # Guardar pipeline como pickle
+                if output_pkl:
+                    self.feature_pipeline.save(output_pkl)
+                    logger.info(f"Feature pipeline guardado en: {output_pkl}")
+
+                # Guardar datos transformados como parquet (opcional)
+                if output_parquet:
+                    df_output = X_transformed.copy()
+                    if y is not None:
+                        df_output[target_col] = y.values
+                    df_output.to_parquet(output_parquet, index=False)
+                    logger.info(f"Datos transformados guardados en: {output_parquet}")
+                    context["feature_pipeline_data"] = df_output
+                else:
+                    context["feature_pipeline_data"] = X_transformed
+
+                # Guardar el pipeline en el contexto para uso posterior
+                context["feature_pipeline"] = self.feature_pipeline
+
+                return context
+
+            def get_required_keys(self) -> List[str]:
+                return []
+
+            def get_output_keys(self) -> List[str]:
+                keys = ["feature_pipeline"]
+                if output_parquet:
+                    keys.append("feature_pipeline_data")
+                return keys
+
+        return FeaturePipelineStep(pipeline_instance, fp_config)
 
     def _build_training_step(self) -> Optional[PipelineStep]:
         """
@@ -361,29 +452,6 @@ class ConfigPipelineBuilder:
             model_class = self.MODEL_REGISTRY.get(model_type)
             if model_class:
                 return model_class(**train_config.get("params", {}))
-
-        return None
-
-    def _build_preprocessing_step(self) -> Optional[PipelineStep]:
-        """
-        Construye el paso de preprocesamiento desde la configuración.
-
-        Returns:
-            PipelineStep: Paso de preprocesamiento o None si no está configurado
-        """
-        prep_config = self.config.get("preprocessing", {})
-        if not prep_config:
-            return None
-
-        # Si el usuario especificó una clase personalizada
-        if "custom_class" in prep_config:
-            return self._import_and_instantiate(prep_config["custom_class"], prep_config.get("params", {}))
-
-        # Usa preprocesador del registry
-        prep_type = prep_config.get("type", "default")
-        prep_class = self.PREPROCESSOR_REGISTRY.get(prep_type)
-        if prep_class:
-            return prep_class(**prep_config.get("params", {}))
 
         return None
 
@@ -474,7 +542,7 @@ class ConfigPipelineBuilder:
                 # Guardar en archivo si se especificó output_path
                 if output_path:
                     self.inference.save_predictions(predictions, output_path)
-                    print(f"Predicciones guardadas en: {output_path}")
+                    logger.info(f"Predicciones guardadas en: {output_path}")
 
                 return context
 

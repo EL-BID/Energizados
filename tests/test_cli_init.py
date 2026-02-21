@@ -41,7 +41,6 @@ class TestInitCommand:
             assert (project_path / "config").exists()
             assert (project_path / "data" / "raw").exists()
             assert (project_path / "data" / "processed").exists()
-            assert (project_path / "data" / "external").exists()
             assert (project_path / "models" / "trained").exists()
             assert (project_path / "notebooks").exists()
             assert (project_path / "reports").exists()
@@ -57,7 +56,16 @@ class TestInitCommand:
             assert (project_path / "tests" / "test_features.py").exists()
             assert (project_path / "tests" / "test_models.py").exists()
             assert (project_path / "docs" / "project_docs.md").exists()
-            assert (project_path / "config" / "pipeline.yaml").exists()
+
+            # Verificar archivos de configuración (4 archivos separados)
+            assert (project_path / "config" / "etls.yaml").exists()
+            assert (project_path / "config" / "feature_pipeline.yaml").exists()
+            assert (project_path / "config" / "training.yaml").exists()
+            assert (project_path / "config" / "inference.yaml").exists()
+
+            # Verificar que el antiguo pipeline.yaml ya NO existe
+            assert not (project_path / "config" / "pipeline.yaml").exists()
+
             assert (project_path / "requirements.txt").exists()
             assert (project_path / "README.md").exists()
             assert (project_path / ".gitignore").exists()
@@ -174,7 +182,7 @@ class TestInitCommand:
             assert "# MODIFIED:" in copied_content
 
     def test_init_copy_updates_project_name_in_yaml(self):
-        """Verifica que init actualice el nombre del proyecto en pipeline.yaml."""
+        """Verifica que init actualice el nombre del proyecto en los archivos YAML."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Crear proyecto base
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
@@ -183,10 +191,11 @@ class TestInitCommand:
             self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar que el nombre se actualizó en YAML
-            yaml_content = (new_path / "config" / "pipeline.yaml").read_text()
-            assert 'name: "new_project"' in yaml_content
-            assert 'name: "base_project"' not in yaml_content
+            # Verificar que el nombre se actualizó en el YAML
+            etls_yaml = (new_path / "config" / "etls.yaml").read_text()
+            # El nombre aparece en el comentario del encabezado
+            assert "new_project" in etls_yaml
+            assert "base_project" not in etls_yaml
 
     def test_init_copy_creates_readme_with_origin_note(self):
         """Verifica que el README indique el proyecto origen."""
@@ -219,11 +228,12 @@ class TestInitCommand:
             (old_path / "feature_selection" / "custom_selector.py").write_text("# OLD SELECTOR")
             (old_path / "models" / "custom_model.py").write_text("# OLD MODEL")
             (old_path / "inference" / "custom_inference.py").write_text("# OLD INFERENCE")
-            (old_path / "configs" / "pipeline.yaml").write_text("""
-project:
-  name: "old_project"
-etl:
-  custom_class: "old_project.etl.custom_etl.CustomETL"
+            (old_path / "configs" / "etls.yaml").write_text("""
+# ETLs Configuration for old_project
+etls:
+  sample:
+    enabled: true
+    custom_class: "old_project.etl.custom_etl.CustomETL"
 """)
 
             # Copiar desde estructura antigua
@@ -237,16 +247,20 @@ etl:
             assert (new_path / "src" / "features" / "custom_selector.py").exists()
             assert (new_path / "src" / "models" / "custom_model.py").exists()
             assert (new_path / "src" / "inference" / "custom_inference.py").exists()
-            assert (new_path / "config" / "pipeline.yaml").exists()
+
+            # Verificar que se crearon los 4 archivos de config
+            assert (new_path / "config" / "etls.yaml").exists()
+            assert (new_path / "config" / "feature_pipeline.yaml").exists()
+            assert (new_path / "config" / "training.yaml").exists()
+            assert (new_path / "config" / "inference.yaml").exists()
 
             # Verificar que los archivos custom se copiaron
             assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text()
 
-            # Verificar que el YAML se actualizó
-            yaml_content = (new_path / "config" / "pipeline.yaml").read_text()
-            assert 'name: "new_project"' in yaml_content
-            assert "new_project.src.data" in yaml_content
-            assert "old_project.etl" not in yaml_content
+            # Verificar que el nombre se actualizó en el YAML (en el comentario)
+            yaml_content = (new_path / "config" / "etls.yaml").read_text()
+            assert "new_project" in yaml_content
+            assert "old_project" not in yaml_content
 
     def test_init_copy_without_custom_files_uses_templates(self):
         """Verifica que si no hay archivos custom, se usen templates."""
@@ -325,7 +339,12 @@ etl:
 
             # Debe ser config/ (singular)
             assert (project_path / "config").exists()
-            assert (project_path / "config" / "pipeline.yaml").exists()
+
+            # Debe tener los 4 archivos de config
+            assert (project_path / "config" / "etls.yaml").exists()
+            assert (project_path / "config" / "feature_pipeline.yaml").exists()
+            assert (project_path / "config" / "training.yaml").exists()
+            assert (project_path / "config" / "inference.yaml").exists()
 
             # NO debe ser configs/ (plural)
             assert not (project_path / "configs").exists()

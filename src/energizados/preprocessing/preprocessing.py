@@ -23,12 +23,19 @@ from itertools import groupby
 
 import numpy as np
 import pandas as pd
-import tsfel
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 
 logger = logging.getLogger()
+
+
+# tsfel se importa de forma lazy para evitar problemas de compatibilidad con scipy
+def _get_tsfel():
+    """Importa tsfel de forma lazy."""
+    import tsfel
+
+    return tsfel
 
 
 class ToDummy(BaseEstimator, TransformerMixin):
@@ -173,6 +180,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         return [f"{i}_anterior" for i in range(num_cols, 0, -1)]
 
     def extra_cols(self, df, domain, cols, window=12):
+        tsfel = _get_tsfel()
         cfg = tsfel.get_features_by_domain(domain)
         # Procesar cada fila individualmente ya que cada fila es una serie temporal
         results = []
@@ -188,6 +196,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         return df_result
 
     def compute_by_json(self, df, cols, window=12):
+        tsfel = _get_tsfel()
         cfg = tsfel.get_features_by_domain(json_path=self.features_names_path)
         # Procesar cada fila individualmente ya que cada fila es una serie temporal
         results = []

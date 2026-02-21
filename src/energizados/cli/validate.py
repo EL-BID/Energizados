@@ -8,8 +8,6 @@ validar archivos de configuración YAML.
 from pathlib import Path
 from typing import Any, Dict, List
 
-import yaml
-
 from energizados.core.exceptions import ConfigurationError
 
 
@@ -38,12 +36,12 @@ class ValidationResult:
         self.info.append(message)
 
 
-def validate_config(config_path: str, verbose: bool = False) -> ValidationResult:
+def validate_config(config_paths: List[str], verbose: bool = False) -> ValidationResult:
     """
-    Valida un archivo de configuración YAML.
+    Valida uno o más archivos de configuración YAML.
 
     Args:
-        config_path: Ruta al archivo de configuración
+        config_paths: Lista de rutas a archivos de configuración
         verbose: Si es True, muestra detalles completos
 
     Returns:
@@ -52,40 +50,42 @@ def validate_config(config_path: str, verbose: bool = False) -> ValidationResult
     Raises:
         ConfigurationError: Si hay errores críticos en la configuración
     """
+    from energizados.cli.run import merge_configs
+
     result = ValidationResult()
 
-    # Verificar que el archivo existe
-    config_file = Path(config_path)
-    if not config_file.exists():
-        result.add_error(f"Archivo no encontrado: {config_path}")
-        raise ConfigurationError(f"Archivo no encontrado: {config_path}", config_path)
+    # Validar que cada archivo exista antes de mezclar
+    for config_path in config_paths:
+        config_file = Path(config_path)
+        if not config_file.exists():
+            result.add_error(f"Archivo no encontrado: {config_path}")
+            raise ConfigurationError(f"Archivo no encontrado: {config_path}", config_path)
 
-    # Cargar YAML
+    # Mezclar configuraciones (la función también valida el formato YAML)
     try:
-        with open(config_path, "r") as f:
-            config = yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        result.add_error(f"Error al parsear YAML: {e}")
-        raise ConfigurationError(f"Error al parsear YAML: {e}", config_path)
+        merged_config = merge_configs(config_paths)
+    except Exception as e:
+        result.add_error(f"Error al mezclar configuraciones: {e}")
+        raise
 
-    if config is None:
-        result.add_error("Archivo de configuración vacío")
-        raise ConfigurationError("Archivo de configuración vacío", config_path)
+    if not merged_config:
+        result.add_error("Configuración combinada vacía")
+        raise ConfigurationError("Configuración combinada vacía", str(config_paths))
 
     # Validar secciones
-    _validate_project_section(config, result)
-    _validate_etl_section(config, result)
-    _validate_preprocessing_section(config, result)
-    _validate_feature_selection_section(config, result)
-    _validate_training_section(config, result)
-    _validate_evaluation_section(config, result)
+    _validate_project_section(merged_config, result)
+    _validate_etl_section(merged_config, result)
+    _validate_feature_pipeline_section(merged_config, result)
+    _validate_training_section(merged_config, result)
+    _validate_evaluation_section(merged_config, result)
+    _validate_inference_section(merged_config, result)
 
     # Mostrar resultados
     if verbose:
-        _print_validation_results(result, config)
+        _print_validation_results(result, merged_config)
 
     if not result.is_valid():
-        raise ConfigurationError(f"Validación falló con {len(result.errors)} errores", config_path)
+        raise ConfigurationError(f"Validación falló con {len(result.errors)} errores", str(config_paths))
 
     return result
 
@@ -144,66 +144,100 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
         result.add_info(f"ETL '{etl_name}': {'habilitado' if enabled else 'deshabilitado'}")
 
 
-def _validate_preprocessing_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección preprocessing."""
-    if "preprocessing" not in config:
-        result.add_error("Sección 'preprocessing' requerida no encontrada")
+def _validate_feature_pipeline_section(config: Dict[str, Any], result: ValidationResult):
+    """Valida la sección feature_pipeline."""
+    if "feature_pipeline" not in config:
+        result.add_warning("Sección 'feature_pipeline' no encontrada (opcional)")
         return
 
-    prep = config["preprocessing"]
-    if not isinstance(prep, dict):
-        result.add_error("Sección 'preprocessing' debe ser un diccionario")
+    fp = config["feature_pipeline"]
+    if not isinstance(fp, dict):
+        result.add_error("Sección 'feature_pipeline' debe ser un diccionario")
         return
 
-    if prep.get("enabled", True):
-        if "output_path" not in prep:
-            result.add_warning("preprocessing.output_path no definido")
+    if fp.get("enabled", True):
+        # Verificar campos requeridos
+        if "input_path" not in fp:
+            result.add_warning("feature_pipeline.input_path no definido")
 
-        if "categorical_features" not in prep:
-            result.add_warning("preprocessing.categorical_features no definido")
-        else:
-            features = prep["categorical_features"]
-            if not isinstance(features, list) or len(features) == 0:
-                result.add_warning("preprocessing.categorical_features debe ser una lista no vacía")
+        if "output_pkl" not in fp:
+            result.add_warning("feature_pipeline.output_pkl no definido")
+
+        # Validar sub-sección preprocessing
+        if "preprocessing" in fp:
+            prep = fp["preprocessing"]
+            if not isinstance(prep, dict):
+                result.add_error("feature_pipeline.preprocessing debe ser un diccionario")
             else:
-                result.add_info(f"Features categóricas: {len(features)}")
+                if "categorical_features" in prep:
+                    features = prep["categorical_features"]
+                    if not isinstance(features, list):
+                        result.add_error("feature_pipeline.preprocessing.categorical_features debe ser una lista")
+                    else:
+                        result.add_info(f"Features categóricas: {len(features)}")
 
-        result.add_info(f"Preprocessing: {'habilitado' if prep.get('enabled', True) else 'deshabilitado'}")
+                if "preprocessor_num" in prep:
+                    prep_num = prep["preprocessor_num"]
+                    if not isinstance(prep_num, int) or prep_num < 1:
+                        result.add_error(f"feature_pipeline.preprocessing.preprocessor_num inválido: {prep_num}")
 
-
-def _validate_feature_selection_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección feature_selection."""
-    if "feature_selection" not in config:
-        result.add_warning("Sección 'feature_selection' no encontrada (opcional)")
-        return
-
-    fs = config["feature_selection"]
-    if not isinstance(fs, dict):
-        result.add_error("Sección 'feature_selection' debe ser un diccionario")
-        return
-
-    if fs.get("enabled", False):
-        # Verificar que tenga method o custom_class
-        has_method = "method" in fs
-        has_custom = "custom_class" in fs
-
-        if not has_method and not has_custom:
-            result.add_error("feature_selection: se requiere 'method' o 'custom_class' cuando está habilitado")
-
-        if has_method:
-            valid_methods = ["boruta", "correlation", "constant"]
-            method = fs["method"]
-            if method not in valid_methods:
-                result.add_error(f"feature_selection.method inválido: {method}. Válidos: {valid_methods}")
+        # Validar sub-sección feature_selection
+        if "feature_selection" in fp:
+            fs = fp["feature_selection"]
+            if not isinstance(fs, dict):
+                result.add_error("feature_pipeline.feature_selection debe ser un diccionario")
             else:
-                result.add_info(f"Feature selection: {method}")
+                if fs.get("enabled", True):
+                    has_method = "method" in fs
+                    has_custom = "custom_class" in fs
 
-        if has_custom:
-            _validate_class_reference(fs["custom_class"], result)
+                    if not has_method and not has_custom:
+                        result.add_error("feature_pipeline.feature_selection: se requiere 'method' o 'custom_class' cuando está habilitado")
 
-        result.add_info("Feature selection: habilitado")
+                    if has_method:
+                        valid_methods = ["boruta", "correlation", "constant"]
+                        method = fs["method"]
+                        if method not in valid_methods:
+                            result.add_error(f"feature_pipeline.feature_selection.method inválido: {method}")
+                        else:
+                            result.add_info(f"Feature selection: {method}")
+
+                    if has_custom:
+                        _validate_class_reference(fs["custom_class"], result)
+
+        # Validar custom_class si existe
+        if "custom_class" in fp:
+            _validate_class_reference(fp["custom_class"], result)
+
+        result.add_info("Feature pipeline: habilitado")
     else:
-        result.add_info("Feature selection: deshabilitado")
+        result.add_info("Feature pipeline: deshabilitado")
+
+
+def _validate_inference_section(config: Dict[str, Any], result: ValidationResult):
+    """Valida la sección inference."""
+    if "inference" not in config:
+        result.add_warning("Sección 'inference' no encontrada (opcional)")
+        return
+
+    inf = config["inference"]
+    if not isinstance(inf, dict):
+        result.add_error("Sección 'inference' debe ser un diccionario")
+        return
+
+    if inf.get("enabled", False):
+        if "input_path" not in inf:
+            result.add_warning("inference.input_path no definido")
+
+        if "output_path" not in inf:
+            result.add_warning("inference.output_path no definido")
+
+        if "custom_class" in inf:
+            _validate_class_reference(inf["custom_class"], result)
+
+        result.add_info("Inference: habilitada")
+    else:
+        result.add_info("Inference: deshabilitada")
 
 
 def _validate_training_section(config: Dict[str, Any], result: ValidationResult):

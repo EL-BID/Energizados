@@ -6,6 +6,7 @@ respetando dependencias entre ellas, implementando un orden topológico.
 """
 
 import glob
+import logging
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Dict, List
@@ -13,6 +14,8 @@ from typing import Dict, List
 import pandas as pd
 
 from energizados.core.exceptions import ETLDependencyError, ETLError
+
+logger = logging.getLogger(__name__)
 
 
 class ETLOrchestrator:
@@ -215,6 +218,8 @@ class ETLOrchestrator:
             input_paths = self.resolve_input_paths(etl_name)
             output_path = config["output"]
 
+            # Pasar nombre y paths como parámetros estándar
+            params["name"] = etl_name
             params["input_paths"] = input_paths
             params["output_path"] = output_path
             self.etl_instances[etl_name] = etl_class(**params)
@@ -237,35 +242,35 @@ class ETLOrchestrator:
         order = self.build_execution_order()
         self.instantiate_etls()
 
-        print(f"\n{'=' * 60}")
-        print(f"Ejecutando {len(self.execution_order)} ETLs en orden:")
-        print(" → ".join(order))
-        print(f"{'=' * 60}\n")
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Ejecutando {len(self.execution_order)} ETLs en orden:")
+        logger.info(" → ".join(order))
+        logger.info(f"{'=' * 60}\n")
 
         for i, etl_name in enumerate(self.execution_order):
             etl_config = self.etl_configs[etl_name]
 
             if not etl_config.get("enabled", True):
-                print(f"[SKIP] {etl_name} (disabled)")
+                logger.info(f"[SKIP] {etl_name} (disabled)")
                 continue
 
-            print(f"\n{'─' * 60}")
-            print(f"ETL {i + 1}/{len(self.execution_order)}: {etl_name}")
-            print(f"{'─' * 60}")
+            logger.info(f"\n{'─' * 60}")
+            logger.info(f"ETL {i + 1}/{len(self.execution_order)}: {etl_name}")
+            logger.info(f"{'─' * 60}")
 
             description = etl_config.get("description", "N/A")
             if description != "N/A":
-                print(f"Descripción: {description}")
+                logger.info(f"Descripción: {description}")
 
             # Mostrar inputs resueltos
             input_paths = self.resolve_input_paths(etl_name)
-            print(f"Input(s): {len(input_paths)} archivo(s)")
+            logger.info(f"Input(s): {len(input_paths)} archivo(s)")
             for path in input_paths[:3]:
-                print(f"  - {path}")
+                logger.info(f"  - {path}")
             if len(input_paths) > 3:
-                print(f"  ... y {len(input_paths) - 3} más")
+                logger.info(f"  ... y {len(input_paths) - 3} más")
 
-            print(f"Output: {etl_config['output']}")
+            logger.info(f"Output: {etl_config['output']}")
 
             # Verificar dependencias
             deps = etl_config.get("depends_on", [])
@@ -279,14 +284,14 @@ class ETLOrchestrator:
                 try:
                     result = etl.run(output_path=etl_config["output"])
                     self.results[etl_name] = result
-                    print(f"✓ {etl_name} completado ({len(result)} filas)")
+                    logger.info(f"✓ {etl_name} completado ({len(result)} filas)")
                 except Exception as e:
-                    print(f"✗ {etl_name} falló: {e}")
+                    logger.error(f"✗ {etl_name} falló: {e}")
                     raise ETLError(f"Error ejecutando ETL '{etl_name}': {e}")
 
-        print(f"\n{'=' * 60}")
-        print("TODAS LAS ETLs COMPLETADAS")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("TODAS LAS ETLs COMPLETADAS")
+        logger.info(f"{'=' * 60}")
 
         return self.results
 

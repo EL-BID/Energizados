@@ -5,6 +5,7 @@ Este módulo proporciona clases para orquestar múltiples ETLs de fuentes
 y combinar sus salidas en un dataset final.
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,6 +13,8 @@ import pandas as pd
 
 from energizados.core.exceptions import ETLError
 from energizados.etl.base import BaseETL
+
+logger = logging.getLogger(__name__)
 
 
 class SourceETL(BaseETL):
@@ -24,7 +27,7 @@ class SourceETL(BaseETL):
 
     Args:
         name: Nombre de la fuente (ej: 'consumos', 'inspecciones', 'clientes')
-        source_path: Ruta al archivo de datos crudos
+        input_paths: Lista con la ruta al archivo de datos crudos
         output_path: Ruta donde guardar los datos procesados
         key_column: Columna a usar como clave para unir (default: 'id_cliente' o 'index')
         **kwargs: Parámetros adicionales
@@ -32,7 +35,7 @@ class SourceETL(BaseETL):
     Example:
         >>> etl = SourceETL(
         ...     name='consumos',
-        ...     source_path='data/raw/consumos.csv',
+        ...     input_paths=['data/raw/consumos.csv'],
         ...     output_path='data/consumos.parquet',
         ...     key_column='id_cliente'
         ... )
@@ -42,13 +45,15 @@ class SourceETL(BaseETL):
     def __init__(
         self,
         name: str,
-        source_path: str,
+        input_paths: List[str],
         output_path: Optional[str] = None,
         key_column: Optional[str] = None,
         **kwargs,
     ):
         self.name = name
-        self.source_path = source_path
+        # Tomar el primer path de la lista (para compatibilidad con single source)
+        self.source_path = input_paths[0] if input_paths else None
+        self.input_paths = input_paths
         self.output_path = output_path
         self.key_column = key_column or "id_cliente"
         self.kwargs = kwargs
@@ -78,7 +83,7 @@ class SourceETL(BaseETL):
             else:
                 raise ETLError(f"Formato no soportado: {source_file.suffix}")
 
-            print(f"  ✓ Extraídos {len(df)} registros de '{self.name}'")
+            logger.info(f"  ✓ Extraídos {len(df)} registros de '{self.name}'")
             return df
 
         except Exception as e:
@@ -102,7 +107,7 @@ class SourceETL(BaseETL):
         after_count = len(df)
 
         if before_count > after_count:
-            print(f"  • Eliminadas {before_count - after_count} filas vacías")
+            logger.info(f"  • Eliminadas {before_count - after_count} filas vacías")
 
         # Asegurar que la clave existe
         if self.key_column not in df.columns:
@@ -120,9 +125,9 @@ class SourceETL(BaseETL):
         after_dedup = len(df)
 
         if before_dedup > after_dedup:
-            print(f"  • Eliminados {before_dedup - after_dedup} duplicados por clave")
+            logger.info(f"  • Eliminados {before_dedup - after_dedup} duplicados por clave")
 
-        print(f"  ✓ Transformados {len(df)} registros de '{self.name}'")
+        logger.info(f"  ✓ Transformados {len(df)} registros de '{self.name}'")
         return df
 
     def load(self, df: pd.DataFrame, path: str) -> None:
@@ -147,7 +152,7 @@ class SourceETL(BaseETL):
             else:
                 df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
-            print(f"  ✓ Guardados {len(df)} registros en '{path}'")
+            logger.info(f"  ✓ Guardados {len(df)} registros en '{path}'")
 
         except Exception as e:
             raise ETLError(f"Error guardando '{self.name}': {str(e)}")
@@ -161,17 +166,17 @@ class MultiSourceETL(BaseETL):
     y luego combina sus salidas en un dataset final.
 
     Args:
-        sources: Lista de configuraciones de fuentes
-        merge_config: Configuración de cómo combinar las fuentes
+        name: Nombre de la ETL
+        input_paths: Lista de rutas a archivos a combinar
         output_path: Ruta de salida del dataset final
+        merge_config: Configuración de cómo combinar las fuentes
+        key_column: Columna clave para unir (default: 'id_cliente')
         **kwargs: Parámetros adicionales
 
     Example:
         >>> etl = MultiSourceETL(
-        ...     sources=[
-        ...         {'name': 'consumos', 'path': 'data/raw/consumos.csv'},
-        ...         {'name': 'clientes', 'path': 'data/raw/clientes.csv'},
-        ...     ],
+        ...     name='merge',
+        ...     input_paths=['data/consumos.parquet', 'data/clientes.parquet'],
         ...     merge_config={'how': 'left', 'on': 'id_cliente'},
         ...     output_path='data/dataset_final.parquet'
         ... )
@@ -180,15 +185,25 @@ class MultiSourceETL(BaseETL):
 
     def __init__(
         self,
-        sources: List[Dict[str, Any]],
-        merge_config: Optional[Dict[str, Any]] = None,
+        name: str,
+        input_paths: List[str],
         output_path: Optional[str] = None,
+        merge_config: Optional[Dict[str, Any]] = None,
+        key_column: Optional[str] = None,
         **kwargs,
     ):
-        self.sources = sources
-        self.merge_config = merge_config or {}
+        self.name = name
+        self.input_paths = input_paths
         self.output_path = output_path
+        self.merge_config = merge_config or {}
+        self.key_column = key_column or "id_cliente"
         self.kwargs = kwargs
+
+        # Construir lista de fuentes desde input_paths
+        self.sources = []
+        for i, path in enumerate(input_paths):
+            source_name = kwargs.get(f"source_{i}_name", f"source_{i}")
+            self.sources.append({"name": source_name, "path": path, "key_column": key_column})
 
         # Almacén de DataFrames procesados
         self.processed_sources_: Dict[str, pd.DataFrame] = {}
@@ -204,9 +219,9 @@ class MultiSourceETL(BaseETL):
 
         raw_data = {}
 
-        print(f"\n{'=' * 60}")
-        print(f"EXTRACT: Procesando {len(self.sources)} fuentes")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"EXTRACT: Procesando {len(self.sources)} fuentes")
+        logger.info(f"{'=' * 60}")
 
         for source_config in self.sources:
             name = source_config.get("name")
@@ -243,9 +258,9 @@ class MultiSourceETL(BaseETL):
         """
         from energizados.core.exceptions import ETLError
 
-        print(f"\n{'=' * 60}")
-        print("TRANSFORM: Procesando fuentes individuales")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("TRANSFORM: Procesando fuentes individuales")
+        logger.info(f"{'=' * 60}")
 
         processed = {}
 
@@ -269,9 +284,9 @@ class MultiSourceETL(BaseETL):
         self.processed_sources_ = processed
 
         # Combinar fuentes
-        print(f"\n{'=' * 60}")
-        print("MERGE: Combinando fuentes procesadas")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("MERGE: Combinando fuentes procesadas")
+        logger.info(f"{'=' * 60}")
 
         merged_df = self._merge_sources(processed)
 
@@ -323,7 +338,7 @@ class MultiSourceETL(BaseETL):
         first_name = source_names[0]
         merged = processed[first_name]
 
-        print(f"  • Fuente primaria: '{first_name}' ({len(merged)} registros)")
+        logger.info(f"  • Fuente primaria: '{first_name}' ({len(merged)} registros)")
 
         # Merge con las demás fuentes
         for name in source_names[1:]:
@@ -340,10 +355,10 @@ class MultiSourceETL(BaseETL):
                 on = list(common_cols)[0]
 
             # Merge
-            print(f"  • Merge con '{name}' ({len(df)} registros) on='{on}', how='{merge_how}'")
+            logger.info(f"  • Merge con '{name}' ({len(df)} registros) on='{on}', how='{merge_how}'")
             merged = pd.merge(merged, df, on=on, how=merge_how, suffixes=("", f"_{name}"))
 
-        print(f"\n  ✓ Dataset final: {len(merged)} registros, {len(merged.columns)} columnas")
+        logger.info(f"\n  ✓ Dataset final: {len(merged)} registros, {len(merged.columns)} columnas")
 
         return merged
 
@@ -369,7 +384,7 @@ class MultiSourceETL(BaseETL):
             else:
                 df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
-            print(f"  ✓ Dataset final guardado en '{path}'")
+            logger.info(f"  ✓ Dataset final guardado en '{path}'")
 
         except Exception as e:
             raise ETLError(f"Error guardando dataset final: {str(e)}")
@@ -383,17 +398,17 @@ class MergeETL(BaseETL):
     combina en un dataset final.
 
     Args:
-        sources: Lista de rutas a datasets procesados
-        merge_config: Configuración de cómo combinar las fuentes
+        name: Nombre de la ETL
+        input_paths: Lista de rutas a datasets procesados
         output_path: Ruta de salida del dataset final
+        merge_config: Configuración de cómo combinar las fuentes
+        key_column: Columna clave para unir (default: 'id_cliente')
         **kwargs: Parámetros adicionales
 
     Example:
         >>> etl = MergeETL(
-        ...     sources=[
-        ...         {'name': 'consumos', 'path': 'data/consumos.parquet'},
-        ...         {'name': 'clientes', 'path': 'data/clientes.parquet'},
-        ...     ],
+        ...     name='merge',
+        ...     input_paths=['data/consumos.parquet', 'data/clientes.parquet'],
         ...     merge_config={'how': 'left', 'on': 'id_cliente'},
         ...     output_path='data/dataset_final.parquet'
         ... )
@@ -402,15 +417,25 @@ class MergeETL(BaseETL):
 
     def __init__(
         self,
-        sources: List[Dict[str, Any]],
-        merge_config: Optional[Dict[str, Any]] = None,
+        name: str,
+        input_paths: List[str],
         output_path: Optional[str] = None,
+        merge_config: Optional[Dict[str, Any]] = None,
+        key_column: Optional[str] = None,
         **kwargs,
     ):
-        self.sources = sources
-        self.merge_config = merge_config or {}
+        self.name = name
+        self.input_paths = input_paths
         self.output_path = output_path
+        self.merge_config = merge_config or {}
+        self.key_column = key_column or "id_cliente"
         self.kwargs = kwargs
+
+        # Construir lista de fuentes desde input_paths
+        self.sources = []
+        for i, path in enumerate(input_paths):
+            source_name = kwargs.get(f"source_{i}_name", f"source_{i}")
+            self.sources.append({"name": source_name, "path": path, "key_column": key_column})
 
     def extract(self) -> Dict[str, pd.DataFrame]:
         """
@@ -421,9 +446,9 @@ class MergeETL(BaseETL):
         """
         from energizados.core.exceptions import ETLError
 
-        print(f"\n{'=' * 60}")
-        print(f"EXTRACT: Leyendo {len(self.sources)} datasets procesados")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"EXTRACT: Leyendo {len(self.sources)} datasets procesados")
+        logger.info(f"{'=' * 60}")
 
         data = {}
 
@@ -447,7 +472,7 @@ class MergeETL(BaseETL):
                     raise ETLError(f"Formato no soportado: {path.suffix}")
 
                 data[name] = df
-                print(f"  ✓ Leídos {len(df)} registros de '{name}'")
+                logger.info(f"  ✓ Leídos {len(df)} registros de '{name}'")
 
             except Exception as e:
                 raise ETLError(f"Error leyendo '{name}': {str(e)}")
@@ -464,9 +489,9 @@ class MergeETL(BaseETL):
         Returns:
             pd.DataFrame: DataFrame combinado
         """
-        print(f"\n{'=' * 60}")
-        print("MERGE: Combinando datasets procesados")
-        print(f"{'=' * 60}")
+        logger.info(f"\n{'=' * 60}")
+        logger.info("MERGE: Combinando datasets procesados")
+        logger.info(f"{'=' * 60}")
 
         merged = self._merge_sources(data)
 
@@ -513,7 +538,7 @@ class MergeETL(BaseETL):
         first_name = source_names[0]
         merged = data[first_name]
 
-        print(f"  • Fuente primaria: '{first_name}' ({len(merged)} registros)")
+        logger.info(f"  • Fuente primaria: '{first_name}' ({len(merged)} registros)")
 
         for name in source_names[1:]:
             df = data[name]
@@ -526,10 +551,10 @@ class MergeETL(BaseETL):
                     raise ETLError(f"No hay columnas comunes entre '{first_name}' y '{name}'")
                 on = list(common_cols)[0]
 
-            print(f"  • Merge con '{name}' ({len(df)} registros) on='{on}', how='{merge_how}'")
+            logger.info(f"  • Merge con '{name}' ({len(df)} registros) on='{on}', how='{merge_how}'")
             merged = pd.merge(merged, df, on=on, how=merge_how, suffixes=("", f"_{name}"))
 
-        print(f"\n  ✓ Dataset final: {len(merged)} registros, {len(merged.columns)} columnas")
+        logger.info(f"\n  ✓ Dataset final: {len(merged)} registros, {len(merged.columns)} columnas")
 
         return merged
 
@@ -555,7 +580,7 @@ class MergeETL(BaseETL):
             else:
                 df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
-            print(f"  ✓ Dataset final guardado en '{path}'")
+            logger.info(f"  ✓ Dataset final guardado en '{path}'")
 
         except Exception as e:
             raise ETLError(f"Error guardando dataset final: {str(e)}")

@@ -5,6 +5,7 @@ Implementaciones de métodos de selección de características basadas
 en el código existente del proyecto.
 """
 
+import logging
 from typing import Optional
 
 import numpy as np
@@ -14,6 +15,8 @@ from sklearn.ensemble import RandomForestClassifier
 from tqdm import tqdm
 
 from energizados.feature_selection.base import BaseFeatureSelector
+
+logger = logging.getLogger(__name__)
 
 
 class CorrelationSelector(BaseFeatureSelector):
@@ -53,7 +56,7 @@ class CorrelationSelector(BaseFeatureSelector):
         X = X.copy()
         variables = X.columns.tolist()
 
-        print("Calculando Correlación Entre Variables")
+        logger.info("Calculando Correlación Entre Variables")
         X["target"] = y.values
         df_corr = X[variables + ["target"]].corr(method=self.method)
 
@@ -72,7 +75,7 @@ class CorrelationSelector(BaseFeatureSelector):
         self.vars_to_drop_ = list(set(vars_to_drop_corr))
         self.selected_features_ = [v for v in variables if v not in self.vars_to_drop_]
 
-        print(f"Eliminando {len(self.vars_to_drop_)} Variables Altamente Correlacionadas")
+        logger.info(f"Eliminando {len(self.vars_to_drop_)} Variables Altamente Correlacionadas")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -127,7 +130,7 @@ class ConstantSelector(BaseFeatureSelector):
         self.vars_to_drop_ = [label for label in all_labels if constant_per_feature[label] > self.threshold]
         self.selected_features_ = [x for x in all_labels if x not in self.vars_to_drop_]
 
-        print(f"Eliminando {len(self.vars_to_drop_)} Variables Constantes")
+        logger.info(f"Eliminando {len(self.vars_to_drop_)} Variables Constantes")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -240,7 +243,7 @@ class BorutaSelector(BaseFeatureSelector):
         self.selected_features_ = [k for k in E.keys() if E[k] >= self.n_runs_ // 2]
         self.selected_features_ = [v for v in self.selected_features_ if v != "random"]
 
-        print(f"Seleccionadas {len(self.selected_features_)} variables por Boruta")
+        logger.info(f"Seleccionadas {len(self.selected_features_)} variables por Boruta")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:

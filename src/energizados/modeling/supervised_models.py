@@ -13,6 +13,8 @@ Nota: Este módulo requiere que se instalen las librerías LightGBM, CatBoost y 
 
 """
 
+import logging
+
 import catboost as cb
 import numpy as np
 import tensorflow as tf
@@ -32,6 +34,8 @@ from energizados.preprocessing.preprocessing import (
     TeEncoder,
     ToDummy,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_preprocesor(preprocesor):
@@ -161,7 +165,7 @@ class LGBMModel:
             random_state=314,
         )
         random_imba.fit(X_train, y_train, **new_fit_params)
-        print("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
+        logger.info("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
         return random_imba.best_score_, random_imba.best_params_
 
 
@@ -234,7 +238,7 @@ class CATModel:
         )
 
         random_imba.fit(X_train, y_train, **new_fit_params)
-        print("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
+        logger.info("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
         return random_imba.best_score_, random_imba.best_params_
 
 

@@ -6,6 +6,7 @@ nuevos proyectos con la estructura base siguiendo las mejores prácticas
 de la industria 2026.
 """
 
+import shutil
 from pathlib import Path
 
 
@@ -20,7 +21,7 @@ def _load_template(template_name: str) -> str:
     return template_path.read_text()
 
 
-def create_project(project_name: str, project_path: Path, template: str = "default", copy_from: str = None):
+def create_project(project_name: str, project_path: Path, template: str = "default", copy_from: str = None, force: bool = False):
     """
     Crea un nuevo proyecto Energizados con la estructura base.
 
@@ -29,13 +30,20 @@ def create_project(project_name: str, project_path: Path, template: str = "defau
         project_path: Ruta donde crear el proyecto
         template: Nombre del template a usar
         copy_from: Nombre del proyecto origen para copiar
+        force: Si es True, elimina el directorio existente antes de crear
 
     Raises:
-        FileExistsError: Si el directorio del proyecto ya existe
+        FileExistsError: Si el directorio del proyecto ya existe y force=False
         ValueError: Si el template o proyecto origen no existe
     """
     if project_path.exists():
-        raise FileExistsError(f"El directorio '{project_path}' ya existe")
+        if not force:
+            raise FileExistsError(f"El directorio '{project_path}' ya existe")
+        # Eliminar directorio existente
+        if project_path.is_dir():
+            shutil.rmtree(project_path)
+        else:
+            project_path.unlink()
 
     # Detectar si es copia desde estructura antigua
     old_structure = False
@@ -93,7 +101,6 @@ def _create_directory_structure(project_path: Path):
         # Datos
         project_path / "data" / "raw",
         project_path / "data" / "processed",
-        project_path / "data" / "external",
         # Modelos entrenados (solo archivos)
         project_path / "models" / "trained",
         # Notebooks y reportes
@@ -157,10 +164,19 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
 
     # Archivos .gitkeep para mantener directorios vacíos en git
     (project_path / "data" / "raw" / ".gitkeep").write_text("")
-    (project_path / "data" / "external" / ".gitkeep").write_text("")
     (project_path / "data" / "processed" / ".gitkeep").write_text("")
     (project_path / "models" / "trained" / ".gitkeep").write_text("")
     (project_path / "reports" / ".gitkeep").write_text("")
+
+    # Copiar dataset de ejemplo si existe (solo para proyectos nuevos, no copias)
+    if source_name is None:
+        source_dataset = Path(__file__).parent.parent.parent.parent / "templates" / "data" / "raw" / "sample_dataset.parquet"
+        if source_dataset.exists():
+            import shutil
+
+            target_dir = project_path / "data" / "raw"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source_dataset, target_dir / "sample_dataset.parquet")
 
 
 def _create_code_templates(project_path: Path, project_name: str, only: str = None):
@@ -373,7 +389,7 @@ def _map_old_to_new_structure(old_path: str) -> str:
 
 def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name: str, new_name: str, old_structure: bool = False):
     """
-    Copia y adapta el pipeline.yaml del proyecto origen.
+    Copia y adapta los archivos de configuración del proyecto origen.
 
     Args:
         source_path: Ruta del proyecto origen
@@ -382,54 +398,63 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
         new_name: Nombre del proyecto destino
         old_structure: Si el origen usa estructura antigua
     """
-    # Determinar ruta del YAML según estructura
-    if old_structure:
-        source_yaml = source_path / "configs" / "pipeline.yaml"
-    else:
-        source_yaml = source_path / "config" / "pipeline.yaml"
+    import re
 
-    target_yaml = target_path / "config" / "pipeline.yaml"
+    # Lista de archivos de configuración a copiar
+    config_files = ["etls.yaml", "feature_pipeline.yaml", "training.yaml", "inference.yaml"]
 
-    if source_yaml.exists():
-        content = source_yaml.read_text()
-
-        # Reemplazar el nombre del proyecto en la configuración
-        import re
-
-        patterns = [
-            (rf'name:\s*"{re.escape(old_name)}"', f'name: "{new_name}"'),
-            (rf"name:\s*'{re.escape(old_name)}'", f"name: '{new_name}'"),
-        ]
-
-        # Mapear imports si viene de estructura antigua
+    for config_file in config_files:
+        # Determinar ruta según estructura
         if old_structure:
-            patterns.extend(
-                [
-                    (rf"{re.escape(old_name)}\.etl", f"{new_name}.src.data"),
-                    (rf"{re.escape(old_name)}\.feature_selection", f"{new_name}.src.features"),
-                    (rf"{re.escape(old_name)}\.models", f"{new_name}.src.models"),
-                    (rf"{re.escape(old_name)}\.inference", f"{new_name}.src.inference"),
-                ]
-            )
-            # Renombrar configs/ -> config/ en comentarios
-            content = content.replace("configs/", "config/")
+            source_yaml = source_path / "configs" / config_file
         else:
-            patterns.extend(
-                [
-                    (rf"{re.escape(old_name)}\.src\.data", f"{new_name}.src.data"),
-                    (rf"{re.escape(old_name)}\.src\.features", f"{new_name}.src.features"),
-                    (rf"{re.escape(old_name)}\.src\.models", f"{new_name}.src.models"),
-                    (rf"{re.escape(old_name)}\.src\.inference", f"{new_name}.src.inference"),
-                ]
-            )
+            source_yaml = source_path / "config" / config_file
 
-        for pattern, replacement in patterns:
-            content = re.sub(pattern, replacement, content)
+        target_yaml = target_path / "config" / config_file
 
-        target_yaml.write_text(content)
-    else:
-        # Si no existe, crear desde template
-        _create_config_files(target_path, new_name)
+        if source_yaml.exists():
+            content = source_yaml.read_text()
+
+            # Reemplazar el nombre del proyecto en la configuración
+            patterns = [
+                # En comentarios del encabezado (ej: "# ... for old_project")
+                (rf"# .* for {re.escape(old_name)}", f"# ... for {new_name}"),
+                (rf"#.*Configuration for {re.escape(old_name)}", f"# Configuration for {new_name}"),
+                # En campos YAML (si existen)
+                (rf'name:\s*"{re.escape(old_name)}"', f'name: "{new_name}"'),
+                (rf"name:\s*'{re.escape(old_name)}'", f"name: '{new_name}'"),
+            ]
+
+            # Mapear imports si viene de estructura antigua
+            if old_structure:
+                patterns.extend(
+                    [
+                        (rf"{re.escape(old_name)}\.etl", f"{new_name}.src.data"),
+                        (rf"{re.escape(old_name)}\.feature_selection", f"{new_name}.src.features"),
+                        (rf"{re.escape(old_name)}\.models", f"{new_name}.src.models"),
+                        (rf"{re.escape(old_name)}\.inference", f"{new_name}.src.inference"),
+                    ]
+                )
+                # Renombrar configs/ -> config/ en comentarios
+                content = content.replace("configs/", "config/")
+            else:
+                patterns.extend(
+                    [
+                        (rf"{re.escape(old_name)}\.src\.data", f"{new_name}.src.data"),
+                        (rf"{re.escape(old_name)}\.src\.features", f"{new_name}.src.features"),
+                        (rf"{re.escape(old_name)}\.src\.models", f"{new_name}.src.models"),
+                        (rf"{re.escape(old_name)}\.src\.inference", f"{new_name}.src.inference"),
+                    ]
+                )
+
+            for pattern, replacement in patterns:
+                content = re.sub(pattern, replacement, content)
+
+            target_yaml.write_text(content)
+        else:
+            # Si no existe, crear desde template
+            _create_config_files(target_path, new_name)
+            break  # Solo crear templates una vez
 
 
 def _copy_project_source(source_path: Path, target_path: Path, source_name: str, target_name: str, old_structure: bool = False):
@@ -539,10 +564,24 @@ def _create_config_files(project_path: Path, project_name: str):
     """
     Crea archivos de configuración del proyecto.
 
+    Crea 4 archivos de configuración separados:
+    - etls.yaml
+    - feature_pipeline.yaml
+    - training.yaml
+    - inference.yaml
+
     Args:
         project_path: Ruta del proyecto
         project_name: Nombre del proyecto
     """
-    config_template = _load_template("config/pipeline.yaml.tpl")
-    config_content = config_template.replace("{{project_name}}", project_name)
-    (project_path / "config" / "pipeline.yaml").write_text(config_content)
+    config_templates = {
+        "etls.yaml": "config/etls.yaml.tpl",
+        "feature_pipeline.yaml": "config/feature_pipeline.yaml.tpl",
+        "training.yaml": "config/training.yaml.tpl",
+        "inference.yaml": "config/inference.yaml.tpl",
+    }
+
+    for filename, template_path in config_templates.items():
+        template_content = _load_template(template_path)
+        config_content = template_content.replace("{{project_name}}", project_name)
+        (project_path / "config" / filename).write_text(config_content)
