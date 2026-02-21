@@ -25,7 +25,8 @@ from scipy.stats import uniform as sp_uniform
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.preprocessing import MinMaxScaler, OrdinalEncoder
-from src.preprocessing.preprocessing import (
+
+from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     MinMaxScalerRow,
     TeEncoder,

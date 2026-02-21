@@ -18,6 +18,30 @@ from energizados.core.exceptions import (
 )
 
 
+def _load_yaml_config(path: str) -> Dict:
+    """
+    Carga configuración desde YAML.
+
+    Args:
+        path: Ruta al archivo YAML
+
+    Returns:
+        Dict: Configuración cargada
+
+    Raises:
+        ConfigurationError: Si el archivo no existe o tiene errores de formato
+    """
+    config_file = Path(path)
+    if not config_file.exists():
+        raise ConfigurationError(f"Archivo de configuración no encontrado: {path}", path)
+
+    try:
+        with open(path, "r") as f:
+            return yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise ConfigurationError(f"Error al parsear YAML: {e}", path)
+
+
 class Pipeline:
     """
     Orquestador del workflow de ML.
@@ -71,15 +95,7 @@ class Pipeline:
         Raises:
             ConfigurationError: Si el archivo no existe o tiene errores de formato
         """
-        config_file = Path(path)
-        if not config_file.exists():
-            raise ConfigurationError(f"Archivo de configuración no encontrado: {path}", path)
-
-        try:
-            with open(path, "r") as f:
-                return yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            raise ConfigurationError(f"Error al parsear YAML: {e}", path)
+        return _load_yaml_config(path)
 
     def add_step(self, step: PipelineStep) -> "Pipeline":
         """
@@ -193,15 +209,7 @@ class ConfigPipelineBuilder:
         Returns:
             Dict: Configuración cargada
         """
-        config_file = Path(path)
-        if not config_file.exists():
-            raise ConfigurationError(f"Archivo de configuración no encontrado: {path}", path)
-
-        try:
-            with open(path, "r") as f:
-                return yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            raise ConfigurationError(f"Error al parsear YAML: {e}", path)
+        return _load_yaml_config(path)
 
     def build(self) -> Pipeline:
         """

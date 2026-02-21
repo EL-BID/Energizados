@@ -138,3 +138,6 @@ models/artifacts
 # Results files
 */outputs/
 *.mp4
+
+# Refactors and aditional documents
+.plans/

@@ -28,20 +28,24 @@ class TestInitCommand:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            # Verificar directorios creados
+            # Verificar directorios creados (incluyendo inference y notebooks)
             assert (project_path / "etl").exists()
             assert (project_path / "feature_selection").exists()
             assert (project_path / "models").exists()
+            assert (project_path / "inference").exists()
+            assert (project_path / "notebooks").exists()
             assert (project_path / "configs").exists()
             assert (project_path / "data" / "raw").exists()
             assert (project_path / "data" / "processed").exists()
             assert (project_path / "models" / "trained").exists()
             assert (project_path / "reports").exists()
 
-            # Verificar archivos creados
+            # Verificar archivos creados (incluyendo inference y notebook)
             assert (project_path / "etl" / "custom_etl.py").exists()
             assert (project_path / "feature_selection" / "custom_selector.py").exists()
             assert (project_path / "models" / "custom_model.py").exists()
+            assert (project_path / "inference" / "custom_inference.py").exists()
+            assert (project_path / "notebooks" / "example_notebook.ipynb").exists()
             assert (project_path / "configs" / "pipeline.yaml").exists()
             assert (project_path / "README.md").exists()
             assert (project_path / ".gitignore").exists()

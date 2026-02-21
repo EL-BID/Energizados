@@ -10,6 +10,9 @@ from energizados.feature_selection.methods import (
     BorutaSelector,
     ConstantSelector,
     CorrelationSelector,
+    feature_selection_by_boruta,
+    feature_selection_by_constant,
+    feature_selection_by_correlation,
 )
 
 __all__ = [
@@ -17,4 +20,8 @@ __all__ = [
     "BorutaSelector",
     "ConstantSelector",
     "CorrelationSelector",
+    # Funciones legacy para compatibilidad
+    "feature_selection_by_correlation",
+    "feature_selection_by_constant",
+    "feature_selection_by_boruta",
 ]

@@ -10,7 +10,7 @@ from energizados.modeling.registry import ModelRegistry
 
 # Importar modelos originales de forma opcional según dependencias
 try:
-    from energizados.modeling.feature_selection import (  # noqa: F401
+    from energizados.feature_selection import (  # noqa: F401
         feature_selection_by_boruta,
         feature_selection_by_constant,
         feature_selection_by_correlation,
