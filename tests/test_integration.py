@@ -357,9 +357,12 @@ class TestEndToEndScenarios:
         # Crear proyecto
         create_project(project_name, project_path)
 
-        # Verificar estructura creada
-        assert (project_path / "etl" / "custom_etl.py").exists()
-        assert (project_path / "feature_selection" / "custom_selector.py").exists()
-        assert (project_path / "models" / "custom_model.py").exists()
-        assert (project_path / "configs" / "pipeline.yaml").exists()
+        # Verificar estructura creada (nueva estructura 2026)
+        assert (project_path / "src" / "data" / "custom_etl.py").exists()
+        assert (project_path / "src" / "features" / "custom_selector.py").exists()
+        assert (project_path / "src" / "models" / "custom_model.py").exists()
+        assert (project_path / "config" / "pipeline.yaml").exists()
         assert (project_path / "README.md").exists()
+        assert (project_path / "tests" / "conftest.py").exists()
+        assert (project_path / "docs" / "project_docs.md").exists()
+        assert (project_path / "requirements.txt").exists()

@@ -6,7 +6,6 @@ que forman el núcleo del framework.
 """
 
 from energizados.core.base import (
-    BaseETL,
     BaseFeatureSelector,
     BaseModel,
     PipelineStep,
@@ -19,6 +18,8 @@ from energizados.core.pipeline import (
     ConfigPipelineBuilder,
     Pipeline,
 )
+from energizados.core.plots.utils import plot_roc
+from energizados.etl.base import BaseETL
 
 __all__ = [
     # Base classes
@@ -32,4 +33,6 @@ __all__ = [
     # Pipeline
     "Pipeline",
     "ConfigPipelineBuilder",
+    # Plotting utilities
+    "plot_roc",
 ]

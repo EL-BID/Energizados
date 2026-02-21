@@ -21,7 +21,7 @@ etl:
   type: "default"
 
   # O usa tu propia implementación:
-  # custom_class: "{{project_name}}.etl.custom_etl.CustomETL"
+  # custom_class: "{{project_name}}.src.data.custom_etl.CustomETL"
   # params:
   #   source_path: "data/raw/"
 
@@ -130,7 +130,7 @@ feature_selection:
     max_iter: 100
 
   # O usa tu propio selector:
-  # custom_class: "{{project_name}}.feature_selection.custom_selector.CustomSelector"
+  # custom_class: "{{project_name}}.src.features.custom_selector.CustomSelector"
   # params:
   #   threshold: 0.01
 
@@ -169,7 +169,7 @@ training:
     cv: 3
 
   # O usa tu propio modelo:
-  # custom_class: "{{project_name}}.models.custom_model.CustomModel"
+  # custom_class: "{{project_name}}.src.models.custom_model.CustomModel"
   # params:
   #   learning_rate: 0.01
 
@@ -208,7 +208,7 @@ inference:
   type: "default"
 
   # O usa tu propia implementación:
-  # custom_class: "{{project_name}}.inference.custom_inference.CustomInference"
+  # custom_class: "{{project_name}}.src.inference.custom_inference.CustomInference"
   # params:
   #   threshold: 0.5
 
