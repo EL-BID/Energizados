@@ -142,6 +142,8 @@ models/artifacts
 # Refactors and aditional documents
 .plans/
 
+# TODO: Quitar del ignore cuando se termine
 CLAUDE.md
 docs/
 notebooks/*.ipynb
+_sample/
