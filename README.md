@@ -17,6 +17,9 @@ pip install -e .
 # Inicializar un nuevo proyecto
 energizados init mi_proyecto
 
+# Copiar desde un proyecto existente
+energizados init nuevo_proyecto --copy proyecto_existente
+
 # Ejecutar pipeline completo
 energizados run --config configs/pipeline.yaml
 
@@ -26,6 +29,7 @@ energizados validate --config configs/pipeline.yaml
 
 ### Características del Framework
 
+- **Copiar proyectos**: Reutiliza ETLs, selectores y modelos personalizados con `--copy`
 - **ETL multi-fuente con dependencias**: Define múltiples ETLs que se ejecutan en orden topológico
 - **Clases base extensibles**: Personaliza ETL, selección de features y modelos
 - **Configuración YAML**: Workflow predefinido sin escribir código

@@ -171,6 +171,7 @@ class ConfigPipelineBuilder:
     SELECTOR_REGISTRY = {}
     ETL_REGISTRY = {}
     PREPROCESSOR_REGISTRY = {}
+    INFERENCE_REGISTRY = {}
 
     def __init__(self, config_path: str):
         """
@@ -242,6 +243,12 @@ class ConfigPipelineBuilder:
             eval_step = self._build_evaluation_step()
             if eval_step is not None:
                 pipeline.add_step(eval_step)
+
+        # Paso 6: Inference
+        if self.config.get("inference", {}).get("enabled", False):
+            inference_step = self._build_inference_step()
+            if inference_step is not None:
+                pipeline.add_step(inference_step)
 
         return pipeline
 
@@ -409,6 +416,87 @@ class ConfigPipelineBuilder:
         # TODO: Implementar evaluador default cuando esté disponible
         return None
 
+    def _build_inference_step(self) -> Optional[PipelineStep]:
+        """
+        Construye el paso de inferencia desde la configuración.
+
+        Returns:
+            PipelineStep: Paso de inferencia o None si no está configurado
+        """
+        from energizados.core.base import PipelineStep
+
+        inference_config = self.config.get("inference", {})
+        if not inference_config:
+            return None
+
+        # Leer configuración
+        input_path = inference_config.get("input_path")
+        output_path = inference_config.get("output_path")
+        threshold = inference_config.get("threshold", 0.5)
+        custom_class = inference_config.get("custom_class")
+
+        # Importar clase de inferencia
+        if custom_class:
+            from energizados.utils import import_class
+
+            InferenceClass = import_class(custom_class)
+        else:
+            from energizados.inference.default import DefaultInference
+
+            InferenceClass = DefaultInference
+
+        inference = InferenceClass(threshold=threshold)
+
+        class InferenceStep(PipelineStep):
+            """Paso del pipeline para hacer predicciones con modelos entrenados."""
+
+            def __init__(self, inference_engine, config):
+                self.inference = inference_engine
+                self.config = config
+
+            def validate_input(self, context: Dict[str, Any]) -> bool:
+                """Valida que haya modelo y datos disponibles."""
+                return "model" in context and context["model"] is not None
+
+            def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+                """Ejecuta la inferencia."""
+                model = context.get("model")
+
+                # Obtener datos de inferencia
+                if input_path:
+                    import pandas as pd
+
+                    data = pd.read_parquet(input_path)
+                elif "inference_data" in context:
+                    data = context["inference_data"]
+                elif "X_test" in context:
+                    data = context["X_test"]
+                else:
+                    raise ValueError("No se encontraron datos para inferencia")
+
+                # Hacer predicciones
+                predictions = self.inference.predict(model, data)
+                probas = self.inference.predict_proba(model, data)
+
+                # Guardar en contexto
+                context["predictions"] = predictions
+                context["prediction_probas"] = probas
+
+                # Guardar en archivo si se especificó output_path
+                if output_path:
+                    self.inference.save_predictions(predictions, output_path)
+                    print(f"Predicciones guardadas en: {output_path}")
+
+                return context
+
+            def get_required_keys(self) -> List[str]:
+                return ["model"]
+
+            def get_output_keys(self) -> List[str]:
+                return ["predictions", "prediction_probas"]
+
+        return InferenceStep(inference, inference_config)
+
     def _import_and_instantiate(self, class_path: str, params: Dict):
         """
         Importa una clase desde su path completo y la instancia.
@@ -476,3 +564,14 @@ class ConfigPipelineBuilder:
             preprocessor_class: Clase del preprocesador
         """
         cls.PREPROCESSOR_REGISTRY[name] = preprocessor_class
+
+    @classmethod
+    def register_inference(cls, name: str, inference_class: type):
+        """
+        Registra una clase de inferencia en el registry.
+
+        Args:
+            name: Nombre de la clase de inferencia
+            inference_class: Clase de inferencia
+        """
+        cls.INFERENCE_REGISTRY[name] = inference_class

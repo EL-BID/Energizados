@@ -58,6 +58,7 @@ def execute_step(config_path: str, step_name: str) -> Dict[str, Any]:
         "feature_selection": "FeatureSelectionStep",
         "training": "TrainingStep",
         "evaluation": "EvaluationStep",
+        "inference": "InferenceStep",
     }
 
     if step_name not in step_map:

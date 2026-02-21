@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "energizados"
-version = "0.1.0"
+version = "0.1.2.dev0"
 description = "Framework para detección de fraude en consumo energético"
 readme = "README.md"
 requires-python = ">=3.10"

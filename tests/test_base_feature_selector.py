@@ -8,7 +8,7 @@ que deben implementar todos los selectores personalizados.
 import pandas as pd
 import pytest
 
-from energizados.preprocessing.feature_selection.base import BaseFeatureSelector
+from energizados.feature_selection.base import BaseFeatureSelector
 
 
 class TestBaseFeatureSelector:

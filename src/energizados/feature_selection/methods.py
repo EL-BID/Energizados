@@ -13,7 +13,7 @@ from boruta import BorutaPy
 from sklearn.ensemble import RandomForestClassifier
 from tqdm import tqdm
 
-from energizados.preprocessing.feature_selection.base import BaseFeatureSelector
+from energizados.feature_selection.base import BaseFeatureSelector
 
 
 class CorrelationSelector(BaseFeatureSelector):

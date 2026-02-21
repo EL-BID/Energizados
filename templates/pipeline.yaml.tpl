@@ -192,3 +192,23 @@ evaluation:
   # Generar visualizaciones y reportes
   generate_plots: true
   generate_html_report: true
+
+# ============================================
+# Inference Step - Inferencia y predicciones
+# ============================================
+inference:
+  enabled: false  # Cambiar a true para habilitar
+  input_path: "data/processed/dataset_preprocesado.parquet"
+  output_path: "reports/predictions.csv"
+
+  # Umbral para predicciones binarias
+  threshold: 0.5
+
+  # Usa implementación por defecto
+  type: "default"
+
+  # O usa tu propia implementación:
+  # custom_class: "{{project_name}}.inference.custom_inference.CustomInference"
+  # params:
+  #   threshold: 0.5
+

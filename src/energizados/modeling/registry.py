@@ -126,3 +126,105 @@ def _register_default_models():
 
 # Registrar modelos al importar
 _register_default_models()
+
+
+class InferenceRegistry:
+    """
+    Registro centralizado de clases de inferencia disponibles.
+
+    Permite registrar y recuperar clases de inferencia por su nombre.
+    """
+
+    _registry: Dict[str, type] = {}
+
+    @classmethod
+    def register(cls, name: str, inference_class: type) -> None:
+        """
+        Registra una clase de inferencia con un nombre.
+
+        Args:
+            name: Nombre de la clase de inferencia
+            inference_class: Clase de inferencia (debe heredar de BaseInference)
+        """
+        cls._registry[name.lower()] = inference_class
+
+    @classmethod
+    def get(cls, name: str) -> type:
+        """
+        Obtiene una clase de inferencia por su nombre.
+
+        Args:
+            name: Nombre de la clase de inferencia
+
+        Returns:
+            type: Clase de inferencia
+
+        Raises:
+            KeyError: Si la clase de inferencia no está registrada
+        """
+        name_lower = name.lower()
+        if name_lower not in cls._registry:
+            available = ", ".join(cls._registry.keys())
+            raise KeyError(f"Clase de inferencia '{name}' no encontrada. Clases disponibles: {available}")
+        return cls._registry[name_lower]
+
+    @classmethod
+    def list_inference(cls) -> list:
+        """
+        Retorna la lista de clases de inferencia registradas.
+
+        Returns:
+            list: Nombres de clases de inferencia registradas
+        """
+        return list(cls._registry.keys())
+
+    @classmethod
+    def is_registered(cls, name: str) -> bool:
+        """
+        Verifica si una clase de inferencia está registrada.
+
+        Args:
+            name: Nombre de la clase de inferencia
+
+        Returns:
+            bool: True si la clase de inferencia está registrada
+        """
+        return name.lower() in cls._registry
+
+    @classmethod
+    def create(cls, name: str, **kwargs) -> Any:
+        """
+        Crea una instancia de una clase de inferencia.
+
+        Args:
+            name: Nombre de la clase de inferencia
+            **kwargs: Argumentos para pasar al constructor
+
+        Returns:
+            Instancia de la clase de inferencia
+        """
+        inference_class = cls.get(name)
+        return inference_class(**kwargs)
+
+
+# Registro de clases de inferencia disponibles
+def _register_default_inference():
+    """
+    Registra las clases de inferencia por defecto del framework.
+
+    Esta función se llama automáticamente al importar el módulo.
+    """
+    try:
+        from energizados.inference import DefaultInference
+
+        InferenceRegistry.register("default", DefaultInference)
+
+    except ImportError as e:
+        # Las clases de inferencia pueden no estar disponibles si faltan dependencias
+        import warnings
+
+        warnings.warn(f"No se pudieron registrar todas las clases de inferencia: {e}")
+
+
+# Registrar clases de inferencia al importar
+_register_default_inference()

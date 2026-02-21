@@ -5,8 +5,8 @@ Este módulo proporciona clases base e implementaciones
 para selección de características.
 """
 
-from energizados.preprocessing.feature_selection.base import BaseFeatureSelector
-from energizados.preprocessing.feature_selection.methods import (
+from energizados.feature_selection.base import BaseFeatureSelector
+from energizados.feature_selection.methods import (
     BorutaSelector,
     ConstantSelector,
     CorrelationSelector,

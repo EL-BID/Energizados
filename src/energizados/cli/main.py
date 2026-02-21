@@ -47,8 +47,15 @@ def cli(ctx):
     help="Directorio donde crear el proyecto",
     show_default=True,
 )
+@click.option(
+    "--copy",
+    "-c",
+    "copy_from",
+    default=None,
+    help="Copiar desde proyecto existente (tiene prioridad sobre --template)",
+)
 @click.pass_context
-def init(ctx, project_name, template, path):
+def init(ctx, project_name, template, path, copy_from):
     """
     Inicializar un nuevo proyecto Energizados.
 
@@ -56,17 +63,30 @@ def init(ctx, project_name, template, path):
     archivos necesarios para personalizar el pipeline.
 
     PROJECT_NAME es el nombre del proyecto a crear.
+
+    Ejemplos:
+        energizados init mi_proyecto              # Crear desde template
+        energizados init nuevo --copy existente   # Copiar desde proyecto existente
     """
     from energizados.cli.init import create_project
 
     project_path = Path(path) / project_name
 
     try:
-        click.echo(f"🚀 Creando proyecto '{project_name}'...")
+        if copy_from:
+            source_path = Path(path) / copy_from
+            if not source_path.exists():
+                click.echo(f"\n✗ El proyecto origen '{copy_from}' no existe en: {source_path}", err=True)
+                raise click.Abort()
+            click.echo(f"📋 Copiando proyecto desde '{copy_from}'...")
+        else:
+            click.echo(f"🚀 Creando proyecto '{project_name}'...")
+
         create_project(
             project_name=project_name,
             project_path=project_path,
             template=template,
+            copy_from=copy_from,
         )
         click.echo(f"\n✓ Proyecto creado exitosamente en: {project_path}")
         click.echo("\n📝 Próximos pasos:")
@@ -91,7 +111,7 @@ def init(ctx, project_name, template, path):
 @click.option(
     "--step",
     "-s",
-    help="Ejecutar solo un paso específico del pipeline (etl, preprocessing, feature_selection, training, evaluation)",
+    help="Ejecutar solo un paso específico del pipeline (etl, preprocessing, feature_selection, training, evaluation, inference)",
 )
 @click.option(
     "--etl",

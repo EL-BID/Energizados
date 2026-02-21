@@ -276,6 +276,73 @@ class BaseModel(ABC):
             raise ModelNotFittedError(model_name=self.__class__.__name__)
 
 
+class BaseInference(ABC):
+    """
+    Clase base para inferencia y predicción.
+
+    Los usuarios pueden heredar e implementar los métodos abstractos
+    para definir su propia lógica de inferencia.
+
+    Example:
+        >>> from energizados.core.base import BaseInference, BaseModel
+        >>> class MyInference(BaseInference):
+        ...     def predict(self, model, data):
+        ...         return model.predict(data)
+        ...     def predict_proba(self, model, data):
+        ...         return model.predict_proba(data)
+    """
+
+    @abstractmethod
+    def predict(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
+        """
+        Realiza predicciones binarias.
+
+        Args:
+            model: Modelo entrenado
+            data: Datos para predicción
+
+        Returns:
+            np.ndarray: Predicciones binarias (0 o 1)
+        """
+        pass
+
+    @abstractmethod
+    def predict_proba(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
+        """
+        Realiza predicciones de probabilidad.
+
+        Args:
+            model: Modelo entrenado
+            data: Datos para predicción
+
+        Returns:
+            np.ndarray: Probabilidades de la clase positiva
+        """
+        pass
+
+    def load_model(self, model_path: str) -> BaseModel:
+        """
+        Carga un modelo entrenado desde disco.
+
+        Args:
+            model_path: Ruta al archivo del modelo
+
+        Returns:
+            BaseModel: Modelo cargado
+        """
+        raise NotImplementedError("Subclasses must implement load_model")
+
+    def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
+        """
+        Guarda predicciones en archivo.
+
+        Args:
+            predictions: Predicciones a guardar
+            output_path: Ruta de salida
+        """
+        raise NotImplementedError("Subclasses must implement save_predictions")
+
+
 class PipelineStep(ABC):
     """
     Clase base para pasos del pipeline.

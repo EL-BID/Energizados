@@ -8,7 +8,7 @@ nuevos proyectos con la estructura base.
 from pathlib import Path
 
 
-def create_project(project_name: str, project_path: Path, template: str = "default"):
+def create_project(project_name: str, project_path: Path, template: str = "default", copy_from: str = None):
     """
     Crea un nuevo proyecto Energizados con la estructura base.
 
@@ -16,10 +16,11 @@ def create_project(project_name: str, project_path: Path, template: str = "defau
         project_name: Nombre del proyecto
         project_path: Ruta donde crear el proyecto
         template: Nombre del template a usar
+        copy_from: Nombre del proyecto origen para copiar
 
     Raises:
         FileExistsError: Si el directorio del proyecto ya existe
-        ValueError: Si el template no existe
+        ValueError: Si el template o proyecto origen no existe
     """
     if project_path.exists():
         raise FileExistsError(f"El directorio '{project_path}' ya existe")
@@ -27,14 +28,19 @@ def create_project(project_name: str, project_path: Path, template: str = "defau
     # Crear estructura de directorios
     _create_directory_structure(project_path)
 
-    # Crear archivos base
-    _create_base_files(project_path, project_name)
+    # Copiar desde proyecto existente o crear desde templates
+    if copy_from:
+        source_path = project_path.parent / copy_from
+        _copy_project_source(source_path, project_path, copy_from, project_name)
+    else:
+        # Crear archivos base
+        _create_base_files(project_path, project_name)
 
-    # Crear templates de código
-    _create_code_templates(project_path, project_name)
+        # Crear templates de código
+        _create_code_templates(project_path, project_name)
 
-    # Crear configuración
-    _create_config_files(project_path, project_name)
+        # Crear configuración
+        _create_config_files(project_path, project_name)
 
 
 def _create_directory_structure(project_path: Path):
@@ -43,6 +49,8 @@ def _create_directory_structure(project_path: Path):
         project_path / "etl",
         project_path / "feature_selection",
         project_path / "models",
+        project_path / "inference",
+        project_path / "notebooks",
         project_path / "configs",
         project_path / "data" / "raw",
         project_path / "data" / "processed",
@@ -58,6 +66,7 @@ def _create_directory_structure(project_path: Path):
         project_path / "etl" / "__init__.py": ("custom_etl", "CustomETL"),
         project_path / "feature_selection" / "__init__.py": ("custom_selector", "CustomSelector"),
         project_path / "models" / "__init__.py": ("custom_model", "CustomModel"),
+        project_path / "inference" / "__init__.py": ("custom_inference", "CustomInference"),
     }
 
     for init_file, (module_name, class_name) in init_modules.items():
@@ -72,10 +81,24 @@ __all__ = ["{class_name}"]
 ''')
 
 
-def _create_base_files(project_path: Path, project_name: str):
-    """Crea archivos base del proyecto."""
+def _create_base_files(project_path: Path, project_name: str, source_name: str = None):
+    """
+    Crea archivos base del proyecto.
+
+    Args:
+        project_path: Ruta del proyecto
+        project_name: Nombre del proyecto
+        source_name: Nombre del proyecto origen (si se copia)
+    """
     # README.md
+    if source_name:
+        origin_note = f"\n> **Nota:** Este proyecto fue creado copiando desde `{source_name}`.\n"
+    else:
+        origin_note = ""
+
     readme_content = f"""# {project_name}
+{origin_note}
+Proyecto de detección de fraude energético con Energizados Framework.
 
 Proyecto de detección de fraude energético con Energizados Framework.
 
@@ -92,6 +115,11 @@ Proyecto de detección de fraude energético con Energizados Framework.
 ├── models/                 # Modelos personalizados
 │   ├── __init__.py
 │   └── custom_model.py     # Tu implementación de modelo
+├── inference/              # Inferencia y predicciones
+│   ├── __init__.py
+│   └── custom_inference.py # Tu implementación de inferencia
+├── notebooks/              # Notebooks de experimentación
+│   └── example_notebook.ipynb
 ├── configs/                # Configuraciones del pipeline
 │   └── pipeline.yaml       # Configuración principal
 ├── data/                   # Datos del proyecto
@@ -241,8 +269,15 @@ Thumbs.db
     (project_path / "reports" / ".gitkeep").write_text("")
 
 
-def _create_code_templates(project_path: Path, project_name: str):
-    """Crea templates de código para personalización."""
+def _create_code_templates(project_path: Path, project_name: str, only: str = None):
+    """
+    Crea templates de código para personalización.
+
+    Args:
+        project_path: Ruta del proyecto
+        project_name: Nombre del proyecto
+        only: Crear solo este template ("etl", "feature_selection", "models")
+    """
 
     # ETL Template
     etl_template = f'''"""
@@ -357,7 +392,8 @@ class CustomETL(BaseETL):
 
         return df
 '''
-    (project_path / "etl" / "custom_etl.py").write_text(etl_template)
+    if only is None or only == "etl":
+        (project_path / "etl" / "custom_etl.py").write_text(etl_template)
 
     # Feature Selection Template
     selector_template = f'''"""
@@ -369,7 +405,7 @@ específica para este proyecto.
 Edita los métodos fit() y transform() según tus necesidades.
 """
 
-from energizados.preprocessing.feature_selection.base import BaseFeatureSelector
+from energizados.feature_selection.base import BaseFeatureSelector
 import pandas as pd
 
 
@@ -438,7 +474,8 @@ class CustomSelector(BaseFeatureSelector):
 
         return X[self.selected_features_]
 '''
-    (project_path / "feature_selection" / "custom_selector.py").write_text(selector_template)
+    if only is None or only == "feature_selection":
+        (project_path / "feature_selection" / "custom_selector.py").write_text(selector_template)
 
     # Model Template
     model_template = f'''"""
@@ -547,11 +584,264 @@ class CustomModel(BaseModel):
 
         raise NotImplementedError("Implementa el método predict_proba() en tu modelo")
 '''
-    (project_path / "models" / "custom_model.py").write_text(model_template)
+    if only is None or only == "models":
+        (project_path / "models" / "custom_model.py").write_text(model_template)
+
+    # Inference Template
+    inference_template = f'''"""
+Inferencia Personalizada para {project_name}.
+
+Este módulo implementa la lógica de inferencia y predicción
+específica para este proyecto.
+
+Edita los métodos predict() y predict_proba() según tus necesidades.
+"""
+
+from energizados.inference.base import BaseInference
+from energizados.core.base import BaseModel
+import pandas as pd
+import numpy as np
+
+
+class CustomInference(BaseInference):
+    """
+    Inferencia personalizada para {project_name}.
+
+    Hereda de BaseInference e implementa métodos personalizados
+    para cargar modelos y hacer predicciones.
+    """
+
+    def __init__(self, model_path: str = None, threshold: float = 0.5, **kwargs):
+        """
+        Inicializa el motor de inferencia.
+
+        Args:
+            model_path: Ruta al archivo del modelo entrenado
+            threshold: Umbral para predicciones binarias (default: 0.5)
+            **kwargs: Parámetros adicionales
+        """
+        self.model_path = model_path
+        self.threshold = threshold
+        self.model = None
+
+    def load_model(self, model_path: str = None) -> BaseModel:
+        """
+        Carga un modelo entrenado desde archivo.
+
+        Args:
+            model_path: Ruta al archivo del modelo
+
+        Returns:
+            BaseModel: Modelo cargado
+        """
+        import pickle
+
+        path = model_path or self.model_path
+        if not path:
+            raise ValueError("No se especificó ruta del modelo")
+
+        with open(path, "rb") as f:
+            self.model = pickle.load(f)
+
+        return self.model
+
+    def predict(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
+        """
+        Realiza predicciones binarias.
+
+        Args:
+            model: Modelo entrenado
+            data: Datos para predicción
+
+        Returns:
+            np.ndarray: Predicciones binarias (0 o 1)
+        """
+        proba = self.predict_proba(model, data)
+        return (proba >= self.threshold).astype(int)
+
+    def predict_proba(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
+        """
+        Realiza predicciones de probabilidad.
+
+        Args:
+            model: Modelo entrenado
+            data: Datos para predicción
+
+        Returns:
+            np.ndarray: Probabilidades de la clase positiva
+        """
+        return model.predict_proba(data)
+
+    def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
+        """
+        Guarda predicciones en archivo.
+
+        Args:
+            predictions: Predicciones a guardar
+            output_path: Ruta de salida
+        """
+        from pathlib import Path
+
+        import pandas as pd
+
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame({{"prediction": predictions}}).to_csv(output_path, index=False)
+'''
+    if only is None or only == "inference":
+        (project_path / "inference" / "custom_inference.py").write_text(inference_template)
+
+    # Create example notebook from template
+    notebook_template_path = Path(__file__).parent.parent.parent.parent / "templates" / "example_notebook.ipynb.tpl"
+    if notebook_template_path.exists():
+        notebook_content = notebook_template_path.read_text()
+        notebook_content = notebook_content.replace("{{project_name}}", project_name)
+        (project_path / "notebooks" / "example_notebook.ipynb").write_text(notebook_content)
+
+
+def _validate_source_project(source_path: Path) -> bool:
+    """
+    Valida que el proyecto origen exista y tenga estructura válida.
+
+    Args:
+        source_path: Ruta al proyecto origen
+
+    Returns:
+        True si el proyecto es válido
+
+    Raises:
+        ValueError: Si el proyecto origen no existe o no es válido
+    """
+    if not source_path.exists():
+        raise ValueError(f"El proyecto origen no existe: {source_path}")
+
+    # Verificar que tenga al menos la estructura mínima
+    required_dirs = ["etl", "feature_selection", "models", "configs"]
+    for dir_name in required_dirs:
+        if not (source_path / dir_name).exists():
+            raise ValueError(f"El proyecto origen no tiene el directorio '{dir_name}'")
+
+    return True
+
+
+def _copy_custom_file(source_path: Path, target_path: Path, filename: str, comment_origin: str = None) -> bool:
+    """
+    Copia un archivo custom del proyecto origen al destino.
+
+    Args:
+        source_path: Ruta base del proyecto origen
+        target_path: Ruta base del proyecto destino
+        filename: Nombre del archivo a copiar (relativo a la base)
+        comment_origin: Comentario a agregar indicando el origen
+
+    Returns:
+        True si se copió el archivo, False si no existía
+    """
+    source_file = source_path / filename
+    target_file = target_path / filename
+
+    if source_file.exists():
+        content = source_file.read_text()
+
+        # Agregar comentario de origen si se especifica
+        if comment_origin:
+            comment = f"\n# Este archivo fue copiado desde: {comment_origin}\n"
+            # Insertar después del docstring si existe
+            if '"""' in content:
+                lines = content.split("\n")
+                for i, line in enumerate(lines):
+                    if '"""' in line and i > 0:
+                        lines.insert(i + 1, comment)
+                        break
+                content = "\n".join(lines)
+            else:
+                content = comment + "\n" + content
+
+        target_file.write_text(content)
+        return True
+    return False
+
+
+def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name: str, new_name: str):
+    """
+    Copia y adapta el pipeline.yaml del proyecto origen.
+
+    Args:
+        source_path: Ruta del proyecto origen
+        target_path: Ruta del proyecto destino
+        old_name: Nombre del proyecto origen
+        new_name: Nombre del proyecto destino
+    """
+    source_yaml = source_path / "configs" / "pipeline.yaml"
+    target_yaml = target_path / "configs" / "pipeline.yaml"
+
+    if source_yaml.exists():
+        content = source_yaml.read_text()
+
+        # Reemplazar el nombre del proyecto en la configuración
+        # Buscar patrones comunes donde aparece el nombre
+        import re
+
+        patterns = [
+            (rf'name:\s*"{re.escape(old_name)}"', f'name: "{new_name}"'),
+            (rf"name:\s*'{re.escape(old_name)}'", f"name: '{new_name}'"),
+            (rf"{re.escape(old_name)}\.etl", f"{new_name}.etl"),
+            (rf"{re.escape(old_name)}\.feature_selection", f"{new_name}.feature_selection"),
+            (rf"{re.escape(old_name)}\.models", f"{new_name}.models"),
+        ]
+
+        for pattern, replacement in patterns:
+            content = re.sub(pattern, replacement, content)
+
+        target_yaml.write_text(content)
+    else:
+        # Si no existe, crear desde template
+        _create_config_files(target_path, new_name)
+
+
+def _copy_project_source(source_path: Path, target_path: Path, source_name: str, target_name: str):
+    """
+    Copia archivos personalizados desde un proyecto existente.
+
+    Args:
+        source_path: Ruta del proyecto origen
+        target_path: Ruta del proyecto destino
+        source_name: Nombre del proyecto origen
+        target_name: Nombre del proyecto destino
+
+    Raises:
+        ValueError: Si el proyecto origen no es válido
+    """
+    # Validar proyecto origen
+    _validate_source_project(source_path)
+
+    # Copiar archivos custom si existen
+    custom_files = [
+        "etl/custom_etl.py",
+        "feature_selection/custom_selector.py",
+        "models/custom_model.py",
+    ]
+
+    copied_files = []
+    for file_path in custom_files:
+        if _copy_custom_file(source_path, target_path, file_path, f"{source_name}/{file_path}"):
+            copied_files.append(file_path)
+
+    # Crear archivos base (README, .gitignore) adaptados
+    _create_base_files(target_path, target_name, source_name=source_name)
+
+    # Copiar y adaptar pipeline.yaml
+    _copy_and_adapt_pipeline_yaml(source_path, target_path, source_name, target_name)
+
+    # Crear templates para archivos que no existían en el origen
+    if "etl/custom_etl.py" not in copied_files:
+        _create_code_templates(target_path, target_name, only="etl")
+    if "feature_selection/custom_selector.py" not in copied_files:
+        _create_code_templates(target_path, target_name, only="feature_selection")
+    if "models/custom_model.py" not in copied_files:
+        _create_code_templates(target_path, target_name, only="models")
 
 
 def _create_config_files(project_path: Path, project_name: str):
-    """Crea archivos de configuración del proyecto."""
 
     # Leer template desde el framework
     import energizados
