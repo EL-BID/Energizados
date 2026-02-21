@@ -141,3 +141,7 @@ models/artifacts
 
 # Refactors and aditional documents
 .plans/
+
+CLAUDE.md
+docs/
+notebooks/*.ipynb
