@@ -444,10 +444,16 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
             else:
                 patterns.extend(
                     [
-                        (rf"{re.escape(old_name)}\.src\.data", f"{new_name}.src.data"),
-                        (rf"{re.escape(old_name)}\.src\.features", f"{new_name}.src.features"),
-                        (rf"{re.escape(old_name)}\.src\.models", f"{new_name}.src.models"),
-                        (rf"{re.escape(old_name)}\.src\.inference", f"{new_name}.src.inference"),
+                        # Nuevos proyectos usan {project}.data.custom_etl.CustomETL
+                        (rf"{re.escape(old_name)}\.data\.custom_etl", f"{new_name}.data.custom_etl"),
+                        (rf"{re.escape(old_name)}\.features\.custom_selector", f"{new_name}.features.custom_selector"),
+                        (rf"{re.escape(old_name)}\.models\.custom_model", f"{new_name}.models.custom_model"),
+                        (rf"{re.escape(old_name)}\.inference\.custom_inference", f"{new_name}.inference.custom_inference"),
+                        # Por si acaso, también el formato src.*
+                        (rf"{re.escape(old_name)}\.src\.data", f"{new_name}.data"),
+                        (rf"{re.escape(old_name)}\.src\.features", f"{new_name}.features"),
+                        (rf"{re.escape(old_name)}\.src\.models", f"{new_name}.models"),
+                        (rf"{re.escape(old_name)}\.src\.inference", f"{new_name}.inference"),
                     ]
                 )
 
@@ -588,4 +594,5 @@ def _create_config_files(project_path: Path, project_name: str):
     for filename, template_path in config_templates.items():
         template_content = _load_template(template_path)
         config_content = template_content.replace("{{project_name}}", project_name)
+        config_content = config_content.replace("{{package}}", project_name)
         (project_path / "config" / filename).write_text(config_content)
