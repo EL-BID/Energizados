@@ -107,10 +107,7 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
         return ColumnTransformer(transformers=transformers, remainder="passthrough")
 
     # Error si no hay configuración válida
-    raise ValueError(
-        "Configuración de preprocessing inválida. Se requiere 'columns' con la configuración por columna. "
-        "Los parámetros legacy 'preprocessor_num' y 'categorical_features' están deprecados."
-    )
+    raise ValueError("Configuración de preprocessing inválida. Se requiere 'columns' con la configuración por columna. ")
 
 
 class DefaultFeaturePipeline(BaseFeaturePipeline):

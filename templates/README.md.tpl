@@ -139,11 +139,20 @@ feature_pipeline:
   output_parquet: "data/processed/feature_pipeline.parquet"
 
   preprocessing:
-    preprocessor_num: 4
-    categorical_features:
-      - actividad
-      - tipo_tarifa
-      - nivel_tension
+    columns:
+      actividad:
+        - cardinality_reducer:
+            threshold: 0.001
+        - to_dummy: {}
+      tipo_tarifa:
+        - cardinality_reducer:
+            threshold: 0.001
+        - target_encoding:
+            w: 20
+      nivel_tension:
+        - ordinal_encoding: {}
+      zona:
+        - ordinal_encoding: {}
 
   feature_selection:
     enabled: true

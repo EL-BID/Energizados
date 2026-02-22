@@ -169,17 +169,28 @@ def _validate_feature_pipeline_section(config: Dict[str, Any], result: Validatio
             if not isinstance(prep, dict):
                 result.add_error("feature_pipeline.preprocessing debe ser un diccionario")
             else:
-                if "categorical_features" in prep:
-                    features = prep["categorical_features"]
-                    if not isinstance(features, list):
-                        result.add_error("feature_pipeline.preprocessing.categorical_features debe ser una lista")
+                # Validar nuevo formato con 'columns'
+                if "columns" in prep:
+                    columns = prep["columns"]
+                    if not isinstance(columns, dict):
+                        result.add_error("feature_pipeline.preprocessing.columns debe ser un diccionario")
+                    elif not columns:
+                        result.add_error("feature_pipeline.preprocessing.columns no puede estar vacío")
                     else:
-                        result.add_info(f"Features categóricas: {len(features)}")
+                        result.add_info(f"Columns configuradas: {len(columns)}")
+                        # Validar que cada columna tenga una lista de transformaciones
+                        for col, transforms in columns.items():
+                            if not isinstance(transforms, list):
+                                result.add_error(f"feature_pipeline.preprocessing.columns.{col} debe ser una lista")
 
-                if "preprocessor_num" in prep:
-                    prep_num = prep["preprocessor_num"]
-                    if not isinstance(prep_num, int) or prep_num < 1:
-                        result.add_error(f"feature_pipeline.preprocessing.preprocessor_num inválido: {prep_num}")
+                # Advertir sobre parámetros deprecados
+                deprecated_params = ["preprocessor_num", "categorical_features"]
+                for param in deprecated_params:
+                    if param in prep:
+                        result.add_error(
+                            f"feature_pipeline.preprocessing.{param} está deprecado. "
+                            f"Usa 'columns' con configuración por columna en su lugar."
+                        )
 
         # Validar sub-sección feature_selection
         if "feature_selection" in fp:

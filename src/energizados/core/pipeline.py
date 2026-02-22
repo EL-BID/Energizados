@@ -347,8 +347,7 @@ class ConfigPipelineBuilder:
             fs_config = fp_config.get("feature_selection", {})
 
             pipeline_instance = DefaultFeaturePipeline(
-                preprocessor_num=preprocessing_config.get("preprocessor_num", 4),
-                categorical_features=preprocessing_config.get("categorical_features", []),
+                preprocessing_config=preprocessing_config,
                 feature_selection_config=fs_config,
             )
 

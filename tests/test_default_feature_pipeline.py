@@ -144,7 +144,7 @@ class TestGetPreprocesorLegacy:
             "preprocessor_num": 4,
             "categorical_features": ["zona", "actividad"],
         }
-        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+        with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
 
     def test_legacy_with_categorical_features_raises_error(self):
@@ -153,13 +153,13 @@ class TestGetPreprocesorLegacy:
             "preprocessor_num": 4,
             "categorical_features": ["zona", "nivel_tension", "material_instalacion"],
         }
-        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+        with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
 
     def test_legacy_default_preprocessor_num_raises_error(self):
         """Verifica que sin columns lance error (config inválida)."""
         config = {"categorical_features": ["zona"]}
-        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+        with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
 
 
@@ -186,7 +186,7 @@ class TestGetPreprocesorPriority:
             "preprocessor_num": 4,
             "categorical_features": ["zona", "actividad"],
         }
-        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+        with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
 
 
@@ -230,5 +230,5 @@ class TestIntegrationWithSampleData:
             "preprocessor_num": 4,
             "categorical_features": ["zona", "actividad"],
         }
-        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+        with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
