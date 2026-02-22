@@ -13,17 +13,33 @@ feature_pipeline:
 
   # Configuración de Preprocessing
   preprocessing:
-    # Número de preprocesador a usar (1-4)
-    # 4: Preprocesador completo con target encoding y dummy variables
-    preprocessor_num: 4
+    # Cada columna declara sus propias transformaciones en orden secuencial
+    columns:
+      # Actividad: reducir cardinalidad + one-hot encoding
+      actividad:
+        - cardinality_reducer:
+            threshold: 0.001  # Agrupa categorías con <0.1% frecuencia en "otros"
+        - to_dummy: {}       # One-hot encoding (crea múltiples columnas binarias)
 
-    # Lista de features categóricas a procesar
-    categorical_features:
-      - actividad
-      - tipo_tarifa
-      - nivel_tension
-      - material_instalacion
-      - zona
+      # Tipo Tarifa: reducir cardinalidad + target encoding
+      tipo_tarifa:
+        - cardinality_reducer:
+            threshold: 0.001
+        - target_encoding:
+            w: 20  # Peso de suavizado (mayor = más suavizado hacia el promedio global)
+
+      # Zona: encoding ordinal simple (valores numéricos 0, 1, 2, ...)
+      zona:
+        - ordinal_encoding: {}
+
+      # Nivel Tensión: encoding ordinal simple
+      nivel_tension:
+        - ordinal_encoding: {}
+
+      # Material Instalación: target encoding directo
+      material_instalacion:
+        - target_encoding:
+            w: 10
 
   # Configuración de Feature Selection (opcional)
   feature_selection:
@@ -43,3 +59,30 @@ feature_pipeline:
   # custom_class: "features.custom_selector.CustomSelector"
   # params:
   #   custom_param: value
+
+# Transformaciones disponibles:
+# =============================
+# cardinality_reducer:
+#   - Agrupa categorías poco frecuentes en "otros"
+#   - Parámetros:
+#       threshold: float (0-1) - frecuencia mínima para mantener categoría (default: 0.001)
+#
+# to_dummy:
+#   - One-hot encoding (crea columnas binarias)
+#   - Parámetros: ninguno
+#
+# target_encoding:
+#   - Reemplaza cada categoría con la probabilidad del target
+#   - Requiere que el target 'y' esté disponible durante fit
+#   - Parámetros:
+#       w: int - peso de suavizado (default: 20)
+#
+# ordinal_encoding:
+#   - Reemplaza cada categoría con un número (0, 1, 2, ...)
+#   - Parámetros: sklearn OrdinalEncoder params
+#
+# minmax_scaler_row:
+#   - Escala cada fila independientemente a un rango [0, 1]
+#   - Útil para series temporales de consumo
+#   - Parámetros:
+#       feature_range: tuple - rango de salida (default: [0, 1])
