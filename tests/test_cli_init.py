@@ -390,10 +390,12 @@ etls:
 
             project_path = Path(tmpdir) / "_sample"
 
-            # Verificar que el YAML use el nombre de paquete sanitizado
+            # Verificar que el YAML use la ruta de importación correcta (sin prefijo de paquete)
             etls_yaml = (project_path / "config" / "etls.yaml").read_text()
-            # El YAML debe usar "sample" en lugar de "_sample" para los imports
-            assert "sample.data.custom_etl.CustomETL" in etls_yaml
+            # El YAML debe usar "data.custom_etl.CustomETL" (sin prefijo de paquete)
+            assert "data.custom_etl.CustomETL" in etls_yaml
+            # No debe contener el prefijo del paquete sanitizado
+            assert "sample.data.custom_etl.CustomETL" not in etls_yaml
             # El comentario del encabezado puede usar el nombre original
             assert "_sample" in etls_yaml  # En el comentario
 
@@ -408,10 +410,11 @@ etls:
 
             new_path = Path(tmpdir) / "_new"
 
-            # Verificar que el YAML use nombres sanitizados para imports
+            # Verificar que el YAML use la ruta de importación correcta (sin prefijo de paquete)
             etls_yaml = (new_path / "config" / "etls.yaml").read_text()
-            # Los imports deben usar nombres sanitizados (old, new)
-            assert "new.data.custom_etl.CustomETL" in etls_yaml
-            # No debe contener los nombres originales con _
+            # Los imports deben usar rutas sin prefijo de paquete
+            assert "data.custom_etl.CustomETL" in etls_yaml
+            # No debe contener prefijos de paquete
+            assert "new.data.custom_etl.CustomETL" not in etls_yaml
             assert "_new.data" not in etls_yaml
             assert "_old.data" not in etls_yaml
