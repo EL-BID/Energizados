@@ -40,6 +40,6 @@ feature_pipeline:
       # threshold: 0.99  # Para constant
 
   # O usa tu propio Feature Pipeline personalizado:
-  # custom_class: "{{project_name}}.feature_pipeline.custom_pipeline.CustomFeaturePipeline"
+  # custom_class: "src.features.custom_selector.CustomSelector"
   # params:
   #   custom_param: value

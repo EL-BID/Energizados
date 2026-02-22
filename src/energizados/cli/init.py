@@ -6,8 +6,56 @@ nuevos proyectos con la estructura base siguiendo las mejores prácticas
 de la industria 2026.
 """
 
+import keyword
 import shutil
 from pathlib import Path
+
+# Python keywords that cannot be used as module names
+PYTHON_KEYWORDS = set(keyword.kwlist)
+
+
+def _sanitize_package_name(name: str) -> str:
+    """
+    Sanitiza un nombre de proyecto para que sea válido como paquete Python.
+
+    Los paquetes Python no pueden:
+    - Empezar con un número
+    - Empezar con _
+    - Contener guiones (-)
+    - Ser keywords de Python (for, class, etc.)
+    - Contener espacios
+
+    Args:
+        name: Nombre del proyecto a sanitizar
+
+    Returns:
+        Nombre sanitizado válido como paquete Python
+    """
+    if not name:
+        return "project"
+
+    # Eliminar espacios
+    name = name.replace(" ", "")
+
+    # Reemplazar guiones con guiones bajos
+    name = name.replace("-", "_")
+
+    # Eliminar guiones bajos al inicio
+    name = name.lstrip("_")
+
+    # Si está vacío después de limpiar, usar default
+    if not name:
+        return "project"
+
+    # Si empieza con número, agregar prefijo
+    if name[0].isdigit():
+        name = f"pkg_{name}"
+
+    # Si es keyword de Python, agregar sufijo
+    if name in PYTHON_KEYWORDS:
+        name = f"{name}_pkg"
+
+    return name
 
 
 def _get_template_path(template_name: str) -> Path:
@@ -404,6 +452,10 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
     """
     import re
 
+    # Sanitizar nombres para usar en imports de paquetes
+    old_package = _sanitize_package_name(old_name)
+    new_package = _sanitize_package_name(new_name)
+
     # Lista de archivos de configuración a copiar
     config_files = ["etls.yaml", "feature_pipeline.yaml", "training.yaml", "inference.yaml"]
 
@@ -429,14 +481,14 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
                 (rf"name:\s*'{re.escape(old_name)}'", f"name: '{new_name}'"),
             ]
 
-            # Mapear imports si viene de estructura antigua
+            # Mapear imports usando nombres de paquetes sanitizados
             if old_structure:
                 patterns.extend(
                     [
-                        (rf"{re.escape(old_name)}\.etl", f"{new_name}.src.data"),
-                        (rf"{re.escape(old_name)}\.feature_selection", f"{new_name}.src.features"),
-                        (rf"{re.escape(old_name)}\.models", f"{new_name}.src.models"),
-                        (rf"{re.escape(old_name)}\.inference", f"{new_name}.src.inference"),
+                        (rf"{re.escape(old_package)}\.etl", f"{new_package}.src.data"),
+                        (rf"{re.escape(old_package)}\.feature_selection", f"{new_package}.src.features"),
+                        (rf"{re.escape(old_package)}\.models", f"{new_package}.src.models"),
+                        (rf"{re.escape(old_package)}\.inference", f"{new_package}.src.inference"),
                     ]
                 )
                 # Renombrar configs/ -> config/ en comentarios
@@ -444,16 +496,16 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
             else:
                 patterns.extend(
                     [
-                        # Nuevos proyectos usan {project}.data.custom_etl.CustomETL
-                        (rf"{re.escape(old_name)}\.data\.custom_etl", f"{new_name}.data.custom_etl"),
-                        (rf"{re.escape(old_name)}\.features\.custom_selector", f"{new_name}.features.custom_selector"),
-                        (rf"{re.escape(old_name)}\.models\.custom_model", f"{new_name}.models.custom_model"),
-                        (rf"{re.escape(old_name)}\.inference\.custom_inference", f"{new_name}.inference.custom_inference"),
+                        # Nuevos proyectos usan {package}.data.custom_etl.CustomETL
+                        (rf"{re.escape(old_package)}\.data\.custom_etl", f"{new_package}.data.custom_etl"),
+                        (rf"{re.escape(old_package)}\.features\.custom_selector", f"{new_package}.features.custom_selector"),
+                        (rf"{re.escape(old_package)}\.models\.custom_model", f"{new_package}.models.custom_model"),
+                        (rf"{re.escape(old_package)}\.inference\.custom_inference", f"{new_package}.inference.custom_inference"),
                         # Por si acaso, también el formato src.*
-                        (rf"{re.escape(old_name)}\.src\.data", f"{new_name}.data"),
-                        (rf"{re.escape(old_name)}\.src\.features", f"{new_name}.features"),
-                        (rf"{re.escape(old_name)}\.src\.models", f"{new_name}.models"),
-                        (rf"{re.escape(old_name)}\.src\.inference", f"{new_name}.inference"),
+                        (rf"{re.escape(old_package)}\.src\.data", f"{new_package}.data"),
+                        (rf"{re.escape(old_package)}\.src\.features", f"{new_package}.features"),
+                        (rf"{re.escape(old_package)}\.src\.models", f"{new_package}.models"),
+                        (rf"{re.escape(old_package)}\.src\.inference", f"{new_package}.inference"),
                     ]
                 )
 
@@ -584,6 +636,9 @@ def _create_config_files(project_path: Path, project_name: str):
         project_path: Ruta del proyecto
         project_name: Nombre del proyecto
     """
+    # Sanitizar nombre para imports de paquetes
+    package_name = _sanitize_package_name(project_name)
+
     config_templates = {
         "etls.yaml": "config/etls.yaml.tpl",
         "feature_pipeline.yaml": "config/feature_pipeline.yaml.tpl",
@@ -594,5 +649,5 @@ def _create_config_files(project_path: Path, project_name: str):
     for filename, template_path in config_templates.items():
         template_content = _load_template(template_path)
         config_content = template_content.replace("{{project_name}}", project_name)
-        config_content = config_content.replace("{{package}}", project_name)
+        config_content = config_content.replace("{{package}}", package_name)
         (project_path / "config" / filename).write_text(config_content)

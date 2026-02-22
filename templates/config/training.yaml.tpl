@@ -35,7 +35,7 @@ training:
     cv: 3
 
   # O usa tu propio modelo personalizado:
-  # custom_class: "{{project_name}}.models.custom_model.CustomModel"
+  # custom_class: "src.models.custom_model.CustomModel"
   # params:
   #   learning_rate: 0.01
   #   epochs: 1000

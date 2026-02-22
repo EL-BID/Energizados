@@ -17,6 +17,7 @@ from energizados.core.exceptions import (
     PipelineError,
     StepValidationError,
 )
+from energizados.utils import import_class
 
 logger = logging.getLogger(__name__)
 
@@ -338,7 +339,8 @@ class ConfigPipelineBuilder:
 
         # Si el usuario especificó una clase personalizada
         if "custom_class" in fp_config:
-            pipeline_instance = self._import_and_instantiate(fp_config["custom_class"], fp_config.get("params", {}))
+            cls = import_class(fp_config["custom_class"])
+            pipeline_instance = cls(**fp_config.get("params", {}))
         else:
             # Usar DefaultFeaturePipeline
             preprocessing_config = fp_config.get("preprocessing", {})
@@ -444,7 +446,8 @@ class ConfigPipelineBuilder:
 
         # Si el usuario especificó una clase personalizada
         if "custom_class" in train_config:
-            return self._import_and_instantiate(train_config["custom_class"], train_config.get("params", {}))
+            cls = import_class(train_config["custom_class"])
+            return cls(**train_config.get("params", {}))
 
         # Usa modelo del registry
         model_type = train_config.get("model_type")
@@ -468,7 +471,8 @@ class ConfigPipelineBuilder:
 
         # Si el usuario especificó una clase personalizada
         if "custom_class" in eval_config:
-            return self._import_and_instantiate(eval_config["custom_class"], eval_config.get("params", {}))
+            cls = import_class(eval_config["custom_class"])
+            return cls(**eval_config.get("params", {}))
 
         # TODO: Implementar evaluador default cuando esté disponible
         return None
@@ -553,30 +557,6 @@ class ConfigPipelineBuilder:
                 return ["predictions", "prediction_probas"]
 
         return InferenceStep(inference, inference_config)
-
-    def _import_and_instantiate(self, class_path: str, params: Dict):
-        """
-        Importa una clase desde su path completo y la instancia.
-
-        Args:
-            class_path: Path completo de la clase (ej: "module.submodule.ClassName")
-            params: Parámetros para instanciar la clase
-
-        Returns:
-            Instancia de la clase
-
-        Raises:
-            ConfigurationError: Si no se puede importar la clase
-        """
-        try:
-            module_path, class_name = class_path.rsplit(".", 1)
-            module = __import__(module_path, fromlist=[class_name])
-            cls = getattr(module, class_name)
-            return cls(**params)
-        except (ImportError, AttributeError) as e:
-            raise ConfigurationError(f"No se puede importar clase {class_path}: {e}", self.config_path)
-        except Exception as e:
-            raise ConfigurationError(f"Error instanciando {class_path}: {e}", self.config_path)
 
     @classmethod
     def register_model(cls, name: str, model_class: type):

@@ -14,6 +14,7 @@ from typing import Dict, List
 import pandas as pd
 
 from energizados.core.exceptions import ETLDependencyError, ETLError
+from energizados.utils import import_class
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +213,7 @@ class ETLOrchestrator:
                     f"ETL '{etl_name}': debe especificar 'custom_class'. " f"Ejemplo: SourceETL, MultiSourceETL, o una clase personalizada."
                 )
 
-            etl_class = self._import_class(config["custom_class"])
+            etl_class = import_class(config["custom_class"])
             params = config.get("params", {})
             input_paths = self.resolve_input_paths(etl_name)
             output_path = config["output"]
@@ -293,28 +294,6 @@ class ETLOrchestrator:
         logger.info(f"{'=' * 60}")
 
         return self.results
-
-    def _import_class(self, class_path: str):
-        """
-        Importa una clase desde su path completo.
-
-        Args:
-            class_path: Path completo (ej: "module.submodule.ClassName")
-
-        Returns:
-            Clase importada
-
-        Raises:
-            ConfigurationError: Si no se puede importar la clase
-        """
-        from energizados.core.exceptions import ConfigurationError
-
-        try:
-            module_path, class_name = class_path.rsplit(".", 1)
-            module = __import__(module_path, fromlist=[class_name])
-            return getattr(module, class_name)
-        except (ImportError, AttributeError, ValueError) as e:
-            raise ConfigurationError(f"No se puede importar clase {class_path}: {e}", None)
 
     def get_execution_plan(self) -> str:
         """

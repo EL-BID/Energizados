@@ -354,3 +354,64 @@ etls:
             assert ".pytest_cache/" in gitignore
             assert ".coverage" in gitignore
             assert "htmlcov/" in gitignore
+
+    def test_init_sanitizes_invalid_package_names(self):
+        """Verifica que init sanitize nombres inválidos de paquetes Python."""
+        from energizados.cli.init import _sanitize_package_name
+
+        # Casos de prueba para sanitización
+        test_cases = [
+            ("_sample", "sample"),  # Elimina _ al inicio
+            ("__test", "test"),  # Elimina múltiples _ al inicio
+            ("my-project", "my_project"),  # Reemplaza - con _
+            ("my-project-name", "my_project_name"),  # Múltiples -
+            ("123project", "pkg_123project"),  # Prefijo si empieza con número
+            ("test", "test"),  # Nombre válido sin cambios
+            ("Test_Project", "Test_Project"),  # Nombre válido con mayúsculas
+            ("for", "for_pkg"),  # Keyword de Python
+            ("class", "class_pkg"),  # Keyword de Python
+            ("", "project"),  # Vacío → "project"
+            ("_", "project"),  # Solo _ → "project"
+            ("___", "project"),  # Solo _ múltiples → "project"
+            ("project-123", "project_123"),  # - con números
+            ("my project", "myproject"),  # Espacios eliminados
+        ]
+
+        for input_name, expected in test_cases:
+            result = _sanitize_package_name(input_name)
+            assert result == expected, f"Para {input_name!r}, se esperaba {expected!r} pero se obtuvo {result!r}"
+
+    def test_init_underscore_project_name_generates_valid_yaml(self):
+        """Verifica que un nombre de proyecto con _ al inicio genere YAML válido."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Crear proyecto con nombre inválido
+            result = self.runner.invoke(cli, ["init", "_sample", "--path", tmpdir])
+            assert result.exit_code == 0
+
+            project_path = Path(tmpdir) / "_sample"
+
+            # Verificar que el YAML use el nombre de paquete sanitizado
+            etls_yaml = (project_path / "config" / "etls.yaml").read_text()
+            # El YAML debe usar "sample" en lugar de "_sample" para los imports
+            assert "sample.data.custom_etl.CustomETL" in etls_yaml
+            # El comentario del encabezado puede usar el nombre original
+            assert "_sample" in etls_yaml  # En el comentario
+
+    def test_init_copy_sanitizes_package_names_in_yaml(self):
+        """Verifica que al copiar proyectos se sanitize los nombres de paquetes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Crear proyecto con nombre inválido
+            self.runner.invoke(cli, ["init", "_old", "--path", tmpdir])
+
+            # Copiar a otro proyecto con nombre inválido
+            self.runner.invoke(cli, ["init", "_new", "--copy", "_old", "--path", tmpdir])
+
+            new_path = Path(tmpdir) / "_new"
+
+            # Verificar que el YAML use nombres sanitizados para imports
+            etls_yaml = (new_path / "config" / "etls.yaml").read_text()
+            # Los imports deben usar nombres sanitizados (old, new)
+            assert "new.data.custom_etl.CustomETL" in etls_yaml
+            # No debe contener los nombres originales con _
+            assert "_new.data" not in etls_yaml
+            assert "_old.data" not in etls_yaml

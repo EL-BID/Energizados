@@ -17,7 +17,7 @@ inference:
   type: "default"
 
   # O usa tu propia implementación de inferencia:
-  # custom_class: "{{project_name}}.inference.custom_inference.CustomInference"
+  # custom_class: "src.inference.custom_inference.CustomInference"
   # params:
   #   threshold: 0.5
   #   batch_size: 1000
