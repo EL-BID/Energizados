@@ -23,7 +23,6 @@ from energizados.etl.base import BaseETL
 __all__ = [
     # Base classes
     "BaseETL",
-    "BaseFeatureSelector",
     "BaseModel",
     "PipelineStep",
     # Exceptions
