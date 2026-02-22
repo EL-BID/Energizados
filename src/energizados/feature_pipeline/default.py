@@ -68,22 +68,27 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     return cls(**params)
 
 
-def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer | None:
+def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
     """
     Construye el preprocesador desde config YAML.
 
     Args:
         preprocessing_config: Dict con configuración de preprocessing.
-                              Puede tener:
-                              - 'columns': dict mapeando columna→lista de transformaciones
+                              Requiere 'columns': dict mapeando columna→lista de transformaciones
 
     Returns:
         ColumnTransformer: Preprocesador configurado
+
+    Raises:
+        ValueError: Si no se encuentra configuración válida
     """
     # MODO NUEVO: Configuración por columna
-    columns_config = preprocessing_config.get("columns")
+    # Verificar si 'columns' key existe (incluso si está vacío)
+    if "columns" in preprocessing_config:
+        columns_config = preprocessing_config["columns"]
+        if not columns_config:
+            raise ValueError("El config 'columns' no puede estar vacío. Especifica al menos una columna con sus transformaciones.")
 
-    if columns_config:
         transformers = []
 
         for column, transformations in columns_config.items():
@@ -100,6 +105,12 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer | None:
 
         # ColumnTransformer con passthrough para columnas no mencionadas
         return ColumnTransformer(transformers=transformers, remainder="passthrough")
+
+    # Error si no hay configuración válida
+    raise ValueError(
+        "Configuración de preprocessing inválida. Se requiere 'columns' con la configuración por columna. "
+        "Los parámetros legacy 'preprocessor_num' y 'categorical_features' están deprecados."
+    )
 
 
 class DefaultFeaturePipeline(BaseFeaturePipeline):

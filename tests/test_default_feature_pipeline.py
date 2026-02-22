@@ -130,41 +130,37 @@ class TestGetPreprocesorColumnsConfig:
 
     def test_empty_columns_config_raises_error(self):
         """Verifica que configuración vacía de columns lance error."""
-        # Si columns está vacío, debería caer en legacy
         config = {"columns": {}}
-        # Esto debería usar legacy mode
-        preprocessor = get_preprocesor(config)
-        assert isinstance(preprocessor, ColumnTransformer)
+        with pytest.raises(ValueError, match="El config 'columns' no puede estar vacío"):
+            get_preprocesor(config)
 
 
 class TestGetPreprocesorLegacy:
-    """Tests para get_preprocesor con configuración legacy (preprocessor_num)."""
+    """Tests para verificar que configs legacy lanzan error (deprecados)."""
 
-    def test_legacy_preprocessor_num_4(self):
-        """Verifica que preprocessor_num=4 funcione (con warning)."""
+    def test_legacy_preprocessor_num_4_raises_error(self):
+        """Verifica que preprocessor_num=4 lance error (deprecado)."""
         config = {
             "preprocessor_num": 4,
             "categorical_features": ["zona", "actividad"],
         }
-        preprocessor = get_preprocesor(config)
-        assert isinstance(preprocessor, ColumnTransformer)
+        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+            get_preprocesor(config)
 
-    def test_legacy_with_categorical_features(self):
-        """Verifica legacy con categorical_features."""
+    def test_legacy_with_categorical_features_raises_error(self):
+        """Verifica que legacy con categorical_features lance error (deprecado)."""
         config = {
             "preprocessor_num": 4,
             "categorical_features": ["zona", "nivel_tension", "material_instalacion"],
         }
-        preprocessor = get_preprocesor(config)
-        assert isinstance(preprocessor, ColumnTransformer)
-        # Debería tener transformers para las columnas mencionadas
-        assert len(preprocessor.transformers) > 0
+        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+            get_preprocesor(config)
 
-    def test_legacy_default_preprocessor_num(self):
-        """Verifica que sin preprocessor_num use 4 por defecto."""
+    def test_legacy_default_preprocessor_num_raises_error(self):
+        """Verifica que sin columns lance error (config inválida)."""
         config = {"categorical_features": ["zona"]}
-        preprocessor = get_preprocesor(config)
-        assert isinstance(preprocessor, ColumnTransformer)
+        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+            get_preprocesor(config)
 
 
 class TestGetPreprocesorPriority:
@@ -172,6 +168,7 @@ class TestGetPreprocesorPriority:
 
     def test_columns_takes_priority_over_legacy(self):
         """Verifica que 'columns' tenga prioridad sobre preprocessor_num."""
+        # Si columns está presente, se usa y se ignora legacy
         config = {
             "columns": {"zona": [{"ordinal_encoding": {}}]},
             "preprocessor_num": 4,
@@ -182,6 +179,15 @@ class TestGetPreprocesorPriority:
         assert len(preprocessor.transformers) == 1
         _, _, cols = preprocessor.transformers[0]
         assert cols == ["zona"]
+
+    def test_legacy_params_alone_raise_error(self):
+        """Verifica que params legacy sin columns lancen error."""
+        config = {
+            "preprocessor_num": 4,
+            "categorical_features": ["zona", "actividad"],
+        }
+        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+            get_preprocesor(config)
 
 
 class TestIntegrationWithSampleData:
@@ -217,13 +223,12 @@ class TestIntegrationWithSampleData:
         X_transformed = preprocessor.fit_transform(X, y)
         assert X_transformed.shape[0] == X.shape[0]  # Mismo número de filas
 
-    def test_fit_transform_with_legacy_config(self, sample_data):
-        """Verifica fit_transform con configuración legacy."""
+    def test_fit_transform_with_legacy_config_raises_error(self, sample_data):
+        """Verifica que configuración legacy lance error."""
         X, y = sample_data
         config = {
             "preprocessor_num": 4,
             "categorical_features": ["zona", "actividad"],
         }
-        preprocessor = get_preprocesor(config)
-        X_transformed = preprocessor.fit_transform(X, y)
-        assert X_transformed.shape[0] == X.shape[0]
+        with pytest.raises(ValueError, match="Los parámetros legacy.*están deprecados"):
+            get_preprocesor(config)
