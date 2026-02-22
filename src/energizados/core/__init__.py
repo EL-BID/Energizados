@@ -6,7 +6,6 @@ que forman el núcleo del framework.
 """
 
 from energizados.core.base import (
-    BaseFeatureSelector,
     BaseModel,
     PipelineStep,
 )
