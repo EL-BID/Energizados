@@ -10,7 +10,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from energizados.core.base import BaseModel
+from energizados.modeling.base import BaseModel
 
 
 class LGBMModelAdapter(BaseModel):

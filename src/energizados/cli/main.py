@@ -4,15 +4,43 @@ Main CLI entry point for Energizados Framework.
 Este módulo define el comando principal y los subcomandos disponibles.
 """
 
+import logging
 from pathlib import Path
 
 import click
 
 
+def _setup_logging(verbose: int = 0):
+    """
+    Configura el logging para la CLI.
+
+    Args:
+        verbose: Nivel de verbosidad (0=WARNING, 1=INFO, 2+=DEBUG)
+    """
+    if verbose == 0:
+        level = logging.WARNING
+    elif verbose == 1:
+        level = logging.INFO
+    else:
+        level = logging.DEBUG
+
+    # Configurar handler para consola
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+
+    # Configurar root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.handlers = []  # Remover handlers existentes
+    root_logger.addHandler(handler)
+
+
 @click.group()
 @click.version_option(version="1.0.0", prog_name="energizados")
+@click.option("--verbose", "-v", count=True, help="Aumentar verbosidad (-v, -vv, -vvv)")
 @click.pass_context
-def cli(ctx):
+def cli(ctx, verbose):
     """
     Energizados - Framework para detección de fraude en consumo energético.
 
@@ -24,11 +52,20 @@ def cli(ctx):
     - run: Ejecutar un pipeline desde configuración
     - validate: Validar archivo de configuración
 
+    Opciones de verbosidad:
+        -v: INFO (muestra mensajes informativos)
+        -vv: DEBUG (muestra mensajes de depuración)
+        -vvv: DEBUG (igual que -vv)
+
     Para ayuda sobre un comando específico:
         energizados <comando> --help
     """
+    # Configurar logging
+    _setup_logging(verbose)
+
     # Contexto compartido entre comandos
     ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
 
 
 @cli.command()
