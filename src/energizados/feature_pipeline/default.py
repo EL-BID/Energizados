@@ -6,7 +6,7 @@ preprocessing y feature_selection en un solo paso unificado.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -25,13 +25,6 @@ from energizados.preprocessing.preprocessing import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _get_get_preprocesor():
-    """Importa get_preprocesor de forma lazy para evitar problemas con tensorflow."""
-    from energizados.modeling.supervised_models import get_preprocesor
-
-    return get_preprocesor
 
 
 def _build_transformer_from_config(transform_name: str, params: dict, column: str):
@@ -75,83 +68,14 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     return cls(**params)
 
 
-def _get_legacy_preprocesor(preprocessor_num: int, categorical_features: List[str]) -> ColumnTransformer:
-    """
-    Construye el preprocesador usando el formato legacy (preprocessor_num).
-
-    Args:
-        preprocessor_num: Número de preprocesador
-        categorical_features: Lista de features categóricas
-
-    Returns:
-        ColumnTransformer: Preprocesador configurado
-    """
-    logger.warning(
-        f"preprocessor_num está deprecated. Usar 'columns' en su lugar. "
-        f"preprocessor_num={preprocessor_num} será removido en versiones futuras."
-    )
-
-    # Usar la función de supervised_models que ya tiene la lógica implementada
-    # Para preprocessor_num 4, construye el preprocesador localmente
-    if preprocessor_num == 4:
-        # Actividad
-        if "actividad" in categorical_features:
-            pipe_actividad = Pipeline([("cardinality_reducer", CardinalityReducer(threshold=0.001)), ("a_dummy", ToDummy(["actividad"]))])
-        else:
-            pipe_actividad = None
-
-        # Segmento Tarifa
-        if "tipo_tarifa" in categorical_features:
-            pipe_tarifa = Pipeline(
-                [
-                    ("cardinality_reducer", CardinalityReducer(threshold=0.001)),
-                    ("tarifa_te", TeEncoder(["tipo_tarifa"], w=20)),
-                ]
-            )
-        else:
-            pipe_tarifa = None
-
-        vars_enc = []
-        if "zona" in categorical_features:
-            vars_enc.append("zona")
-        if "nivel_tension" in categorical_features:
-            vars_enc.append("nivel_tension")
-
-        from sklearn.preprocessing import OrdinalEncoder
-
-        t_features = []
-
-        if vars_enc:
-            t_features.append(("var_encoder", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1), vars_enc))
-
-        if "material_instalacion" in categorical_features:
-            t_features.append(("material_instalacion_te", TeEncoder(["material_instalacion"], w=10), ["material_instalacion"]))
-
-        if pipe_actividad is not None:
-            t_features.append(("actividad_cr_dummy", pipe_actividad, ["actividad"]))
-
-        if pipe_tarifa is not None:
-            t_features.append(("tarifa_cr_te", pipe_tarifa, ["tipo_tarifa"]))
-
-        preprocessor = ColumnTransformer(transformers=t_features, remainder="passthrough")
-    else:
-        # Para preprocessor_num 1-3, usar la función de supervised_models
-        get_preprocesor_fn = _get_get_preprocesor()
-        preprocessor = get_preprocesor_fn(preprocessor_num)
-
-    return preprocessor
-
-
-def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
+def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer | None:
     """
     Construye el preprocesador desde config YAML.
 
     Args:
         preprocessing_config: Dict con configuración de preprocessing.
                               Puede tener:
-                              - 'columns': dict mapeando columna→lista de transformaciones (NUEVO)
-                              - 'preprocessor_num': int con número de preprocesador (LEGACY)
-                              - 'categorical_features': list de features categóricos (LEGACY)
+                              - 'columns': dict mapeando columna→lista de transformaciones
 
     Returns:
         ColumnTransformer: Preprocesador configurado
@@ -177,11 +101,6 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
         # ColumnTransformer con passthrough para columnas no mencionadas
         return ColumnTransformer(transformers=transformers, remainder="passthrough")
 
-    # MODO LEGACY: preprocessor_num
-    preprocessor_num = preprocessing_config.get("preprocessor_num", 4)
-    categorical_features = preprocessing_config.get("categorical_features", [])
-    return _get_legacy_preprocesor(preprocessor_num, categorical_features)
-
 
 class DefaultFeaturePipeline(BaseFeaturePipeline):
     """
@@ -203,9 +122,6 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
         preprocessing_config: Optional[Dict] = None,
         feature_selection_config: Optional[Dict] = None,
         config: Optional[Dict] = None,
-        # Legacy params (deprecated)
-        preprocessor_num: Optional[int] = None,
-        categorical_features: Optional[List[str]] = None,
     ):
         """
         Inicializa el Feature Pipeline por defecto.
@@ -214,8 +130,6 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
             preprocessing_config: Configuración de preprocessing (nuevo formato con 'columns')
             feature_selection_config: Configuración de feature selection
             config: Diccionario de configuración general (opcional)
-            preprocessor_num: (DEPRECATED) Número de preprocesador
-            categorical_features: (DEPRECATED) Lista de features categóricas
         """
         super().__init__(config)
 
@@ -223,22 +137,10 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
         if preprocessing_config is None:
             preprocessing_config = self.config.get("preprocessing", {})
 
-        # Legacy: si se pasan preprocessor_num/categorical_features, construir config antigua
-        if preprocessor_num is not None or categorical_features is not None:
-            logger.warning(
-                "preprocessor_num y categorical_features están deprecated. " "Usar preprocessing_config con 'columns' en su lugar."
-            )
-            if preprocessing_config.get("columns"):
-                logger.warning("Ignorando preprocessor_num/categorical_features porque 'columns' está presente")
-            else:
-                preprocessing_config["preprocessor_num"] = preprocessor_num or 4
-                preprocessing_config["categorical_features"] = categorical_features or []
-
         self.preprocessing_config = preprocessing_config
         self.feature_selection_config = feature_selection_config or self.config.get("feature_selection", {})
         self.preprocessor = None
         self.selector = None
-        self.feature_names_out_ = None
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "DefaultFeaturePipeline":
         """
@@ -259,13 +161,6 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
 
         logger.info("Aplicando preprocessing de entrenamiento...")
         X_prep = self.preprocessor.fit_transform(X, y)
-
-        # Obtener nombres de features después del preprocessing
-        self.feature_names_out_ = self._get_feature_names_after_preprocessing(X)
-
-        # Convertir a DataFrame si es necesario
-        if not isinstance(X_prep, pd.DataFrame):
-            X_prep = pd.DataFrame(X_prep, columns=self.feature_names_out_)
 
         logger.info(f"Features después de preprocessing: {X_prep.shape[1]}")
 
@@ -301,9 +196,6 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
         # 1. Aplicar preprocessing
         X_prep = self.preprocessor.transform(X)
 
-        if not isinstance(X_prep, pd.DataFrame):
-            X_prep = pd.DataFrame(X_prep, columns=self.feature_names_out_)
-
         # 2. Aplicar feature selection si está habilitado
         if self.selector is not None:
             X_transformed = self.selector.transform(X_prep)
@@ -330,54 +222,6 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
         else:
             raise ValueError(f"Método de feature selection desconocido: {method}")
 
-    def _get_feature_names_after_preprocessing(self, X: pd.DataFrame) -> List[str]:
-        """
-        Obtiene los nombres de las features después del preprocessing.
-
-        Args:
-            X: DataFrame original
-
-        Returns:
-            List[str]: Lista de nombres de features
-        """
-        # Para ColumnTransformer, podemos obtener los nombres
-        if hasattr(self.preprocessor, "get_feature_names_out"):
-            try:
-                return self.preprocessor.get_feature_names_out()
-            except (AttributeError, ValueError, TypeError) as e:
-                # get_feature_names_out puede fallar en algunos casos de sklearn
-                logger.debug(f"get_feature_names_out falló: {e}, usando método fallback")
-                # Continuar con el método fallback
-
-        # Extraer columnas categóricas desde la configuración
-        categorical_features = []
-        if "columns" in self.preprocessing_config:
-            categorical_features = list(self.preprocessing_config["columns"].keys())
-        elif "categorical_features" in self.preprocessing_config:
-            categorical_features = self.preprocessing_config["categorical_features"]
-
-        # Método fallback: construir nombres manualmente
-        feature_names = []
-        for col in X.columns:
-            if col not in categorical_features:
-                feature_names.append(col)
-
-        # Agregar nombres de features categóricas procesadas
-        # (esto es una simplificación, en realidad los transformers generan sus propios nombres)
-        for cat_col in categorical_features:
-            if cat_col == "actividad":
-                # ToDummy genera múltiples columnas
-                for i in range(50):  # Estimación
-                    feature_names.append(f"dummy_actividad_{i}")
-            elif cat_col == "tipo_tarifa":
-                feature_names.append(f"{cat_col}_prob")
-            elif cat_col in ["zona", "nivel_tension"]:
-                feature_names.append(f"{cat_col}_encoded")
-            elif cat_col == "material_instalacion":
-                feature_names.append(f"{cat_col}_prob")
-
-        return feature_names
-
     def _get_feature_names_out(self) -> list:
         """
         Retorna los nombres de las features después de todas las transformaciones.
@@ -387,7 +231,6 @@ class DefaultFeaturePipeline(BaseFeaturePipeline):
         """
         if self.selector is not None:
             return self.selector.get_selected_features()
-        return self.feature_names_out_
 
     def get_preprocessor(self):
         """
