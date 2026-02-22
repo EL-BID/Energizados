@@ -1,59 +1,71 @@
 """
 ETL Personalizado para {{project_name}}.
 
-Este módulo implementa la extracción, transformación y carga de datos
+Este módulo extiende SourceETL para implementar lógica de procesamiento
 específica para este proyecto.
 
-Edita los métodos extract(), transform() y load() según tus necesidades.
+Puedes sobrescribir los métodos extract(), transform() y load() según tus necesidades.
 """
 
-from energizados.base import BaseETL
+from pathlib import Path
 import pandas as pd
+from energizados.etl.pipeline import SourceETL
+from energizados.etl.validators import SchemaValidator
 
 
-class CustomETL(BaseETL):
+class CustomETL(SourceETL):
     """
     ETL personalizado para {{project_name}}.
 
-    Hereda de BaseETL e implementa los métodos abstractos para definir
-    el proceso específico de este proyecto.
+    Hereda de SourceETL que ya implementa:
+    - Lectura de múltiples archivos (csv, parquet, xlsx)
+    - Modo concat (por defecto) para concatenar archivos verticalmente
+    - Modo merge para unir archivos horizontalmente
 
-    Soporta múltiples inputs (string o lista) según configuración YAML.
+    Sobrescribe solo los métodos que necesites personalizar.
     """
 
-    def __init__(self, input_paths: list = None, output_path: str = None, **kwargs):
+    def __init__(
+        self,
+        name: str,
+        input_paths: list = None,
+        output_path: str = None,
+        mode: str = "concat",
+        merge_config: dict = None,
+        **kwargs,
+    ):
         """
         Inicializa el ETL.
 
         Args:
+            name: Nombre del ETL
             input_paths: Lista de rutas de archivos de entrada
             output_path: Ruta de salida para los datos transformados
+            mode: Modo de procesamiento ('concat' o 'merge'). Default: 'concat'
+            merge_config: Configuración para merge si mode='merge'
+                Ej: {'how': 'left', 'on': 'id_cliente'}
             **kwargs: Parámetros adicionales desde la configuración
         """
-        super().__init__(**kwargs)
-        self.input_paths = input_paths or []
-        self.output_path = output_path
+        super().__init__(
+            name=name,
+            input_paths=input_paths or [],
+            output_path=output_path,
+            mode=mode,
+            merge_config=merge_config,
+            **kwargs,
+        )
 
-    def extract(self) -> pd.DataFrame:
-        """
-        Extrae datos de la fuente.
-
-        Edita este método para implementar tu lógica de extracción.
-        Usa self.input_paths para acceder a los archivos configurados.
-
-        Returns:
-            pd.DataFrame: Datos crudos
-        """
-        # TODO: Implementar tu lógica de extracción
-        # Ejemplo con un solo archivo:
-        # if self.input_paths:
-        #     return pd.read_csv(self.input_paths[0])
-
-        # Ejemplo con múltiples archivos:
-        # dfs = [pd.read_csv(f) for f in self.input_paths]
-        # return pd.concat(dfs, axis=0)
-
-        raise NotImplementedError("Implementa el método extract() en tu ETL")
+    # Ejemplo: Sobrescribir extract() si necesitas lógica personalizada
+    # def extract(self) -> pd.DataFrame:
+    #     """Extrae datos con lógica personalizada."""
+    #     # Llamar al método padre para usar la lógica estándar
+    #     df = super().extract()
+    #
+    #     # O implementar tu propia lógica
+    #     # dfs = [pd.read_csv(f) for f in self.input_paths]
+    #     # df = pd.concat(dfs, axis=0)
+    #
+    #     return df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -68,44 +80,87 @@ class CustomETL(BaseETL):
             pd.DataFrame: DataFrame limpio
         """
         # TODO: Implementar tu lógica de transformación
-        # Ejemplo:
-        # df = df.dropna()
-        # df['fecha'] = pd.to_datetime(df['fecha'])
-        # return df
+        # Ejemplos:
 
-        raise NotImplementedError("Implementa el método transform() en tu ETL")
+        # 1. Eliminar filas con valores nulos
+        # df = df.dropna()
+
+        # 2. Convertir columnas a datetime
+        # df['fecha'] = pd.to_datetime(df['fecha'])
+
+        # 3. Crear nuevas columnas
+        # df['anio'] = df['fecha'].dt.year
+
+        # 4. Filtrar datos
+        # df = df[df['activo'] == True]
+
+        # Por defecto, solo copiar el dataframe
+        return df.copy()
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """
         Guarda los datos transformados.
 
-        Por defecto guarda en formato parquet, pero puedes cambiarlo.
+        Por defecto usa el método padre que guarda en formato parquet.
+        Sobrescribe si necesitas formato diferente o validación de esquema.
 
         Args:
             df: DataFrame transformado
             path: Ruta de salida
         """
-        from pathlib import Path
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        df.to_parquet(path, index=False)
+        # Ejemplo: Validar esquema antes de guardar
+        # validator = SchemaValidator(
+        #     required_columns=['id_cliente', 'fecha', 'consumo'],
+        #     categorical_columns=['actividad', 'zona'],
+        #     numeric_columns=['consumo', 'facturacion'],
+        # )
+        # validator.validate_and_raise(df)
 
-    def run(self, output_path: str = None) -> pd.DataFrame:
-        """
-        Ejecuta el pipeline completo de ETL.
+        # Usar el método padre que soporta csv, parquet, xlsx
+        super().load(df, path)
 
-        Args:
-            output_path: Ruta de salida (usa self.output_path si no se especifica)
 
-        Returns:
-            pd.DataFrame: DataFrame transformado
-        """
-        if output_path is None:
-            output_path = self.output_path
-
-        df = self.extract()
-        df = self.transform(df)
-
-        if output_path:
-            self.load(df, output_path)
-
-        return df
+# EJEMPLO DE USO EN CONFIG YAML
+# ================================
+#
+# 1. Concatenar múltiples archivos (modo por defecto):
+#
+#    mi_etl:
+#      enabled: true
+#      description: "Concatena datos de múltiples archivos CSV"
+#      input:
+#        - "data/raw/file1.csv"
+#        - "data/raw/file2.csv"
+#        - "data/raw/file3.csv"
+#      output: "data/processed/concatenado.parquet"
+#      custom_class: "{{package}}.data.custom_etl.CustomETL"
+#      params:
+#        mode: "concat"
+#
+# 2. Merging múltiples archivos:
+#
+#    merge_etl:
+#      enabled: true
+#      description: "Une consumos con clientes"
+#      input:
+#        - "data/processed/consumos.parquet"
+#        - "data/processed/clientes.parquet"
+#      output: "data/processed/merged.parquet"
+#      custom_class: "{{package}}.data.custom_etl.CustomETL"
+#      params:
+#        mode: "merge"
+#        merge_config:
+#          how: "left"
+#          on: "id_cliente"
+#
+# 3. Con transformación personalizada:
+#
+#    transform_etl:
+#      enabled: true
+#      description: "Procesa datos con limpieza personalizada"
+#      input:
+#        - "data/raw/datos.csv"
+#      output: "data/processed/lmpio.parquet"
+#      custom_class: "{{package}}.data.custom_etl.CustomETL"
+#      params:
+#        mode: "concat"

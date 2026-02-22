@@ -232,9 +232,13 @@ def _create_test_templates(project_path: Path, project_name: str):
     }
 
     for filename, template_file in test_templates.items():
-        template_content = _load_template(template_file)
-        content = template_content.replace("{{project_name}}", project_name)
-        (project_path / "tests" / filename).write_text(content)
+        template_path = _get_template_path(template_file)
+        if template_path.exists():
+            template_content = _load_template(template_file)
+            content = template_content.replace("{{project_name}}", project_name)
+            (project_path / "tests" / filename).write_text(content)
+        # Si el template no existe, se omite silenciosamente
+        # Los usuarios pueden crear sus propios tests
 
 
 def _create_extra_templates(project_path: Path, project_name: str):

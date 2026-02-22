@@ -209,8 +209,7 @@ class ETLOrchestrator:
 
             if "custom_class" not in config:
                 raise ETLError(
-                    f"ETL '{etl_name}': debe especificar 'custom_class'. "
-                    f"Ejemplo: SourceETL, MultiSourceETL, MergeETL, o una clase personalizada."
+                    f"ETL '{etl_name}': debe especificar 'custom_class'. " f"Ejemplo: SourceETL, MultiSourceETL, o una clase personalizada."
                 )
 
             etl_class = self._import_class(config["custom_class"])

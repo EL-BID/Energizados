@@ -3,8 +3,6 @@ ETL Base Module.
 
 Define la clase abstracta BaseETL que los usuarios pueden heredar
 para implementar sus propios procesos ETL personalizados.
-
-Esta clase re-exporta BaseETL desde core.base para mayor conveniencia.
 """
 
 from abc import ABC, abstractmethod

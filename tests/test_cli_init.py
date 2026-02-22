@@ -51,10 +51,8 @@ class TestInitCommand:
             assert (project_path / "src" / "models" / "custom_model.py").exists()
             assert (project_path / "src" / "inference" / "custom_inference.py").exists()
             assert (project_path / "src" / "utils" / "helpers.py").exists()
-            assert (project_path / "tests" / "conftest.py").exists()
-            assert (project_path / "tests" / "test_data.py").exists()
-            assert (project_path / "tests" / "test_features.py").exists()
-            assert (project_path / "tests" / "test_models.py").exists()
+            # Test templates ya no se crean por defecto (los usuarios crean sus propios tests)
+            assert (project_path / "tests" / "__init__.py").exists()
             assert (project_path / "docs" / "project_docs.md").exists()
 
             # Verificar archivos de configuración (4 archivos separados)
@@ -93,23 +91,18 @@ class TestInitCommand:
             assert "custom_etl" in data_init
 
     def test_init_creates_test_templates(self):
-        """Verifica que se creen los templates de tests."""
+        """Verifica que se cree el directorio de tests con __init__.py."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            # Verificar conftest.py con fixtures
-            conftest = (project_path / "tests" / "conftest.py").read_text()
-            assert "sample_data" in conftest
-            assert "sample_model" in conftest
-            assert "project_root" in conftest
-
-            # Verificar test files
-            assert (project_path / "tests" / "test_data.py").exists()
-            assert (project_path / "tests" / "test_features.py").exists()
-            assert (project_path / "tests" / "test_models.py").exists()
+            # Verificar que el directorio de tests existe
+            assert (project_path / "tests").exists()
+            assert (project_path / "tests" / "__init__.py").exists()
+            # Los templates de tests ya no se crean por defecto
+            # Los usuarios pueden crear sus propios tests según sus necesidades
 
     def test_init_creates_requirements_txt(self):
         """Verifica que se cree requirements.txt con dependencias."""

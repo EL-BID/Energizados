@@ -328,7 +328,7 @@ evaluation:
         config_file.write_text(config_content)
 
         # No debería lanzar excepción
-        validate_config(str(config_file))
+        validate_config([str(config_file)])
 
     def test_validate_command_with_invalid_yaml(self, tmp_path):
         """Verifica que el comando validate detecte YAML inválido."""
@@ -341,7 +341,7 @@ evaluation:
         config_file.write_text("invalid: [unclosed")
 
         with pytest.raises(ConfigurationError):
-            validate_config(str(config_file))
+            validate_config([str(config_file)])
 
 
 @pytest.mark.slow
@@ -369,8 +369,13 @@ class TestEndToEndScenarios:
         assert (project_path / "src" / "data" / "custom_etl.py").exists()
         assert (project_path / "src" / "features" / "custom_selector.py").exists()
         assert (project_path / "src" / "models" / "custom_model.py").exists()
-        assert (project_path / "config" / "pipeline.yaml").exists()
+        # Verificar que existe config con los 4 archivos separados
+        assert (project_path / "config" / "etls.yaml").exists()
+        assert (project_path / "config" / "feature_pipeline.yaml").exists()
+        assert (project_path / "config" / "training.yaml").exists()
+        assert (project_path / "config" / "inference.yaml").exists()
         assert (project_path / "README.md").exists()
-        assert (project_path / "tests" / "conftest.py").exists()
+        # Test templates ya no se crean por defecto
+        assert (project_path / "tests" / "__init__.py").exists()
         assert (project_path / "docs" / "project_docs.md").exists()
         assert (project_path / "requirements.txt").exists()

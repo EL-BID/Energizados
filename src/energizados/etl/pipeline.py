@@ -19,27 +19,44 @@ logger = logging.getLogger(__name__)
 
 class SourceETL(BaseETL):
     """
-    ETL para procesar una fuente individual de datos.
+    ETL para procesar una o múltiples fuentes de datos.
 
-    Esta clase está diseñada para procesar una sola fuente de datos
-    (consumos, inspecciones, clientes, etc.) y generar una salida
-    procesada que será combinada posteriormente.
+    Esta clase procesa datos de uno o varios archivos y genera una salida
+    procesada. Soporta dos modos de operación:
+
+    - **concat**: Concatena verticalmente múltiples dataframes (por defecto)
+    - **merge**: Une horizontalmente múltiples dataframes usando merge_config
 
     Args:
         name: Nombre de la fuente (ej: 'consumos', 'inspecciones', 'clientes')
-        input_paths: Lista con la ruta al archivo de datos crudos
+        input_paths: Lista con las rutas a los archivos de datos crudos
         output_path: Ruta donde guardar los datos procesados
-        key_column: Columna a usar como clave para unir (default: 'id_cliente' o 'index')
+        mode: Modo de procesamiento ('concat' o 'merge'). Default: 'concat'
+        merge_config: Configuración para merge (requerido si mode='merge')
+            Ej: {'how': 'left', 'on': 'id_cliente'}
+            Opciones: how ('left', 'right', 'inner', 'outer'), on (columna),
+                      left_on, right_on, left_index, right_index
+        key_column: Columna clave usada por defecto en merge_config
         **kwargs: Parámetros adicionales
 
     Example:
         >>> etl = SourceETL(
         ...     name='consumos',
+        ...     mode='concat',
         ...     input_paths=['data/raw/consumos.csv'],
         ...     output_path='data/consumos.parquet',
-        ...     key_column='id_cliente'
         ... )
         >>> df = etl.run('data/consumos.parquet')
+
+    Example con merge:
+        >>> etl = SourceETL(
+        ...     name='merged',
+        ...     mode='merge',
+        ...     input_paths=['data/consumos.parquet', 'data/clientes.parquet'],
+        ...     output_path='data/merged.parquet',
+        ...     merge_config={'how': 'left', 'on': 'id_cliente'},
+        ... )
+        >>> df = etl.run('data/merged.parquet')
     """
 
     def __init__(
@@ -47,47 +64,126 @@ class SourceETL(BaseETL):
         name: str,
         input_paths: List[str],
         output_path: Optional[str] = None,
+        mode: str = "concat",
+        merge_config: Optional[Dict[str, Any]] = None,
         key_column: Optional[str] = None,
         **kwargs,
     ):
         self.name = name
-        # Tomar el primer path de la lista (para compatibilidad con single source)
-        self.source_path = input_paths[0] if input_paths else None
         self.input_paths = input_paths
         self.output_path = output_path
+        self.mode = mode.lower() if mode else "concat"
+        self.merge_config = merge_config
         self.key_column = key_column or "id_cliente"
         self.kwargs = kwargs
 
+        # Validar modo
+        if self.mode not in ("concat", "merge"):
+            raise ValueError(f"Mode debe ser 'concat' o 'merge', no '{self.mode}'")
+
+        # Validar merge_config si mode es merge
+        if self.mode == "merge" and not self.merge_config:
+            raise ValueError(f"SourceETL '{self.name}': mode='merge' requiere merge_config " "(ej: {'how': 'left', 'on': 'id_cliente'})")
+
     def extract(self) -> pd.DataFrame:
         """
-        Extrae datos de la fuente especificada.
+        Extrae datos de las fuentes especificadas.
+
+        Procesa todos los input_paths según el modo configurado:
+        - concat: Concatena verticalmente todos los dataframes
+        - merge: Une horizontalmente según merge_config
 
         Returns:
-            pd.DataFrame: Datos crudos
+            pd.DataFrame: Datos crudos combinados
 
         Raises:
             ETLError: Si no se pueden leer los datos
         """
-        source_file = Path(self.source_path)
+        if not self.input_paths:
+            raise ETLError(f"SourceETL '{self.name}': input_paths está vacío")
 
-        if not source_file.exists():
-            raise ETLError(f"Archivo no encontrado: {self.source_path}")
+        # Leer todos los archivos
+        dataframes = []
+        for path in self.input_paths:
+            source_file = Path(path)
 
-        try:
-            if source_file.suffix == ".csv":
-                df = pd.read_csv(self.source_path)
-            elif source_file.suffix in [".parquet", ".pq"]:
-                df = pd.read_parquet(self.source_path)
-            elif source_file.suffix in [".xlsx", ".xls"]:
-                df = pd.read_excel(self.source_path)
+            if not source_file.exists():
+                raise ETLError(f"Archivo no encontrado: {path}")
+
+            try:
+                if source_file.suffix == ".csv":
+                    df = pd.read_csv(path)
+                elif source_file.suffix in [".parquet", ".pq"]:
+                    df = pd.read_parquet(path)
+                elif source_file.suffix in [".xlsx", ".xls"]:
+                    df = pd.read_excel(path)
+                else:
+                    raise ETLError(f"Formato no soportado: {source_file.suffix}")
+
+                dataframes.append(df)
+                logger.info(f"  • Leídos {len(df)} registros de '{source_file.name}'")
+
+            except Exception as e:
+                raise ETLError(f"Error extrayendo de '{path}': {str(e)}")
+
+        # Combinar según el modo
+        if self.mode == "concat":
+            if len(dataframes) == 1:
+                result = dataframes[0]
             else:
-                raise ETLError(f"Formato no soportado: {source_file.suffix}")
+                result = pd.concat(dataframes, axis=0, ignore_index=True)
+                logger.info(f"  ✓ Concatenados {len(dataframes)} archivos: {len(result)} registros")
 
-            logger.info(f"  ✓ Extraídos {len(df)} registros de '{self.name}'")
-            return df
+        elif self.mode == "merge":
+            result = self._merge_dataframes(dataframes)
+            logger.info(f"  ✓ Merged {len(dataframes)} archivos: {len(result)} registros")
 
-        except Exception as e:
-            raise ETLError(f"Error extrayendo de '{self.name}': {str(e)}")
+        return result
+
+    def _merge_dataframes(self, dataframes: List[pd.DataFrame]) -> pd.DataFrame:
+        """
+        Fusiona múltiples dataframes según merge_config.
+
+        Args:
+            dataframes: Lista de dataframes a fusionar
+
+        Returns:
+            pd.DataFrame: Dataframe fusionado
+
+        Raises:
+            ETLError: Si el merge falla
+        """
+        if not dataframes:
+            raise ETLError("No hay dataframes para merge")
+
+        if len(dataframes) == 1:
+            return dataframes[0]
+
+        # Preparar configuración de merge
+        config = self.merge_config.copy()
+        how = config.pop("how", "left")
+        on = config.pop("on", None)
+        left_on = config.pop("left_on", None)
+        right_on = config.pop("right_on", None)
+        left_index = config.pop("left_index", False)
+        right_index = config.pop("right_index", False)
+
+        # Si no se especifica columnas, usar key_column por defecto
+        if on is None and left_on is None and right_on is None:
+            on = self.key_column
+
+        # Merge secuencial: primero con segundo, resultado con tercero, etc.
+        result = dataframes[0]
+        for i, df in enumerate(dataframes[1:], start=2):
+            try:
+                result = pd.merge(
+                    result, df, how=how, on=on, left_on=left_on, right_on=right_on, left_index=left_index, right_index=right_index, **config
+                )
+                logger.info(f"  • Merge paso {i-1}→{i}: {len(result)} registros")
+            except Exception as e:
+                raise ETLError(f"Error en merge paso {i-1}→{i}: {str(e)}")
+
+        return result
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -109,25 +205,6 @@ class SourceETL(BaseETL):
         if before_count > after_count:
             logger.info(f"  • Eliminadas {before_count - after_count} filas vacías")
 
-        # Asegurar que la clave existe
-        if self.key_column not in df.columns:
-            # Si no existe, intentar usar el índice
-            if "index" in df.columns:
-                df[self.key_column] = df["index"]
-            else:
-                # Crear índice si no existe
-                df = df.reset_index(drop=True)
-                df[self.key_column] = df.index.astype(str)
-
-        # Eliminar duplicados basados en la clave
-        before_dedup = len(df)
-        df = df.drop_duplicates(subset=[self.key_column], keep="first")
-        after_dedup = len(df)
-
-        if before_dedup > after_dedup:
-            logger.info(f"  • Eliminados {before_dedup - after_dedup} duplicados por clave")
-
-        logger.info(f"  ✓ Transformados {len(df)} registros de '{self.name}'")
         return df
 
     def load(self, df: pd.DataFrame, path: str) -> None:
@@ -156,431 +233,3 @@ class SourceETL(BaseETL):
 
         except Exception as e:
             raise ETLError(f"Error guardando '{self.name}': {str(e)}")
-
-
-class MultiSourceETL(BaseETL):
-    """
-    ETL que orquesta múltiples fuentes de datos y las combina.
-
-    Esta clase ejecuta múltiples ETLs de fuentes en paralelo/serie
-    y luego combina sus salidas en un dataset final.
-
-    Args:
-        name: Nombre de la ETL
-        input_paths: Lista de rutas a archivos a combinar
-        output_path: Ruta de salida del dataset final
-        merge_config: Configuración de cómo combinar las fuentes
-        key_column: Columna clave para unir (default: 'id_cliente')
-        **kwargs: Parámetros adicionales
-
-    Example:
-        >>> etl = MultiSourceETL(
-        ...     name='merge',
-        ...     input_paths=['data/consumos.parquet', 'data/clientes.parquet'],
-        ...     merge_config={'how': 'left', 'on': 'id_cliente'},
-        ...     output_path='data/dataset_final.parquet'
-        ... )
-        >>> df = etl.run('data/dataset_final.parquet')
-    """
-
-    def __init__(
-        self,
-        name: str,
-        input_paths: List[str],
-        output_path: Optional[str] = None,
-        merge_config: Optional[Dict[str, Any]] = None,
-        key_column: Optional[str] = None,
-        **kwargs,
-    ):
-        self.name = name
-        self.input_paths = input_paths
-        self.output_path = output_path
-        self.merge_config = merge_config or {}
-        self.key_column = key_column or "id_cliente"
-        self.kwargs = kwargs
-
-        # Construir lista de fuentes desde input_paths
-        self.sources = []
-        for i, path in enumerate(input_paths):
-            source_name = kwargs.get(f"source_{i}_name", f"source_{i}")
-            self.sources.append({"name": source_name, "path": path, "key_column": key_column})
-
-        # Almacén de DataFrames procesados
-        self.processed_sources_: Dict[str, pd.DataFrame] = {}
-
-    def extract(self) -> Dict[str, pd.DataFrame]:
-        """
-        Extrae datos de todas las fuentes configuradas.
-
-        Returns:
-            Dict[str, pd.DataFrame]: Diccionario con datos crudos por fuente
-        """
-        from energizados.core.exceptions import ETLError
-
-        raw_data = {}
-
-        logger.info(f"\n{'=' * 60}")
-        logger.info(f"EXTRACT: Procesando {len(self.sources)} fuentes")
-        logger.info(f"{'=' * 60}")
-
-        for source_config in self.sources:
-            name = source_config.get("name")
-            source_path = source_config.get("path")
-
-            if not name or not source_path:
-                raise ETLError("Cada fuente debe tener 'name' y 'path'")
-
-            # Crear SourceETL para esta fuente
-            etl = SourceETL(
-                name=name,
-                source_path=source_path,
-                key_column=source_config.get("key_column"),
-            )
-
-            # Extraer
-            try:
-                df = etl.extract()
-                raw_data[name] = df
-            except Exception as e:
-                raise ETLError(f"Error extrayendo fuente '{name}': {str(e)}")
-
-        return raw_data
-
-    def transform(self, raw_data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """
-        Transforma y combina todas las fuentes.
-
-        Args:
-            raw_data: Diccionario con DataFrames crudos por fuente
-
-        Returns:
-            pd.DataFrame: DataFrame combinado y transformado
-        """
-        from energizados.core.exceptions import ETLError
-
-        logger.info(f"\n{'=' * 60}")
-        logger.info("TRANSFORM: Procesando fuentes individuales")
-        logger.info(f"{'=' * 60}")
-
-        processed = {}
-
-        # Transformar cada fuente individualmente
-        for source_config in self.sources:
-            name = source_config.get("name")
-
-            if name not in raw_data:
-                raise ETLError(f"No se encontraron datos para fuente '{name}'")
-
-            etl = SourceETL(
-                name=name,
-                source_path=source_config.get("path"),
-                key_column=source_config.get("key_column"),
-            )
-
-            # Transformar
-            df = etl.transform(raw_data[name])
-            processed[name] = df
-
-        self.processed_sources_ = processed
-
-        # Combinar fuentes
-        logger.info(f"\n{'=' * 60}")
-        logger.info("MERGE: Combinando fuentes procesadas")
-        logger.info(f"{'=' * 60}")
-
-        merged_df = self._merge_sources(processed)
-
-        return merged_df
-
-    def _merge_sources(self, processed: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """
-        Combina múltiples DataFrames en uno solo.
-
-        Args:
-            processed: Diccionario con DataFrames procesados por fuente
-
-        Returns:
-            pd.DataFrame: DataFrame combinado
-        """
-        if not processed:
-            raise ETLError("No hay fuentes procesadas para combinar")
-
-        # Obtener configuración de merge
-        merge_how = self.merge_config.get("how", "left")
-        merge_on = self.merge_config.get("on")
-
-        # Determinar orden de merge (primary first)
-        primary_source = self.merge_config.get("primary_source")
-        source_order = self.merge_config.get("source_order", [])
-
-        # Ordenar fuentes
-        if primary_source and primary_source in processed:
-            # Poner primary al inicio
-            ordered = {primary_source: processed[primary_source]}
-            for name, df in processed.items():
-                if name != primary_source:
-                    ordered[name] = df
-            processed = ordered
-        elif source_order:
-            # Usar orden especificado
-            ordered = {}
-            for name in source_order:
-                if name in processed:
-                    ordered[name] = processed[name]
-            # Agregar restantes
-            for name, df in processed.items():
-                if name not in ordered:
-                    ordered[name] = df
-            processed = ordered
-
-        # Comenzar con la primera fuente
-        source_names = list(processed.keys())
-        first_name = source_names[0]
-        merged = processed[first_name]
-
-        logger.info(f"  • Fuente primaria: '{first_name}' ({len(merged)} registros)")
-
-        # Merge con las demás fuentes
-        for name in source_names[1:]:
-            df = processed[name]
-
-            # Determinar clave de unión
-            if merge_on:
-                on = merge_on
-            else:
-                # Intentar encontrar columna común
-                common_cols = set(merged.columns) & set(df.columns)
-                if not common_cols:
-                    raise ETLError(f"No hay columnas comunes entre '{first_name}' y '{name}'")
-                on = list(common_cols)[0]
-
-            # Merge
-            logger.info(f"  • Merge con '{name}' ({len(df)} registros) on='{on}', how='{merge_how}'")
-            merged = pd.merge(merged, df, on=on, how=merge_how, suffixes=("", f"_{name}"))
-
-        logger.info(f"\n  ✓ Dataset final: {len(merged)} registros, {len(merged.columns)} columnas")
-
-        return merged
-
-    def load(self, df: pd.DataFrame, path: str) -> None:
-        """
-        Guarda el dataset combinado.
-
-        Args:
-            df: DataFrame combinado
-            path: Ruta de salida
-
-        Raises:
-            ETLError: Si no se pueden guardar los datos
-        """
-        try:
-            output_path = Path(path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            if output_path.suffix == ".parquet" or output_path.suffix == ".pq":
-                df.to_parquet(path, index=False)
-            elif output_path.suffix == ".csv":
-                df.to_csv(path, index=False)
-            else:
-                df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
-
-            logger.info(f"  ✓ Dataset final guardado en '{path}'")
-
-        except Exception as e:
-            raise ETLError(f"Error guardando dataset final: {str(e)}")
-
-
-class MergeETL(BaseETL):
-    """
-    ETL que combina datasets previamente procesados.
-
-    Esta clase lee datasets ya procesados (por otros ETLs) y los
-    combina en un dataset final.
-
-    Args:
-        name: Nombre de la ETL
-        input_paths: Lista de rutas a datasets procesados
-        output_path: Ruta de salida del dataset final
-        merge_config: Configuración de cómo combinar las fuentes
-        key_column: Columna clave para unir (default: 'id_cliente')
-        **kwargs: Parámetros adicionales
-
-    Example:
-        >>> etl = MergeETL(
-        ...     name='merge',
-        ...     input_paths=['data/consumos.parquet', 'data/clientes.parquet'],
-        ...     merge_config={'how': 'left', 'on': 'id_cliente'},
-        ...     output_path='data/dataset_final.parquet'
-        ... )
-        >>> df = etl.run('data/dataset_final.parquet')
-    """
-
-    def __init__(
-        self,
-        name: str,
-        input_paths: List[str],
-        output_path: Optional[str] = None,
-        merge_config: Optional[Dict[str, Any]] = None,
-        key_column: Optional[str] = None,
-        **kwargs,
-    ):
-        self.name = name
-        self.input_paths = input_paths
-        self.output_path = output_path
-        self.merge_config = merge_config or {}
-        self.key_column = key_column or "id_cliente"
-        self.kwargs = kwargs
-
-        # Construir lista de fuentes desde input_paths
-        self.sources = []
-        for i, path in enumerate(input_paths):
-            source_name = kwargs.get(f"source_{i}_name", f"source_{i}")
-            self.sources.append({"name": source_name, "path": path, "key_column": key_column})
-
-    def extract(self) -> Dict[str, pd.DataFrame]:
-        """
-        Lee los datasets procesados.
-
-        Returns:
-            Dict[str, pd.DataFrame]: Diccionario con DataFrames por fuente
-        """
-        from energizados.core.exceptions import ETLError
-
-        logger.info(f"\n{'=' * 60}")
-        logger.info(f"EXTRACT: Leyendo {len(self.sources)} datasets procesados")
-        logger.info(f"{'=' * 60}")
-
-        data = {}
-
-        for source_config in self.sources:
-            name = source_config.get("name")
-            source_path = source_config.get("path")
-
-            if not name or not source_path:
-                raise ETLError("Cada fuente debe tener 'name' y 'path'")
-
-            try:
-                path = Path(source_path)
-                if not path.exists():
-                    raise ETLError(f"Archivo no encontrado: {source_path}")
-
-                if path.suffix in [".parquet", ".pq"]:
-                    df = pd.read_parquet(source_path)
-                elif path.suffix == ".csv":
-                    df = pd.read_csv(source_path)
-                else:
-                    raise ETLError(f"Formato no soportado: {path.suffix}")
-
-                data[name] = df
-                logger.info(f"  ✓ Leídos {len(df)} registros de '{name}'")
-
-            except Exception as e:
-                raise ETLError(f"Error leyendo '{name}': {str(e)}")
-
-        return data
-
-    def transform(self, data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """
-        Combina los datasets procesados.
-
-        Args:
-            data: Diccionario con DataFrames por fuente
-
-        Returns:
-            pd.DataFrame: DataFrame combinado
-        """
-        logger.info(f"\n{'=' * 60}")
-        logger.info("MERGE: Combinando datasets procesados")
-        logger.info(f"{'=' * 60}")
-
-        merged = self._merge_sources(data)
-
-        return merged
-
-    def _merge_sources(self, data: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """
-        Combina múltiples DataFrames en uno solo.
-
-        Args:
-            data: Diccionario con DataFrames por fuente
-
-        Returns:
-            pd.DataFrame: DataFrame combinado
-        """
-        if not data:
-            raise ETLError("No hay datos para combinar")
-
-        merge_how = self.merge_config.get("how", "left")
-        merge_on = self.merge_config.get("on")
-
-        # Determinar orden de merge
-        primary_source = self.merge_config.get("primary_source")
-        source_order = self.merge_config.get("source_order", [])
-
-        # Ordenar fuentes
-        if primary_source and primary_source in data:
-            ordered = {primary_source: data[primary_source]}
-            for name, df in data.items():
-                if name != primary_source:
-                    ordered[name] = df
-            data = ordered
-        elif source_order:
-            ordered = {}
-            for name in source_order:
-                if name in data:
-                    ordered[name] = data[name]
-            for name, df in data.items():
-                if name not in ordered:
-                    ordered[name] = df
-            data = ordered
-
-        source_names = list(data.keys())
-        first_name = source_names[0]
-        merged = data[first_name]
-
-        logger.info(f"  • Fuente primaria: '{first_name}' ({len(merged)} registros)")
-
-        for name in source_names[1:]:
-            df = data[name]
-
-            if merge_on:
-                on = merge_on
-            else:
-                common_cols = set(merged.columns) & set(df.columns)
-                if not common_cols:
-                    raise ETLError(f"No hay columnas comunes entre '{first_name}' y '{name}'")
-                on = list(common_cols)[0]
-
-            logger.info(f"  • Merge con '{name}' ({len(df)} registros) on='{on}', how='{merge_how}'")
-            merged = pd.merge(merged, df, on=on, how=merge_how, suffixes=("", f"_{name}"))
-
-        logger.info(f"\n  ✓ Dataset final: {len(merged)} registros, {len(merged.columns)} columnas")
-
-        return merged
-
-    def load(self, df: pd.DataFrame, path: str) -> None:
-        """
-        Guarda el dataset combinado.
-
-        Args:
-            df: DataFrame combinado
-            path: Ruta de salida
-
-        Raises:
-            ETLError: Si no se pueden guardar los datos
-        """
-        try:
-            output_path = Path(path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            if output_path.suffix in [".parquet", ".pq"]:
-                df.to_parquet(path, index=False)
-            elif output_path.suffix == ".csv":
-                df.to_csv(path, index=False)
-            else:
-                df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
-
-            logger.info(f"  ✓ Dataset final guardado en '{path}'")
-
-        except Exception as e:
-            raise ETLError(f"Error guardando dataset final: {str(e)}")
