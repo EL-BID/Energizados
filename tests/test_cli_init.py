@@ -41,9 +41,19 @@ class TestInitCommand:
             assert (project_path / "config").exists()
             assert (project_path / "data" / "raw").exists()
             assert (project_path / "data" / "processed").exists()
+            assert (project_path / "data" / "splits").exists()
             assert (project_path / "models" / "trained").exists()
             assert (project_path / "notebooks").exists()
             assert (project_path / "reports").exists()
+            assert (project_path / "run").exists()
+
+            # Verificar scripts de ejecución
+            assert (project_path / "run" / "01_etl.py").exists()
+            assert (project_path / "run" / "02_split.py").exists()
+            assert (project_path / "run" / "03_training.py").exists()
+            assert (project_path / "run" / "04_evaluation.py").exists()
+            assert (project_path / "run" / "05_inference.py").exists()
+            assert (project_path / "run" / "run_all.py").exists()
 
             # Verificar archivos creados
             assert (project_path / "src" / "data" / "custom_etl.py").exists()

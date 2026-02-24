@@ -122,6 +122,9 @@ def create_project(project_name: str, project_path: Path, template: str = "defau
         # Crear configuración
         _create_config_files(project_path, project_name)
 
+        # Crear scripts de ejecución
+        _create_run_scripts(project_path, project_name)
+
         # Crear requirements.txt
         _create_requirements_file(project_path)
 
@@ -149,11 +152,14 @@ def _create_directory_structure(project_path: Path):
         # Datos
         project_path / "data" / "raw",
         project_path / "data" / "processed",
+        project_path / "data" / "splits",
         # Modelos entrenados (solo archivos)
         project_path / "models" / "trained",
         # Notebooks y reportes
         project_path / "notebooks",
         project_path / "reports",
+        # Scripts de ejecución
+        project_path / "run",
     ]
 
     for directory in directories:
@@ -213,6 +219,7 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
     # Archivos .gitkeep para mantener directorios vacíos en git
     (project_path / "data" / "raw" / ".gitkeep").write_text("")
     (project_path / "data" / "processed" / ".gitkeep").write_text("")
+    (project_path / "data" / "splits" / ".gitkeep").write_text("")
     (project_path / "models" / "trained" / ".gitkeep").write_text("")
     (project_path / "reports" / ".gitkeep").write_text("")
 
@@ -620,6 +627,104 @@ def _copy_project_source(source_path: Path, target_path: Path, source_name: str,
         _create_extra_templates(target_path, target_name)
     if not (target_path / "requirements.txt").exists():
         _create_requirements_file(target_path)
+
+
+def _create_run_scripts(project_path: Path, project_name: str):
+    """
+    Crea scripts de Python para ejecutar cada etapa del pipeline.
+
+    Scripts creados:
+    - 01_etl.py - Ejecuta ETLs
+    - 02_split.py - Ejecuta split de datos
+    - 03_training.py - Ejecuta entrenamiento
+    - 04_evaluation.py - Ejecuta evaluación
+    - 05_inference.py - Ejecuta inferencia
+    - run_all.py - Ejecuta todo el pipeline
+    """
+    scripts = {
+        "01_etl.py": '''#!/usr/bin/env python
+"""Script para ejecutar ETLs."""
+
+from click.testing import CliRunner
+from energizados.cli.main import cli
+
+if __name__ == "__main__":
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--config", "config/etls.yaml", "--step", "etl"])
+    print(result.output)
+    exit(result.exit_code)
+''',
+        "02_split.py": '''#!/usr/bin/env python
+"""Script para ejecutar split de datos (train/val/test)."""
+
+from click.testing import CliRunner
+from energizados.cli.main import cli
+
+if __name__ == "__main__":
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--config", "config/training.yaml", "--step", "split"])
+    print(result.output)
+    exit(result.exit_code)
+''',
+        "03_training.py": '''#!/usr/bin/env python
+"""Script para ejecutar entrenamiento (incluye feature engineering)."""
+
+from click.testing import CliRunner
+from energizados.cli.main import cli
+
+if __name__ == "__main__":
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--config", "config/training.yaml", "--step", "training"])
+    print(result.output)
+    exit(result.exit_code)
+''',
+        "04_evaluation.py": '''#!/usr/bin/env python
+"""Script para ejecutar evaluación del modelo."""
+
+from click.testing import CliRunner
+from energizados.cli.main import cli
+
+if __name__ == "__main__":
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--config", "config/training.yaml", "--step", "evaluation"])
+    print(result.output)
+    exit(result.exit_code)
+''',
+        "05_inference.py": '''#!/usr/bin/env python
+"""Script para ejecutar inferencia."""
+
+from click.testing import CliRunner
+from energizados.cli.main import cli
+
+if __name__ == "__main__":
+    runner = CliRunner()
+    result = runner.invoke(cli, ["run", "--config", "config/inference.yaml", "--step", "inference"])
+    print(result.output)
+    exit(result.exit_code)
+''',
+        "run_all.py": '''#!/usr/bin/env python
+"""Script para ejecutar todo el pipeline completo."""
+
+from click.testing import CliRunner
+from energizados.cli.main import cli
+
+if __name__ == "__main__":
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "run",
+        "--config", "config/etls.yaml",
+        "--config", "config/training.yaml",
+        "--config", "config/inference.yaml",
+    ])
+    print(result.output)
+    exit(result.exit_code)
+''',
+    }
+
+    for filename, content in scripts.items():
+        script_path = project_path / "run" / filename
+        script_path.write_text(content)
+        script_path.chmod(0o755)  # Make executable
 
 
 def _create_config_files(project_path: Path, project_name: str):
