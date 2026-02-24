@@ -9,13 +9,7 @@ pipeline de características.
 from energizados.feature_engineering.base import BaseFeatureEngineering
 from energizados.feature_engineering.default import DefaultFeatureEngineering
 
-# Alias para backward compatibility
-BaseFeaturePipeline = BaseFeatureEngineering
-DefaultFeaturePipeline = DefaultFeatureEngineering
-
 __all__ = [
     "BaseFeatureEngineering",
     "DefaultFeatureEngineering",
-    "BaseFeaturePipeline",  # backward compatibility
-    "DefaultFeaturePipeline",  # backward compatibility
 ]

@@ -1,7 +1,7 @@
 """
-Unit tests for DefaultFeaturePipeline.
+Unit tests for DefaultFeatureEngineering.
 
-Pruebas para el Feature Pipeline que combina preprocessing
+Pruebas para el Feature Engineering que combina preprocessing
 y feature selection con configuración por columna.
 """
 

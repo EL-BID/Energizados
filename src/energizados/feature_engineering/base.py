@@ -182,7 +182,3 @@ class BaseFeatureEngineering(ABC):
         """
         if not self.is_fitted_:
             raise ValueError(f"{self.__class__.__name__} no está entrenado. Llame a fit() primero.")
-
-
-# Alias para backward compatibility
-BaseFeaturePipeline = BaseFeatureEngineering

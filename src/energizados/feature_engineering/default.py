@@ -259,7 +259,3 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         """
         self.check_fitted()
         return self.selector
-
-
-# Alias para backward compatibility
-DefaultFeaturePipeline = DefaultFeatureEngineering
