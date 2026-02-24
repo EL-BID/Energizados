@@ -640,84 +640,84 @@ def _create_run_scripts(project_path: Path, project_name: str):
     - 04_evaluation.py - Ejecuta evaluación
     - 05_inference.py - Ejecuta inferencia
     - run_all.py - Ejecuta todo el pipeline
+
+    Nota: Estos scripts usan el API Python directamente, sin invocar al CLI.
     """
     scripts = {
         "01_etl.py": '''#!/usr/bin/env python
 """Script para ejecutar ETLs."""
 
-from click.testing import CliRunner
-from energizados.cli.main import cli
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 if __name__ == "__main__":
-    runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--config", "config/etls.yaml", "--step", "etl"])
-    print(result.output)
-    exit(result.exit_code)
+    builder = ConfigPipelineBuilder(config_path="config/etls.yaml")
+    pipeline = builder.build()
+    results = pipeline.run()
+    print("✓ ETLs completadas")
 ''',
         "02_split.py": '''#!/usr/bin/env python
 """Script para ejecutar split de datos (train/val/test)."""
 
-from click.testing import CliRunner
-from energizados.cli.main import cli
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 if __name__ == "__main__":
-    runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--config", "config/training.yaml", "--step", "split"])
-    print(result.output)
-    exit(result.exit_code)
+    builder = ConfigPipelineBuilder(config_path="config/training.yaml")
+    pipeline = builder.build()
+    results = pipeline.run()
+    print("✓ Split completado")
 ''',
         "03_training.py": '''#!/usr/bin/env python
 """Script para ejecutar entrenamiento (incluye feature engineering)."""
 
-from click.testing import CliRunner
-from energizados.cli.main import cli
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 if __name__ == "__main__":
-    runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--config", "config/training.yaml", "--step", "training"])
-    print(result.output)
-    exit(result.exit_code)
+    builder = ConfigPipelineBuilder(config_path="config/training.yaml")
+    pipeline = builder.build()
+    results = pipeline.run()
+    print("✓ Entrenamiento completado")
 ''',
         "04_evaluation.py": '''#!/usr/bin/env python
 """Script para ejecutar evaluación del modelo."""
 
-from click.testing import CliRunner
-from energizados.cli.main import cli
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 if __name__ == "__main__":
-    runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--config", "config/training.yaml", "--step", "evaluation"])
-    print(result.output)
-    exit(result.exit_code)
+    builder = ConfigPipelineBuilder(config_path="config/training.yaml")
+    pipeline = builder.build()
+    results = pipeline.run()
+    print("✓ Evaluación completada")
 ''',
         "05_inference.py": '''#!/usr/bin/env python
 """Script para ejecutar inferencia."""
 
-from click.testing import CliRunner
-from energizados.cli.main import cli
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 if __name__ == "__main__":
-    runner = CliRunner()
-    result = runner.invoke(cli, ["run", "--config", "config/inference.yaml", "--step", "inference"])
-    print(result.output)
-    exit(result.exit_code)
+    builder = ConfigPipelineBuilder(config_path="config/inference.yaml")
+    pipeline = builder.build()
+    results = pipeline.run()
+    print("✓ Inferencia completada")
 ''',
         "run_all.py": '''#!/usr/bin/env python
 """Script para ejecutar todo el pipeline completo."""
 
-from click.testing import CliRunner
-from energizados.cli.main import cli
+from energizados.cli.run import merge_configs, execute_pipeline
 
 if __name__ == "__main__":
-    runner = CliRunner()
-    result = runner.invoke(cli, [
-        "run",
-        "--config", "config/etls.yaml",
-        "--config", "config/training.yaml",
-        "--config", "config/inference.yaml",
-    ])
-    print(result.output)
-    exit(result.exit_code)
+    config_paths = [
+        "config/etls.yaml",
+        "config/training.yaml",
+        "config/inference.yaml",
+    ]
+    merged_config = merge_configs(config_paths)
+
+    from energizados.core.pipeline import ConfigPipelineBuilder
+    builder = ConfigPipelineBuilder(config=merged_config)
+    pipeline = builder.build()
+    results = pipeline.run()
+
+    print("✓ Pipeline completado")
 ''',
     }
 

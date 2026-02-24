@@ -349,6 +349,9 @@ class ConfigPipelineBuilder:
 
         # Determinar input_path
         input_path = split_config.get("input_path")
+        if not input_path:
+            # Buscar también a nivel de training (global)
+            input_path = self.config.get("training", {}).get("input_path")
         if not input_path and "etls" in self.config:
             # Usar el último ETL output si existe
             etl_configs = self.config.get("etls", {})
