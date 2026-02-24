@@ -138,11 +138,10 @@ def init(ctx, project_name, template, path, copy_from, force):
         click.echo(f"  1. cd {project_name}")
         click.echo("  2. Editar los archivos de configuración en config/:")
         click.echo("     - etls.yaml")
-        click.echo("     - feature_pipeline.yaml")
         click.echo("     - training.yaml")
         click.echo("     - inference.yaml")
         click.echo("  3. (Opcional) Personalizar src/data/custom_etl.py")
-        click.echo("  4. energizados run --config config/etls.yaml --config config/feature_pipeline.yaml --config config/training.yaml")
+        click.echo("  4. energizados run --config config/etls.yaml --config config/training.yaml")
     except FileExistsError as e:
         # Preguntar si desea eliminar y recrear
         if click.confirm(f"\n{e}\n¿Deseas eliminar el directorio existente y recrearlo?", default=False):
@@ -159,11 +158,10 @@ def init(ctx, project_name, template, path, copy_from, force):
             click.echo(f"  1. cd {project_name}")
             click.echo("  2. Editar los archivos de configuración en config/:")
             click.echo("     - etls.yaml")
-            click.echo("     - feature_pipeline.yaml")
             click.echo("     - training.yaml")
             click.echo("     - inference.yaml")
             click.echo("  3. (Opcional) Personalizar src/data/custom_etl.py")
-            click.echo("  4. energizados run --config config/etls.yaml --config config/feature_pipeline.yaml --config config/training.yaml")
+            click.echo("  4. energizados run --config config/etls.yaml --config config/training.yaml")
         else:
             click.echo("\n✗ Operación cancelada.", err=True)
             raise click.Abort()
@@ -185,7 +183,7 @@ def init(ctx, project_name, template, path, copy_from, force):
 @click.option(
     "--step",
     "-s",
-    help="Ejecutar solo un paso específico del pipeline (etl, feature_pipeline, training, evaluation, inference)",
+    help="Ejecutar solo un paso específico del pipeline (etl, split, training, evaluation, inference)",
 )
 @click.option(
     "--etl",
@@ -213,7 +211,7 @@ def run(ctx, config_paths, step, etl, dry_run):
     - --dry-run: Muestra el plan sin ejecutar
 
     Se pueden especificar múltiples archivos de configuración:
-        energizados run --config config/etls.yaml --config config/feature_pipeline.yaml --config config/training.yaml
+        energizados run --config config/etls.yaml --config config/training.yaml
     """
     from energizados.cli.run import (
         execute_etl,

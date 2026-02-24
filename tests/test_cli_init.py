@@ -55,9 +55,8 @@ class TestInitCommand:
             assert (project_path / "tests" / "__init__.py").exists()
             assert (project_path / "docs" / "project_docs.md").exists()
 
-            # Verificar archivos de configuración (4 archivos separados)
+            # Verificar archivos de configuración (3 archivos separados)
             assert (project_path / "config" / "etls.yaml").exists()
-            assert (project_path / "config" / "feature_pipeline.yaml").exists()
             assert (project_path / "config" / "training.yaml").exists()
             assert (project_path / "config" / "inference.yaml").exists()
 
@@ -241,9 +240,8 @@ etls:
             assert (new_path / "src" / "models" / "custom_model.py").exists()
             assert (new_path / "src" / "inference" / "custom_inference.py").exists()
 
-            # Verificar que se crearon los 4 archivos de config
+            # Verificar que se crearon los 3 archivos de config
             assert (new_path / "config" / "etls.yaml").exists()
-            assert (new_path / "config" / "feature_pipeline.yaml").exists()
             assert (new_path / "config" / "training.yaml").exists()
             assert (new_path / "config" / "inference.yaml").exists()
 
@@ -333,9 +331,8 @@ etls:
             # Debe ser config/ (singular)
             assert (project_path / "config").exists()
 
-            # Debe tener los 4 archivos de config
+            # Debe tener los 3 archivos de config
             assert (project_path / "config" / "etls.yaml").exists()
-            assert (project_path / "config" / "feature_pipeline.yaml").exists()
             assert (project_path / "config" / "training.yaml").exists()
             assert (project_path / "config" / "inference.yaml").exists()
 

@@ -96,7 +96,7 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     # Mapeo de nombres de pasos
     step_map = {
         "etl": "ETLStep",
-        "feature_pipeline": "FeaturePipelineStep",
+        "split": "SplitStep",
         "training": "TrainingStep",
         "evaluation": "EvaluationStep",
         "inference": "InferenceStep",

@@ -457,7 +457,7 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
     new_package = _sanitize_package_name(new_name)
 
     # Lista de archivos de configuración a copiar
-    config_files = ["etls.yaml", "feature_pipeline.yaml", "training.yaml", "inference.yaml"]
+    config_files = ["etls.yaml", "training.yaml", "inference.yaml"]
 
     for config_file in config_files:
         # Determinar ruta según estructura
@@ -626,9 +626,8 @@ def _create_config_files(project_path: Path, project_name: str):
     """
     Crea archivos de configuración del proyecto.
 
-    Crea 4 archivos de configuración separados:
+    Crea 3 archivos de configuración separados:
     - etls.yaml
-    - feature_pipeline.yaml
     - training.yaml
     - inference.yaml
 
@@ -641,7 +640,6 @@ def _create_config_files(project_path: Path, project_name: str):
 
     config_templates = {
         "etls.yaml": "config/etls.yaml.tpl",
-        "feature_pipeline.yaml": "config/feature_pipeline.yaml.tpl",
         "training.yaml": "config/training.yaml.tpl",
         "inference.yaml": "config/inference.yaml.tpl",
     }

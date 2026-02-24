@@ -1,14 +1,11 @@
 """
-Feature Pipeline Module for Energizados Framework.
+Feature Engineering Module for Energizados Framework.
 
-DEPRECATED: Este módulo ha sido renombrado a `feature_engineering`.
-Las importaciones aquí se redirigen al nuevo módulo para backward compatibility.
-
-Se recomienda usar:
-    from energizados.feature_engineering import BaseFeatureEngineering, DefaultFeatureEngineering
+Este módulo combina preprocessing y feature_selection en un solo paso,
+permitiendo transformaciones más eficientes y un manejo unificado del
+pipeline de características.
 """
 
-# Importar desde el nuevo módulo para backward compatibility
 from energizados.feature_engineering.base import BaseFeatureEngineering
 from energizados.feature_engineering.default import DefaultFeatureEngineering
 

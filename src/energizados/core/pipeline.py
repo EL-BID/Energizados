@@ -240,24 +240,33 @@ class ConfigPipelineBuilder:
             if etl_step is not None:
                 pipeline.add_step(etl_step)
 
-        # Paso 2: Feature Pipeline (preprocessing + feature_selection unificados)
-        if self.config.get("feature_pipeline", {}).get("enabled", True):
-            fp_step = self._build_feature_pipeline_step()
-            if fp_step is not None:
-                pipeline.add_step(fp_step)
+        # Paso 2: Split (división de datos en train/val/test)
+        # Buscar configuración en training.split o en split (legacy)
+        split_config = self.config.get("training", {}).get("split", {})
+        if not split_config:
+            split_config = self.config.get("split", {})
+        if split_config:
+            split_step = self._build_split_step()
+            if split_step is not None:
+                pipeline.add_step(split_step)
 
-        # Paso 3: Training
-        train_step = self._build_training_step()
-        if train_step is not None:
-            pipeline.add_step(train_step)
+        # Paso 3: Training (unificado: feature_engineering + model)
+        train_config = self.config.get("training", {})
+        if train_config.get("enabled", False):
+            train_step = self._build_training_step()
+            if train_step is not None:
+                pipeline.add_step(train_step)
 
         # Paso 4: Evaluation
-        if self.config.get("evaluation", {}).get("enabled", True):
+        eval_config = self.config.get("training", {}).get("evaluation", {})
+        if not eval_config:
+            eval_config = self.config.get("evaluation", {})
+        if eval_config.get("enabled", False):
             eval_step = self._build_evaluation_step()
             if eval_step is not None:
                 pipeline.add_step(eval_step)
 
-        # Paso 5: Inference
+        # Paso 6: Inference
         if self.config.get("inference", {}).get("enabled", False):
             inference_step = self._build_inference_step()
             if inference_step is not None:
@@ -321,116 +330,49 @@ class ConfigPipelineBuilder:
 
         return ETLStep(orchestrator)
 
-    def _build_feature_pipeline_step(self) -> Optional[PipelineStep]:
+    def _build_split_step(self) -> Optional[PipelineStep]:
         """
-        Construye el paso de feature pipeline desde la configuración.
-
-        Este paso unifica preprocessing y feature_selection en un solo paso.
+        Construye el paso de splitting desde la configuración.
 
         Returns:
-            PipelineStep: Paso de feature pipeline o None si no está configurado
+            PipelineStep: Paso de split o None si no está configurado
         """
-        from energizados.core.base import PipelineStep
-        from energizados.feature_pipeline.default import DefaultFeaturePipeline
+        from energizados.core.steps.split import SplitStep
 
-        fp_config = self.config.get("feature_pipeline", {})
-        if not fp_config:
+        # Buscar configuración en training.split o en split (legacy)
+        split_config = self.config.get("training", {}).get("split", {})
+        if not split_config:
+            split_config = self.config.get("split", {})
+
+        if not split_config:
             return None
 
-        # Si el usuario especificó una clase personalizada
-        if "custom_class" in fp_config:
-            cls = import_class(fp_config["custom_class"])
-            pipeline_instance = cls(**fp_config.get("params", {}))
-        else:
-            # Usar DefaultFeaturePipeline
-            preprocessing_config = fp_config.get("preprocessing", {})
-            fs_config = fp_config.get("feature_selection", {})
+        # Determinar input_path
+        input_path = split_config.get("input_path")
+        if not input_path and "etls" in self.config:
+            # Usar el último ETL output si existe
+            etl_configs = self.config.get("etls", {})
+            if etl_configs:
+                last_etl = list(etl_configs.keys())[-1]
+                # El input_path será @etl_name
+                input_path = f"@{last_etl}"
 
-            pipeline_instance = DefaultFeaturePipeline(
-                preprocessing_config=preprocessing_config,
-                feature_selection_config=fs_config,
-            )
+        # Si es una referencia @etl_name, la procesamos después
+        # Por ahora, devolvemos el split_step con el input_path
 
-        # Envolver en un PipelineStep
-        input_path = fp_config.get("input_path")
-        output_pkl = fp_config.get("output_pkl")
-        output_parquet = fp_config.get("output_parquet")
-
-        class FeaturePipelineStep(PipelineStep):
-            """Paso del pipeline que ejecuta preprocessing + feature_selection."""
-
-            def __init__(self, feature_pipeline, config):
-                self.feature_pipeline = feature_pipeline
-                self.config = config
-
-            def validate_input(self, context: Dict[str, Any]) -> bool:
-                # Verificar que haya datos disponibles
-                if input_path:
-                    # Se leerán desde archivo
-                    return True
-                return "data" in context or "etl_results" in context
-
-            def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-                # Obtener datos
-                if input_path:
-                    import pandas as pd
-
-                    data = pd.read_parquet(input_path)
-                elif "data" in context:
-                    data = context["data"]
-                elif "etl_results" in context:
-                    # Usar el último resultado de ETL
-                    last_etl = list(context["etl_results"].keys())[-1]
-                    data = context["etl_results"][last_etl]
-                else:
-                    raise ValueError("No se encontraron datos para el feature pipeline")
-
-                # Separar features y target si existe
-                target_col = self.config.get("target_column", "target")
-                if target_col in data.columns:
-                    X = data.drop(columns=[target_col])
-                    y = data[target_col]
-                else:
-                    X = data
-                    y = None
-
-                # Fit y transform
-                if y is not None:
-                    X_transformed = self.feature_pipeline.fit_transform(X, y)
-                else:
-                    X_transformed = self.feature_pipeline.transform(X)
-
-                # Guardar pipeline como pickle
-                if output_pkl:
-                    self.feature_pipeline.save(output_pkl)
-                    logger.info(f"Feature pipeline guardado en: {output_pkl}")
-
-                # Guardar datos transformados como parquet (opcional)
-                if output_parquet:
-                    df_output = X_transformed.copy()
-                    if y is not None:
-                        df_output[target_col] = y.values
-                    df_output.to_parquet(output_parquet, index=False)
-                    logger.info(f"Datos transformados guardados en: {output_parquet}")
-                    context["feature_pipeline_data"] = df_output
-                else:
-                    context["feature_pipeline_data"] = X_transformed
-
-                # Guardar el pipeline en el contexto para uso posterior
-                context["feature_pipeline"] = self.feature_pipeline
-
-                return context
-
-            def get_required_keys(self) -> List[str]:
-                return []
-
-            def get_output_keys(self) -> List[str]:
-                keys = ["feature_pipeline"]
-                if output_parquet:
-                    keys.append("feature_pipeline_data")
-                return keys
-
-        return FeaturePipelineStep(pipeline_instance, fp_config)
+        return SplitStep(
+            input_path=input_path,
+            target_column=split_config.get("target_column", "target"),
+            test_size=split_config.get("test_size", 0.2),
+            val_size=split_config.get("val_size", 0.1),
+            random_state=split_config.get("random_state", 42),
+            splits_dir=split_config.get("splits_dir", "data/splits/"),
+            method=split_config.get("method", "stratified"),
+            date_column=split_config.get("date_column"),
+            train_period=split_config.get("train_period"),
+            val_period=split_config.get("val_period"),
+            test_period=split_config.get("test_period"),
+        )
 
     def _build_training_step(self) -> Optional[PipelineStep]:
         """
@@ -439,8 +381,10 @@ class ConfigPipelineBuilder:
         Returns:
             PipelineStep: Paso de entrenamiento o None si no está configurado
         """
+        from energizados.core.steps.training import TrainingStep
+
         train_config = self.config.get("training", {})
-        if not train_config:
+        if not train_config or not train_config.get("enabled", False):
             return None
 
         # Si el usuario especificó una clase personalizada
@@ -448,14 +392,13 @@ class ConfigPipelineBuilder:
             cls = import_class(train_config["custom_class"])
             return cls(**train_config.get("params", {}))
 
-        # Usa modelo del registry
-        model_type = train_config.get("model_type")
-        if model_type:
-            model_class = self.MODEL_REGISTRY.get(model_type)
-            if model_class:
-                return model_class(**train_config.get("params", {}))
-
-        return None
+        # Usar TrainingStep unificado
+        return TrainingStep(
+            target_column=train_config.get("target_column", "target"),
+            feature_engineering_config=train_config.get("feature_engineering", {}),
+            model_config=train_config.get("model", {}),
+            output_dir=train_config.get("output_dir", "models/trained/"),
+        )
 
     def _build_evaluation_step(self) -> Optional[PipelineStep]:
         """
@@ -464,8 +407,14 @@ class ConfigPipelineBuilder:
         Returns:
             PipelineStep: Paso de evaluación o None si no está configurado
         """
-        eval_config = self.config.get("evaluation", {})
+        from energizados.evaluation import DefaultEvaluator
+
+        # Buscar configuración en training.evaluation o en evaluation (legacy)
+        eval_config = self.config.get("training", {}).get("evaluation", {})
         if not eval_config:
+            eval_config = self.config.get("evaluation", {})
+
+        if not eval_config or not eval_config.get("enabled", False):
             return None
 
         # Si el usuario especificó una clase personalizada
@@ -473,8 +422,19 @@ class ConfigPipelineBuilder:
             cls = import_class(eval_config["custom_class"])
             return cls(**eval_config.get("params", {}))
 
-        # TODO: Implementar evaluador default cuando esté disponible
-        return None
+        # Usar DefaultEvaluator
+        return DefaultEvaluator(
+            input_path=eval_config.get("input_path"),
+            model_path=eval_config.get("model_path"),
+            feature_engineering_path=eval_config.get("feature_engineering_path"),
+            output_dir=eval_config.get("output_dir", "reports/evaluation/"),
+            target_column=eval_config.get("target_column", "target"),
+            threshold=eval_config.get("threshold", 0.5),
+            metrics=eval_config.get("metrics"),
+            generate_plots=eval_config.get("generate_plots", True),
+            generate_html_report=eval_config.get("generate_html_report", True),
+            generate_json_report=eval_config.get("generate_json_report", True),
+        )
 
     def _build_inference_step(self) -> Optional[PipelineStep]:
         """

@@ -10,7 +10,9 @@ __all__ = [
     "modeling",
     "helper",
     "feature_selection",
+    "feature_engineering",
     "inference",
     "etl",
     "cli",
+    "evaluation",
 ]

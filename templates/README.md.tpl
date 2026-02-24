@@ -6,10 +6,9 @@ Proyecto de detección de fraude energético con Energizados Framework.
 
 ```
 {{project_name}}/
-├── config/                 # Configuraciones del pipeline (4 archivos)
+├── config/                 # Configuraciones del pipeline (3 archivos)
 │   ├── etls.yaml           # Configuración de ETLs
-│   ├── feature_pipeline.yaml # Preprocessing + Feature Selection
-│   ├── training.yaml       # Configuración de entrenamiento
+│   ├── training.yaml       # Configuración de entrenamiento (incluye feature_engineering)
 │   └── inference.yaml      # Configuración de inferencia
 ├── data/                   # Datos del proyecto
 │   ├── raw/               # Datos crudos (inmutables)
@@ -57,7 +56,6 @@ Proyecto de detección de fraude energético con Energizados Framework.
 ```bash
 energizados run \
   --config config/etls.yaml \
-  --config config/feature_pipeline.yaml \
   --config config/training.yaml
 ```
 
@@ -67,8 +65,8 @@ energizados run \
 # Ejecutar solo ETLs
 energizados run --config config/etls.yaml --step etl
 
-# Ejecutar solo Feature Pipeline
-energizados run --config config/feature_pipeline.yaml --step feature_pipeline
+# Ejecutar solo Split
+energizados run --config config/training.yaml --step split
 
 # Ejecutar solo Training
 energizados run --config config/training.yaml --step training
@@ -93,7 +91,7 @@ energizados validate --config config/etls.yaml
 # Validar múltiples archivos
 energizados validate \
   --config config/etls.yaml \
-  --config config/feature_pipeline.yaml
+  --config config/training.yaml
 ```
 
 ### Ejecutar tests
@@ -127,18 +125,18 @@ etls:
     depends_on: ["consumos"]
 ```
 
-### 2. Configurar Feature Pipeline
+### 2. Configurar Training (incluye Feature Engineering)
 
-Edita `config/feature_pipeline.yaml`:
+Edita `config/training.yaml`:
 
 ```yaml
-feature_pipeline:
+training:
   enabled: true
-  input_path: "data/processed/sample_dataset.parquet"
-  output_pkl: "data/processed/feature_pipeline.pkl"
-  output_parquet: "data/processed/feature_pipeline.parquet"
+  target_column: "target"
+  test_size: 0.2
+  val_size: 0.1
 
-  preprocessing:
+  feature_engineering:
     columns:
       actividad:
         - cardinality_reducer:
@@ -149,14 +147,9 @@ feature_pipeline:
             threshold: 0.001
         - target_encoding:
             w: 20
-      nivel_tension:
-        - ordinal_encoding: {}
-      zona:
-        - ordinal_encoding: {}
 
-  feature_selection:
-    enabled: true
-    method: "boruta"
+  model:
+    model_type: "lightgbm"
     params:
       n_estimators: 100
 ```
@@ -166,10 +159,11 @@ feature_pipeline:
 Edita `src/data/custom_etl.py` para implementar tu lógica de extracción,
 transformación y carga de datos.
 
-### 4. Personalizar Feature Pipeline (opcional)
+### 4. Personalizar Feature Engineering (opcional)
 
-Crea `src/feature_pipeline/custom_pipeline.py` para implementar tu propio
-pipeline de características, heredando de `BaseFeaturePipeline`.
+Edita la sección `feature_engineering` en `config/training.yaml` o crea
+`src/features/custom_selector.py` para implementar tu propio pipeline de
+características.
 
 ### 5. Personalizar Modelo
 

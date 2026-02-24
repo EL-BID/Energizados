@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 from sklearn.compose import ColumnTransformer
 
-from energizados.feature_pipeline.default import (
+from energizados.feature_engineering.default import (
     _build_transformer_from_config,
     get_preprocesor,
 )

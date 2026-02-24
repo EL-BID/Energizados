@@ -369,9 +369,8 @@ class TestEndToEndScenarios:
         assert (project_path / "src" / "data" / "custom_etl.py").exists()
         assert (project_path / "src" / "features" / "custom_selector.py").exists()
         assert (project_path / "src" / "models" / "custom_model.py").exists()
-        # Verificar que existe config con los 4 archivos separados
+        # Verificar que existe config con los 3 archivos separados
         assert (project_path / "config" / "etls.yaml").exists()
-        assert (project_path / "config" / "feature_pipeline.yaml").exists()
         assert (project_path / "config" / "training.yaml").exists()
         assert (project_path / "config" / "inference.yaml").exists()
         assert (project_path / "README.md").exists()

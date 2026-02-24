@@ -75,7 +75,6 @@ def validate_config(config_paths: List[str], verbose: bool = False) -> Validatio
     # Validar secciones
     _validate_project_section(merged_config, result)
     _validate_etl_section(merged_config, result)
-    _validate_feature_pipeline_section(merged_config, result)
     _validate_training_section(merged_config, result)
     _validate_evaluation_section(merged_config, result)
     _validate_inference_section(merged_config, result)
@@ -142,87 +141,6 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
 
         enabled = etl_config.get("enabled", True)
         result.add_info(f"ETL '{etl_name}': {'habilitado' if enabled else 'deshabilitado'}")
-
-
-def _validate_feature_pipeline_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección feature_pipeline."""
-    if "feature_pipeline" not in config:
-        result.add_warning("Sección 'feature_pipeline' no encontrada (opcional)")
-        return
-
-    fp = config["feature_pipeline"]
-    if not isinstance(fp, dict):
-        result.add_error("Sección 'feature_pipeline' debe ser un diccionario")
-        return
-
-    if fp.get("enabled", True):
-        # Verificar campos requeridos
-        if "input_path" not in fp:
-            result.add_warning("feature_pipeline.input_path no definido")
-
-        if "output_pkl" not in fp:
-            result.add_warning("feature_pipeline.output_pkl no definido")
-
-        # Validar sub-sección preprocessing
-        if "preprocessing" in fp:
-            prep = fp["preprocessing"]
-            if not isinstance(prep, dict):
-                result.add_error("feature_pipeline.preprocessing debe ser un diccionario")
-            else:
-                # Validar nuevo formato con 'columns'
-                if "columns" in prep:
-                    columns = prep["columns"]
-                    if not isinstance(columns, dict):
-                        result.add_error("feature_pipeline.preprocessing.columns debe ser un diccionario")
-                    elif not columns:
-                        result.add_error("feature_pipeline.preprocessing.columns no puede estar vacío")
-                    else:
-                        result.add_info(f"Columns configuradas: {len(columns)}")
-                        # Validar que cada columna tenga una lista de transformaciones
-                        for col, transforms in columns.items():
-                            if not isinstance(transforms, list):
-                                result.add_error(f"feature_pipeline.preprocessing.columns.{col} debe ser una lista")
-
-                # Advertir sobre parámetros deprecados
-                deprecated_params = ["preprocessor_num", "categorical_features"]
-                for param in deprecated_params:
-                    if param in prep:
-                        result.add_error(
-                            f"feature_pipeline.preprocessing.{param} está deprecado. "
-                            f"Usa 'columns' con configuración por columna en su lugar."
-                        )
-
-        # Validar sub-sección feature_selection
-        if "feature_selection" in fp:
-            fs = fp["feature_selection"]
-            if not isinstance(fs, dict):
-                result.add_error("feature_pipeline.feature_selection debe ser un diccionario")
-            else:
-                if fs.get("enabled", True):
-                    has_method = "method" in fs
-                    has_custom = "custom_class" in fs
-
-                    if not has_method and not has_custom:
-                        result.add_error("feature_pipeline.feature_selection: se requiere 'method' o 'custom_class' cuando está habilitado")
-
-                    if has_method:
-                        valid_methods = ["boruta", "correlation", "constant"]
-                        method = fs["method"]
-                        if method not in valid_methods:
-                            result.add_error(f"feature_pipeline.feature_selection.method inválido: {method}")
-                        else:
-                            result.add_info(f"Feature selection: {method}")
-
-                    if has_custom:
-                        _validate_class_reference(fs["custom_class"], result)
-
-        # Validar custom_class si existe
-        if "custom_class" in fp:
-            _validate_class_reference(fp["custom_class"], result)
-
-        result.add_info("Feature pipeline: habilitado")
-    else:
-        result.add_info("Feature pipeline: deshabilitado")
 
 
 def _validate_inference_section(config: Dict[str, Any], result: ValidationResult):
