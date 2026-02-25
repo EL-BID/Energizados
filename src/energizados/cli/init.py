@@ -635,95 +635,23 @@ def _create_run_scripts(project_path: Path, project_name: str):
 
     Scripts creados:
     - 01_etl.py - Ejecuta ETLs
-    - 02_split.py - Ejecuta split de datos
-    - 03_training.py - Ejecuta entrenamiento
-    - 04_evaluation.py - Ejecuta evaluación
-    - 05_inference.py - Ejecuta inferencia
-    - run_all.py - Ejecuta todo el pipeline
+    - 02_training.py - Ejecuta entrenamiento
+    - 03_evaluation.py - Ejecuta evaluación
+    - 04_inference.py - Ejecuta inferencia
 
     Nota: Estos scripts usan el API Python directamente, sin invocar al CLI.
     """
     scripts = {
-        "01_etl.py": '''#!/usr/bin/env python
-"""Script para ejecutar ETLs."""
-
-from energizados.core.pipeline import ConfigPipelineBuilder
-
-if __name__ == "__main__":
-    builder = ConfigPipelineBuilder(config_path="config/etls.yaml")
-    pipeline = builder.build()
-    results = pipeline.run()
-    print("✓ ETLs completadas")
-''',
-        "02_split.py": '''#!/usr/bin/env python
-"""Script para ejecutar split de datos (train/val/test)."""
-
-from energizados.core.pipeline import ConfigPipelineBuilder
-
-if __name__ == "__main__":
-    builder = ConfigPipelineBuilder(config_path="config/training.yaml")
-    pipeline = builder.build()
-    results = pipeline.run()
-    print("✓ Split completado")
-''',
-        "03_training.py": '''#!/usr/bin/env python
-"""Script para ejecutar entrenamiento (incluye feature engineering)."""
-
-from energizados.core.pipeline import ConfigPipelineBuilder
-
-if __name__ == "__main__":
-    builder = ConfigPipelineBuilder(config_path="config/training.yaml")
-    pipeline = builder.build()
-    results = pipeline.run()
-    print("✓ Entrenamiento completado")
-''',
-        "04_evaluation.py": '''#!/usr/bin/env python
-"""Script para ejecutar evaluación del modelo."""
-
-from energizados.core.pipeline import ConfigPipelineBuilder
-
-if __name__ == "__main__":
-    builder = ConfigPipelineBuilder(config_path="config/training.yaml")
-    pipeline = builder.build()
-    results = pipeline.run()
-    print("✓ Evaluación completada")
-''',
-        "05_inference.py": '''#!/usr/bin/env python
-"""Script para ejecutar inferencia."""
-
-from energizados.core.pipeline import ConfigPipelineBuilder
-
-if __name__ == "__main__":
-    builder = ConfigPipelineBuilder(config_path="config/inference.yaml")
-    pipeline = builder.build()
-    results = pipeline.run()
-    print("✓ Inferencia completada")
-''',
-        "run_all.py": '''#!/usr/bin/env python
-"""Script para ejecutar todo el pipeline completo."""
-
-from energizados.cli.run import merge_configs, execute_pipeline
-
-if __name__ == "__main__":
-    config_paths = [
-        "config/etls.yaml",
-        "config/training.yaml",
-        "config/inference.yaml",
-    ]
-    merged_config = merge_configs(config_paths)
-
-    from energizados.core.pipeline import ConfigPipelineBuilder
-    builder = ConfigPipelineBuilder(config=merged_config)
-    pipeline = builder.build()
-    results = pipeline.run()
-
-    print("✓ Pipeline completado")
-''',
+        "01_etl.py": "src/run/01_etl.py.tpl",
+        "02_training.py": "src/run/02_training.py.tpl",
+        "03_evaluation.py": "src/run/03_evaluation.py.tpl",
+        "04_inference.py": "src/run/04_inference.py.tpl",
     }
 
-    for filename, content in scripts.items():
+    for filename, template_path in scripts.items():
+        template_content = _load_template(template_path)
         script_path = project_path / "run" / filename
-        script_path.write_text(content)
+        script_path.write_text(template_content)
         script_path.chmod(0o755)  # Make executable
 
 

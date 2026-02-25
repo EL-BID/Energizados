@@ -23,11 +23,9 @@ Proyecto de detección de fraude energético con Energizados Framework.
 ├── reports/                # Reportes y resultados
 ├── run/                    # Scripts de ejecución
 │   ├── 01_etl.py          # Ejecuta ETLs
-│   ├── 02_split.py        # Ejecuta split de datos
-│   ├── 03_training.py     # Ejecuta entrenamiento
-│   ├── 04_evaluation.py   # Ejecuta evaluación
-│   ├── 05_inference.py    # Ejecuta inferencia
-│   └── run_all.py         # Ejecuta todo el pipeline
+│   ├── 02_training.py     # Ejecuta entrenamiento
+│   ├── 03_evaluation.py   # Ejecuta evaluación
+│   └── 04_inference.py    # Ejecuta inferencia
 ├── src/                    # Código fuente
 │   ├── data/              # ETL y preprocessing
 │   │   ├── __init__.py
@@ -66,13 +64,9 @@ El proyecto incluye scripts en el directorio `run/` para ejecutar cada etapa:
 ```bash
 # Ejecutar etapa específica
 python run/01_etl.py          # ETLs
-python run/02_split.py        # Split de datos
-python run/03_training.py     # Entrenamiento
-python run/04_evaluation.py   # Evaluación
-python run/05_inference.py    # Inferencia
-
-# Ejecutar todo el pipeline
-python run/run_all.py
+python run/02_training.py     # Entrenamiento
+python run/03_evaluation.py   # Evaluación
+python run/04_inference.py    # Inferencia
 ```
 
 ### Ejecutar el pipeline completo
