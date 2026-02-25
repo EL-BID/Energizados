@@ -82,7 +82,6 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
     Raises:
         ValueError: Si no se encuentra configuración válida
     """
-    # MODO NUEVO: Configuración por columna
     # Verificar si 'columns' key existe (incluso si está vacío)
     if "columns" in preprocessing_config:
         columns_config = preprocessing_config["columns"]
@@ -104,7 +103,9 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
                 transformers.append((f"{column}_pipeline", pipeline, [column]))
 
         # ColumnTransformer con passthrough para columnas no mencionadas
-        return ColumnTransformer(transformers=transformers, remainder="passthrough")
+        ct = ColumnTransformer(transformers=transformers, remainder="passthrough", verbose_feature_names_out=False)
+        ct.set_output(transform="pandas")
+        return ct
 
     # Error si no hay configuración válida
     raise ValueError("Configuración de preprocessing inválida. Se requiere 'columns' con la configuración por columna. ")
@@ -163,14 +164,33 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         """
         logger.info("Iniciando fit del Feature Engineering...")
 
+        # Verificar si preprocessing está habilitado
+        preprocessing_enabled = self.preprocessing_config.get("enabled", True)
+
         # 1. Construir y ajustar preprocesador
-        logger.info("Construyendo preprocesador desde configuración...")
-        self.preprocessor = get_preprocesor(self.preprocessing_config)
+        if preprocessing_enabled:
+            # Verificar si hay custom_class
+            custom_class = self.preprocessing_config.get("custom_class")
 
-        logger.info("Aplicando preprocessing de entrenamiento...")
-        X_prep = self.preprocessor.fit_transform(X, y)
+            if custom_class:
+                # Importar y usar custom preprocessor
+                from energizados.utils import import_class
 
-        logger.info(f"Features después de preprocessing: {X_prep.shape[1]}")
+                params = self.preprocessing_config.get("params", {})
+                self.preprocessor = import_class(custom_class)(**params)
+                logger.info(f"Usando custom preprocessor: {custom_class}")
+            else:
+                # Usar configuración YAML
+                logger.info("Construyendo preprocesador desde configuración...")
+                self.preprocessor = get_preprocesor(self.preprocessing_config)
+
+            logger.info("Aplicando preprocessing de entrenamiento...")
+            X_prep = self.preprocessor.fit_transform(X, y)
+            logger.info(f"Features después de preprocessing: {X_prep.shape[1]}")
+        else:
+            logger.info("Preprocessing deshabilitado, usando features originales")
+            self.preprocessor = None
+            X_prep = X.copy()
 
         # 2. Feature Selection (si está habilitado)
         if self.feature_selection_config.get("enabled", True):
@@ -201,8 +221,11 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         """
         self.check_fitted()
 
-        # 1. Aplicar preprocessing
-        X_prep = self.preprocessor.transform(X)
+        # 1. Aplicar preprocessing si está habilitado
+        if self.preprocessor is not None:
+            X_prep = self.preprocessor.transform(X)
+        else:
+            X_prep = X.copy()
 
         # 2. Aplicar feature selection si está habilitado
         if self.selector is not None:

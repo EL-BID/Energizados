@@ -6,7 +6,7 @@ en el código existente del proyecto.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class CorrelationSelector(BaseFeatureSelector):
         self.threshold = threshold
         self.vars_to_drop_ = None
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> "CorrelationSelector":
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "CorrelationSelector":
         """
         Aprende qué variables eliminar por alta correlación.
 
@@ -53,6 +53,14 @@ class CorrelationSelector(BaseFeatureSelector):
         Returns:
             self
         """
+        # Convert numpy array to DataFrame if needed
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        # Filter out non-numeric columns (datetime, object, etc.)
+        X = X.select_dtypes(include=[np.number])
+        logger.info(f"Filtered to {X.shape[1]} numeric columns for correlation analysis")
+
         X = X.copy()
         variables = X.columns.tolist()
 
@@ -111,7 +119,7 @@ class ConstantSelector(BaseFeatureSelector):
         self.threshold = threshold
         self.vars_to_drop_ = None
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> "ConstantSelector":
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "ConstantSelector":
         """
         Aprende qué variables son constantes.
 
@@ -122,6 +130,14 @@ class ConstantSelector(BaseFeatureSelector):
         Returns:
             self
         """
+        # Convert numpy array to DataFrame if needed
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        # Filter out non-numeric columns (datetime, object, etc.)
+        X = X.select_dtypes(include=[np.number])
+        logger.info(f"Filtered to {X.shape[1]} numeric columns for constant detection")
+
         num_rows = X.shape[0]
         all_labels = X.columns.tolist()
 
@@ -181,7 +197,7 @@ class BorutaSelector(BaseFeatureSelector):
         self.random_state = random_state
         self.n_runs_ = 10  # Número de ejecuciones para estabilidad
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> "BorutaSelector":
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "BorutaSelector":
         """
         Aprende qué variables seleccionar usando Boruta.
 
@@ -192,6 +208,24 @@ class BorutaSelector(BaseFeatureSelector):
         Returns:
             self
         """
+        # Convert numpy array to DataFrame if needed
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        # Filter out non-numeric columns (datetime, object, etc.)
+        X = X.select_dtypes(include=[np.number])
+        logger.info(f"Filtered to {X.shape[1]} numeric columns for Boruta")
+
+        # Additional safety: remove object columns that contain datetime values
+        # This handles the case where datetime columns are stored as object dtype
+        # (e.g., when passed through ColumnTransformer with remainder="passthrough")
+        for col in X.select_dtypes(include=["object"]).columns:
+            if len(X[col].dropna()) > 0:
+                sample = X[col].dropna().iloc[0]
+                if hasattr(sample, "timestamp"):  # Check for Timestamp/datetime
+                    logger.warning(f"Removing datetime column stored as object: {col}")
+                    X = X.drop(columns=[col])
+
         X = X.copy()
         y = y.copy()
 
@@ -224,7 +258,8 @@ class BorutaSelector(BaseFeatureSelector):
             # Variables hasta el "random"
             random_idx = ranking[ranking.col == "random"].index
             if len(random_idx) > 0:
-                variables = ranking.head(random_idx[0]).col.values
+                random_rank = ranking[ranking.col == "random"]["ranking"].values[0]
+                variables = ranking[ranking.ranking < random_rank].col.values
             else:
                 variables = ranking.columns.values
 

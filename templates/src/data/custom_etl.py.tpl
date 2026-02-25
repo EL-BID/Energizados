@@ -7,10 +7,10 @@ específica para este proyecto.
 Puedes sobrescribir los métodos extract(), transform() y load() según tus necesidades.
 """
 
-from pathlib import Path
 import pandas as pd
+
 from energizados.etl.pipeline import SourceETL
-from energizados.etl.validators import SchemaValidator
+from energizados.preprocessing import fill_empty_values_cycle, fill_empty_values_str
 
 
 class CustomETL(SourceETL):
@@ -26,13 +26,13 @@ class CustomETL(SourceETL):
     """
 
     def __init__(
-        self,
-        name: str,
-        input_paths: list = None,
-        output_path: str = None,
-        mode: str = "concat",
-        merge_config: dict = None,
-        **kwargs,
+            self,
+            name: str,
+            input_paths: list = None,
+            output_path: str = None,
+            mode: str = "concat",
+            merge_config: dict = None,
+            **kwargs,
     ):
         """
         Inicializa el ETL.
@@ -80,22 +80,15 @@ class CustomETL(SourceETL):
             pd.DataFrame: DataFrame limpio
         """
         # TODO: Implementar tu lógica de transformación
-        # Ejemplos:
 
-        # 1. Eliminar filas con valores nulos
-        # df = df.dropna()
+        # Fill empty values for consuming vars
+        df = fill_empty_values_cycle(df, cant_ciclos_validos=12, suffix="_anterior")
 
-        # 2. Convertir columnas a datetime
-        # df['fecha'] = pd.to_datetime(df['fecha'])
+        # Fill columns with 'sin_dato'
+        cols_fillna_sindatos = ['zona', 'actividad', 'tipo_tarifa', 'nivel_tension']
+        df = fill_empty_values_str(df, cols=cols_fillna_sindatos, str_value='sin_dato')
 
-        # 3. Crear nuevas columnas
-        # df['anio'] = df['fecha'].dt.year
-
-        # 4. Filtrar datos
-        # df = df[df['activo'] == True]
-
-        # Por defecto, solo copiar el dataframe
-        return df.copy()
+        return df
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """
@@ -118,7 +111,6 @@ class CustomETL(SourceETL):
 
         # Usar el método padre que soporta csv, parquet, xlsx
         super().load(df, path)
-
 
 # EJEMPLO DE USO EN CONFIG YAML
 # ================================

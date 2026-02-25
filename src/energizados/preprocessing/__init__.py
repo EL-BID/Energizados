@@ -11,10 +11,10 @@ from energizados.preprocessing.preprocessing import (
     MinMaxScalerRow,
     ToDummy,
     TsfelVars,
-    build_feature_engeniering_pipeline,
-    llenar_val_vacios_ciclo,
-    llenar_val_vacios_numeric,
-    llenar_val_vacios_str,
+    build_feature_engineering_pipeline,
+    fill_empty_values_cycle,
+    fill_empty_values_numeric,
+    fill_empty_values_str,
 )
 
 __all__ = [
@@ -25,8 +25,8 @@ __all__ = [
     "TsfelVars",
     "ExtraVars",
     # Funciones de utilidad
-    "llenar_val_vacios_ciclo",
-    "llenar_val_vacios_str",
-    "llenar_val_vacios_numeric",
-    "build_feature_engeniering_pipeline",
+    "fill_empty_values_cycle",
+    "fill_empty_values_str",
+    "fill_empty_values_numeric",
+    "build_feature_engineering_pipeline",
 ]

@@ -22,7 +22,7 @@ training:
   # Split Configuration
   # ============================================
   split:
-    method: "stratified"  # Opciones: stratified, random, time_series
+method: "time_series"  # Opciones: stratified, random, time_series
 
     # Para métodos stratified/random:
     test_size: 0.2
@@ -30,10 +30,10 @@ training:
     random_state: 42
 
     # Para método time_series:
-    # date_column: "fecha"  # Columna de fecha a usar
-    # train_period: ["2020-01-01", "2022-12-31"]  # [start, end] o solo [start]
-    # val_period: ["2023-01-01", "2023-06-30"]
-    # test_period: ["2023-07-01", "2023-12-31"]
+    date_column: "fecha_inspeccion"
+    train_period: ["2010-01-01", "2017-08-01"]  # [start, end] o solo [start]
+    val_period: ["2017-09-01", "2017-12-31"]
+    test_period: ["2018-01-01"]
 
     # Guardar splits para reproducibilidad
     save_splits: true
@@ -48,7 +48,9 @@ training:
     output_parquet: "data/processed/feature_engineering.parquet"  # opcional
 
     preprocessing:
-      # Configuración por columna
+      enabled: true
+
+      # Opción 1: Usar configuración por columna (formato actual)
       columns:
         # Actividad: reducir cardinalidad + one-hot encoding
         actividad:
@@ -77,7 +79,7 @@ training:
               w: 10
 
     feature_selection:
-      enabled: true
+      enabled: false
       method: "boruta"  # Opciones: boruta, correlation, constant
       params:
         n_estimators: 100
@@ -130,7 +132,16 @@ training:
 # ============================================
 # Uso de clases personalizadas
 # ============================================
-# Para usar tu propio Feature Engineering:
+# Para usar tu propio Preprocesador (solo reemplaza preprocessing, NO feature_engineering completo):
+# training:
+#   feature_engineering:
+#     preprocessing:
+#       enabled: true
+#       custom_class: "preprocessing.custom_preprocessor.CustomPreprocessor"
+#       params:
+#         threshold: 0.5
+#
+# Para usar tu propio Feature Engineering (completo):
 # training:
 #   feature_engineering:
 #     custom_class: "features.custom_selector.CustomSelector"

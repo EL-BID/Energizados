@@ -13,9 +13,9 @@ Clases:
 
 Funciones:
 - llenar_val_vacios_ciclo: Rellena los valores vacíos en las columnas de consumo con los valores anteriores o posteriores.
-- llenar_val_vacios_str: Rellena los valores vacíos en columnas de tipo string con un valor específico.
-- llenar_val_vacios_numeric: Rellena los valores vacíos en columnas numéricas con un valor específico.
-- build_feature_engeniering_pipeline: Construye una tubería de preprocesamiento para la ingeniería de características.
+- fill_empty_values_str: Rellena los valores vacíos en columnas de tipo string con un valor específico.
+- fill_empty_values_numeric: Rellena los valores vacíos en columnas numéricas con un valor específico.
+- build_feature_engineering_pipeline: Construye una tubería de preprocesamiento para la ingeniería de características.
 """
 
 import logging
@@ -23,7 +23,7 @@ from itertools import groupby
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator, OneToOneFeatureMixin, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 
@@ -40,78 +40,136 @@ def _get_tsfel():
 
 class ToDummy(BaseEstimator, TransformerMixin):
     """
-    Clase ToDummy
-
     Transforma variables categóricas en variables dummy.
 
     Parámetros:
     - cols: list, lista de columnas que se convertirán en variables dummy.
+    - sparse: bool, si True devuelve matriz sparse (default=False)
     """
 
-    def __init__(self, cols):
+    def __init__(self, cols=None, sparse=False):
         self.cols = cols
+        self.sparse = sparse
 
     def fit(self, X, y=None):
-        self.dummy_names = pd.get_dummies(X[self.cols], prefix=["dummy_" + x for x in self.cols], columns=self.cols).columns
+        # X es un DataFrame con solo las columnas a transformar
+        if self.cols is None:
+            self.cols = X.columns.tolist()
+
+        # Guardar categorías vistas durante fit
+        self.categories_ = {}
+        for col in self.cols:
+            self.categories_[col] = set(X[col].unique())
+
+        # Generar nombres de columnas dummy
+        self.dummy_names_ = self._generate_dummy_names(self.categories_)
         return self
 
+    def _generate_dummy_names(self, categories):
+        """Genera nombres de columnas dummy basado en las categorías"""
+        names = []
+        for col, cats in categories.items():
+            for cat in cats:
+                names.append(f"dummy_{col}_{cat}")
+        return names
+
     def transform(self, X, y=None):
-        X = pd.get_dummies(X, prefix=["dummy_" + x for x in self.cols], columns=self.cols)
-        cols_dummy_transform = [x for x in X.columns if "dummy_" in x]
-        diff_dummy = list(set(self.dummy_names) - set(cols_dummy_transform))
-        for d in diff_dummy:
-            X[d] = 0
+        # X es un DataFrame con solo las columnas a transformar
+        X_transformed = pd.DataFrame(index=X.index)
 
-        # puede que existan valores en test y no en train
-        diff_dummy = list(set(cols_dummy_transform) - set(self.dummy_names))
-        X = X.drop(columns=diff_dummy)
-        return X[self.dummy_names]
+        for col in self.cols:
+            # Crear dummies solo para esta columna
+            dummies = pd.get_dummies(X[col], prefix=f"dummy_{col}")
 
-    def get_feature_names(self, params):
-        return self.dummy_names
+            # Agregar columnas faltantes (categorías en train pero no en test)
+            for cat in self.categories_[col]:
+                col_name = f"dummy_{col}_{cat}"
+                if col_name not in dummies.columns:
+                    dummies[col_name] = 0
+
+            # Eliminar columnas extra (categorías en test pero no en train)
+            cols_to_keep = [f"dummy_{col}_{cat}" for cat in self.categories_[col]]
+            dummies = dummies[cols_to_keep]
+
+            X_transformed = pd.concat([X_transformed, dummies], axis=1)
+
+        # Devolver en el orden correcto y como array numpy
+        X_transformed = X_transformed[self.dummy_names_]
+
+        if self.sparse:
+            from scipy import sparse
+
+            return sparse.csr_matrix(X_transformed.values)
+
+        return X_transformed.values
+
+    def get_feature_names_out(self, input_features=None):
+        """Metodo requerido por scikit-learn 1.2+ para set_output"""
+        return self.dummy_names_
 
 
 class TeEncoder(BaseEstimator, TransformerMixin):
     """
-    Clase TeEncoder
-
     Codifica variables categóricas utilizando target encoding.
 
     Parámetros:
     - cols: list, lista de columnas que se codificarán.
-    - w: int, peso para el cálculo del target encoding.
+    - w: int, peso para el cálculo del target encoding (suavizado).
     """
 
-    def __init__(self, cols, w=20):
+    def __init__(self, cols=None, w=20):
         self.cols = cols
         self.w = w
-        self.te_var_name = "_".join(cols) + "_prob"
+        self.te_var_name = None
+
+    def _generate_output_name(self):
+        """Genera el nombre de la columna de salida"""
+        if self.cols is None:
+            return "target_enc_prob"
+        return "_".join(self.cols) + "_prob"
 
     def fit(self, X, y=None):
-        feat = self.cols
-        X["target"] = y.values
+        # X es un DataFrame con solo las columnas a codificar
+        if self.cols is None:
+            self.cols = X.columns.tolist()
+
+        self.te_var_name = self._generate_output_name()
         self.mean_global = y.mean()
-        te = X.groupby(feat)["target"].agg(["mean", "count"]).reset_index()
+
+        # Crear mapping sin modificar X original
+        df = X.copy()
+        df["target"] = y.values
+
+        # Agrupar y calcular target encoding con suavizado
+        te = df.groupby(self.cols)["target"].agg(["mean", "count"]).reset_index()
         te[self.te_var_name] = ((te["mean"] * te["count"]) + (self.mean_global * self.w)) / (te["count"] + self.w)
-        self.te = te
+
+        # Guardar solo las columnas necesarias para el merge
+        self.te_mapping_ = te[self.cols + [self.te_var_name]]
+
         return self
 
     def transform(self, X):
-        X = X.merge(self.te[self.cols + [self.te_var_name]], on=self.cols, how="left")
-        X[self.te_var_name].fillna(self.mean_global, inplace=True)
+        # X es un DataFrame con solo las columnas a codificar
+        X_copy = X.copy()
 
-        for x in self.cols:
-            if x in X.columns.tolist():
-                X.drop(columns=[x], inplace=True)
+        # Hacer merge con el mapping
+        X_copy = X_copy.merge(self.te_mapping_, on=self.cols, how="left")
 
-        X[self.cols[0]] = X[self.te_var_name]
-        return X[[self.cols[0]]]
+        # Rellenar NaNs con la media global
+        X_copy[self.te_var_name] = X_copy[self.te_var_name].fillna(self.mean_global)
 
-    def get_feature_names(self, params):
-        return self.te_var_name
+        # Devolver solo la columna codificada como numpy array (2D)
+        return X_copy[[self.te_var_name]].values
+
+    def get_feature_names_out(self, input_features=None):
+        """Método requerido por scikit-learn 1.2+ para set_output"""
+        if self.te_var_name is None:
+            self.te_var_name = self._generate_output_name()
+        return np.array([self.te_var_name])
 
 
-class CardinalityReducer(BaseEstimator, TransformerMixin):
+class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
     """
     Clase CardinalityReducer
 
@@ -131,6 +189,12 @@ class CardinalityReducer(BaseEstimator, TransformerMixin):
         return categories
 
     def fit(self, X, y=None):
+        # Guardar nombres de columnas para soporte de set_output
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = np.array(X.columns.tolist())
+        else:
+            self.feature_names_in_ = None
+
         self.columns = X.columns
         self.categories = {}
         for feature in self.columns:
@@ -143,8 +207,20 @@ class CardinalityReducer(BaseEstimator, TransformerMixin):
             X[feature] = np.where(X[feature].isin(self.categories[feature]), X[feature], "otros")
         return X
 
+    def get_feature_names_out(self, input_features=None):
+        """
+        Método requerido por scikit-learn 1.2+ para set_output.
+        Devuelve los nombres de las características de salida (iguales a las de entrada).
+        """
+        if input_features is not None:
+            return input_features
+        if hasattr(self, "feature_names_in_"):
+            return self.feature_names_in_
+        # Fallback: generar nombres genéricos si no se guardaron
+        return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
 
-class MinMaxScalerRow(BaseEstimator, TransformerMixin):
+
+class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
     """
     Clase MinMaxScalerRow
 
@@ -154,12 +230,40 @@ class MinMaxScalerRow(BaseEstimator, TransformerMixin):
     - feature_range: tuple, rango de valores para el escalado.
     """
 
+    def __init__(self, feature_range=(0, 1)):
+        self.feature_range = feature_range
+
     def fit(self, X, y=None):
+        # Guardar nombres de columnas para soporte de set_output
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = np.array(X.columns.tolist())
+        else:
+            self.feature_names_in_ = None
         return self
 
     def transform(self, X):
-        scaler = MinMaxScaler()
-        return scaler.fit_transform(X.T).T
+        scaler = MinMaxScaler(feature_range=self.feature_range)
+        X_scaled = scaler.fit_transform(X.T).T
+
+        # Si X es un DataFrame, devolver un DataFrame con los mismos nombres e índice
+        if hasattr(X, "columns") and hasattr(X, "index"):
+            import pandas as pd
+
+            return pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
+
+        return X_scaled
+
+    def get_feature_names_out(self, input_features=None):
+        """
+        Método requerido por scikit-learn 1.2+ para set_output.
+        Devuelve los nombres de las características de salida (iguales a las de entrada).
+        """
+        if input_features is not None:
+            return input_features
+        if hasattr(self, "feature_names_in_"):
+            return self.feature_names_in_
+        # Fallback: generar nombres genéricos si no se guardaron
+        return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
 
 
 class TsfelVars(BaseEstimator, TransformerMixin):
@@ -187,7 +291,11 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         for idx, row in df[cols].iterrows():
             # Extraer features para esta serie temporal individual
             features = tsfel.time_series_features_extractor(
-                cfg, row.values, fs=1, verbose=0  # Pasar los valores de la fila como un array 1D  # Frecuencia de muestreo (1 por periodo)
+                cfg,
+                row.values,
+                fs=1,
+                verbose=0,
+                # Pasar los valores de la fila como un array 1D  # Frecuencia de muestreo (1 por periodo)
             )
             features["index"] = idx
             results.append(features)
@@ -203,7 +311,11 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         for idx, row in df[cols].iterrows():
             # Extraer features para esta serie temporal individual
             features = tsfel.time_series_features_extractor(
-                cfg, row.values, fs=1, verbose=0  # Pasar los valores de la fila como un array 1D  # Frecuencia de muestreo (1 por periodo)
+                cfg,
+                row.values,
+                fs=1,
+                verbose=0,
+                # Pasar los valores de la fila como un array 1D  # Frecuencia de muestreo (1 por periodo)
             )
             features["index"] = idx
             results.append(features)
@@ -309,27 +421,27 @@ class ExtraVars(BaseEstimator, TransformerMixin):
         return df_total_super
 
 
-def llenar_val_vacios_ciclo(df, cant_ciclos_validos):
-    cols_consumo = [f"{i}_anterior" for i in range(cant_ciclos_validos, 0, -1)]
+def fill_empty_values_cycle(df, cant_ciclos_validos, suffix: str = "_anterior"):
+    cols_consumo = [f"{i}{suffix}" for i in range(cant_ciclos_validos, 0, -1)]
 
     df.loc[:, cols_consumo] = df.loc[:, cols_consumo].ffill(axis=1)
     df.loc[:, cols_consumo] = df.loc[:, cols_consumo].bfill(axis=1)
     return df
 
 
-def llenar_val_vacios_str(df, cols, str_value):
+def fill_empty_values_str(df, cols, str_value):
     for x in cols:
         df.loc[:, x] = df[x].fillna(str_value)
     return df
 
 
-def llenar_val_vacios_numeric(df, cols, numeric_value):
+def fill_empty_values_numeric(df, cols, numeric_value):
     for x in cols:
         df.loc[:, x] = df[x].fillna(numeric_value)
     return df
 
 
-def build_feature_engeniering_pipeline(f_names_path, num_periodos):
+def build_feature_engineering_pipeline(f_names_path, num_periodos):
     pipe_feature_eng_train = Pipeline(
         [
             ("tsfel vars", TsfelVars("all", features_names_path=f_names_path, read=False, num_periodos=num_periodos)),
