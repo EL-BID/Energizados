@@ -50,7 +50,7 @@ method: "time_series"  # Opciones: stratified, random, time_series
     preprocessing:
       enabled: true
 
-      # Opción 1: Usar configuración por columna (formato actual)
+      # Opción 1: Usar configuración por columna con transformers built-in
       columns:
         # Actividad: reducir cardinalidad + one-hot encoding
         actividad:
@@ -77,6 +77,21 @@ method: "time_series"  # Opciones: stratified, random, time_series
         material_instalacion:
           - target_encoding:
               w: 10
+
+        # Opción 2: Usar custom_class por columna (formato plano)
+        # mi_columna:
+        #   - custom_class: "mi_paquete.preprocessing.MiPreprocessor"
+        #     params:
+        #       threshold: 0.5
+        #       encoding: "target"
+
+        # Opción 3: Mezclar built-in y custom en la misma columna
+        # otra_columna:
+        #   - cardinality_reducer:
+        #       threshold: 0.01
+        #   - custom_class: "mi_paquete.preprocessing.MiEncoder"
+        #     params:
+        #       method: "frequency"
 
     feature_selection:
       enabled: false
@@ -132,7 +147,24 @@ method: "time_series"  # Opciones: stratified, random, time_series
 # ============================================
 # Uso de clases personalizadas
 # ============================================
-# Para usar tu propio Preprocesador (solo reemplaza preprocessing, NO feature_engineering completo):
+# Opción 1: Usar custom_class POR COLUMNA (recomendado)
+# Permite mezclar transformers built-in con customs por columna:
+# training:
+#   feature_engineering:
+#     preprocessing:
+#       columns:
+#         actividad:
+#           - cardinality_reducer:
+#               threshold: 0.001
+#           - custom_class: "preprocessing.CustomActividad"
+#             params:
+#               encoding: "target"
+#         zona:
+#           - custom_class: "preprocessing.ZonaEncoder"
+#             params:
+#               method: "frequency"
+#
+# Opción 2: Reemplazar preprocessing completo con custom_class
 # training:
 #   feature_engineering:
 #     preprocessing:

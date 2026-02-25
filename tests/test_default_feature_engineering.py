@@ -20,6 +20,35 @@ from energizados.preprocessing.preprocessing import (
 )
 
 
+# Custom transformer para testing
+class CustomTestTransformer:
+    """Transformer custom de prueba para testing."""
+
+    def __init__(self, multiplier=1.0):
+        self.multiplier = multiplier
+
+    def fit(self, X, y=None):
+        self.n_features_in_ = X.shape[1] if hasattr(X, "shape") else 1
+        return self
+
+    def transform(self, X):
+        return X * self.multiplier
+
+    def fit_transform(self, X, y=None):
+        self.fit(X, y)
+        return self.transform(X)
+
+    def get_feature_names_out(self, input_features=None):
+        """Return feature names for output features."""
+        if input_features is None:
+            input_features = [f"x{i}" for i in range(self.n_features_in_)]
+        return input_features
+
+    def set_output(self, transform="default"):
+        """Set output container for sklearn compatibility."""
+        return self
+
+
 class TestBuildTransformerFromConfig:
     """Tests para _build_transformer_from_config."""
 
@@ -207,6 +236,22 @@ class TestIntegrationWithSampleData:
         y = pd.Series([0, 1, 0, 1, 1] * 4)
         return X, y
 
+
+# Module-level fixture for use in multiple test classes
+@pytest.fixture
+def sample_data():
+    """Datos de ejemplo similares al dataset real (module level)."""
+    X = pd.DataFrame(
+        {
+            "zona": ["Norte", "Sur", "Norte", "Este", "Oeste"] * 4,
+            "actividad": ["Comercio", "Industria", "Residencial", "Comercio", "Industria"] * 4,
+            "consumo_1": [100, 150, 80, 120, 200] * 4,
+            "consumo_2": [110, 160, 85, 125, 210] * 4,
+        }
+    )
+    y = pd.Series([0, 1, 0, 1, 1] * 4)
+    return X, y
+
     def test_fit_transform_with_columns_config(self, sample_data):
         """Verifica fit_transform con nueva configuración."""
         X, y = sample_data
@@ -232,3 +277,143 @@ class TestIntegrationWithSampleData:
         }
         with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
+
+
+class TestCustomClassPerColumn:
+    """Tests para custom_class por columna (formato plano)."""
+
+    def test_build_transformer_with_custom_class(self):
+        """Verifica la creación de transformer con custom_class."""
+        # Usar el path completo del módulo de测试
+        transformer = _build_transformer_from_config(
+            "custom_class",
+            {"multiplier": 2.0},
+            "test_col",
+            custom_class="tests.test_default_feature_engineering.CustomTestTransformer",
+        )
+        assert isinstance(transformer, CustomTestTransformer)
+        assert transformer.multiplier == 2.0
+
+    def test_custom_class_without_path_raises_error(self):
+        """Verifica que custom_class sin path lance error."""
+        with pytest.raises(ValueError, match="Se debe especificar 'custom_class'"):
+            _build_transformer_from_config("custom_class", {}, "test_col")
+
+    def test_get_preprocesor_with_custom_class_per_column(self):
+        """Verifica get_preprocesor con custom_class por columna."""
+        config = {
+            "columns": {
+                "zona": [
+                    {
+                        "custom_class": "tests.test_default_feature_engineering.CustomTestTransformer",
+                        "params": {"multiplier": 1.5},
+                    }
+                ]
+            }
+        }
+        preprocessor = get_preprocesor(config)
+        assert isinstance(preprocessor, ColumnTransformer)
+        assert len(preprocessor.transformers) == 1
+
+    def test_mix_builtin_and_custom_in_same_column(self):
+        """Verifica mezcla de transformers built-in y custom en misma columna."""
+        config = {
+            "columns": {
+                "actividad": [
+                    {"cardinality_reducer": {"threshold": 0.1}},
+                    {
+                        "custom_class": "tests.test_default_feature_engineering.CustomTestTransformer",
+                        "params": {"multiplier": 1.0},
+                    },
+                ]
+            }
+        }
+        preprocessor = get_preprocesor(config)
+        transformer_name, transformer, cols = preprocessor.transformers[0]
+        assert transformer_name == "actividad_pipeline"
+        assert cols == ["actividad"]
+        # Debe tener 2 pasos en el pipeline
+        assert len(transformer.steps) == 2
+
+    def test_custom_class_integration_with_fit_transform(self, sample_data):
+        """Verifica integración de custom_class con fit_transform."""
+        X, y = sample_data
+        config = {
+            "columns": {
+                "zona": [{"ordinal_encoding": {}}],
+                "consumo_1": [
+                    {
+                        "custom_class": "tests.test_default_feature_engineering.CustomTestTransformer",
+                        "params": {"multiplier": 2.0},
+                    }
+                ],
+            }
+        }
+        preprocessor = get_preprocesor(config)
+        X_transformed = preprocessor.fit_transform(X, y)
+        assert X_transformed.shape[0] == X.shape[0]
+
+
+class TestPreprocessingEnabledFlag:
+    """Tests para el flag enabled en preprocessing."""
+
+    @pytest.fixture
+    def sample_data(self):
+        """Datos de ejemplo."""
+        X = pd.DataFrame(
+            {
+                "zona": ["Norte", "Sur", "Norte", "Este", "Oeste"] * 4,
+                "actividad": ["Comercio", "Industria", "Residencial", "Comercio", "Industria"] * 4,
+                "consumo_1": [100, 150, 80, 120, 200] * 4,
+                "consumo_2": [110, 160, 85, 125, 210] * 4,
+            }
+        )
+        y = pd.Series([0, 1, 0, 1, 1] * 4)
+        return X, y
+
+    def test_preprocessing_enabled_true_applies_preprocessing(self, sample_data):
+        """Verifica que preprocessing.enabled=true aplique preprocessing."""
+        from energizados.feature_engineering.default import DefaultFeatureEngineering
+
+        X, y = sample_data
+        config = {
+            "preprocessing": {"enabled": True, "columns": {"zona": [{"ordinal_encoding": {}}]}},
+            "feature_selection": {"enabled": False},
+        }
+        fe = DefaultFeatureEngineering(config=config)
+        fe.fit(X, y)
+        X_transformed = fe.transform(X)  # noqa: F841
+        # Preprocessing debe haber modificado las columnas
+        assert fe.preprocessor is not None
+
+    def test_preprocessing_enabled_false_skips_preprocessing(self, sample_data):
+        """Verifica que preprocessing.enabled=false salte preprocessing."""
+        from energizados.feature_engineering.default import DefaultFeatureEngineering
+
+        X, y = sample_data
+        config = {
+            "preprocessing": {"enabled": False},
+            "feature_selection": {"enabled": False},
+        }
+        fe = DefaultFeatureEngineering(config=config)
+        fe.fit(X, y)
+        X_transformed = fe.transform(X)
+        # Preprocessor debe ser None cuando preprocessing está deshabilitado
+        assert fe.preprocessor is None
+        # Los datos deben ser iguales (sin transformación)
+        pd.testing.assert_frame_equal(X_transformed, X)
+
+    def test_preprocessing_default_is_enabled(self, sample_data):
+        """Verifica que el default de enabled sea True."""
+        from energizados.feature_engineering.default import DefaultFeatureEngineering
+
+        X, y = sample_data
+        # Sin especificar enabled (debe default a True)
+        config = {
+            "preprocessing": {"columns": {"zona": [{"ordinal_encoding": {}}]}},
+            "feature_selection": {"enabled": False},
+        }
+        fe = DefaultFeatureEngineering(config=config)
+        fe.fit(X, y)
+        # Preprocessing debe haberse aplicado
+        assert fe.preprocessor is not None

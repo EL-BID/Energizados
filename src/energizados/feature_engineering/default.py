@@ -27,14 +27,15 @@ from energizados.preprocessing.preprocessing import (
 logger = logging.getLogger(__name__)
 
 
-def _build_transformer_from_config(transform_name: str, params: dict, column: str):
+def _build_transformer_from_config(transform_name: str, params: dict, column: str, custom_class: str = None):
     """
     Construye un transformer desde config YAML.
 
     Args:
-        transform_name: Nombre del transformer en YAML
+        transform_name: Nombre del transformer en YAML (o "custom_class")
         params: Diccionario de parámetros desde YAML
         column: Nombre de la columna a transformar
+        custom_class: Path completo de la clase custom (solo cuando transform_name=="custom_class")
 
     Returns:
         Instancia del transformer configurado
@@ -42,6 +43,13 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     from sklearn.preprocessing import OrdinalEncoder
 
     from energizados.preprocessing.preprocessing import MinMaxScalerRow
+    from energizados.utils import import_class
+
+    # Caso especial para custom_class por columna (formato plano)
+    if transform_name == "custom_class":
+        if custom_class is None:
+            raise ValueError("Se debe especificar 'custom_class' cuando se usa el transformer 'custom_class'")
+        return import_class(custom_class)(**params)
 
     # Mapeo de nombres a (clase, params_default)
     transformer_map = {
@@ -94,9 +102,18 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
             # Construir Pipeline secuencial para esta columna
             steps = []
             for transform_config in transformations:
-                for transform_name, params in transform_config.items():
-                    transformer = _build_transformer_from_config(transform_name, params, column)
-                    steps.append((transform_name, transformer))
+                # Caso especial: custom_class por columna (formato plano)
+                # YAML: - custom_class: "path.to.Class", params: {...}
+                if "custom_class" in transform_config:
+                    custom_class_path = transform_config.get("custom_class")
+                    custom_params = transform_config.get("params", {})
+                    transformer = _build_transformer_from_config("custom_class", custom_params, column, custom_class=custom_class_path)
+                    steps.append(("custom_class", transformer))
+                else:
+                    # Transformers built-in estándar
+                    for transform_name, params in transform_config.items():
+                        transformer = _build_transformer_from_config(transform_name, params, column)
+                        steps.append((transform_name, transformer))
 
             if steps:
                 pipeline = Pipeline(steps)
