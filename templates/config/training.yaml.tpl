@@ -93,6 +93,27 @@ training:
         #     params:
         #       method: "frequency"
 
+      # Transformers globales
+      global_transformers:
+        # Extracción de features de series temporales con tsfel
+        - tsfel_vars:
+            num_periodos: 12
+            features_names_path: null  # o path a JSON con configuración custom
+            periods_suffix: "_anterior"
+
+        # Variables estadísticas para diferentes ventanas de tiempo
+        - extra_vars:
+            num_periodos: 3
+        - extra_vars:
+            num_periodos: 6
+        - extra_vars:
+            num_periodos: 12
+
+        # Opción: Custom class para transformers globales
+        # - custom_class: "preprocessing.CustomGlobalTransformer"
+        #   params:
+        #     custom_param: value
+
     feature_selection:
       enabled: false
       method: "boruta"  # Opciones: boruta, correlation, constant

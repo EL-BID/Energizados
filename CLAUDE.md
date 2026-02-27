@@ -184,6 +184,38 @@ feature_pipeline:
 | `target_encoding` | Replaces category with target probability (requires y) | `w` (int, default=20) |
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
+| `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features_names_path` (str, default=None), `periods_suffix` (str, default="_anterior") |
+| `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
+
+**Global Transformers:**
+
+Global transformers act on the entire dataset and generate new features. They are executed AFTER column-based preprocessing.
+
+```yaml
+preprocessing:
+  columns:
+    # ... column-based preprocessing
+
+  global_transformers:
+    # Extracción de features de series temporales con tsfel
+    - tsfel_vars:
+        num_periodos: 12
+        features_names_path: null  # o path a JSON con configuración custom
+        periods_suffix: "_anterior"
+
+    # Variables estadísticas para diferentes ventanas de tiempo
+    - extra_vars:
+        num_periodos: 3
+    - extra_vars:
+        num_periodos: 6
+    - extra_vars:
+        num_periodos: 12
+
+    # Custom class para transformers globales
+    - custom_class: "preprocessing.CustomGlobalTransformer"
+      params:
+        custom_param: value
+```
 
 **Key Feature Pipeline Classes:**
 - `BaseFeaturePipeline`: Abstract base class for custom implementations

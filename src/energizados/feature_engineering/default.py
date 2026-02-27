@@ -20,8 +20,10 @@ from energizados.feature_selection.methods import (
 )
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
+    ExtraVars,
     TeEncoder,
     ToDummy,
+    TsfelVars,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,9 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
             {"handle_unknown": "use_encoded_value", "unknown_value": -1},
         ),
         "minmax_scaler_row": (MinMaxScalerRow, {"feature_range": (0, 1)}),
+        # Global transformers (no requieren column name)
+        "tsfel_vars": (TsfelVars, {"num_periodos": 12, "features_names_path": None, "periods_suffix": "_anterior"}),
+        "extra_vars": (ExtraVars, {"num_periodos": 3, "periods_suffix": "_anterior"}),
     }
 
     if transform_name not in transformer_map:
@@ -76,16 +81,54 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     return cls(**params)
 
 
-def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
+def _build_global_transformers_pipeline(global_transformers_config: list) -> Pipeline:
+    """
+    Construye un pipeline de transformers globales desde config YAML.
+
+    Args:
+        global_transformers_config: Lista de dicts con configuración de transformers globales
+
+    Returns:
+        Pipeline: Pipeline con los transformers globales (o None si no hay config)
+    """
+    if not global_transformers_config:
+        return None
+
+    steps = []
+    for i, transformer_config in enumerate(global_transformers_config):
+        # Caso custom_class
+        if "custom_class" in transformer_config:
+            custom_class_path = transformer_config.get("custom_class")
+            custom_params = transformer_config.get("params", {})
+            transformer = _build_transformer_from_config("custom_class", custom_params, None, custom_class=custom_class_path)
+            name = f"global_custom_{i}"
+        else:
+            # Transformers built-in
+            for transform_name, params in transformer_config.items():
+                transformer = _build_transformer_from_config(transform_name, params, None)
+                name = f"global_{transform_name}_{i}"
+                break  # solo un transformer por item
+
+        steps.append((name, transformer))
+
+    if steps:
+        return Pipeline(steps)
+    return None
+
+
+def get_preprocesor(preprocessing_config: dict) -> Pipeline:
     """
     Construye el preprocesador desde config YAML.
 
+    El pipeline resultante tiene dos pasos:
+    1. column_transformer: Preprocessing por columnas (column-based)
+    2. global_transformers: Transformers globales (opcional, dataset-wide)
+
     Args:
         preprocessing_config: Dict con configuración de preprocessing.
-                              Requiere 'columns': dict mapeando columna→lista de transformaciones
 
     Returns:
-        ColumnTransformer: Preprocesador configurado
+        Pipeline: Pipeline con column_transformer + global_transformers
 
     Raises:
         ValueError: Si no se encuentra configuración válida
@@ -122,7 +165,19 @@ def get_preprocesor(preprocessing_config: dict) -> ColumnTransformer:
         # ColumnTransformer con passthrough para columnas no mencionadas
         ct = ColumnTransformer(transformers=transformers, remainder="passthrough", verbose_feature_names_out=False)
         ct.set_output(transform="pandas")
-        return ct
+
+        # Construir Pipeline de global_transformers
+        global_config = preprocessing_config.get("global_transformers", [])
+        global_pipeline = _build_global_transformers_pipeline(global_config)
+
+        # Combinar en Pipeline final
+        if global_pipeline is not None:
+            final_pipeline = Pipeline([("column_transformer", ct), ("global_transformers", global_pipeline)])
+        else:
+            # Si no hay global transformers, envolver ct en Pipeline para consistencia
+            final_pipeline = Pipeline([("column_transformer", ct)])
+
+        return final_pipeline
 
     # Error si no hay configuración válida
     raise ValueError("Configuración de preprocessing inválida. Se requiere 'columns' con la configuración por columna. ")
@@ -137,7 +192,7 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
     en un solo paso.
 
     Attributes:
-        preprocessor: Pipeline de preprocessing (scikit-learn ColumnTransformer)
+        preprocessor: Pipeline de preprocessing (scikit-learn Pipeline con ColumnTransformer + global_transformers)
         selector: Selector de features (BorutaSelector, CorrelationSelector, etc.)
         preprocessing_config: Configuración de preprocessing
         feature_selection_config: Configuración de feature selection
@@ -285,7 +340,7 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         Retorna el preprocesador ajustado.
 
         Returns:
-            ColumnTransformer: Preprocesador ajustado
+            Pipeline: Preprocesador ajustado (column_transformer + global_transformers)
         """
         self.check_fitted()
         return self.preprocessor

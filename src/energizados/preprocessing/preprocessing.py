@@ -276,12 +276,13 @@ class TsfelVars(BaseEstimator, TransformerMixin):
     - time_column: str, nombre de la columna que contiene el tiempo.
     """
 
-    def __init__(self, features_names_path=None, num_periodos=12):
+    def __init__(self, features_names_path=None, num_periodos=12, periods_suffix: str = "_anterior"):
         self.num_periodos = num_periodos
         self.features_names_path = features_names_path
+        self.periods_suffix = periods_suffix
 
     def obtener_cols_anterior(self, num_cols=12):
-        return [f"{i}_anterior" for i in range(num_cols, 0, -1)]
+        return [f"{i}{self.periods_suffix}" for i in range(num_cols, 0, -1)]
 
     def extra_cols(self, df, domain, cols, window=12):
         tsfel = _get_tsfel()
@@ -365,14 +366,15 @@ class ExtraVars(BaseEstimator, TransformerMixin):
     - aggregation_functions: dict, diccionario que mapea el nombre de la nueva variable con una función de agregación.
     """
 
-    def __init__(self, num_periodos=3):
+    def __init__(self, num_periodos=3, periods_suffix: str = "_anterior"):
         self.num_periodos = num_periodos
+        self.periods_suffix = periods_suffix
 
     def fit(self, X, y=None):
         return self
 
     def obtener_cols_anterior(self, num_cols=12):
-        return [f"{i}_anterior" for i in range(num_cols, 0, -1)]
+        return [f"{i}{self.periods_suffix}" for i in range(num_cols, 0, -1)]
 
     def transform(self, X):
         return self.create_vbles(X)
