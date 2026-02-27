@@ -14,6 +14,7 @@ training:
   # Input desde ETL
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
+  periods_suffix: &period_suffix "_anterior"
 
   # Output
   output_dir: "models/trained/"
@@ -78,14 +79,7 @@ training:
           - target_encoding:
               w: 10
 
-        # Opción 2: Usar custom_class por columna (formato plano)
-        # mi_columna:
-        #   - custom_class: "mi_paquete.preprocessing.MiPreprocessor"
-        #     params:
-        #       threshold: 0.5
-        #       encoding: "target"
-
-        # Opción 3: Mezclar built-in y custom en la misma columna
+        # Opción 2: Mezclar built-in y custom en la misma columna
         # otra_columna:
         #   - cardinality_reducer:
         #       threshold: 0.01
@@ -94,21 +88,24 @@ training:
         #       method: "frequency"
 
       # Transformers globales
-      global_transformers:
-        # Extracción de features de series temporales con tsfel
-        - tsfel_vars:
-            num_periodos: 12
-            features_names_path: null  # o path a JSON con configuración custom
-            periods_suffix: "_anterior"
+      #global_transformers:
+      #  # Extracción de features de series temporales con tsfel
+      #  - tsfel_vars:
+      #      num_periodos: 12
+      #      features_names_path: null  # o path a JSON con configuración custom
+      #      periods_suffix: *period_suffix
 
-        # Variables estadísticas para diferentes ventanas de tiempo
-        - extra_vars:
-            num_periodos: 3
-        - extra_vars:
-            num_periodos: 6
-        - extra_vars:
-            num_periodos: 12
-
+      #  # Variables estadísticas para diferentes ventanas de tiempo
+      #  - extra_vars:
+      #      num_periodos: 3
+      #      periods_suffix: *period_suffix
+      #  - extra_vars:
+      #      num_periodos: 6
+      #      periods_suffix: *period_suffix
+      #  - extra_vars:
+      #      num_periodos: 12
+      #      periods_suffix: *period_suffix
+      #
         # Opción: Custom class para transformers globales
         # - custom_class: "preprocessing.CustomGlobalTransformer"
         #   params:

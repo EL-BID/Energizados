@@ -7,16 +7,19 @@ y feature selection con configuración por columna.
 
 import pandas as pd
 import pytest
-from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 
 from energizados.feature_engineering.default import (
+    _build_global_transformers_pipeline,
     _build_transformer_from_config,
     get_preprocesor,
 )
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
+    ExtraVars,
     TeEncoder,
     ToDummy,
+    TsfelVars,
 )
 
 
@@ -93,6 +96,30 @@ class TestBuildTransformerFromConfig:
         with pytest.raises(ValueError, match="Transformer desconocido"):
             _build_transformer_from_config("unknown_transformer", {}, "test_col")
 
+    def test_tsfel_vars(self):
+        """Verifica la creación de TsfelVars."""
+        transformer = _build_transformer_from_config("tsfel_vars", {"num_periodos": 6}, None)
+        assert isinstance(transformer, TsfelVars)
+        assert transformer.num_periodos == 6
+
+    def test_tsfel_vars_default_params(self):
+        """Verifica que TsfelVars use parámetros por defecto."""
+        transformer = _build_transformer_from_config("tsfel_vars", None, None)
+        assert isinstance(transformer, TsfelVars)
+        assert transformer.num_periodos == 12
+
+    def test_extra_vars(self):
+        """Verifica la creación de ExtraVars."""
+        transformer = _build_transformer_from_config("extra_vars", {"num_periodos": 3}, None)
+        assert isinstance(transformer, ExtraVars)
+        assert transformer.num_periodos == 3
+
+    def test_extra_vars_default_params(self):
+        """Verifica que ExtraVars use parámetros por defecto."""
+        transformer = _build_transformer_from_config("extra_vars", None, None)
+        assert isinstance(transformer, ExtraVars)
+        assert transformer.num_periodos == 3
+
 
 class TestGetPreprocesorColumnsConfig:
     """Tests para get_preprocesor con nueva configuración 'columns'."""
@@ -111,16 +138,20 @@ class TestGetPreprocesorColumnsConfig:
         }
 
     def test_returns_column_transformer(self, sample_config):
-        """Verifica que retorne un ColumnTransformer."""
+        """Verifica que retorne un Pipeline con column_transformer."""
         preprocessor = get_preprocesor(sample_config)
-        assert isinstance(preprocessor, ColumnTransformer)
+        assert isinstance(preprocessor, Pipeline)
+        # El primer paso debe ser column_transformer
+        assert preprocessor.steps[0][0] == "column_transformer"
 
     def test_single_column_single_transform(self):
         """Verifica configuración con una columna y una transformación."""
         config = {"columns": {"zona": [{"ordinal_encoding": {}}]}}
         preprocessor = get_preprocesor(config)
-        assert isinstance(preprocessor, ColumnTransformer)
-        assert len(preprocessor.transformers) == 1
+        assert isinstance(preprocessor, Pipeline)
+        # Obtener el ColumnTransformer del Pipeline
+        ct = preprocessor.named_steps["column_transformer"]
+        assert len(ct.transformers) == 1
 
     def test_multiple_columns(self):
         """Verifica configuración con múltiples columnas."""
@@ -131,7 +162,8 @@ class TestGetPreprocesorColumnsConfig:
             }
         }
         preprocessor = get_preprocesor(config)
-        assert len(preprocessor.transformers) == 2
+        ct = preprocessor.named_steps["column_transformer"]
+        assert len(ct.transformers) == 2
 
     def test_pipeline_sequence_for_column(self):
         """Verifica que se cree un Pipeline secuencial por columna."""
@@ -144,7 +176,8 @@ class TestGetPreprocesorColumnsConfig:
             }
         }
         preprocessor = get_preprocesor(config)
-        transformer_name, transformer, cols = preprocessor.transformers[0]
+        ct = preprocessor.named_steps["column_transformer"]
+        transformer_name, transformer, cols = ct.transformers[0]
         assert transformer_name == "actividad_pipeline"
         assert cols == ["actividad"]
         # Verificar que es un Pipeline
@@ -155,7 +188,8 @@ class TestGetPreprocesorColumnsConfig:
         """Verifica que columnas no mencionadas usen passthrough."""
         config = {"columns": {"zona": [{"ordinal_encoding": {}}]}}
         preprocessor = get_preprocesor(config)
-        assert preprocessor.remainder == "passthrough"
+        ct = preprocessor.named_steps["column_transformer"]
+        assert ct.remainder == "passthrough"
 
     def test_empty_columns_config_raises_error(self):
         """Verifica que configuración vacía de columns lance error."""
@@ -204,9 +238,10 @@ class TestGetPreprocesorPriority:
             "categorical_features": ["actividad", "tipo_tarifa"],
         }
         preprocessor = get_preprocesor(config)
+        ct = preprocessor.named_steps["column_transformer"]
         # Solo debería tener transformer para 'zona'
-        assert len(preprocessor.transformers) == 1
-        _, _, cols = preprocessor.transformers[0]
+        assert len(ct.transformers) == 1
+        _, _, cols = ct.transformers[0]
         assert cols == ["zona"]
 
     def test_legacy_params_alone_raise_error(self):
@@ -217,6 +252,123 @@ class TestGetPreprocesorPriority:
         }
         with pytest.raises(ValueError, match="Se requiere 'columns'"):
             get_preprocesor(config)
+
+
+class TestBuildGlobalTransformersPipeline:
+    """Tests para _build_global_transformers_pipeline."""
+
+    def test_returns_none_for_empty_config(self):
+        """Verifica que retorne None para configuración vacía."""
+        pipeline = _build_global_transformers_pipeline([])
+        assert pipeline is None
+
+    def test_returns_none_for_none_config(self):
+        """Verifica que retorne None para configuración None."""
+        pipeline = _build_global_transformers_pipeline(None)
+        assert pipeline is None
+
+    def test_builds_pipeline_with_single_transformer(self):
+        """Verifica que construya un Pipeline con un transformer."""
+        config = [{"tsfel_vars": {"num_periodos": 6}}]
+        pipeline = _build_global_transformers_pipeline(config)
+        assert isinstance(pipeline, Pipeline)
+        assert len(pipeline.steps) == 1
+        assert pipeline.steps[0][0] == "global_tsfel_vars_0"
+
+    def test_builds_pipeline_with_multiple_transformers(self):
+        """Verifica que construya un Pipeline con múltiples transformers."""
+        config = [
+            {"tsfel_vars": {"num_periodos": 12}},
+            {"extra_vars": {"num_periodos": 3}},
+            {"extra_vars": {"num_periodos": 6}},
+        ]
+        pipeline = _build_global_transformers_pipeline(config)
+        assert isinstance(pipeline, Pipeline)
+        assert len(pipeline.steps) == 3
+
+    def test_transformer_instances(self):
+        """Verifica que las instancias de los transformers sean correctas."""
+        config = [
+            {"tsfel_vars": {"num_periodos": 12}},
+            {"extra_vars": {"num_periodos": 3}},
+        ]
+        pipeline = _build_global_transformers_pipeline(config)
+        _, tsfel_transformer = pipeline.steps[0]
+        _, extra_transformer = pipeline.steps[1]
+        assert isinstance(tsfel_transformer, TsfelVars)
+        assert isinstance(extra_transformer, ExtraVars)
+        assert tsfel_transformer.num_periodos == 12
+        assert extra_transformer.num_periodos == 3
+
+    def test_custom_class_global_transformer(self):
+        """Verifica el uso de custom_class en global transformers."""
+        config = [
+            {
+                "custom_class": "tests.test_default_feature_engineering.CustomTestTransformer",
+                "params": {"multiplier": 2.0},
+            }
+        ]
+        pipeline = _build_global_transformers_pipeline(config)
+        _, transformer = pipeline.steps[0]
+        assert isinstance(transformer, CustomTestTransformer)
+        assert transformer.multiplier == 2.0
+
+
+class TestGetPreprocesorWithGlobalTransformers:
+    """Tests para get_preprocesor con global_transformers."""
+
+    def test_returns_pipeline_with_global_transformers(self):
+        """Verifica que retorne un Pipeline con global_transformers."""
+        config = {
+            "columns": {"zona": [{"ordinal_encoding": {}}]},
+            "global_transformers": [{"extra_vars": {"num_periodos": 3}}],
+        }
+        preprocessor = get_preprocesor(config)
+        assert isinstance(preprocessor, Pipeline)
+        # Verificar que tiene ambos pasos
+        step_names = [name for name, _ in preprocessor.steps]
+        assert "column_transformer" in step_names
+        assert "global_transformers" in step_names
+
+    def test_global_transformers_step_is_pipeline(self):
+        """Verifica que el paso global_transformers sea un Pipeline."""
+        config = {
+            "columns": {"zona": [{"ordinal_encoding": {}}]},
+            "global_transformers": [
+                {"tsfel_vars": {"num_periodos": 12}},
+                {"extra_vars": {"num_periodos": 3}},
+            ],
+        }
+        preprocessor = get_preprocesor(config)
+        global_transformers = preprocessor.named_steps["global_transformers"]
+        assert isinstance(global_transformers, Pipeline)
+        assert len(global_transformers.steps) == 2
+
+    def test_without_global_transformers(self):
+        """Verifica que funcione sin global_transformers."""
+        config = {"columns": {"zona": [{"ordinal_encoding": {}}]}}
+        preprocessor = get_preprocesor(config)
+        assert isinstance(preprocessor, Pipeline)
+        # Solo debe tener column_transformer
+        assert len(preprocessor.steps) == 1
+        assert preprocessor.steps[0][0] == "column_transformer"
+
+    def test_fit_transform_with_global_transformers(self, sample_data):
+        """Verifica fit_transform con global_transformers."""
+        X, y = sample_data
+        # Agregar columnas de consumo para que extra_vars funcione
+        for i in range(12, 0, -1):
+            X[f"{i}_anterior"] = X["consumo_1"]
+
+        config = {
+            "columns": {"zona": [{"ordinal_encoding": {}}]},
+            "global_transformers": [{"extra_vars": {"num_periodos": 3}}],
+        }
+        preprocessor = get_preprocesor(config)
+        X_transformed = preprocessor.fit_transform(X, y)
+        assert X_transformed.shape[0] == X.shape[0]
+        # ExtraVars agrega nuevas columnas
+        assert X_transformed.shape[1] > X.shape[1]
 
 
 class TestIntegrationWithSampleData:
@@ -312,8 +464,9 @@ class TestCustomClassPerColumn:
             }
         }
         preprocessor = get_preprocesor(config)
-        assert isinstance(preprocessor, ColumnTransformer)
-        assert len(preprocessor.transformers) == 1
+        assert isinstance(preprocessor, Pipeline)
+        ct = preprocessor.named_steps["column_transformer"]
+        assert len(ct.transformers) == 1
 
     def test_mix_builtin_and_custom_in_same_column(self):
         """Verifica mezcla de transformers built-in y custom en misma columna."""
@@ -329,7 +482,8 @@ class TestCustomClassPerColumn:
             }
         }
         preprocessor = get_preprocesor(config)
-        transformer_name, transformer, cols = preprocessor.transformers[0]
+        ct = preprocessor.named_steps["column_transformer"]
+        transformer_name, transformer, cols = ct.transformers[0]
         assert transformer_name == "actividad_pipeline"
         assert cols == ["actividad"]
         # Debe tener 2 pasos en el pipeline

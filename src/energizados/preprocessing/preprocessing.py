@@ -26,6 +26,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, OneToOneFeatureMixin, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
+from tqdm import tqdm
 
 logger = logging.getLogger()
 
@@ -289,7 +290,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         cfg = tsfel.get_features_by_domain(domain)
         # Procesar cada fila individualmente ya que cada fila es una serie temporal
         results = []
-        for idx, row in df[cols].iterrows():
+        for idx, row in tqdm(df[cols].iterrows(), total=len(df), desc=domain):
             # Extraer features para esta serie temporal individual
             features = tsfel.time_series_features_extractor(
                 cfg,

@@ -89,8 +89,8 @@ class CustomETL(SourceETL):
         df = fill_empty_values_str(df, cols=cols_fillna_sindatos, str_value='sin_dato')
 
         # Remove index column if present
-        if 'index' in df.columns:
-            df.drop(columns=['index'], inplace=True)
+        # if 'index' in df.columns:
+        #    df.drop(columns=['index'], inplace=True)
 
         return df
 
