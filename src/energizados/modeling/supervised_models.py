@@ -9,7 +9,8 @@ Los modelos implementados son:
 
 Cada modelo tiene métodos para entrenar y realizar predicciones.
 
-Nota: Este módulo requiere que se instalen las librerías LightGBM, CatBoost y TensorFlow para poder utilizar los modelos correspondientes.
+Nota: Este módulo requiere que se instalen las librerías LightGBM y CatBoost para los modelos de gradient boosting.
+TensorFlow solo se requiere para los modelos de redes neuronales (NNModel y LSTMNNModel).
 
 """
 
@@ -17,7 +18,6 @@ import logging
 
 import catboost as cb
 import numpy as np
-import tensorflow as tf
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.pipeline import Pipeline, make_pipeline
 from imblearn.under_sampling import RandomUnderSampler
@@ -63,7 +63,7 @@ def get_preprocesor(preprocesor):
 
 class LGBMModel:
 
-    def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
+    def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, sampling_method="under"):
         """
         Initializes the LGBMModel.
 
@@ -72,27 +72,25 @@ class LGBMModel:
             hyperparams: The hyperparameters for the LGBMClassifier.
             search_hip (bool): Flag indicating whether to perform hyperparameter search.
             sampling_th (float): The sampling threshold.
-            preprocesor_num (int): The preprocessor number.
             sampling_method (str): The sampling method ('over' or 'under').
         """
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
-        self.preprocesor_num = preprocesor_num
         self.sampling_method = sampling_method
         self.search_hip = search_hip
         self.hyperparams = hyperparams
 
     def build_pipeline_preproceso_model(self):
-        preprocessor = get_preprocesor(self.preprocesor_num)
+        # preprocessor = get_preprocesor(self.preprocesor_num)
         lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000)
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
-            return make_pipeline(preprocessor, over, lgbm_model_search)
+            return make_pipeline(over, lgbm_model_search)
         elif self.sampling_method == "under":
             under = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
-            return make_pipeline(preprocessor, under, lgbm_model_search)
+            return make_pipeline(under, lgbm_model_search)
         else:
-            return make_pipeline(preprocessor, lgbm_model_search)
+            return make_pipeline(lgbm_model_search)
 
     def train(self, df_train, y_train, df_val=None, y_val=None):
         if df_val is None:
@@ -100,19 +98,19 @@ class LGBMModel:
 
         pipe_preproceso_model = self.build_pipeline_preproceso_model()
 
-        preprocessor_features = pipe_preproceso_model.steps[0][1]
-        preprocessor_features.fit(df_train[self.cols_for_model], y_train)
-        df_val_tra = preprocessor_features.transform(df_val[self.cols_for_model])
+        # preprocessor_features = pipe_preproceso_model.steps[0][1]
+        # preprocessor_features.fit(df_train[self.cols_for_model], y_train)
+        # df_val_tra = preprocessor_features.transform(df_val[self.cols_for_model])
 
         if self.search_hip:
             self.best_score_, self.hyperparams = self.find_hyp_lgbm_model(
-                df_train[self.cols_for_model], y_train, df_val_tra, y_val, pipe_preproceso_model
+                df_train[self.cols_for_model], y_train, df_val, y_val, pipe_preproceso_model
             )
 
         params = self.hyperparams
         fit_params = {
             "eval_metric": ["auc"],
-            "eval_set": [(df_val_tra, y_val)],
+            "eval_set": [(df_val, y_val)],
             "eval_names": ["valid"],
             "callbacks": [early_stopping(stopping_rounds=30, first_metric_only=True), log_evaluation(0)],
             "categorical_feature": "auto",
@@ -301,6 +299,8 @@ class NNModel:
         return rnn_final_model, pipe_features, pipe_spent
 
     def train_rnn_model(self, X_train, y_train, X_val, y_val, output_bias=None):
+        import tensorflow as tf  # Lazy import - only load when training NN
+
         y_train = np.asarray(y_train)
         y_val = np.asarray(y_val)
         METRICS = [
@@ -421,6 +421,7 @@ class LSTMNNModel:
         return lstm_rnn_final_model, pipe_features, pipe_spent
 
     def train_lstm_rnn_model(self, X_train_spents, X_train_features, y_train, X_val_spents, X_val_features, y_val, output_bias=None):
+        import tensorflow as tf  # Lazy import - only load when training LSTM
 
         y_train = np.asarray(y_train)
         y_val = np.asarray(y_val)

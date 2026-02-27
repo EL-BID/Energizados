@@ -25,7 +25,6 @@ class LGBMModelAdapter(BaseModel):
         hyperparams: Hiperparámetros del modelo
         search_hip: Si es True, realiza búsqueda de hiperparámetros
         sampling_th: Umbral de muestreo para clases desbalanceadas
-        preprocesor_num: Número de preprocesador a usar
         sampling_method: Método de muestreo ('over', 'under', 'none')
     """
 
@@ -35,7 +34,6 @@ class LGBMModelAdapter(BaseModel):
         hyperparams: Optional[dict] = None,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        preprocesor_num: int = 3,
         sampling_method: str = "under",
         config: Optional[dict] = None,
     ):
@@ -44,7 +42,6 @@ class LGBMModelAdapter(BaseModel):
         self.hyperparams = hyperparams or {}
         self.search_hip = search_hip
         self.sampling_th = sampling_th
-        self.preprocesor_num = preprocesor_num
         self.sampling_method = sampling_method
 
         # Importar el modelo original
@@ -55,7 +52,6 @@ class LGBMModelAdapter(BaseModel):
             hyperparams=hyperparams,
             search_hip=search_hip,
             sampling_th=sampling_th,
-            preprocesor_num=preprocesor_num,
             sampling_method=sampling_method,
         )
 
@@ -120,7 +116,6 @@ class CATModelAdapter(BaseModel):
         hyperparams: Optional[dict] = None,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        preprocesor_num: int = 3,
         sampling_method: str = "under",
         config: Optional[dict] = None,
     ):
@@ -129,7 +124,6 @@ class CATModelAdapter(BaseModel):
         self.hyperparams = hyperparams or {}
         self.search_hip = search_hip
         self.sampling_th = sampling_th
-        self.preprocesor_num = preprocesor_num
         self.sampling_method = sampling_method
 
         from energizados.modeling.supervised_models import CATModel as OriginalCAT
@@ -139,7 +133,6 @@ class CATModelAdapter(BaseModel):
             hyperparams=hyperparams,
             search_hip=search_hip,
             sampling_th=sampling_th,
-            preprocesor_num=preprocesor_num,
             sampling_method=sampling_method,
         )
 
@@ -174,7 +167,6 @@ class NNModelAdapter(BaseModel):
         spents_names: list,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        preprocesor_num: int = 3,
         sampling_method: str = "under",
         config: Optional[dict] = None,
     ):
@@ -183,7 +175,6 @@ class NNModelAdapter(BaseModel):
         self.spents_names = spents_names
         self.search_hip = search_hip
         self.sampling_th = sampling_th
-        self.preprocesor_num = preprocesor_num
         self.sampling_method = sampling_method
 
         from energizados.modeling.supervised_models import NNModel as OriginalNN
@@ -193,7 +184,6 @@ class NNModelAdapter(BaseModel):
             spents_names=spents_names,
             search_hip=search_hip,
             sampling_th=sampling_th,
-            preprocesor_num=preprocesor_num,
             sampling_method=sampling_method,
         )
         self._pipe_features = None
@@ -239,7 +229,6 @@ class LSTMNNModelAdapter(BaseModel):
         spents_names: list,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        preprocesor_num: int = 3,
         sampling_method: str = "under",
         config: Optional[dict] = None,
     ):
@@ -248,7 +237,6 @@ class LSTMNNModelAdapter(BaseModel):
         self.spents_names = spents_names
         self.search_hip = search_hip
         self.sampling_th = sampling_th
-        self.preprocesor_num = preprocesor_num
         self.sampling_method = sampling_method
         self.periodo = 12
 
@@ -259,7 +247,6 @@ class LSTMNNModelAdapter(BaseModel):
             spents_names=spents_names,
             search_hip=search_hip,
             sampling_th=sampling_th,
-            preprocesor_num=preprocesor_num,
             sampling_method=sampling_method,
         )
         self._pipe_features = None

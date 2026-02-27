@@ -22,7 +22,7 @@ training:
   # Split Configuration
   # ============================================
   split:
-method: "time_series"  # Opciones: stratified, random, time_series
+    method: "time_series"  # Opciones: stratified, random, time_series
 
     # Para métodos stratified/random:
     test_size: 0.2

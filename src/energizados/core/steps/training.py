@@ -236,4 +236,7 @@ class TrainingStep(PipelineStep):
             params["sampling_th"] = params.pop("sampling", {}).get("threshold", 0.5)
             params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
 
+        # Remove 'type' key as it's used for model selection, not for the model constructor
+        params.pop("type", None)
+
         return params

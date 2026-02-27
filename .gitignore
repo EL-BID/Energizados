@@ -144,5 +144,4 @@ models/artifacts
 
 # TODO: Quitar del ignore cuando se termine
 docs/
-notebooks/*.ipynb
 .sample/
