@@ -197,6 +197,16 @@ class SplitStep(PipelineStep):
         logger.info(f"Val:       {len(val_df):>6} samples ({len(val_df)/len(df)*100:.1f}%)")
         logger.info(f"Test:      {len(test_df):>6} samples ({len(test_df)/len(df)*100:.1f}%)")
 
+        # Mostrar distribución del target
+        logger.info("\nTarget distribution:")
+        for split_name, split_df in [("Train", train_df), ("Val", val_df), ("Test", test_df)]:
+            dist = split_df[self.target_column].value_counts()
+            total = len(split_df)
+            logger.info(f"{split_name}:")
+            for label, count in dist.items():
+                pct = count / total * 100
+                logger.info(f"  {label}: {count:>6} ({pct:.1f}%)")
+
         if self.method == "time_series":
             logger.info("\nDate ranges:")
             logger.info(f"Train: {metadata['train_dates']}")
