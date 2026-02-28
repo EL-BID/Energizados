@@ -27,23 +27,40 @@ The project is primarily run through Jupyter notebooks:
 energizados init mi_proyecto
 
 # Run pipeline (specify multiple config files)
-energizados run --config config/etls.yaml --config config/feature_pipeline.yaml --config config/training.yaml
+energizados run --config config/etls.yaml --config config/training.yaml
 
 # Validate configuration
-energizados validate --config config/etls.yaml --config config/feature_pipeline.yaml
+energizados validate --config config/etls.yaml --config config/training.yaml
 
 # Run specific step
-energizados run --config config/feature_pipeline.yaml --step feature_pipeline
+energizados run --config config/etls.yaml --step etl
+energizados run --config config/training.yaml --step split
+energizados run --config config/training.yaml --step training
 
 # Run specific ETL
 energizados run --config config/etls.yaml --etl sample
+
+# Dry run (see plan without executing)
+energizados run --config config/etls.yaml --dry-run
 ```
+
+### Run Scripts (generated projects)
+New projects include Python scripts in `src/run/` for direct execution without CLI:
+```bash
+python src/run/01_etl.py          # ETLs
+python src/run/02_training.py     # Entrenamiento (incluye feature engineering)
+python src/run/03_evaluation.py   # Evaluación
+python src/run/04_inference.py    # Inferencia
+```
+These scripts use `ConfigPipelineBuilder` API directly.
 
 ## Code Architecture
 
 ### Directory Structure
+
+**Framework source (`src/energizados/`):**
 ```
-src/
+src/energizados/
 ├── preprocessing/      # Data cleaning and feature engineering transformers
 ├── modeling/           # Model implementations (supervised and simple models)
 ├── feature_pipeline/   # Combined preprocessing + feature selection
@@ -54,7 +71,7 @@ src/
 │   └── methods.py     # BorutaSelector, CorrelationSelector, ConstantSelector
 ├── core/              # Core framework components
 │   ├── base.py        # Base classes for pipeline, models, inference
-│   └── pipeline.py    # Pipeline orchestrator
+│   └── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
 ├── cli/               # Command-line interface
 │   ├── main.py        # CLI commands
 │   ├── init.py        # Project initialization
@@ -64,16 +81,38 @@ src/
     ├── base.py        # BaseETL abstract class
     ├── pipeline.py    # SourceETL, MultiSourceETL, MergeETL implementations
     └── orchestrator.py # ETLOrchestrator for dependency management
-data/
-├── raw/               # Original input data
-└── processed/         # ETL outputs and feature pipeline results
-models/
-└── trained/           # Trained models
-config/                # Configuration files (4 separate YAMLs)
-├── etls.yaml
-├── feature_pipeline.yaml
-├── training.yaml
-└── inference.yaml
+```
+
+**Generated project structure (`energizados init`):**
+```
+mi_proyecto/
+├── config/                 # Configuration files (3 YAMLs)
+│   ├── etls.yaml
+│   ├── training.yaml       # Includes split, feature_engineering, model, evaluation
+│   └── inference.yaml
+├── data/
+│   ├── raw/               # Input data (includes sample_dataset.parquet)
+│   ├── processed/         # ETL outputs and feature engineering results
+│   └── splits/            # Train/val/test splits
+├── docs/
+│   └── project_docs.md
+├── models/
+│   └── trained/           # Trained models
+├── notebooks/
+│   └── example_notebook.ipynb
+├── reports/               # Evaluation outputs
+├── src/
+│   ├── data/              # Custom ETL (custom_etl.py)
+│   ├── features/          # Custom feature selector (custom_selector.py)
+│   ├── models/            # Custom model (custom_model.py)
+│   ├── inference/         # Custom inference (custom_inference.py)
+│   ├── utils/             # Shared utilities (helpers.py)
+│   └── run/               # Execution scripts
+│       ├── 01_etl.py
+│       ├── 02_training.py
+│       ├── 03_evaluation.py
+│       └── 04_inference.py
+└── tests/
 ```
 
 ### ETL Framework
@@ -131,48 +170,89 @@ etls:
 
 **Important:** When `mode="merge"`, `merge_config` is required. The `merge_config` accepts any parameter from `pd.merge()`: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
 
-### Feature Pipeline
+### Feature Engineering
 
-The **Feature Pipeline** unifies preprocessing and feature selection in a single step. Configuration is in `config/feature_pipeline.yaml`:
+Feature engineering (preprocessing + feature selection) is now configured inside `config/training.yaml` under the `feature_engineering` key. There is no longer a separate `feature_pipeline.yaml`.
+
+The full `training.yaml` has four sections: `split`, `feature_engineering`, `model`, and `evaluation`.
 
 ```yaml
-# config/feature_pipeline.yaml
-feature_pipeline:
+# config/training.yaml
+training:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
-  output_pkl: "data/processed/feature_pipeline.pkl"
-  output_parquet: "data/processed/feature_pipeline.parquet"  # Optional
+  target_column: "target"
+  periods_suffix: &period_suffix "_anterior"
+  output_dir: "models/trained/"
 
-  preprocessing:
-    # NUEVO: Configuración por columna
-    columns:
-      actividad:
-        - cardinality_reducer:
-            threshold: 0.001
-        - to_dummy: {}
+  split:
+    method: "time_series"  # Opciones: stratified, random, time_series
+    # Para time_series:
+    date_column: "fecha_inspeccion"
+    train_period: ["2010-01-01", "2017-08-01"]
+    val_period: ["2017-09-01", "2017-12-31"]
+    test_period: ["2018-01-01"]
+    save_splits: true
+    splits_dir: "data/splits/"
+    # Para stratified/random:
+    # test_size: 0.2
+    # val_size: 0.1
+    # random_state: 42
 
-      tipo_tarifa:
-        - cardinality_reducer:
-            threshold: 0.001
-        - target_encoding:
-            w: 20
-
-      zona:
-        - ordinal_encoding: {}
-
-      nivel_tension:
-        - ordinal_encoding: {}
-
-      material_instalacion:
-        - target_encoding:
-            w: 10
-
-  feature_selection:
+  feature_engineering:
     enabled: true
-    method: "boruta"  # boruta, correlation, constant
-    params:
-      n_estimators: 100
-      max_iter: 100
+    output_pkl: "data/processed/feature_engineering.pkl"
+    output_parquet: "data/processed/feature_engineering.parquet"  # opcional
+
+    preprocessing:
+      enabled: true
+      columns:
+        actividad:
+          - cardinality_reducer:
+              threshold: 0.001
+          - to_dummy: {}
+        tipo_tarifa:
+          - cardinality_reducer:
+              threshold: 0.001
+          - target_encoding:
+              w: 20
+        zona:
+          - ordinal_encoding: {}
+        nivel_tension:
+          - ordinal_encoding: {}
+        material_instalacion:
+          - target_encoding:
+              w: 10
+
+    feature_selection:
+      enabled: false
+      method: "boruta"  # boruta, correlation, constant
+      params:
+        n_estimators: 100
+        max_iter: 100
+
+  model:
+    type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
+    sampling:
+      method: "under"  # over, under, none
+      threshold: 0.5
+    hyperparams:
+      num_leaves: 31
+      learning_rate: 0.05
+      n_estimators: 1000
+    hyperparam_search:
+      enabled: true
+      n_iter: 60
+      cv: 3
+
+  evaluation:
+    enabled: true
+    output_dir: "reports/evaluation/"
+    threshold: 0.5
+    metrics: [auc, precision, recall, f1, confusion_matrix, cumulative_gains]
+    generate_plots: true
+    generate_html_report: true
+    generate_json_report: true
 ```
 
 **Available Preprocessing Transformations:**
@@ -217,7 +297,13 @@ preprocessing:
         custom_param: value
 ```
 
-**Key Feature Pipeline Classes:**
+**Custom class options in `feature_engineering`:**
+- Per-column: `custom_class` inside a column's transformer list
+- Full preprocessing replacement: `preprocessing.custom_class`
+- Full feature engineering replacement: `feature_engineering.custom_class`
+- Custom model: `model.custom_class`
+
+**Key Feature Pipeline Classes (internal framework):**
 - `BaseFeaturePipeline`: Abstract base class for custom implementations
 - `DefaultFeaturePipeline`: Default implementation combining preprocessing + feature selection
 - Methods: `fit(X, y)`, `transform(X)`, `fit_transform(X, y)`, `save(path)`, `load(path)`
@@ -291,9 +377,10 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 
 ### Important Implementation Notes
 
-- Configuration is now split into 4 separate YAML files: `etls.yaml`, `feature_pipeline.yaml`, `training.yaml`, `inference.yaml`
+- Configuration uses **3 separate YAML files**: `etls.yaml`, `training.yaml`, `inference.yaml` (no more `feature_pipeline.yaml`)
+- `feature_engineering` is now a sub-section inside `training.yaml` (not a separate file or top-level section)
 - The CLI accepts multiple `--config` parameters which are merged ("last wins" for duplicates)
-- `preprocessing` and `feature_selection` sections have been unified into `feature_pipeline`
+- `preprocessing` and `feature_selection` are unified under `training.feature_engineering`
 - All categorical preprocessing is defined in `get_preprocesor(preprocesor_num)` in `supervised_models.py`
 - Time series consumption data uses row-wise MinMax scaling (`MinMaxScalerRow`)
 - Neural models concatenate processed features with scaled consumption series

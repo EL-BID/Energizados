@@ -26,9 +26,9 @@ training:
     method: "time_series"  # Opciones: stratified, random, time_series
 
     # Para métodos stratified/random:
-    test_size: 0.2
-    val_size: 0.1
-    random_state: 42
+    # test_size: 0.2
+    # val_size: 0.1
+    # random_state: 42
 
     # Para método time_series:
     date_column: "fecha_inspeccion"
@@ -87,29 +87,29 @@ training:
         #     params:
         #       method: "frequency"
 
-      # Transformers globales
-      #global_transformers:
-      #  # Extracción de features de series temporales con tsfel
-      #  - tsfel_vars:
-      #      num_periodos: 12
-      #      features_names_path: null  # o path a JSON con configuración custom
-      #      periods_suffix: *period_suffix
-
-      #  # Variables estadísticas para diferentes ventanas de tiempo
-      #  - extra_vars:
-      #      num_periodos: 3
-      #      periods_suffix: *period_suffix
-      #  - extra_vars:
-      #      num_periodos: 6
-      #      periods_suffix: *period_suffix
-      #  - extra_vars:
-      #      num_periodos: 12
-      #      periods_suffix: *period_suffix
+      # # Transformers globales
+      # global_transformers:
+      #   # Extracción de features de series temporales con tsfel
+      #   - tsfel_vars:
+      #       num_periodos: 12
+      #       features_names_path: null  # o path a JSON con configuración custom
+      #       periods_suffix: *period_suffix
       #
-        # Opción: Custom class para transformers globales
-        # - custom_class: "preprocessing.CustomGlobalTransformer"
-        #   params:
-        #     custom_param: value
+      #   # Variables estadísticas para diferentes ventanas de tiempo
+      #   - extra_vars:
+      #       num_periodos: 3
+      #       periods_suffix: *period_suffix
+      #   - extra_vars:
+      #       num_periodos: 6
+      #       periods_suffix: *period_suffix
+      #   - extra_vars:
+      #       num_periodos: 12
+      #       periods_suffix: *period_suffix
+      #
+      #   # Opción: Custom class para transformers globales
+      #   - custom_class: "preprocessing.CustomGlobalTransformer"
+      #     params:
+      #       custom_param: value
 
     feature_selection:
       enabled: false
