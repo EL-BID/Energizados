@@ -650,7 +650,7 @@ def _create_run_scripts(project_path: Path, project_name: str):
 
     for filename, template_path in scripts.items():
         template_content = _load_template(template_path)
-        script_path = project_path / "run" / filename
+        script_path = project_path / "src" / "run" / filename
         script_path.write_text(template_content)
         script_path.chmod(0o755)  # Make executable
 

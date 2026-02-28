@@ -21,7 +21,7 @@ Proyecto de detección de fraude energético con Energizados Framework.
 ├── notebooks/              # Notebooks de experimentación
 │   └── example_notebook.ipynb
 ├── reports/                # Reportes y resultados
-├── run/                    # Scripts de ejecución
+├── src/run/                # Scripts de ejecución
 │   ├── 01_etl.py          # Ejecuta ETLs
 │   ├── 02_training.py     # Ejecuta entrenamiento
 │   ├── 03_evaluation.py   # Ejecuta evaluación
@@ -59,14 +59,14 @@ Proyecto de detección de fraude energético con Energizados Framework.
 
 ### Run Scripts
 
-El proyecto incluye scripts en el directorio `run/` para ejecutar cada etapa:
+El proyecto incluye scripts en el directorio `src/run/` para ejecutar cada etapa:
 
 ```bash
 # Ejecutar etapa específica
-python run/01_etl.py          # ETLs
-python run/02_training.py     # Entrenamiento
-python run/03_evaluation.py   # Evaluación
-python run/04_inference.py    # Inferencia
+python src/run/01_etl.py          # ETLs
+python src/run/02_training.py     # Entrenamiento
+python src/run/03_evaluation.py   # Evaluación
+python src/run/04_inference.py    # Inferencia
 ```
 
 ### Ejecutar el pipeline completo
