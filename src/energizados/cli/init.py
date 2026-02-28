@@ -69,7 +69,13 @@ def _load_template(template_name: str) -> str:
     return template_path.read_text()
 
 
-def create_project(project_name: str, project_path: Path, template: str = "default", copy_from: str = None, force: bool = False):
+def create_project(
+    project_name: str,
+    project_path: Path,
+    template: str = "default",
+    copy_from: str = None,
+    force: bool = False,
+):
     """
     Crea un nuevo proyecto Energizados con la estructura base.
 
@@ -143,7 +149,8 @@ def _create_directory_structure(project_path: Path):
         project_path / "src" / "models",
         project_path / "src" / "inference",
         project_path / "src" / "utils",
-        project_path / "src" / "run",
+        # Scripts de ejecución en run/
+        project_path / "run",
         # Tests
         project_path / "tests",
         # Documentación
@@ -492,7 +499,10 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
                 patterns.extend(
                     [
                         (rf"{re.escape(old_package)}\.etl", f"{new_package}.src.data"),
-                        (rf"{re.escape(old_package)}\.feature_selection", f"{new_package}.src.features"),
+                        (
+                            rf"{re.escape(old_package)}\.feature_selection",
+                            f"{new_package}.src.features",
+                        ),
                         (rf"{re.escape(old_package)}\.models", f"{new_package}.src.models"),
                         (rf"{re.escape(old_package)}\.inference", f"{new_package}.src.inference"),
                     ]
@@ -503,10 +513,22 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
                 patterns.extend(
                     [
                         # Nuevos proyectos usan {package}.data.custom_etl.CustomETL
-                        (rf"{re.escape(old_package)}\.data\.custom_etl", f"{new_package}.data.custom_etl"),
-                        (rf"{re.escape(old_package)}\.features\.custom_selector", f"{new_package}.features.custom_selector"),
-                        (rf"{re.escape(old_package)}\.models\.custom_model", f"{new_package}.models.custom_model"),
-                        (rf"{re.escape(old_package)}\.inference\.custom_inference", f"{new_package}.inference.custom_inference"),
+                        (
+                            rf"{re.escape(old_package)}\.data\.custom_etl",
+                            f"{new_package}.data.custom_etl",
+                        ),
+                        (
+                            rf"{re.escape(old_package)}\.features\.custom_selector",
+                            f"{new_package}.features.custom_selector",
+                        ),
+                        (
+                            rf"{re.escape(old_package)}\.models\.custom_model",
+                            f"{new_package}.models.custom_model",
+                        ),
+                        (
+                            rf"{re.escape(old_package)}\.inference\.custom_inference",
+                            f"{new_package}.inference.custom_inference",
+                        ),
                         # Por si acaso, también el formato src.*
                         (rf"{re.escape(old_package)}\.src\.data", f"{new_package}.data"),
                         (rf"{re.escape(old_package)}\.src\.features", f"{new_package}.features"),
@@ -525,7 +547,13 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
             break  # Solo crear templates una vez
 
 
-def _copy_project_source(source_path: Path, target_path: Path, source_name: str, target_name: str, old_structure: bool = False):
+def _copy_project_source(
+    source_path: Path,
+    target_path: Path,
+    source_name: str,
+    target_name: str,
+    old_structure: bool = False,
+):
     """
     Copia archivos personalizados desde un proyecto existente.
 
@@ -569,7 +597,12 @@ def _copy_project_source(source_path: Path, target_path: Path, source_name: str,
     copied_files = []
     for file_path in custom_files:
         if _copy_custom_file(
-            source_path, target_path, file_path, f"{source_name}/{file_path}", map_structure=old_structure, old_to_new_map=structure_map
+            source_path,
+            target_path,
+            file_path,
+            f"{source_name}/{file_path}",
+            map_structure=old_structure,
+            old_to_new_map=structure_map,
         ):
             copied_files.append(file_path)
 
@@ -591,7 +624,16 @@ def _copy_project_source(source_path: Path, target_path: Path, source_name: str,
     for new_name_short, old_name_short in module_map.items():
         # Buscar tanto en estructura antigua como nueva
         old_found = False
-        for old_path in ["etl", "feature_selection", "models", "inference", "src/data", "src/features", "src/models", "src/inference"]:
+        for old_path in [
+            "etl",
+            "feature_selection",
+            "models",
+            "inference",
+            "src/data",
+            "src/features",
+            "src/models",
+            "src/inference",
+        ]:
             # El nombre del archivo puede variar
             if old_name_short == "inference":
                 file_name = "custom_inference.py"
@@ -647,8 +689,8 @@ def _create_run_scripts(project_path: Path, project_name: str):
         "04_inference.py": "src/run/04_inference.py.tpl",
     }
 
-    # Crear directorio src/run/
-    run_dir = project_path / "src" / "run"
+    # Crear directorio run/ (en la raíz del proyecto)
+    run_dir = project_path / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     for filename, template_path in scripts.items():

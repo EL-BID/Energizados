@@ -113,10 +113,47 @@ training:
 
     feature_selection:
       enabled: false
-      method: "boruta"  # Opciones: boruta, correlation, constant
-      params:
-        n_estimators: 100
-        max_iter: 100
+
+      # Lista de pasos secuenciales de selección
+      # steps:
+      #   # Paso 1: Eliminar constantes sobre todas las features
+      #   - name: drop_constant
+      #     method: constant          # constant | correlation | boruta | selection
+      #     params:
+      #       threshold: 0.99
+      #     # columns: omitido → actúa sobre todas las features
+      #
+      #   # Paso 2: Boruta solo en columnas de consumo
+      #   - name: boruta_consumo
+      #     method: boruta
+      #     params:
+      #       n_estimators: 100
+      #       max_iter: 100
+      #     columns:
+      #       - "*_anterior"          # Glob: 12_anterior, 11_anterior, ...
+      #       - "!12_anterior"        # Excluir una específica
+      #
+      #   # Paso 3: Correlación en categóricas codificadas
+      #   - name: corr_categoricas
+      #     method: correlation
+      #     params:
+      #       threshold: 0.9
+      #     columns:
+      #       - "actividad_*"         # Glob: todas las dummies de actividad
+      #       - "tipo_tarifa"         # Literal
+      #       - "re:^zona.*"          # Regex con prefijo re:
+      #       - "@drop_constant"      # Referencia a resultado de paso anterior
+      #       - "!nivel_tension"      # Excluir
+      #
+      #   # Paso 4 (selection): Composición final
+      #   - name: final
+      #     method: selection
+      #     operation: union          # union | intersection | difference
+      #     columns:
+      #       - "@boruta_consumo"     # Incluir resultado de paso 2
+      #       - "@corr_categoricas"   # Incluir resultado de paso 3
+      #       - "fecha_inspeccion"    # Agregar columna manual
+      #       - "!zona"               # Excluir del resultado final
 
   # ============================================
   # Model Configuration

@@ -13,11 +13,6 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 from energizados.feature_engineering.base import BaseFeatureEngineering
-from energizados.feature_selection.methods import (
-    BorutaSelector,
-    ConstantSelector,
-    CorrelationSelector,
-)
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     ExtraVars,
@@ -311,19 +306,24 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         Construye el selector de features según la configuración.
 
         Returns:
-            BaseFeatureSelector: Selector configurado
+            FeatureSelectionPipeline: Selector configurado
         """
-        method = self.feature_selection_config.get("method", "boruta")
-        params = self.feature_selection_config.get("params", {})
+        from energizados.feature_selection.pipeline import FeatureSelectionPipeline
 
-        if method == "boruta":
-            return BorutaSelector(**params)
-        elif method == "correlation":
-            return CorrelationSelector(**params)
-        elif method == "constant":
-            return ConstantSelector(**params)
-        else:
-            raise ValueError(f"Método de feature selection desconocido: {method}")
+        cfg = self.feature_selection_config
+        if "steps" not in cfg:
+            raise ValueError(
+                "feature_selection config must contain a 'steps' list. "
+                "Example:\n"
+                "  feature_selection:\n"
+                "    enabled: true\n"
+                "    steps:\n"
+                "      - name: drop_constant\n"
+                "        method: constant\n"
+                "        params:\n"
+                "          threshold: 0.99\n"
+            )
+        return FeatureSelectionPipeline(steps_config=cfg["steps"])
 
     def _get_feature_names_out(self) -> list:
         """
