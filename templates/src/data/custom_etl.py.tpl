@@ -89,8 +89,8 @@ class CustomETL(SourceETL):
         df = fill_empty_values_str(df, cols=cols_fillna_sindatos, str_value='sin_dato')
 
         # Sample
-        if len(df) > 1000:
-            df = df.sample(1000)
+        if len(df) > 10000:
+            df = df.sample(10000)
 
         return df
 

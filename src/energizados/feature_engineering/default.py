@@ -15,6 +15,7 @@ from sklearn.pipeline import Pipeline
 from energizados.feature_engineering.base import BaseFeatureEngineering
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
+    CastDtype,
     ExtraVars,
     TeEncoder,
     ToDummy,
@@ -58,6 +59,7 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
             {"handle_unknown": "use_encoded_value", "unknown_value": -1},
         ),
         "minmax_scaler_row": (MinMaxScalerRow, {"feature_range": (0, 1)}),
+        "cast_dtype": (CastDtype, {"dtype": "float32"}),
         # Global transformers (no requieren column name)
         "tsfel_vars": (TsfelVars, {"num_periodos": 12, "features_names_path": None, "periods_suffix": "_anterior"}),
         "extra_vars": (ExtraVars, {"num_periodos": 3, "periods_suffix": "_anterior"}),

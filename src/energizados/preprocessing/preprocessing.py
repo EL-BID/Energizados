@@ -221,6 +221,26 @@ class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
 
 
+class CastDtype(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
+    """
+    Convierte columnas a un tipo de dato pandas específico.
+
+    Parámetros:
+    - dtype: str o tipo pandas, dtype destino (ej: 'float32', 'int8', 'category', 'bool').
+    """
+
+    def __init__(self, dtype="float32"):
+        self.dtype = dtype
+
+    def fit(self, X, y=None):
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = np.array(X.columns.tolist())
+        return self
+
+    def transform(self, X, y=None):
+        return X.astype(self.dtype)
+
+
 class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
     """
     Clase MinMaxScalerRow

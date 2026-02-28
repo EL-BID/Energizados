@@ -74,7 +74,7 @@ class LGBMModelAdapter(BaseModel):
         Returns:
             self
         """
-        self._model.train(X, y, X_val, y_val)
+        self._model = self._model.train(X, y, X_val, y_val)
         self.is_fitted_ = True
         return self
 
@@ -89,7 +89,7 @@ class LGBMModelAdapter(BaseModel):
             np.ndarray: Predicciones binarias (0 o 1)
         """
         self.check_fitted()
-        return (self._model.pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
+        return (self._model.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
@@ -102,7 +102,7 @@ class LGBMModelAdapter(BaseModel):
             np.ndarray: Probabilidades de la clase positiva
         """
         self.check_fitted()
-        return self._model.pipeline.predict_proba(X[self.cols_for_model])[:, 1]
+        return self._model.predict_proba(X[self.cols_for_model])[:, 1]
 
 
 class CATModelAdapter(BaseModel):

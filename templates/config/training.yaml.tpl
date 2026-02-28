@@ -1,12 +1,10 @@
-# Training Configuration for {{project_name}}
+# Training Configuration for .sample
 #
 # Este archivo configura el flujo completo de entrenamiento:
 # 1. Split: División de datos en train/val/test
 # 2. Feature Engineering: Preprocessing y Feature Selection
 # 3. Model: Entrenamiento del modelo
 # 4. Evaluation: Evaluación del modelo entrenado
-#
-# El flujo previene data leakage: fit solo en train, transform en val/test
 
 training:
   enabled: true
@@ -49,40 +47,37 @@ training:
     output_parquet: "data/processed/feature_engineering.parquet"  # opcional
 
     preprocessing:
-      enabled: false
+      enabled: true
 
       # Opción 1: Usar configuración por columna con transformers built-in
       columns:
         # Actividad: reducir cardinalidad + one-hot encoding
         actividad:
-          - cardinality_reducer:
-              threshold: 0.001
-          - to_dummy: {}
+        #  - cardinality_reducer:
+        #      threshold: 0.001
+        #  - to_dummy: {}
+          - cast_dtype:
+              dtype: "category"
 
         # Tipo Tarifa: reducir cardinalidad + target encoding
-        tipo_tarifa:
-          - cardinality_reducer:
-              threshold: 0.001
-          - target_encoding:
-              w: 20
+        #tipo_tarifa:
+        #  - cardinality_reducer:
+        #      threshold: 0.001
+        #  - target_encoding:
+        #      w: 20
 
         # Zona: encoding ordinal simple
-        zona:
-          - ordinal_encoding: {}
+        #zona:
+        #  - ordinal_encoding: {}
 
         # Nivel Tensión: encoding ordinal simple
-        nivel_tension:
-          - ordinal_encoding: {}
+        #nivel_tension:
+        #  - ordinal_encoding: {}
 
         # Material Instalación: target encoding directo
-        material_instalacion:
-          - target_encoding:
-              w: 10
-
-        # Consumo (ejemplo): Convertir a float32 para ahorrar memoria
-        # 12_anterior:
-        #   - cast_dtype:
-        #       dtype: "float32"
+        #material_instalacion:
+        #  - target_encoding:
+        #      w: 10
 
         # Opción 2: Mezclar built-in y custom en la misma columna
         # otra_columna:
@@ -92,18 +87,18 @@ training:
         #     params:
         #       method: "frequency"
 
-      # # Transformers globales
-      # global_transformers:
+      # Transformers globales
+      global_transformers:
       #   # Extracción de features de series temporales con tsfel
       #   - tsfel_vars:
       #       num_periodos: 12
       #       features_names_path: null  # o path a JSON con configuración custom
       #       periods_suffix: *period_suffix
       #
-      #   # Variables estadísticas para diferentes ventanas de tiempo
-      #   - extra_vars:
-      #       num_periodos: 3
-      #       periods_suffix: *period_suffix
+        # Variables estadísticas para diferentes ventanas de tiempo
+        - extra_vars:
+            num_periodos: 3
+            periods_suffix: *period_suffix
       #   - extra_vars:
       #       num_periodos: 6
       #       periods_suffix: *period_suffix
@@ -125,6 +120,10 @@ training:
           method: constant          # constant | correlation | boruta | selection
           params:
             threshold: 0.99
+          columns:
+            - "*"
+            - "!index"
+            - "!*_anterior"
 
       #   - name: boruta_consumo
       #     method: boruta
@@ -146,14 +145,17 @@ training:
       #       - "@drop_constant"      # Referencia a resultado de paso anterior
       #       - "!nivel_tension"      # Excluir
 
-      #   - name: final
-      #     method: selection
-      #     operation: union          # union | intersection | difference
-      #     columns:
-      #       - "@boruta_consumo"     # Incluir resultado de paso 2
-      #       - "@corr_categoricas"   # Incluir resultado de paso 3
-      #       - "fecha_inspeccion"    # Agregar columna manual
-      #       - "!zona"               # Excluir del resultado final
+        - name: final
+          method: selection
+          operation: union          # union | intersection | difference
+          columns:
+            #- "zona"
+            - "*_anterior"
+            - "actividad"
+            #- "tipo_tarifa"
+            #- "nivel_tension"
+            #- "material_instalacion"
+            - "@drop_constant"
 
   # ============================================
   # Model Configuration
@@ -198,47 +200,3 @@ training:
     generate_plots: true
     generate_html_report: true
     generate_json_report: true
-
-# ============================================
-# Uso de clases personalizadas
-# ============================================
-# Opción 1: Usar custom_class POR COLUMNA (recomendado)
-# Permite mezclar transformers built-in con customs por columna:
-# training:
-#   feature_engineering:
-#     preprocessing:
-#       columns:
-#         actividad:
-#           - cardinality_reducer:
-#               threshold: 0.001
-#           - custom_class: "preprocessing.CustomActividad"
-#             params:
-#               encoding: "target"
-#         zona:
-#           - custom_class: "preprocessing.ZonaEncoder"
-#             params:
-#               method: "frequency"
-#
-# Opción 2: Reemplazar preprocessing completo con custom_class
-# training:
-#   feature_engineering:
-#     preprocessing:
-#       enabled: true
-#       custom_class: "preprocessing.custom_preprocessor.CustomPreprocessor"
-#       params:
-#         threshold: 0.5
-#
-# Para usar tu propio Feature Engineering (completo):
-# training:
-#   feature_engineering:
-#     custom_class: "features.custom_selector.CustomSelector"
-#     params:
-#       custom_param: value
-#
-# Para usar tu propio Modelo:
-# training:
-#   model:
-#     custom_class: "models.custom_model.CustomModel"
-#     params:
-#       learning_rate: 0.01
-#       epochs: 1000
