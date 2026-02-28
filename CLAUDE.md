@@ -264,6 +264,7 @@ training:
 | `target_encoding` | Replaces category with target probability (requires y) | `w` (int, default=20) |
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
+| `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features_names_path` (str, default=None), `periods_suffix` (str, default="_anterior") |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
 
@@ -336,8 +337,10 @@ Additional ETL examples are provided (commented out) in the template:
 - `ToDummy`: Converts categorical variables to dummy variables
 - `TeEncoder`: Target encoding for categorical variables
 - `CardinalityReducer`: Reduces cardinality of categorical features
+- `CastDtype`: Converts columns to a specific pandas dtype
 - `TsfelVars`: Time series feature extraction using tsfel library
 - `ExtraVars`: Creates statistical features from consumption time series (mean, slope, std, zeros count, etc.)
+- `MinMaxScalerRow`: Row-wise MinMax scaling transformer
 
 **`src/modeling/supervised_models.py`** - Supervised model classes:
 - `LGBMModel`: LightGBM with imbalanced-learn sampling (under/over)

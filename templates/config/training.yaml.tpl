@@ -79,6 +79,11 @@ training:
           - target_encoding:
               w: 10
 
+        # Consumo (ejemplo): Convertir a float32 para ahorrar memoria
+        # 12_anterior:
+        #   - cast_dtype:
+        #       dtype: "float32"
+
         # Opción 2: Mezclar built-in y custom en la misma columna
         # otra_columna:
         #   - cardinality_reducer:
