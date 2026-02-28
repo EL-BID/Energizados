@@ -10,7 +10,7 @@ etls:
     description: "Procesa dataset de ejemplo (elimina filas con NULL)"
     input: "data/raw/sample_dataset.parquet"
     output: "data/processed/sample_dataset.parquet"
-    custom_class: "src.data.custom_etl.CustomETL"
+    custom_class: "data.custom_etl.CustomETL"
     params:
       mode: "concat"  # 'concat' (default) o 'merge'
     depends_on: []
@@ -26,7 +26,7 @@ etls:
   #   description: "Procesa datos de consumo mensual"
   #   input: "data/raw/consumos.csv"
   #   output: "data/processed/consumos.parquet"
-  #   custom_class: "src.data.custom_etl.CustomETL"
+  #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"  # Concatena archivos (default)
   #   depends_on: []
@@ -37,7 +37,7 @@ etls:
   #   description: "Procesa datos de clientes"
   #   input: "data/raw/clientes.csv"
   #   output: "data/processed/clientes.parquet"
-  #   custom_class: "src.data.custom_etl.CustomETL"
+  #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"
   #   depends_on: []
@@ -52,7 +52,7 @@ etls:
   #     - "data/raw/consumos_2024.csv"
   #     - "data/raw/consumos_2025.csv"
   #   output: "data/processed/consumos_completo.parquet"
-  #   custom_class: "src.data.custom_etl.CustomETL"
+  #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"  # Concatenar verticalmente
   #   depends_on: []
@@ -66,7 +66,7 @@ etls:
   #     - "data/processed/consumos.parquet"
   #     - "data/processed/clientes.parquet"
   #   output: "data/processed/dataset_mergeado.parquet"
-  #   custom_class: "src.data.custom_etl.CustomETL"
+  #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "merge"  # Unir horizontalmente
   #     merge_config:
@@ -86,7 +86,7 @@ etls:
   #     - "@merge_dataset"  # Se resuelve al output de merge_dataset
   #     - "data/raw/inspecciones.csv"
   #   output: "data/processed/dataset_final.parquet"
-  #   custom_class: "src.data.custom_etl.CustomETL"
+  #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "merge"
   #     merge_config:

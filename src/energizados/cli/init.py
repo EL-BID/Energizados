@@ -143,6 +143,7 @@ def _create_directory_structure(project_path: Path):
         project_path / "src" / "models",
         project_path / "src" / "inference",
         project_path / "src" / "utils",
+        project_path / "src" / "run",
         # Tests
         project_path / "tests",
         # Documentación
@@ -158,8 +159,6 @@ def _create_directory_structure(project_path: Path):
         # Notebooks y reportes
         project_path / "notebooks",
         project_path / "reports",
-        # Scripts de ejecución
-        project_path / "run",
     ]
 
     for directory in directories:
