@@ -49,7 +49,7 @@ training:
     output_parquet: "data/processed/feature_engineering.parquet"  # opcional
 
     preprocessing:
-      enabled: true
+      enabled: false
 
       # Opción 1: Usar configuración por columna con transformers built-in
       columns:
@@ -112,18 +112,15 @@ training:
       #       custom_param: value
 
     feature_selection:
-      enabled: false
+      enabled: true
 
       # Lista de pasos secuenciales de selección
-      # steps:
-      #   # Paso 1: Eliminar constantes sobre todas las features
-      #   - name: drop_constant
-      #     method: constant          # constant | correlation | boruta | selection
-      #     params:
-      #       threshold: 0.99
-      #     # columns: omitido → actúa sobre todas las features
-      #
-      #   # Paso 2: Boruta solo en columnas de consumo
+      steps:
+        - name: drop_constant
+          method: constant          # constant | correlation | boruta | selection
+          params:
+            threshold: 0.99
+
       #   - name: boruta_consumo
       #     method: boruta
       #     params:
@@ -132,8 +129,7 @@ training:
       #     columns:
       #       - "*_anterior"          # Glob: 12_anterior, 11_anterior, ...
       #       - "!12_anterior"        # Excluir una específica
-      #
-      #   # Paso 3: Correlación en categóricas codificadas
+
       #   - name: corr_categoricas
       #     method: correlation
       #     params:
@@ -144,8 +140,7 @@ training:
       #       - "re:^zona.*"          # Regex con prefijo re:
       #       - "@drop_constant"      # Referencia a resultado de paso anterior
       #       - "!nivel_tension"      # Excluir
-      #
-      #   # Paso 4 (selection): Composición final
+
       #   - name: final
       #     method: selection
       #     operation: union          # union | intersection | difference
