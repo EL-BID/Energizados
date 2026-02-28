@@ -149,8 +149,8 @@ def _create_directory_structure(project_path: Path):
         project_path / "src" / "models",
         project_path / "src" / "inference",
         project_path / "src" / "utils",
-        # Scripts de ejecución en run/
-        project_path / "run",
+        # Scripts de ejecución en src/run/
+        project_path / "src" / "run",
         # Tests
         project_path / "tests",
         # Documentación
@@ -674,7 +674,7 @@ def _create_run_scripts(project_path: Path, project_name: str):
     """
     Crea scripts de Python para ejecutar cada etapa del pipeline.
 
-    Scripts creados:
+    Scripts creados en src/run/:
     - 01_etl.py - Ejecuta ETLs
     - 02_training.py - Ejecuta entrenamiento
     - 03_evaluation.py - Ejecuta evaluación
@@ -689,8 +689,7 @@ def _create_run_scripts(project_path: Path, project_name: str):
         "04_inference.py": "src/run/04_inference.py.tpl",
     }
 
-    # Crear directorio run/ (en la raíz del proyecto)
-    run_dir = project_path / "run"
+    run_dir = project_path / "src" / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     for filename, template_path in scripts.items():
