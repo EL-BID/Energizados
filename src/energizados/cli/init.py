@@ -648,9 +648,13 @@ def _create_run_scripts(project_path: Path, project_name: str):
         "04_inference.py": "src/run/04_inference.py.tpl",
     }
 
+    # Crear directorio src/run/
+    run_dir = project_path / "src" / "run"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
     for filename, template_path in scripts.items():
         template_content = _load_template(template_path)
-        script_path = project_path / "src" / "run" / filename
+        script_path = run_dir / filename
         script_path.write_text(template_content)
         script_path.chmod(0o755)  # Make executable
 
