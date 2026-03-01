@@ -14,7 +14,7 @@ from typing import Dict, List
 import pandas as pd
 
 from energizados.core.exceptions import ETLDependencyError, ETLError
-from energizados.utils import import_class
+from energizados.core.utils import import_class
 
 logger = logging.getLogger(__name__)
 

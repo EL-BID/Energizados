@@ -40,8 +40,8 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     """
     from sklearn.preprocessing import OrdinalEncoder
 
+    from energizados.core.utils import import_class
     from energizados.preprocessing.preprocessing import MinMaxScalerRow
-    from energizados.utils import import_class
 
     # Caso especial para custom_class por columna (formato plano)
     if transform_name == "custom_class":
@@ -253,7 +253,7 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
 
             if custom_class:
                 # Importar y usar custom preprocessor
-                from energizados.utils import import_class
+                from energizados.core.utils import import_class
 
                 params = self.preprocessing_config.get("params", {})
                 self.preprocessor = import_class(custom_class)(**params)

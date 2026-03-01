@@ -17,7 +17,7 @@ from energizados.core.exceptions import (
     PipelineError,
     StepValidationError,
 )
-from energizados.utils import import_class
+from energizados.core.utils import import_class
 
 logger = logging.getLogger(__name__)
 
@@ -461,7 +461,7 @@ class ConfigPipelineBuilder:
 
         # Importar clase de inferencia
         if custom_class:
-            from energizados.utils import import_class
+            from energizados.core.utils import import_class
 
             InferenceClass = import_class(custom_class)
         else:
