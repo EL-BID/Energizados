@@ -1,8 +1,8 @@
 """
 ETL Orchestrator for Energizados Framework.
 
-Este módulo proporciona el ETLOrchestrator que permite ejecutar múltiples ETLs
-respetando dependencias entre ellas, implementando un orden topológico.
+This module provides the ETLOrchestrator which allows running multiple ETLs
+respecting dependencies between them, implementing topological order.
 """
 
 import glob
@@ -21,30 +21,30 @@ logger = logging.getLogger(__name__)
 
 class ETLOrchestrator:
     """
-    Orquesta la ejecución de múltiples ETLs respetando dependencias.
+    Orchestrates the execution of multiple ETLs respecting dependencies.
 
-    Implementa un orden topológico para ejecutar las ETLs en el orden correcto
-    basado en sus dependencias, creando un DAG (Directed Acyclic Graph).
+    Implements topological order to execute ETLs in the correct order
+    based on their dependencies, creating a DAG (Directed Acyclic Graph).
 
     Args:
-        etl_configs: Diccionario con configuración de cada ETL
+        etl_configs: Dictionary with configuration for each ETL
             {
                 "etl_name": {
                     "enabled": bool,
                     "description": str,
-                    "input": str or List[str],  # Archivos, glob, o referencia
+                    "input": str or List[str],  # Files, glob, or reference
                     "output": str,
                     "depends_on": ["etl1", "etl2"],
-                    "custom_class": str (opcional),
-                    "params": dict (opcional)
+                    "custom_class": str (optional),
+                    "params": dict (optional)
                 }
             }
 
     Attributes:
-        etl_configs: Configuración de todas las ETLs
-        etl_instances: Instancias de ETL creadas
-        execution_order: Orden de ejecución determinado
-        results: Resultados de cada ETL ejecutada
+        etl_configs: Configuration of all ETLs
+        etl_instances: Created ETL instances
+        execution_order: Determined execution order
+        results: Results of each executed ETL
 
     Example:
         >>> configs = {
@@ -63,14 +63,14 @@ class ETLOrchestrator:
 
     def validate_dependencies(self) -> None:
         """
-        Valida que el DAG de dependencias sea válido.
+        Validates that the dependency DAG is valid.
 
-        Verifica que:
-        - Todas las dependencias referenciadas existan
-        - No haya ciclos en el grafo de dependencias
+        Verifies that:
+        - All referenced dependencies exist
+        - There are no cycles in the dependency graph
 
         Raises:
-            ETLDependencyError: Si hay ciclos o referencias inválidas
+            ETLDependencyError: If there are cycles or invalid references
         """
         all_etls = set(self.etl_configs.keys())
 
@@ -78,16 +78,16 @@ class ETLOrchestrator:
             deps = set(config.get("depends_on", []))
             unknown = deps - all_etls
             if unknown:
-                raise ETLDependencyError(f"ETL '{etl_name}' tiene dependencias desconocidas: {unknown}")
+                raise ETLDependencyError(f"ETL '{etl_name}' has unknown dependencies: {unknown}")
 
         self._detect_cycles()
 
     def _detect_cycles(self) -> None:
         """
-        Detecta ciclos en el grafo de dependencias usando DFS.
+        Detects cycles in the dependency graph using DFS.
 
         Raises:
-            ETLDependencyError: Si se detecta un ciclo
+            ETLDependencyError: If a cycle is detected
         """
         WHITE, GRAY, BLACK = 0, 1, 2
         color = {etl: WHITE for etl in self.etl_configs}
@@ -96,7 +96,7 @@ class ETLOrchestrator:
             color[node] = GRAY
             for neighbor in self.etl_configs.get(node, {}).get("depends_on", []):
                 if color[neighbor] == GRAY:
-                    return True  # Ciclo detectado
+                    return True  # Cycle detected
                 if color[neighbor] == WHITE and dfs(neighbor):
                     return True
             color[node] = BLACK
@@ -105,17 +105,17 @@ class ETLOrchestrator:
         for etl in self.etl_configs:
             if color[etl] == WHITE:
                 if dfs(etl):
-                    raise ETLDependencyError(f"Detectado ciclo en dependencias de ETLs involucrando a '{etl}'")
+                    raise ETLDependencyError(f"Cycle detected in ETL dependencies involving '{etl}'")
 
     def build_execution_order(self) -> List[str]:
         """
-        Construye el orden de ejecución usando orden topológico (BFS).
+        Builds the execution order using topological order (BFS).
 
         Returns:
-            Lista de nombres de ETLs en orden de ejecución
+            List of ETL names in execution order
 
         Raises:
-            ETLDependencyError: Si no se puede determinar el orden (ciclo)
+            ETLDependencyError: If the order cannot be determined (cycle)
         """
         in_degree = defaultdict(int)
         adj_list = defaultdict(list)
@@ -139,30 +139,30 @@ class ETLOrchestrator:
                     queue.append(neighbor)
 
         if len(order) != len(self.etl_configs):
-            raise ETLDependencyError("No se pudo determinar orden topológico (posible ciclo)")
+            raise ETLDependencyError("Could not determine topological order (possible cycle)")
 
         self.execution_order = order
         return order
 
     def resolve_input_paths(self, etl_name: str) -> List[str]:
         """
-        Resuelve las rutas de input de una ETL.
+        Resolves the input paths for an ETL.
 
-        Soporta:
-        - Archivos individuales: "data/file.csv"
-        - Lista de archivos: ["file1.csv", "file2.csv"]
-        - Expresiones glob: "*.csv", "data/**/*.parquet"
-        - Referencias a otras ETLs: "@etl_name"
+        Supports:
+        - Individual files: "data/file.csv"
+        - File list: ["file1.csv", "file2.csv"]
+        - Glob expressions: "*.csv", "data/**/*.parquet"
+        - References to other ETLs: "@etl_name"
 
         Args:
-            etl_name: Nombre de la ETL
+            etl_name: Name of the ETL
 
         Returns:
-            Lista de rutas de archivos resueltas
+            List of resolved file paths
 
         Raises:
-            ETLDependencyError: Si una referencia apunta a una ETL no ejecutada
-            ETLError: Si un archivo no existe o un glob no coincide
+            ETLDependencyError: If a reference points to an unexecuted ETL
+            ETLError: If a file doesn't exist or glob doesn't match
         """
         config = self.etl_configs[etl_name]
         raw_input = config.get("input", [])
@@ -172,53 +172,51 @@ class ETLOrchestrator:
 
         resolved_paths = []
         for path_spec in raw_input:
-            # Referencia a otra ETL (@etl_name)
+            # Reference to another ETL (@etl_name)
             if path_spec.startswith("@"):
                 ref_etl = path_spec[1:]
                 if ref_etl in self.etl_configs:
-                    # Obtener el output path del config de la ETL referenciada
-                    # No importa si ya se ejecutó o no, el path está en el config
+                    # Get the output path from the referenced ETL config
+                    # It doesn't matter if it was already executed, the path is in the config
                     ref_config = self.etl_configs[ref_etl]
                     resolved_paths.append(ref_config["output"])
                 else:
-                    raise ETLDependencyError(f"ETL '{etl_name}' referencia ETL desconocida '{ref_etl}'")
+                    raise ETLDependencyError(f"ETL '{etl_name}' references unknown ETL '{ref_etl}'")
 
-            # Expresión glob
+            # Glob expression
             elif "*" in path_spec or "?" in path_spec or "[" in path_spec:
                 matched = glob.glob(path_spec, recursive=True)
                 if not matched:
-                    raise ETLError(f"ETL '{etl_name}': glob '{path_spec}' no coincidió con ningún archivo")
+                    raise ETLError(f"ETL '{etl_name}': glob '{path_spec}' did not match any files")
                 resolved_paths.extend(sorted(matched))
 
-            # Archivo específico
+            # Specific file
             else:
                 if not Path(path_spec).exists():
-                    raise ETLError(f"ETL '{etl_name}': archivo de input '{path_spec}' no existe")
+                    raise ETLError(f"ETL '{etl_name}': input file '{path_spec}' does not exist")
                 resolved_paths.append(path_spec)
 
         return resolved_paths
 
     def instantiate_etls(self) -> None:
         """
-        Instancia las clases de ETL según la configuración.
+        Instantiates ETL classes according to configuration.
 
-        Requiere que cada ETL especifique una custom_class.
+        Requires that each ETL specify a custom_class.
         """
         for etl_name, config in self.etl_configs.items():
             if not config.get("enabled", True):
                 continue
 
             if "custom_class" not in config:
-                raise ETLError(
-                    f"ETL '{etl_name}': debe especificar 'custom_class'. " f"Ejemplo: SourceETL, MultiSourceETL, o una clase personalizada."
-                )
+                raise ETLError(f"ETL '{etl_name}': must specify 'custom_class'. " f"Example: SourceETL, MultiSourceETL, or a custom class.")
 
             etl_class = import_class(config["custom_class"])
             params = config.get("params", {})
             input_paths = self.resolve_input_paths(etl_name)
             output_path = config["output"]
 
-            # Pasar nombre y paths como parámetros estándar
+            # Pass name and paths as standard parameters
             params["name"] = etl_name
             params["input_paths"] = input_paths
             params["output_path"] = output_path
@@ -226,24 +224,24 @@ class ETLOrchestrator:
 
     def run(self, parallel: bool = False) -> Dict[str, pd.DataFrame]:
         """
-        Ejecuta todas las ETLs respetando las dependencias.
+        Executes all ETLs respecting dependencies.
 
         Args:
-            parallel: Si True, ejecuta ETLs independientes en paralelo (no implementado aún)
+            parallel: If True, executes independent ETLs in parallel (not implemented yet)
 
         Returns:
-            Diccionario con los resultados de cada ETL
+            Dictionary with results of each ETL
 
         Raises:
-            ETLDependencyError: Si hay errores en las dependencias
-            ETLError: Si falla la ejecución de alguna ETL
+            ETLDependencyError: If there are dependency errors
+            ETLError: If any ETL execution fails
         """
         self.validate_dependencies()
         order = self.build_execution_order()
         self.instantiate_etls()
 
         logger.info(f"\n{'=' * 60}")
-        logger.info(f"Ejecutando {len(self.execution_order)} ETLs en orden:")
+        logger.info(f"Executing {len(self.execution_order)} ETLs in order:")
         logger.info(" → ".join(order))
         logger.info(f"{'=' * 60}\n")
 
@@ -260,55 +258,55 @@ class ETLOrchestrator:
 
             description = etl_config.get("description", "N/A")
             if description != "N/A":
-                logger.info(f"Descripción: {description}")
+                logger.info(f"Description: {description}")
 
-            # Mostrar inputs resueltos
+            # Show resolved inputs
             input_paths = self.resolve_input_paths(etl_name)
-            logger.info(f"Input(s): {len(input_paths)} archivo(s)")
+            logger.info(f"Input(s): {len(input_paths)} file(s)")
             for path in input_paths[:3]:
                 logger.info(f"  - {path}")
             if len(input_paths) > 3:
-                logger.info(f"  ... y {len(input_paths) - 3} más")
+                logger.info(f"  ... and {len(input_paths) - 3} more")
 
             logger.info(f"Output: {etl_config['output']}")
 
-            # Verificar dependencias
+            # Verify dependencies
             deps = etl_config.get("depends_on", [])
             for dep in deps:
                 if dep not in self.results:
-                    raise ETLDependencyError(f"Dependencia '{dep}' no se ejecutó correctamente")
+                    raise ETLDependencyError(f"Dependency '{dep}' did not execute correctly")
 
-            # Ejecutar ETL
+            # Execute ETL
             etl = self.etl_instances.get(etl_name)
             if etl:
                 try:
                     result = etl.run(output_path=etl_config["output"])
                     self.results[etl_name] = result
-                    logger.info(f"✓ {etl_name} completado ({len(result)} filas)")
+                    logger.info(f"✓ {etl_name} completed ({len(result)} rows)")
                 except Exception as e:
-                    logger.error(f"✗ {etl_name} falló: {e}")
-                    raise ETLError(f"Error ejecutando ETL '{etl_name}': {e}")
+                    logger.error(f"✗ {etl_name} failed: {e}")
+                    raise ETLError(f"Error executing ETL '{etl_name}': {e}")
 
         logger.info(f"\n{'=' * 60}")
-        logger.info("TODAS LAS ETLs COMPLETADAS")
+        logger.info("ALL ETLs COMPLETED")
         logger.info(f"{'=' * 60}")
 
         return self.results
 
     def get_execution_plan(self) -> str:
         """
-        Retorna una representación visual del plan de ejecución.
+        Returns a visual representation of the execution plan.
 
         Returns:
-            String con el plan formateado
+            String with formatted plan
         """
-        lines = ["\nPlan de Ejecución de ETLs:", "=" * 60]
+        lines = ["\nETL Execution Plan:", "=" * 60]
 
         if not self.execution_order:
             try:
                 self.build_execution_order()
             except ETLDependencyError:
-                return "Error: No se puede construir el plan de ejecución (ciclo detectado)"
+                return "Error: Could not build execution plan (cycle detected)"
 
         for i, etl_name in enumerate(self.execution_order):
             config = self.etl_configs[etl_name]

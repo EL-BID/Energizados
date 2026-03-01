@@ -1,8 +1,8 @@
 """
 ETL Module for Energizados Framework.
 
-Este módulo proporciona clases base y el orquestador
-para procesos de Extracción, Transformación y Carga (ETL).
+This module provides base classes and the orchestrator
+for Extract, Transform, and Load (ETL) processes.
 """
 
 from energizados.etl.base import BaseETL

@@ -1,8 +1,8 @@
 """
 Evaluation Module for Energizados Framework.
 
-Este módulo proporciona herramientas para evaluar modelos de ML,
-incluyendo métricas, visualizaciones y generación de reportes.
+This module provides tools to evaluate ML models,
+including metrics, visualizations, and report generation.
 """
 
 from energizados.evaluation.calibration import ThresholdCalibrator

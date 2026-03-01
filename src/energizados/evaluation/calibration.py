@@ -1,8 +1,8 @@
 """
 Threshold Calibration Module for Energizados Framework.
 
-Calibra el threshold de clasificación usando el validation set,
-evitando usar el test set para selección de hiperparámetros.
+Calibrates the classification threshold using the validation set,
+avoiding using the test set for hyperparameter selection.
 """
 
 import logging
@@ -16,25 +16,25 @@ logger = logging.getLogger(__name__)
 
 class ThresholdCalibrator:
     """
-    Calibra el threshold de clasificación usando el validation set.
+    Calibrates the classification threshold using the validation set.
 
-    Métodos soportados:
-    - cost_benefit: minimiza costo total ponderado FP/FN (default)
-    - operational: fija la cantidad de alarmas por capacidad operativa
-    - precision_recall: threshold más alto que mantiene recall >= min_recall
+    Supported methods:
+    - cost_benefit: minimizes weighted total cost FP/FN (default)
+    - operational: sets the number of alarms per operational capacity
+    - precision_recall: highest threshold that maintains recall >= min_recall
 
     Args:
-        method: Método de calibración ('cost_benefit', 'operational', 'precision_recall')
-        **params: Parámetros del método seleccionado
+        method: Calibration method ('cost_benefit', 'operational', 'precision_recall')
+        **params: Parameters for the selected method
 
-    Params por método:
+    Parameters by method:
         cost_benefit:
-            cost_fp (float): Costo de un falso positivo (default: 1)
-            cost_fn (float): Costo de un falso negativo (default: 10)
+            cost_fp (float): Cost of a false positive (default: 1)
+            cost_fn (float): Cost of a false negative (default: 10)
         operational:
-            capacity (int): Máximo de alarmas por período (default: 100)
+            capacity (int): Maximum alarms per period (default: 100)
         precision_recall:
-            min_recall (float): Recall mínimo requerido (default: 0.80)
+            min_recall (float): Minimum required recall (default: 0.80)
 
     Example:
         >>> calibrator = ThresholdCalibrator(method="cost_benefit", cost_fp=1, cost_fn=10)
@@ -48,19 +48,19 @@ class ThresholdCalibrator:
 
     def calibrate(self, y_true: np.ndarray, y_proba: np.ndarray) -> Dict:
         """
-        Calibra el threshold y retorna el resultado.
+        Calibrates the threshold and returns the result.
 
         Args:
-            y_true: Etiquetas verdaderas (array binario)
-            y_proba: Probabilidades predichas (array float [0,1])
+            y_true: True labels (binary array)
+            y_proba: Predicted probabilities (float array [0,1])
 
         Returns:
-            Dict con:
-              - threshold: float óptimo encontrado
-              - method: str nombre del método
-              - params: dict parámetros usados
-              - metrics_at_threshold: dict con precision/recall/f1 en val
-              - search_results: tabla de thresholds explorados (para plots)
+            Dict with:
+              - threshold: optimal float found
+              - method: str method name
+              - params: dict parameters used
+              - metrics_at_threshold: dict with precision/recall/f1 at threshold
+              - search_results: table of explored thresholds (for plots)
         """
         y_true = np.asarray(y_true)
         y_proba = np.asarray(y_proba)
@@ -72,16 +72,14 @@ class ThresholdCalibrator:
         elif self.method == "precision_recall":
             return self._calibrate_precision_recall(y_true, y_proba)
         else:
-            raise ValueError(
-                f"Método de calibración desconocido: '{self.method}'. " f"Opciones: 'cost_benefit', 'operational', 'precision_recall'"
-            )
+            raise ValueError(f"Unknown calibration method: '{self.method}'. " f"Options: 'cost_benefit', 'operational', 'precision_recall'")
 
     # ------------------------------------------------------------------
-    # Métodos privados
+    # Private methods
     # ------------------------------------------------------------------
 
     def _metrics_at(self, y_true: np.ndarray, y_proba: np.ndarray, threshold: float) -> Dict:
-        """Calcula precision/recall/f1 para un threshold dado."""
+        """Calculates precision/recall/f1 for a given threshold."""
         y_pred = (y_proba >= threshold).astype(int)
         return {
             "precision": float(precision_score(y_true, y_pred, zero_division=0)),
@@ -91,10 +89,10 @@ class ThresholdCalibrator:
 
     def _calibrate_operational(self, y_true: np.ndarray, y_proba: np.ndarray) -> Dict:
         """
-        Fija el threshold para generar exactamente `capacity` alarmas.
+        Sets the threshold to generate exactly `capacity` alarms.
 
-        El percentil calculado asegura que solo `capacity` muestras superen
-        el threshold. Si capacity >= n, threshold = 0 (alarma en todos).
+        The calculated percentile ensures that only `capacity` samples exceed
+        the threshold. If capacity >= n, threshold = 0 (alarm all).
         """
         capacity = int(self.params.get("capacity", 100))
         n = len(y_proba)
@@ -105,7 +103,7 @@ class ThresholdCalibrator:
         metrics = self._metrics_at(y_true, y_proba, threshold)
         n_alarms = int(np.sum(y_proba >= threshold))
 
-        logger.info(f"Calibración operational: threshold={threshold:.4f}, alarmas={n_alarms}/{n}")
+        logger.info(f"Operational calibration: threshold={threshold:.4f}, alarms={n_alarms}/{n}")
 
         return {
             "threshold": threshold,
@@ -117,16 +115,16 @@ class ThresholdCalibrator:
 
     def _calibrate_cost_benefit(self, y_true: np.ndarray, y_proba: np.ndarray) -> Dict:
         """
-        Minimiza el costo total ponderado: cost_fp * FP + cost_fn * FN.
+        Minimizes weighted total cost: cost_fp * FP + cost_fn * FN.
 
-        Reutiliza Metrics.get_threshold_metrics() para explorar 101 thresholds.
+        Reuses Metrics.get_threshold_metrics() to explore 101 thresholds.
         """
         from energizados.evaluation.metrics import Metrics
 
         cost_fp = float(self.params.get("cost_fp", 1))
         cost_fn = float(self.params.get("cost_fn", 10))
 
-        # Instanciar Metrics con y_pred dummy (no usado por get_threshold_metrics)
+        # Instantiate Metrics with dummy y_pred (not used by get_threshold_metrics)
         dummy_pred = np.zeros_like(y_true, dtype=int)
         metrics_calc = Metrics(y_true, dummy_pred, y_proba)
         search = metrics_calc.get_threshold_metrics()
@@ -140,7 +138,7 @@ class ThresholdCalibrator:
 
         # TP = recall * total_pos
         tp = recalls * total_pos
-        # FP = TP/precision - TP  (cuando precision > 0, sino asumir FP = total_neg)
+        # FP = TP/precision - TP  (when precision > 0, otherwise assume FP = total_neg)
         safe_prec = np.where(precisions > 0, precisions, 1.0)
         fp = np.where(precisions > 0, tp / safe_prec - tp, total_neg)
         fn = total_pos - tp
@@ -152,7 +150,7 @@ class ThresholdCalibrator:
         metrics = self._metrics_at(y_true, y_proba, threshold)
 
         logger.info(
-            f"Calibración cost_benefit: threshold={threshold:.4f}, " f"costo={costs[best_idx]:.1f} (cost_fp={cost_fp}, cost_fn={cost_fn})"
+            f"Cost_benefit calibration: threshold={threshold:.4f}, " f"cost={costs[best_idx]:.1f} (cost_fp={cost_fp}, cost_fn={cost_fn})"
         )
 
         return {
@@ -171,9 +169,9 @@ class ThresholdCalibrator:
 
     def _calibrate_precision_recall(self, y_true: np.ndarray, y_proba: np.ndarray) -> Dict:
         """
-        Selecciona el threshold más alto que mantiene recall >= min_recall.
+        Selects the highest threshold that maintains recall >= min_recall.
 
-        Threshold más alto → mayor precisión con recall mínimo garantizado.
+        Higher threshold → higher precision with guaranteed minimum recall.
         """
         from sklearn.metrics import precision_recall_curve
 
@@ -182,23 +180,22 @@ class ThresholdCalibrator:
         precisions, recalls, pr_thresholds = precision_recall_curve(y_true, y_proba)
 
         # precision_recall_curve: len(precisions) = len(recalls) = len(pr_thresholds) + 1
-        # El último par (precision=1, recall=0) no tiene threshold asociado
+        # The last pair (precision=1, recall=0) has no associated threshold
         valid_mask = recalls[:-1] >= min_recall
 
         if not np.any(valid_mask):
             logger.warning(
-                f"No se encontró threshold con recall >= {min_recall}. "
-                f"Recall máximo alcanzable: {recalls.max():.4f}. Usando threshold=0.5."
+                f"No threshold found with recall >= {min_recall}. " f"Maximum achievable recall: {recalls.max():.4f}. Using threshold=0.5."
             )
             threshold = 0.5
         else:
-            # Entre los válidos, elegir el más alto (maximiza precisión)
+            # Among valid ones, choose the highest (maximizes precision)
             valid_thresholds = pr_thresholds[valid_mask]
             threshold = float(np.max(valid_thresholds))
 
         metrics = self._metrics_at(y_true, y_proba, threshold)
 
-        logger.info(f"Calibración precision_recall: threshold={threshold:.4f}, " f"min_recall={min_recall}")
+        logger.info(f"Precision_recall calibration: threshold={threshold:.4f}, " f"min_recall={min_recall}")
 
         return {
             "threshold": threshold,

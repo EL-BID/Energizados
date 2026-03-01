@@ -88,7 +88,7 @@ class TestETLOrchestrator:
 
         orchestrator = ETLOrchestrator(configs)
 
-        with pytest.raises(ETLDependencyError, match="desconocidas"):
+        with pytest.raises(ETLDependencyError, match="unknown dependencies"):
             orchestrator.validate_dependencies()
 
     def test_detect_cycles_raises_on_cycle(self):
@@ -287,6 +287,6 @@ class TestETLOrchestrator:
 
         plan = orchestrator.get_execution_plan()
 
-        assert "Plan de Ejecución de ETLs" in plan
+        assert "ETL Execution Plan" in plan
         assert "etl1" in plan
         assert "etl2" in plan

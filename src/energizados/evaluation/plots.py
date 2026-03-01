@@ -1,7 +1,7 @@
 """
 Plots Module for Energizados Framework.
 
-Genera visualizaciones para la evaluación de modelos.
+Generates visualizations for model evaluation.
 """
 
 import logging
@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 class PlotGenerator:
     """
-    Generador de gráficos para evaluación de modelos.
+    Plot generator for model evaluation.
 
     Args:
-        output_dir: Directorio donde guardar los gráficos
+        output_dir: Directory where to save plots
 
     Example:
         >>> plotter = PlotGenerator("reports/evaluation/")
@@ -33,7 +33,7 @@ class PlotGenerator:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Configurar estilo
+        # Configure style
         plt.style.use("default")
 
     def roc_curve_plot(
@@ -44,16 +44,16 @@ class PlotGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera la curva ROC.
+        Generates ROC curve.
 
         Args:
-            y_true: Valores verdaderos
-            y_proba: Probabilidades predichas
-            auc_score: Puntuación AUC
-            save_path: Ruta para guardar (opcional)
+            y_true: True values
+            y_proba: Predicted probabilities
+            auc_score: AUC score
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el gráfico
+            str: Path where plot was saved
         """
         fpr, tpr, _ = roc_curve(y_true, y_proba)
 
@@ -82,15 +82,15 @@ class PlotGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera la curva Precision-Recall.
+        Generates Precision-Recall curve.
 
         Args:
-            y_true: Valores verdaderos
-            y_proba: Probabilidades predichas
-            save_path: Ruta para guardar (opcional)
+            y_true: True values
+            y_proba: Predicted probabilities
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el gráfico
+            str: Path where plot was saved
         """
         precision, recall, _ = precision_recall_curve(y_true, y_proba)
 
@@ -114,14 +114,14 @@ class PlotGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera el heatmap de la matriz de confusión.
+        Generates confusion matrix heatmap.
 
         Args:
-            cm: Matriz de confusión
-            save_path: Ruta para guardar (opcional)
+            cm: Confusion matrix
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el gráfico
+            str: Path where plot was saved
         """
         plt.figure(figsize=(8, 6))
         plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
@@ -151,14 +151,14 @@ class PlotGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera la curva de ganancias acumuladas.
+        Generates cumulative gains curve.
 
         Args:
-            gains_data: Diccionario con deciles y cumulative_gain
-            save_path: Ruta para guardar (opcional)
+            gains_data: Dictionary with deciles and cumulative_gain
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el gráfico
+            str: Path where plot was saved
         """
         _deciles = gains_data["deciles"]  # noqa: F841 - reference only
         cumulative_gain = gains_data["cumulative_gain"]
@@ -188,22 +188,22 @@ class PlotGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera el gráfico de calibración.
+        Generates calibration plot.
 
         Args:
-            y_true: Valores verdaderos
-            y_proba: Probabilidades predichas
-            n_bins: Número de bins
-            save_path: Ruta para guardar (opcional)
+            y_true: True values
+            y_proba: Predicted probabilities
+            n_bins: Number of bins
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el gráfico
+            str: Path where plot was saved
         """
-        # Crear bins
+        # Create bins
         df = pd.DataFrame({"y_true": y_true, "y_proba": y_proba})
         df["bin"] = pd.cut(df["y_proba"], bins=n_bins, labels=False)
 
-        # Calcular estadísticas por bin
+        # Calculate statistics per bin
         bin_stats = df.groupby("bin").agg({"y_true": "mean", "y_proba": "mean"}).reset_index()
 
         plt.figure(figsize=(8, 6))
@@ -229,19 +229,19 @@ class PlotGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera el histograma de distribución de probabilidades.
+        Generates probability distribution histogram.
 
         Args:
-            y_true: Valores verdaderos
-            y_proba: Probabilidades predichas
-            save_path: Ruta para guardar (opcional)
+            y_true: True values
+            y_proba: Predicted probabilities
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el gráfico
+            str: Path where plot was saved
         """
         plt.figure(figsize=(10, 6))
 
-        # Separar probabilidades por clase
+        # Separate probabilities by class
         proba_0 = y_proba[y_true == 0]
         proba_1 = y_proba[y_true == 1]
 

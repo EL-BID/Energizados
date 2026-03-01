@@ -48,7 +48,7 @@ class TestSourceETLInit:
 
     def test_init_with_invalid_mode(self):
         """Verifica que lanza error con mode inválido."""
-        with pytest.raises(ValueError, match="Mode debe ser 'concat' o 'merge'"):
+        with pytest.raises(ValueError, match="Mode must be 'concat' or 'merge'"):
             SourceETL(
                 name="test",
                 input_paths=["file1.csv"],
@@ -57,7 +57,7 @@ class TestSourceETLInit:
 
     def test_init_merge_without_config_raises_error(self):
         """Verifica que mode='merge' sin merge_config lance error."""
-        with pytest.raises(ValueError, match="mode='merge' requiere merge_config"):
+        with pytest.raises(ValueError, match="mode='merge' requires merge_config"):
             SourceETL(
                 name="test",
                 input_paths=["file1.csv", "file2.csv"],
@@ -176,7 +176,7 @@ class TestSourceETLExtract:
             mode="concat",
         )
 
-        with pytest.raises(ETLError, match="input_paths está vacío"):
+        with pytest.raises(ETLError, match="input_paths is empty"):
             etl.extract()
 
     def test_extract_nonexistent_file_raises_error(self):
@@ -187,7 +187,7 @@ class TestSourceETLExtract:
             mode="concat",
         )
 
-        with pytest.raises(ETLError, match="Archivo no encontrado"):
+        with pytest.raises(ETLError, match="File not found"):
             etl.extract()
 
     def test_extract_unsupported_format_raises_error(self):
@@ -203,7 +203,7 @@ class TestSourceETLExtract:
                 mode="concat",
             )
 
-            with pytest.raises(ETLError, match="Formato no soportado"):
+            with pytest.raises(ETLError, match="Unsupported format"):
                 etl.extract()
 
 
@@ -233,7 +233,7 @@ class TestSourceETLMergeDataframes:
             merge_config={"how": "left", "on": "id"},
         )
 
-        with pytest.raises(ETLError, match="No hay dataframes para merge"):
+        with pytest.raises(ETLError, match="No dataframes to merge"):
             etl._merge_dataframes([])
 
     def test_merge_two_dataframes_left(self):

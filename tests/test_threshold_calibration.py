@@ -201,7 +201,7 @@ class TestUnknownMethod:
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="unknown_method")
 
-        with pytest.raises(ValueError, match="Método de calibración desconocido"):
+        with pytest.raises(ValueError, match="Unknown calibration method"):
             cal.calibrate(y_true, y_proba)
 
 

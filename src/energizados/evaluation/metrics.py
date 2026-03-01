@@ -1,7 +1,7 @@
 """
 Metrics Module for Energizados Framework.
 
-Proporciona funciones para calcular métricas de evaluación de modelos.
+Provides functions to calculate model evaluation metrics.
 """
 
 import logging
@@ -23,13 +23,13 @@ logger = logging.getLogger(__name__)
 
 class Metrics:
     """
-    Calculador de métricas de evaluación.
+    Evaluation metrics calculator.
 
     Args:
-        y_true: Valores verdaderos
-        y_pred: Predicciones binarias
-        y_proba: Probabilidades predichas
-        threshold: Umbral para clasificación binaria
+        y_true: True values
+        y_pred: Binary predictions
+        y_proba: Predicted probabilities
+        threshold: Threshold for binary classification
 
     Example:
         >>> metrics = Metrics(y_true, y_pred, y_proba)
@@ -50,14 +50,14 @@ class Metrics:
 
     def calculate_all(self, metrics_list: Optional[List[str]] = None) -> Dict:
         """
-        Calcula todas las métricas solicitadas.
+        Calculates all requested metrics.
 
         Args:
-            metrics_list: Lista de métricas a calcular.
-                         Si es None, calcula todas las disponibles.
+            metrics_list: List of metrics to calculate.
+                         If None, calculates all available.
 
         Returns:
-            Dict: Diccionario con métricas calculadas
+            Dict: Dictionary with calculated metrics
         """
         if metrics_list is None:
             metrics_list = ["auc", "precision", "recall", "f1", "confusion_matrix", "accuracy"]
@@ -83,35 +83,35 @@ class Metrics:
         return results
 
     def auc(self) -> float:
-        """Calcula el AUC-ROC."""
+        """Calculates AUC-ROC."""
         try:
             return roc_auc_score(self.y_true, self.y_proba)
         except ValueError as e:
-            logger.warning(f"No se pudo calcular AUC: {e}")
+            logger.warning(f"Could not calculate AUC: {e}")
             return 0.0
 
     def precision(self) -> float:
-        """Calcula la precisión."""
+        """Calculates precision."""
         return precision_score(self.y_true, self.y_pred, zero_division=0)
 
     def recall(self) -> float:
-        """Calcula el recall (sensibilidad)."""
+        """Calculates recall (sensitivity)."""
         return recall_score(self.y_true, self.y_pred, zero_division=0)
 
     def f1(self) -> float:
-        """Calcula el F1-score."""
+        """Calculates F1-score."""
         return f1_score(self.y_true, self.y_pred, zero_division=0)
 
     def accuracy(self) -> float:
-        """Calcula la exactitud."""
+        """Calculates accuracy."""
         return accuracy_score(self.y_true, self.y_pred)
 
     def confusion_matrix(self) -> Dict:
         """
-        Calcula la matriz de confusión.
+        Calculates confusion matrix.
 
         Returns:
-            Dict con tp, fp, fn, tn
+            Dict with tp, fp, fn, tn
         """
         cm = confusion_matrix(self.y_true, self.y_pred)
         tn, fp, fn, tp = cm.ravel()
@@ -125,21 +125,21 @@ class Metrics:
 
     def cumulative_gains(self, n_bins: int = 10) -> Dict:
         """
-        Calcula la curva de ganancias acumuladas.
+        Calculates cumulative gains curve.
 
         Args:
-            n_bins: Número de bins para deciles
+            n_bins: Number of bins for deciles
 
         Returns:
-            Dict con deciles y ganancias acumuladas
+            Dict with deciles and cumulative gains
         """
-        # Crear DataFrame con verdaderos y probabilidades
+        # Create DataFrame with true values and probabilities
         df = pd.DataFrame({"y_true": self.y_true, "y_proba": self.y_proba})
 
-        # Ordenar por probabilidad descendente
+        # Sort by descending probability
         df = df.sort_values("y_proba", ascending=False).reset_index(drop=True)
 
-        # Calcular tamaño de cada bin
+        # Calculate bin size
         bin_size = len(df) // n_bins
 
         results = {
@@ -169,10 +169,10 @@ class Metrics:
 
     def get_threshold_metrics(self) -> Dict:
         """
-        Calcula métricas para diferentes umbrales.
+        Calculates metrics for different thresholds.
 
         Returns:
-            Dict con listas de thresholds y sus métricas
+            Dict with lists of thresholds and their metrics
         """
         thresholds = np.linspace(0, 1, 101)
         precisions = []

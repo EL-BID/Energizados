@@ -1,7 +1,7 @@
 """
 Report Module for Energizados Framework.
 
-Genera reportes de evaluación en HTML y JSON.
+Generates evaluation reports in HTML and JSON.
 """
 
 import json
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 class ReportGenerator:
     """
-    Generador de reportes de evaluación.
+    Evaluation report generator.
 
     Args:
-        output_dir: Directorio donde guardar los reportes
+        output_dir: Directory where to save reports
 
     Example:
         >>> reporter = ReportGenerator("reports/evaluation/")
@@ -38,16 +38,16 @@ class ReportGenerator:
         save_path: Optional[str] = None,
     ) -> str:
         """
-        Genera un reporte HTML con los resultados.
+        Generates HTML report with results.
 
         Args:
-            metrics: Diccionario con métricas calculadas
-            plots: Diccionario con rutas a los gráficos
-            model_info: Información del modelo (opcional)
-            save_path: Ruta para guardar (opcional)
+            metrics: Dictionary with calculated metrics
+            plots: Dictionary with paths to plots
+            model_info: Model information (optional)
+            save_path: Path to save (optional)
 
         Returns:
-            str: Ruta donde se guardó el reporte
+            str: Path where report was saved
         """
         html_content = self._build_html(metrics, plots, model_info)
 
@@ -67,16 +67,16 @@ class ReportGenerator:
         calibration_result: Optional[Dict] = None,
     ) -> str:
         """
-        Genera un reporte JSON con los resultados.
+        Generates JSON report with results.
 
         Args:
-            metrics: Diccionario con métricas calculadas
-            model_info: Información del modelo (opcional)
-            save_path: Ruta para guardar (opcional)
-            calibration_result: Resultado de ThresholdCalibrator.calibrate() (opcional)
+            metrics: Dictionary with calculated metrics
+            model_info: Model information (optional)
+            save_path: Path to save (optional)
+            calibration_result: Result from ThresholdCalibrator.calibrate() (optional)
 
         Returns:
-            str: Ruta donde se guardó el reporte
+            str: Path where report was saved
         """
         report_data = {
             "timestamp": datetime.now().isoformat(),
@@ -107,8 +107,8 @@ class ReportGenerator:
         plots: Dict[str, str],
         model_info: Optional[Dict] = None,
     ) -> str:
-        """Construye el contenido HTML del reporte."""
-        # Convertir rutas de archivos a relativas
+        """Builds HTML content of the report."""
+        # Convert file paths to relative
         plots_rel = {k: Path(v).name for k, v in plots.items()}
 
         html = f"""
@@ -267,10 +267,10 @@ class ReportGenerator:
         return html
 
     def _build_metrics_html(self, metrics: Dict) -> str:
-        """Construye el HTML para las tarjetas de métricas."""
+        """Builds HTML for metric cards."""
         html_parts = []
 
-        # Métricas principales
+        # Main metrics
         metric_configs = [
             ("AUC", "auc", "Area Under ROC Curve"),
             ("F1 Score", "f1", "F1 Score"),
@@ -296,7 +296,7 @@ class ReportGenerator:
         return "".join(html_parts)
 
     def _build_confusion_matrix_html(self, metrics: Dict) -> str:
-        """Construye el HTML para la matriz de confusión."""
+        """Builds HTML for confusion matrix."""
         cm = metrics.get("confusion_matrix", {})
         if not cm or "matrix" not in cm:
             return ""
@@ -334,7 +334,7 @@ class ReportGenerator:
 """
 
     def _build_plots_html(self, plots: Dict[str, str]) -> str:
-        """Construye el HTML para los gráficos."""
+        """Builds HTML for plots."""
         html_parts = []
 
         for plot_name, plot_path in plots.items():
@@ -349,7 +349,7 @@ class ReportGenerator:
         return "".join(html_parts)
 
     def _build_model_info_html(self, model_info: Dict) -> str:
-        """Construye el HTML para la información del modelo."""
+        """Builds HTML for model information."""
         if not model_info:
             return ""
 

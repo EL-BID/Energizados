@@ -1,8 +1,8 @@
 """
 Schema Validators for ETL.
 
-Proporciona validadores para verificar que los datos cumplan
-con el esquema esperado después del proceso ETL.
+Provides validators to verify that data complies
+with the expected schema after the ETL process.
 """
 
 from typing import List, Optional
@@ -12,16 +12,16 @@ import pandas as pd
 
 class SchemaValidator:
     """
-    Validador de esquema para DataFrames.
+    Schema validator for DataFrames.
 
-    Verifica que el DataFrame tenga las columnas esperadas y
-    los tipos de datos correctos.
+    Verifies that the DataFrame has the expected columns and
+    correct data types.
 
     Args:
-        required_columns: Lista de columnas requeridas
-        categorical_columns: Lista de columnas que deben ser categóricas
-        numeric_columns: Lista de columnas que deben ser numéricas
-        allow_missing_columns: Si es True, permite columnas faltantes
+        required_columns: List of required columns
+        categorical_columns: List of columns that should be categorical
+        numeric_columns: List of columns that should be numeric
+        allow_missing_columns: If True, allows missing columns
     """
 
     def __init__(
@@ -38,45 +38,45 @@ class SchemaValidator:
 
     def validate(self, df: pd.DataFrame) -> tuple[bool, List[str]]:
         """
-        Valida que el DataFrame cumpla con el esquema.
+        Validates that the DataFrame complies with the schema.
 
         Args:
-            df: DataFrame a validar
+            df: DataFrame to validate
 
         Returns:
             tuple: (is_valid, list_of_errors)
         """
         errors = []
 
-        # Verificar columnas requeridas
+        # Check required columns
         missing_columns = set(self.required_columns) - set(df.columns)
         if missing_columns and not self.allow_missing_columns:
-            errors.append(f"Columnas faltantes: {missing_columns}")
+            errors.append(f"Missing columns: {missing_columns}")
 
-        # Verificar tipos de datos categóricos
+        # Check categorical data types
         for col in self.categorical_columns:
             if col in df.columns:
                 if not pd.api.types.is_string_dtype(df[col]) and not pd.api.types.is_categorical_dtype(df[col]):
-                    errors.append(f"Columna '{col}' debe ser categórica (string o category)")
+                    errors.append(f"Column '{col}' must be categorical (string or category)")
 
-        # Verificar tipos de datos numéricos
+        # Check numeric data types
         for col in self.numeric_columns:
             if col in df.columns:
                 if not pd.api.types.is_numeric_dtype(df[col]):
-                    errors.append(f"Columna '{col}' debe ser numérica")
+                    errors.append(f"Column '{col}' must be numeric")
 
         return len(errors) == 0, errors
 
     def validate_and_raise(self, df: pd.DataFrame) -> None:
         """
-        Valida y levanta una excepción si hay errores.
+        Validates and raises an exception if there are errors.
 
         Args:
-            df: DataFrame a validar
+            df: DataFrame to validate
 
         Raises:
-            ValueError: Si la validación falla
+            ValueError: If validation fails
         """
         is_valid, errors = self.validate(df)
         if not is_valid:
-            raise ValueError(f"Validación de esquema falló: {errors}")
+            raise ValueError(f"Schema validation failed: {errors}")

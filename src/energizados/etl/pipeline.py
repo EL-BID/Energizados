@@ -1,8 +1,8 @@
 """
 Pipeline ETL Module for Multi-Source Data Processing.
 
-Este módulo proporciona clases para orquestar múltiples ETLs de fuentes
-y combinar sus salidas en un dataset final.
+This module provides classes to orchestrate multiple source ETLs
+and combine their outputs into a final dataset.
 """
 
 import logging
@@ -19,25 +19,25 @@ logger = logging.getLogger(__name__)
 
 class SourceETL(BaseETL):
     """
-    ETL para procesar una o múltiples fuentes de datos.
+    ETL to process one or multiple data sources.
 
-    Esta clase procesa datos de uno o varios archivos y genera una salida
-    procesada. Soporta dos modos de operación:
+    This class processes data from one or several files and generates processed output.
+    Supports two operating modes:
 
-    - **concat**: Concatena verticalmente múltiples dataframes (por defecto)
-    - **merge**: Une horizontalmente múltiples dataframes usando merge_config
+    - **concat**: Concatenates multiple dataframes vertically (default)
+    - **merge**: Joins multiple dataframes horizontally using merge_config
 
     Args:
-        name: Nombre de la fuente (ej: 'consumos', 'inspecciones', 'clientes')
-        input_paths: Lista con las rutas a los archivos de datos crudos
-        output_path: Ruta donde guardar los datos procesados
-        mode: Modo de procesamiento ('concat' o 'merge'). Default: 'concat'
-        merge_config: Configuración para merge (requerido si mode='merge')
-            Ej: {'how': 'left', 'on': 'id_cliente'}
-            Opciones: how ('left', 'right', 'inner', 'outer'), on (columna),
+        name: Name of the source (e.g.: 'consumos', 'inspecciones', 'clientes')
+        input_paths: List with paths to raw data files
+        output_path: Path to save processed data
+        mode: Processing mode ('concat' or 'merge'). Default: 'concat'
+        merge_config: Configuration for merge (required if mode='merge')
+            Ex: {'how': 'left', 'on': 'id_cliente'}
+            Options: how ('left', 'right', 'inner', 'outer'), on (column),
                       left_on, right_on, left_index, right_index
-        key_column: Columna clave usada por defecto en merge_config
-        **kwargs: Parámetros adicionales
+        key_column: Key column used by default in merge_config
+        **kwargs: Additional parameters
 
     Example:
         >>> etl = SourceETL(
@@ -48,7 +48,7 @@ class SourceETL(BaseETL):
         ... )
         >>> df = etl.run('data/consumos.parquet')
 
-    Example con merge:
+    Example with merge:
         >>> etl = SourceETL(
         ...     name='merged',
         ...     mode='merge',
@@ -77,38 +77,38 @@ class SourceETL(BaseETL):
         self.key_column = key_column or "id_cliente"
         self.kwargs = kwargs
 
-        # Validar modo
+        # Validate mode
         if self.mode not in ("concat", "merge"):
-            raise ValueError(f"Mode debe ser 'concat' o 'merge', no '{self.mode}'")
+            raise ValueError(f"Mode must be 'concat' or 'merge', not '{self.mode}'")
 
-        # Validar merge_config si mode es merge
+        # Validate merge_config if mode is merge
         if self.mode == "merge" and not self.merge_config:
-            raise ValueError(f"SourceETL '{self.name}': mode='merge' requiere merge_config " "(ej: {'how': 'left', 'on': 'id_cliente'})")
+            raise ValueError(f"SourceETL '{self.name}': mode='merge' requires merge_config " "(e.g.: {'how': 'left', 'on': 'id_cliente'})")
 
     def extract(self) -> pd.DataFrame:
         """
-        Extrae datos de las fuentes especificadas.
+        Extracts data from specified sources.
 
-        Procesa todos los input_paths según el modo configurado:
-        - concat: Concatena verticalmente todos los dataframes
-        - merge: Une horizontalmente según merge_config
+        Processes all input_paths according to configured mode:
+        - concat: Concatenates all dataframes vertically
+        - merge: Joins horizontally according to merge_config
 
         Returns:
-            pd.DataFrame: Datos crudos combinados
+            pd.DataFrame: Combined raw data
 
         Raises:
-            ETLError: Si no se pueden leer los datos
+            ETLError: If data cannot be read
         """
         if not self.input_paths:
-            raise ETLError(f"SourceETL '{self.name}': input_paths está vacío")
+            raise ETLError(f"SourceETL '{self.name}': input_paths is empty")
 
-        # Leer todos los archivos
+        # Read all files
         dataframes = []
         for path in self.input_paths:
             source_file = Path(path)
 
             if not source_file.exists():
-                raise ETLError(f"Archivo no encontrado: {path}")
+                raise ETLError(f"File not found: {path}")
 
             try:
                 if source_file.suffix == ".csv":
@@ -118,48 +118,48 @@ class SourceETL(BaseETL):
                 elif source_file.suffix in [".xlsx", ".xls"]:
                     df = pd.read_excel(path)
                 else:
-                    raise ETLError(f"Formato no soportado: {source_file.suffix}")
+                    raise ETLError(f"Unsupported format: {source_file.suffix}")
 
                 dataframes.append(df)
-                logger.info(f"  • Leídos {len(df)} registros de '{source_file.name}'")
+                logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
 
             except Exception as e:
-                raise ETLError(f"Error extrayendo de '{path}': {str(e)}")
+                raise ETLError(f"Error extracting from '{path}': {str(e)}")
 
-        # Combinar según el modo
+        # Combine according to mode
         if self.mode == "concat":
             if len(dataframes) == 1:
                 result = dataframes[0]
             else:
                 result = pd.concat(dataframes, axis=0, ignore_index=True)
-                logger.info(f"  ✓ Concatenados {len(dataframes)} archivos: {len(result)} registros")
+                logger.info(f"  ✓ Concatenated {len(dataframes)} files: {len(result)} records")
 
         elif self.mode == "merge":
             result = self._merge_dataframes(dataframes)
-            logger.info(f"  ✓ Merged {len(dataframes)} archivos: {len(result)} registros")
+            logger.info(f"  ✓ Merged {len(dataframes)} files: {len(result)} records")
 
         return result
 
     def _merge_dataframes(self, dataframes: List[pd.DataFrame]) -> pd.DataFrame:
         """
-        Fusiona múltiples dataframes según merge_config.
+        Merges multiple dataframes according to merge_config.
 
         Args:
-            dataframes: Lista de dataframes a fusionar
+            dataframes: List of dataframes to merge
 
         Returns:
-            pd.DataFrame: Dataframe fusionado
+            pd.DataFrame: Merged dataframe
 
         Raises:
-            ETLError: Si el merge falla
+            ETLError: If merge fails
         """
         if not dataframes:
-            raise ETLError("No hay dataframes para merge")
+            raise ETLError("No dataframes to merge")
 
         if len(dataframes) == 1:
             return dataframes[0]
 
-        # Preparar configuración de merge
+        # Prepare merge configuration
         config = self.merge_config.copy()
         how = config.pop("how", "left")
         on = config.pop("on", None)
@@ -168,55 +168,55 @@ class SourceETL(BaseETL):
         left_index = config.pop("left_index", False)
         right_index = config.pop("right_index", False)
 
-        # Si no se especifica columnas, usar key_column por defecto
+        # If no columns specified, use key_column by default
         if on is None and left_on is None and right_on is None:
             on = self.key_column
 
-        # Merge secuencial: primero con segundo, resultado con tercero, etc.
+        # Sequential merge: first with second, result with third, etc.
         result = dataframes[0]
         for i, df in enumerate(dataframes[1:], start=2):
             try:
                 result = pd.merge(
                     result, df, how=how, on=on, left_on=left_on, right_on=right_on, left_index=left_index, right_index=right_index, **config
                 )
-                logger.info(f"  • Merge paso {i-1}→{i}: {len(result)} registros")
+                logger.info(f"  • Merge step {i-1}→{i}: {len(result)} records")
             except Exception as e:
-                raise ETLError(f"Error en merge paso {i-1}→{i}: {str(e)}")
+                raise ETLError(f"Error in merge step {i-1}→{i}: {str(e)}")
 
         return result
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma y limpia los datos de la fuente.
+        Transforms and cleans source data.
 
         Args:
-            df: DataFrame crudo
+            df: Raw DataFrame
 
         Returns:
-            pd.DataFrame: DataFrame limpio
+            pd.DataFrame: Clean DataFrame
         """
         df = df.copy()
 
-        # Eliminar filas completamente vacías
+        # Remove completely empty rows
         before_count = len(df)
         df = df.dropna(how="all")
         after_count = len(df)
 
         if before_count > after_count:
-            logger.info(f"  • Eliminadas {before_count - after_count} filas vacías")
+            logger.info(f"  • Removed {before_count - after_count} empty rows")
 
         return df
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """
-        Guarda los datos transformados.
+        Saves the transformed data.
 
         Args:
-            df: DataFrame transformado
-            path: Ruta de salida
+            df: Transformed DataFrame
+            path: Output path
 
         Raises:
-            ETLError: Si no se pueden guardar los datos
+            ETLError: If data cannot be saved
         """
         try:
             output_path = Path(path)
@@ -229,7 +229,7 @@ class SourceETL(BaseETL):
             else:
                 df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
-            logger.info(f"  ✓ Guardados {len(df)} registros en '{path}'")
+            logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
 
         except Exception as e:
-            raise ETLError(f"Error guardando '{self.name}': {str(e)}")
+            raise ETLError(f"Error saving '{self.name}': {str(e)}")

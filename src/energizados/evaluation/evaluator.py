@@ -1,7 +1,7 @@
 """
 Evaluator Module for Energizados Framework.
 
-Evalúa modelos de ML usando métricas, visualizaciones y reportes.
+Evaluates ML models using metrics, visualizations and reports.
 """
 
 import logging
@@ -23,21 +23,21 @@ logger = logging.getLogger(__name__)
 
 class DefaultEvaluator(PipelineStep):
     """
-    Evaluador por defecto para modelos del framework.
+    Default evaluator for framework models.
 
-    Genera métricas, visualizaciones y reportes HTML/JSON.
+    Generates metrics, visualizations and HTML/JSON reports.
 
     Args:
-        input_path: Ruta al dataset de test
-        model_path: Ruta al modelo entrenado
-        feature_engineering_path: Ruta al feature engineering (opcional)
-        output_dir: Directorio de salida para los reportes
-        target_column: Nombre de la columna target
-        threshold: Umbral para clasificación binaria
-        metrics: Lista de métricas a calcular
-        generate_plots: Si True, genera visualizaciones
-        generate_html_report: Si True, genera reporte HTML
-        generate_json_report: Si True, genera reporte JSON
+        input_path: Path to test dataset
+        model_path: Path to trained model
+        feature_engineering_path: Path to feature engineering (optional)
+        output_dir: Output directory for reports
+        target_column: Name of target column
+        threshold: Threshold for binary classification
+        metrics: List of metrics to calculate
+        generate_plots: If True, generates visualizations
+        generate_html_report: If True, generates HTML report
+        generate_json_report: If True, generates JSON report
 
     Example:
         >>> evaluator = DefaultEvaluator(
@@ -77,41 +77,41 @@ class DefaultEvaluator(PipelineStep):
         self.calibration_config = calibration_config
         self.val_predictions_path = val_predictions_path
 
-        # Inicializar generadores
+        # Initialize generators
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Ejecuta la evaluación completa."""
+        """Executes complete evaluation."""
         logger.info("\n" + "=" * 50)
         logger.info("EVALUATION STEP")
         logger.info("=" * 50)
 
-        # Obtener paths del contexto si no se proporcionaron
+        # Get paths from context if not provided
         if context:
             self.input_path = self.input_path or context.get("test_path")
             self.model_path = self.model_path or context.get("model_path")
             self.feature_engineering_path = self.feature_engineering_path or context.get("feature_engineering_path")
 
-        # 1. Cargar modelo y feature engineering
+        # 1. Load model and feature engineering
         model = self._load_model()
         feature_engineering = self._load_feature_engineering()
 
-        # 2. Cargar datos de test
+        # 2. Load test data
         test_df = pd.read_parquet(self.input_path)
         logger.info(f"Test dataset shape: {test_df.shape}")
 
         X_test = test_df.drop(columns=[self.target_column])
         y_test = test_df[self.target_column]
 
-        # 3. Aplicar feature engineering si existe
+        # 3. Apply feature engineering if it exists
         if feature_engineering is not None:
             logger.info("Applying feature engineering...")
             X_test_transformed = feature_engineering.transform(X_test)
         else:
             X_test_transformed = X_test
 
-        # 4. Calibrar threshold si está configurado
+        # 4. Calibrate threshold if configured
         calibration_result = None
         if self.calibration_config and self.calibration_config.get("enabled", False):
             val_path = self.val_predictions_path or (context.get("val_predictions_path") if context else None)
@@ -123,21 +123,21 @@ class DefaultEvaluator(PipelineStep):
                 )
                 calibration_result = calibrator.calibrate(val_df["y_true"].values, val_df["y_proba"].values)
                 self.threshold = calibration_result["threshold"]
-                logger.info(f"Threshold calibrado: {self.threshold:.4f} " f"(método: {calibration_result['method']})")
+                logger.info(f"Calibrated threshold: {self.threshold:.4f} " f"(method: {calibration_result['method']})")
             else:
-                logger.warning("calibration habilitado pero val_predictions_path no encontrado, " "usando threshold por defecto")
+                logger.warning("Calibration enabled but val_predictions_path not found, " "using default threshold")
 
-        # 5. Obtener predicciones
+        # 5. Get predictions
         logger.info("Generating predictions...")
         y_proba = model.predict_proba(X_test_transformed)
         y_pred = (y_proba >= self.threshold).astype(int)
 
-        # 6. Calcular métricas
+        # 6. Calculate metrics
         logger.info("Calculating metrics...")
         metrics_calculator = Metrics(y_test, y_pred, y_proba, self.threshold)
         metrics_results = metrics_calculator.calculate_all(self.metrics)
 
-        # Log de métricas principales
+        # Log main metrics
         logger.info(f"\n{'='*50}")
         logger.info("METRICS SUMMARY")
         logger.info(f"{'='*50}")
@@ -148,13 +148,13 @@ class DefaultEvaluator(PipelineStep):
         logger.info(f"Accuracy:  {metrics_results.get('accuracy', 0):.4f}")
         logger.info(f"{'='*50}")
 
-        # 7. Generar visualizaciones
+        # 7. Generate visualizations
         plots_paths = {}
         if self.generate_plots:
             logger.info("Generating plots...")
             plots_paths = self._generate_plots(y_test, y_proba, y_pred, metrics_results)
 
-        # 8. Generar reportes
+        # 8. Generate reports
         report_paths = {}
         if self.generate_html_report or self.generate_json_report:
             logger.info("Generating reports...")
@@ -180,17 +180,17 @@ class DefaultEvaluator(PipelineStep):
         }
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
-        """Valida que existan los inputs necesarios."""
-        # Verificar modelo
+        """Validates that necessary inputs exist."""
+        # Check model
         if self.model_path and not Path(self.model_path).exists():
             return False
 
-        # Verificar que se proporcionó input_path o existe en contexto
+        # Check that input_path was provided or exists in context
         input_path = self.input_path or context.get("test_path")
         return input_path is not None and Path(input_path).exists()
 
     def get_required_keys(self) -> list:
-        """Retorna las claves requeridas del contexto."""
+        """Returns required context keys."""
         keys = []
         if not self.model_path:
             keys.append("model_path")
@@ -199,17 +199,17 @@ class DefaultEvaluator(PipelineStep):
         return keys
 
     def get_output_keys(self) -> list:
-        """Retorna las claves que agrega al contexto."""
+        """Returns keys added to context."""
         return ["metrics", "plots", "reports", "evaluation_dir"]
 
     def _load_model(self):
-        """Carga el modelo entrenado."""
+        """Loads the trained model."""
         logger.info(f"Loading model from: {self.model_path}")
         with open(self.model_path, "rb") as f:
             return pickle.load(f)  # nosec B301: trusted local model file
 
     def _load_feature_engineering(self):
-        """Carga el feature engineering si existe."""
+        """Loads feature engineering if it exists."""
         if self.feature_engineering_path and Path(self.feature_engineering_path).exists():
             logger.info(f"Loading feature engineering from: {self.feature_engineering_path}")
             with open(self.feature_engineering_path, "rb") as f:
@@ -223,7 +223,7 @@ class DefaultEvaluator(PipelineStep):
         y_pred: np.ndarray,
         metrics: Dict,
     ) -> Dict[str, str]:
-        """Genera todas las visualizaciones."""
+        """Generates all visualizations."""
         plots = {}
 
         # ROC Curve
@@ -268,12 +268,12 @@ class DefaultEvaluator(PipelineStep):
         return plots
 
     def _get_model_info(self, model) -> Dict:
-        """Obtiene información del modelo para el reporte."""
+        """Gets model information for the report."""
         info = {
             "model_class": model.__class__.__name__,
         }
 
-        # Intentar obtener información adicional
+        # Try to get additional information
         if hasattr(model, "config"):
             info["config"] = str(model.config)
 

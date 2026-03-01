@@ -1,8 +1,8 @@
 """
 ETL Base Module.
 
-Define la clase abstracta BaseETL que los usuarios pueden heredar
-para implementar sus propios procesos ETL personalizados.
+Defines the abstract BaseETL class that users can inherit
+to implement their own custom ETL processes.
 """
 
 from abc import ABC, abstractmethod
@@ -12,10 +12,10 @@ import pandas as pd
 
 class BaseETL(ABC):
     """
-    Clase base para ETL personalizado.
+    Base class for custom ETL.
 
-    El usuario hereda e implementa los métodos abstractos para definir
-    su propio proceso de extracción, transformación y carga de datos.
+    Users inherit and implement the abstract methods to define
+    their own Extract, Transform, and Load process.
 
     Example:
         >>> from energizados.etl.base import BaseETL
@@ -33,57 +33,57 @@ class BaseETL(ABC):
     @abstractmethod
     def extract(self) -> pd.DataFrame:
         """
-        Extrae datos de la fuente.
+        Extracts data from the source.
 
         Returns:
-            pd.DataFrame: Datos crudos
+            pd.DataFrame: Raw data
 
         Raises:
-            ETLError: Si ocurre un error durante la extracción
+            ETLError: If an error occurs during extraction
         """
         pass
 
     @abstractmethod
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma y limpia los datos.
+        Transforms and cleans the data.
 
         Args:
-            df: DataFrame crudo
+            df: Raw DataFrame
 
         Returns:
-            pd.DataFrame: DataFrame limpio con el esquema esperado
+            pd.DataFrame: Clean DataFrame with expected schema
 
         Raises:
-            ETLError: Si ocurre un error durante la transformación
+            ETLError: If an error occurs during transformation
         """
         pass
 
     @abstractmethod
     def load(self, df: pd.DataFrame, path: str) -> None:
         """
-        Guarda los datos transformados.
+        Saves the transformed data.
 
         Args:
-            df: DataFrame transformado
-            path: Ruta de salida
+            df: Transformed DataFrame
+            path: Output path
 
         Raises:
-            ETLError: Si ocurre un error durante la carga
+            ETLError: If an error occurs during loading
         """
         pass
 
     def run(self, output_path: str) -> pd.DataFrame:
         """
-        Ejecuta el pipeline completo de ETL.
+        Executes the complete ETL pipeline.
 
-        Este método puede sobrescribirse para agregar lógica adicional.
+        This method can be overridden to add additional logic.
 
         Args:
-            output_path: Ruta donde guardar los datos transformados
+            output_path: Path to save the transformed data
 
         Returns:
-            pd.DataFrame: DataFrame transformado
+            pd.DataFrame: Transformed DataFrame
         """
         from energizados.core.exceptions import ETLError
 
@@ -93,4 +93,4 @@ class BaseETL(ABC):
             self.load(df, output_path)
             return df
         except Exception as e:
-            raise ETLError(f"Error ejecutando ETL: {str(e)}")
+            raise ETLError(f"Error running ETL: {str(e)}")
