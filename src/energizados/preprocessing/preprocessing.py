@@ -438,7 +438,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         if self.features_names_path is not None:
             df_tsfel = cached_compute(
                 X[cols_anterior].values,
-                X.index.tolist(),
+                X["index"].tolist(),
                 cols_anterior,
                 cfg_json_path=self.features_names_path,
             )
@@ -446,19 +446,19 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         else:
             df_result_stat = cached_compute(
                 X[cols_anterior].values,
-                X.index.tolist(),
+                X["index"].tolist(),
                 cols_anterior,
                 cfg_domain="statistical",
             )
             df_result_temporal = cached_compute(
                 X[cols_anterior].values,
-                X.index.tolist(),
+                X["index"].tolist(),
                 cols_anterior,
                 cfg_domain="temporal",
             )
-            # df_result_spectral = cached_compute(..., cfg_domain="spectral")
+
             df_tsfel = pd.merge(df_result_stat, df_result_temporal, how="inner", on="index")
-            # df_tsfel = pd.merge(df_tsfel, df_result_spectral, how='inner', on='index')
+
             X = X.merge(df_tsfel, on="index", how="left")
 
         return X
