@@ -1,8 +1,8 @@
 """
-Utilidades de visualización para el framework Energizados.
+Visualization utilities for the Energizados framework.
 
-Este módulo contiene funciones para crear gráficos y visualizaciones
-comunes en proyectos de Machine Learning.
+This module contains functions for creating common plots and visualizations
+in Machine Learning projects.
 """
 
 import matplotlib.pyplot as plt
@@ -11,16 +11,16 @@ from sklearn.metrics import roc_curve
 
 def plot_roc(name, labels, predictions, **kwargs):
     """
-    Genera una curva ROC.
+    Generate an ROC curve.
 
     Args:
-        name: Nombre de la curva (para la leyenda)
-        labels: Etiquetas verdaderas (0 o 1)
-        predictions: Predicciones de probabilidad
-        **kwargs: Argumentos adicionales para plt.plot
+        name: Name of the curve (for legend)
+        labels: True labels (0 or 1)
+        predictions: Probability predictions
+        **kwargs: Additional arguments for plt.plot
 
     Example:
-        >>> plot_roc("Modelo A", y_true, y_proba)
+        >>> plot_roc("Model A", y_true, y_proba)
         >>> plt.legend()
         >>> plt.show()
     """

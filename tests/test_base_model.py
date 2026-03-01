@@ -154,7 +154,7 @@ class TestBaseModel:
 
         model = ConcreteModel()
 
-        with pytest.raises(ModelNotFittedError, match="no está entrenado"):
+        with pytest.raises(ModelNotFittedError, match="is not fitted"):
             model.check_fitted()
 
     def test_check_fitted_passes_if_fitted(self):

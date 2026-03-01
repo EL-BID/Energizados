@@ -1,9 +1,9 @@
 """
 Pipeline Steps Module for Energizados Framework.
 
-Este módulo contiene los pasos ejecutables del pipeline:
-- SplitStep: División de datos en train/val/test
-- TrainingStep: Entrenamiento unificado de modelos
+This module contains the executable pipeline steps:
+- SplitStep: Dividing data into train/val/test
+- TrainingStep: Unified model training
 """
 
 from energizados.core.steps.split import SplitStep

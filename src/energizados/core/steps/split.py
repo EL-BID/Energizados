@@ -1,8 +1,8 @@
 """
 Split Step for Energizados Framework.
 
-Divide el dataset en train/val/test de manera reproducible,
-guardando los splits para su uso posterior.
+Divides the dataset into train/val/test reproducibly,
+saving the splits for later use.
 """
 
 import json
@@ -20,25 +20,25 @@ logger = logging.getLogger(__name__)
 
 class SplitStep(PipelineStep):
     """
-    Divide el dataset en train/val/test.
+    Divide the dataset into train/val/test.
 
-    Soporta tres métodos de split:
-    - stratified: Mantiene proporción del target
-    - random: Aleatorio simple
-    - time_series: Basado en períodos de tiempo
+    Supports three split methods:
+    - stratified: Maintains target proportion
+    - random: Simple random split
+    - time_series: Based on time periods
 
     Args:
-        input_path: Ruta al dataset completo
-        target_column: Nombre de la columna target
-        test_size: Proporción para test (default: 0.2)
-        val_size: Proporción para validación (default: 0.1)
-        random_state: Semilla aleatoria
-        splits_dir: Directorio donde guardar los splits
-        method: Método de split ('stratified', 'random', 'time_series')
-        date_column: Columna de fecha (para time_series)
-        train_period: Período de entrenamiento [start, end]
-        val_period: Período de validación [start, end]
-        test_period: Período de test [start, end]
+        input_path: Path to the full dataset
+        target_column: Name of the target column
+        test_size: Proportion for test (default: 0.2)
+        val_size: Proportion for validation (default: 0.1)
+        random_state: Random seed
+        splits_dir: Directory to save the splits
+        method: Split method ('stratified', 'random', 'time_series')
+        date_column: Date column (for time_series)
+        train_period: Training period [start, end]
+        val_period: Validation period [start, end]
+        test_period: Test period [start, end]
 
     Example:
         >>> split_step = SplitStep(
@@ -77,36 +77,36 @@ class SplitStep(PipelineStep):
         self.test_period = test_period
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Ejecuta el split y guarda los datasets."""
-        # Crear directorio
+        """Execute the split and save the datasets."""
+        # Create directory
         self.splits_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determinar input path desde contexto si no se proporcionó
+        # Determine input path from context if not provided
         input_path = self.input_path
         if not input_path and "etl_results" in context:
-            # Usar el último resultado de ETL
+            # Use the last ETL result
             last_etl = list(context["etl_results"].keys())[-1]
             input_path = context["etl_results"][last_etl]
 
-        # Cargar datos
+        # Load data
         df = pd.read_parquet(input_path)
 
-        logger.info(f"Cargando dataset desde: {input_path}")
+        logger.info(f"Loading dataset from: {input_path}")
         logger.info(f"Dataset shape: {df.shape}")
 
-        # Verificar que existe el target
+        # Verify that target exists
         if self.target_column not in df.columns:
-            raise ValueError(f"Columna target '{self.target_column}' no encontrada en el dataset")
+            raise ValueError(f"Target column '{self.target_column}' not found in dataset")
 
-        # Split por períodos de tiempo
+        # Split by time periods
         if self.method == "time_series":
             if not self.date_column:
-                raise ValueError("Para method='time_series' debe especificar date_column")
+                raise ValueError("For method='time_series' must specify date_column")
 
-            # Convertir columna de fecha a datetime si no lo está
+            # Convert date column to datetime if not already
             df[self.date_column] = pd.to_datetime(df[self.date_column])
 
-            # Filtrar por períodos
+            # Filter by periods
             train_mask = self._filter_by_period(df, self.train_period)
             val_mask = self._filter_by_period(df, self.val_period)
             test_mask = self._filter_by_period(df, self.test_period)
@@ -115,9 +115,9 @@ class SplitStep(PipelineStep):
             val_df = df[val_mask].copy()
             test_df = df[test_mask].copy()
 
-        # Split aleatorio/estratificado
+        # Random/stratified split
         else:
-            # Separar X e y
+            # Separate X and y
             y = df[self.target_column]
             X = df.drop(columns=[self.target_column])
 
@@ -141,7 +141,7 @@ class SplitStep(PipelineStep):
                     X_train, y_train, test_size=val_size_adjusted, random_state=self.random_state
                 )
 
-            # Reconstruir DataFrames con el target
+            # Reconstruct DataFrames with target
             train_df = X_train.copy()
             train_df[self.target_column] = y_train.values
 
@@ -151,7 +151,7 @@ class SplitStep(PipelineStep):
             test_df = X_test.copy()
             test_df[self.target_column] = y_test.values
 
-        # Guardar splits
+        # Save splits
         train_path = self.splits_dir / "train.parquet"
         val_path = self.splits_dir / "val.parquet"
         test_path = self.splits_dir / "test.parquet"
@@ -160,7 +160,7 @@ class SplitStep(PipelineStep):
         val_df.to_parquet(val_path, index=False)
         test_df.to_parquet(test_path, index=False)
 
-        # Guardar metadata del split
+        # Save split metadata
         metadata = {
             "method": self.method,
             "n_samples": len(df),
@@ -197,7 +197,7 @@ class SplitStep(PipelineStep):
         logger.info(f"Val:       {len(val_df):>6} samples ({len(val_df)/len(df)*100:.1f}%)")
         logger.info(f"Test:      {len(test_df):>6} samples ({len(test_df)/len(df)*100:.1f}%)")
 
-        # Mostrar distribución del target
+        # Show target distribution
         logger.info("\nTarget distribution:")
         for split_name, split_df in [("Train", train_df), ("Val", val_df), ("Test", test_df)]:
             dist = split_df[self.target_column].value_counts()
@@ -216,7 +216,7 @@ class SplitStep(PipelineStep):
         logger.info(f"{'='*50}")
         logger.info(f"Splits saved to: {self.splits_dir}")
 
-        # Retornar context con paths a los splits
+        # Return context with paths to splits
         return {
             **context,
             "train_path": str(train_path),
@@ -226,23 +226,23 @@ class SplitStep(PipelineStep):
         }
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
-        """Valida que exista el input."""
+        """Validate that the input exists."""
         if self.input_path:
             return Path(self.input_path).exists()
         return "etl_results" in context
 
     def get_required_keys(self) -> list:
-        """Retorna las claves requeridas del contexto."""
+        """Return the required context keys."""
         if self.input_path:
             return []
         return ["etl_results"]
 
     def get_output_keys(self) -> list:
-        """Retorna las claves que agrega al contexto."""
+        """Return the keys added to the context."""
         return ["train_path", "val_path", "test_path", "splits_dir"]
 
     def _filter_by_period(self, df: pd.DataFrame, period: Optional[list]) -> pd.Series:
-        """Filtra DataFrame por período de fecha."""
+        """Filter DataFrame by date period."""
         if period is None:
             return pd.Series([False] * len(df))
 
@@ -256,7 +256,7 @@ class SplitStep(PipelineStep):
         return mask
 
     def _get_date_range(self, df: pd.DataFrame, date_col: str) -> Optional[dict]:
-        """Retorna el rango de fechas de un DataFrame."""
+        """Return the date range of a DataFrame."""
         if date_col not in df.columns:
             return None
         return {

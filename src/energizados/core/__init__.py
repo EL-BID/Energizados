@@ -1,8 +1,8 @@
 """
 Energizados Core Module
 
-Este módulo contiene las clases base abstractas y el orquestador del pipeline
-que forman el núcleo del framework.
+This module contains the abstract base classes and pipeline orchestrator
+that form the core of the framework.
 """
 
 from energizados.core.base import (

@@ -1,4 +1,4 @@
-"""Visualizaciones y gráficos para Energizados."""
+"""Visualizations and plots for Energizados."""
 
 from .utils import plot_roc
 

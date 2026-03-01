@@ -1,36 +1,36 @@
 """
-Excepciones personalizadas para el framework Energizados.
+Custom exceptions for the Energizados framework.
 
-Este módulo define las excepciones específicas que se utilizan
-en el pipeline y sus componentes.
+This module defines the specific exceptions that are used
+in the pipeline and its components.
 """
 
 
 class EnergizadosError(Exception):
-    """Clase base para todas las excepciones de Energizados."""
+    """Base class for all Energizados exceptions."""
 
     pass
 
 
 class PipelineError(EnergizadosError):
     """
-    Excepción levantada cuando ocurre un error en la ejecución del pipeline.
+    Exception raised when an error occurs during pipeline execution.
 
-    Esta excepción se utiliza para errores generales que ocurren durante
-    la ejecución del pipeline de ML.
+    This exception is used for general errors that occur during
+    the execution of the ML pipeline.
     """
 
     def __init__(self, message: str, step: str = None):
         """
-        Inicializa la excepción.
+        Initialize the exception.
 
         Args:
-            message: Mensaje de error descriptivo
-            step: Nombre del paso del pipeline donde ocurrió el error (opcional)
+            message: Descriptive error message
+            step: Name of the pipeline step where the error occurred (optional)
         """
         self.step = step
         if step:
-            full_message = f"Error en paso '{step}': {message}"
+            full_message = f"Error in step '{step}': {message}"
         else:
             full_message = message
         super().__init__(full_message)
@@ -38,52 +38,52 @@ class PipelineError(EnergizadosError):
 
 class StepValidationError(EnergizadosError):
     """
-    Excepción levantada cuando la validación de un paso del pipeline falla.
+    Exception raised when the validation of a pipeline step fails.
 
-    Esta excepción se utiliza cuando un paso del pipeline no recibe
-    los datos necesarios en el contexto para poder ejecutarse.
+    This exception is used when a pipeline step does not receive
+    the necessary data in the context to be able to execute.
     """
 
     def __init__(self, message: str, step: str = None, missing_keys: list = None):
         """
-        Inicializa la excepción.
+        Initialize the exception.
 
         Args:
-            message: Mensaje de error descriptivo
-            step: Nombre del paso que falló la validación (opcional)
-            missing_keys: Lista de claves del contexto que faltan (opcional)
+            message: Descriptive error message
+            step: Name of the step that failed validation (optional)
+            missing_keys: List of missing context keys (optional)
         """
         self.step = step
         self.missing_keys = missing_keys or []
 
         full_message = message
         if step:
-            full_message = f"Validación falló en paso '{step}': {message}"
+            full_message = f"Validation failed in step '{step}': {message}"
         if missing_keys:
-            full_message += f" | Claves faltantes: {missing_keys}"
+            full_message += f" | Missing keys: {missing_keys}"
 
         super().__init__(full_message)
 
 
 class ConfigurationError(EnergizadosError):
     """
-    Excepción levantada cuando hay un error en la configuración del pipeline.
+    Exception raised when there is an error in the pipeline configuration.
 
-    Esta excepción se utiliza cuando el archivo YAML de configuración
-    tiene errores de formato, valores inválidos o falta algún campo requerido.
+    This exception is used when the YAML configuration file
+    has format errors, invalid values, or missing required fields.
     """
 
     def __init__(self, message: str, config_path: str = None):
         """
-        Inicializa la excepción.
+        Initialize the exception.
 
         Args:
-            message: Mensaje de error descriptivo
-            config_path: Ruta del archivo de configuración (opcional)
+            message: Descriptive error message
+            config_path: Path to the configuration file (optional)
         """
         self.config_path = config_path
         if config_path:
-            full_message = f"Error en configuración '{config_path}': {message}"
+            full_message = f"Error in configuration '{config_path}': {message}"
         else:
             full_message = message
         super().__init__(full_message)
@@ -91,45 +91,45 @@ class ConfigurationError(EnergizadosError):
 
 class ModelNotFittedError(EnergizadosError):
     """
-    Excepción levantada cuando se intenta predecir con un modelo no entrenado.
+    Exception raised when trying to predict with an unfitted model.
 
-    Esta excepción se utiliza cuando se llama a predict() o predict_proba()
-    en un modelo que no ha sido entrenado previamente con fit().
+    This exception is used when predict() or predict_proba()
+    is called on a model that has not been previously trained with fit().
     """
 
     def __init__(self, model_name: str = None):
         """
-        Inicializa la excepción.
+        Initialize the exception.
 
         Args:
-            model_name: Nombre del modelo (opcional)
+            model_name: Name of the model (optional)
         """
         if model_name:
-            message = f"El modelo '{model_name}' no está entrenado. Llame a fit() primero."
+            message = f"Model '{model_name}' is not fitted. Call fit() first."
         else:
-            message = "El modelo no está entrenado. Llame a fit() primero."
+            message = "Model is not fitted. Call fit() first."
         super().__init__(message)
 
 
 class ETLError(EnergizadosError):
     """
-    Excepción levantada cuando ocurre un error en el proceso ETL.
+    Exception raised when an error occurs in the ETL process.
 
-    Esta excepción se utiliza para errores específicos que ocurren
-    durante las fases de extract, transform o load.
+    This exception is used for specific errors that occur
+    during extract, transform, or load phases.
     """
 
     def __init__(self, message: str, phase: str = None):
         """
-        Inicializa la excepción.
+        Initialize the exception.
 
         Args:
-            message: Mensaje de error descriptivo
-            phase: Fase del ETL donde ocurrió el error (extract/transform/load)
+            message: Descriptive error message
+            phase: ETL phase where the error occurred (extract/transform/load)
         """
         self.phase = phase
         if phase:
-            full_message = f"Error en fase '{phase}': {message}"
+            full_message = f"Error in phase '{phase}': {message}"
         else:
             full_message = message
         super().__init__(full_message)
@@ -137,19 +137,19 @@ class ETLError(EnergizadosError):
 
 class ETLDependencyError(EnergizadosError):
     """
-    Excepción levantada cuando hay errores en dependencias entre ETLs.
+    Exception raised when there are errors in dependencies between ETLs.
 
-    Esta excepción se utiliza cuando:
-    - Una ETL referencia una dependencia inexistente
-    - Hay un ciclo en el grafo de dependencias
-    - Una dependencia no se ejecutó correctamente
+    This exception is used when:
+    - An ETL references a non-existent dependency
+    - There is a cycle in the dependency graph
+    - A dependency did not execute correctly
     """
 
     def __init__(self, message: str):
         """
-        Inicializa la excepción.
+        Initialize the exception.
 
         Args:
-            message: Mensaje de error descriptivo
+            message: Descriptive error message
         """
         super().__init__(message)

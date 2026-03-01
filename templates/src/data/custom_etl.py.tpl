@@ -88,10 +88,6 @@ class CustomETL(SourceETL):
         cols_fillna_sindatos = ['zona', 'actividad', 'tipo_tarifa', 'nivel_tension']
         df = fill_empty_values_str(df, cols=cols_fillna_sindatos, str_value='sin_dato')
 
-        # Sample
-        if len(df) > 10000:
-            df = df.sample(10000)
-
         return df
 
     def load(self, df: pd.DataFrame, path: str) -> None:

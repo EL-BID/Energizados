@@ -1,8 +1,8 @@
 """
-Clases Base Abstractas para el Framework Energizados.
+Abstract Base Classes for the Energizados Framework.
 
-Este módulo define las interfaces que los usuarios pueden implementar
-para personalizar el comportamiento del framework.
+This module defines the interfaces that users can implement
+to customize the behavior of the framework.
 """
 
 from abc import ABC, abstractmethod
@@ -14,10 +14,10 @@ import pandas as pd
 
 class BaseModel(ABC):
     """
-    Clase base para modelos personalizados.
+    Base class for custom models.
 
-    El usuario hereda e implementa los métodos abstractos para definir
-    su propio modelo de ML.
+    Users inherit and implement abstract methods to define
+    their own ML model.
 
     Example:
         >>> from energizados.core.base import BaseModel
@@ -36,10 +36,10 @@ class BaseModel(ABC):
 
     def __init__(self, config: Optional[Dict] = None):
         """
-        Inicializa el modelo.
+        Initialize the model.
 
         Args:
-            config: Diccionario de configuración opcional
+            config: Optional configuration dictionary
         """
         self.config = config or {}
         self.model_ = None
@@ -54,57 +54,57 @@ class BaseModel(ABC):
         y_val: Optional[pd.Series] = None,
     ) -> "BaseModel":
         """
-        Entrena el modelo.
+        Train the model.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
-            X_val: Features de validación (opcional)
-            y_val: Target de validación (opcional)
+            X: Training features
+            y: Training target
+            X_val: Validation features (optional)
+            y_val: Validation target (optional)
 
         Returns:
-            self: Retorna la instancia entrenada
+            self: Returns the trained instance
         """
         pass
 
     @abstractmethod
     def predict(self, X: pd.DataFrame) -> "np.ndarray":
         """
-        Realiza predicciones binarias.
+        Make binary predictions.
 
         Args:
-            X: Features para predicción
+            X: Features for prediction
 
         Returns:
-            np.ndarray: Predicciones binarias (0 o 1)
+            np.ndarray: Binary predictions (0 or 1)
 
         Raises:
-            ModelNotFittedError: Si el modelo no está entrenado
+            ModelNotFittedError: If the model is not fitted
         """
         pass
 
     @abstractmethod
     def predict_proba(self, X: pd.DataFrame) -> "np.ndarray":
         """
-        Realiza predicciones de probabilidad.
+        Make probability predictions.
 
         Args:
-            X: Features para predicción
+            X: Features for prediction
 
         Returns:
-            np.ndarray: Probabilidades de la clase positiva
+            np.ndarray: Probabilities of the positive class
 
         Raises:
-            ModelNotFittedError: Si el modelo no está entrenado
+            ModelNotFittedError: If the model is not fitted
         """
         pass
 
     def check_fitted(self):
         """
-        Verifica que el modelo esté entrenado.
+        Check that the model is fitted.
 
         Raises:
-            ModelNotFittedError: Si el modelo no está entrenado
+            ModelNotFittedError: If the model is not fitted
         """
         if not self.is_fitted_:
             from energizados.core.exceptions import ModelNotFittedError
@@ -114,10 +114,10 @@ class BaseModel(ABC):
 
 class BaseInference(ABC):
     """
-    Clase base para inferencia y predicción.
+    Base class for inference and prediction.
 
-    Los usuarios pueden heredar e implementar los métodos abstractos
-    para definir su propia lógica de inferencia.
+    Users can inherit and implement abstract methods
+    to define their own inference logic.
 
     Example:
         >>> from energizados.core.base import BaseInference, BaseModel
@@ -131,60 +131,60 @@ class BaseInference(ABC):
     @abstractmethod
     def predict(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones binarias.
+        Make binary predictions.
 
         Args:
-            model: Modelo entrenado
-            data: Datos para predicción
+            model: Trained model
+            data: Data for prediction
 
         Returns:
-            np.ndarray: Predicciones binarias (0 o 1)
+            np.ndarray: Binary predictions (0 or 1)
         """
         pass
 
     @abstractmethod
     def predict_proba(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones de probabilidad.
+        Make probability predictions.
 
         Args:
-            model: Modelo entrenado
-            data: Datos para predicción
+            model: Trained model
+            data: Data for prediction
 
         Returns:
-            np.ndarray: Probabilidades de la clase positiva
+            np.ndarray: Probabilities of the positive class
         """
         pass
 
     def load_model(self, model_path: str) -> BaseModel:
         """
-        Carga un modelo entrenado desde disco.
+        Load a trained model from disk.
 
         Args:
-            model_path: Ruta al archivo del modelo
+            model_path: Path to the model file
 
         Returns:
-            BaseModel: Modelo cargado
+            BaseModel: Loaded model
         """
         raise NotImplementedError("Subclasses must implement load_model")
 
     def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
         """
-        Guarda predicciones en archivo.
+        Save predictions to file.
 
         Args:
-            predictions: Predicciones a guardar
-            output_path: Ruta de salida
+            predictions: Predictions to save
+            output_path: Output path
         """
         raise NotImplementedError("Subclasses must implement save_predictions")
 
 
 class PipelineStep(ABC):
     """
-    Clase base para pasos del pipeline.
+    Base class for pipeline steps.
 
-    Los pasos del pipeline deben heredar de esta clase e implementar
-    los métodos para validar la entrada y ejecutar el paso.
+    Pipeline steps must inherit from this class and implement
+    methods to validate input and execute the step.
 
     Example:
         >>> from energizados.core.base import PipelineStep
@@ -199,52 +199,52 @@ class PipelineStep(ABC):
     @abstractmethod
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Ejecuta el paso del pipeline.
+        Execute the pipeline step.
 
         Args:
-            context: Diccionario con datos del pipeline
+            context: Dictionary with pipeline data
 
         Returns:
-            Dict: Contexto actualizado con los resultados del paso
+            Dict: Context updated with step results
 
         Raises:
-            PipelineError: Si ocurre un error durante la ejecución
+            PipelineError: If an error occurs during execution
         """
         pass
 
     @abstractmethod
     def validate_input(self, context: Dict[str, Any]) -> bool:
         """
-        Valida que el contexto tenga los datos necesarios.
+        Validate that the context has the necessary data.
 
         Args:
-            context: Diccionario con datos del pipeline
+            context: Dictionary with pipeline data
 
         Returns:
-            bool: True si la validación es exitosa, False en caso contrario
+            bool: True if validation is successful, False otherwise
         """
         pass
 
     def get_required_keys(self) -> list:
         """
-        Retorna la lista de claves requeridas en el contexto.
+        Return the list of required keys in the context.
 
-        Este método puede sobrescribirse para especificar qué claves
-        son necesarias para que el paso pueda ejecutarse.
+        This method can be overridden to specify which keys
+        are necessary for the step to be able to execute.
 
         Returns:
-            list: Lista de nombres de claves requeridas
+            list: List of required key names
         """
         return []
 
     def get_output_keys(self) -> list:
         """
-        Retorna la lista de claves que este paso agrega al contexto.
+        Return the list of keys that this step adds to the context.
 
-        Este método puede sobrescribirse para especificar qué claves
-        agrega este paso al contexto.
+        This method can be overridden to specify which keys
+        this step adds to the context.
 
         Returns:
-            list: Lista de nombres de claves de salida
+            list: List of output key names
         """
         return []
