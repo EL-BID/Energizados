@@ -47,7 +47,7 @@ training:
 
     preprocessing:
       enabled: true
-      # output_parquet: "data/processed/preprocessing.parquet"  # opcional
+      output_parquet: "data/processed/preprocessing.parquet"
 
       # Opción 1: Usar configuración por columna con transformers built-in
       columns:
@@ -56,8 +56,8 @@ training:
           - cardinality_reducer:
               threshold: 0.001
           - to_dummy: {}
-        #  - cast_dtype:
-        #      dtype: "category"
+          #- cast_dtype:
+          #    dtype: "category"
 
         # Tipo Tarifa: reducir cardinalidad + target encoding
         tipo_tarifa:
@@ -65,19 +65,27 @@ training:
               threshold: 0.001
           - target_encoding:
               w: 20
+          #- cast_dtype:
+          #    dtype: "category"
 
         # Zona: encoding ordinal simple
         zona:
           - ordinal_encoding: {}
+          #- cast_dtype:
+          #    dtype: "category"
 
         # Nivel Tensión: encoding ordinal simple
         nivel_tension:
           - ordinal_encoding: {}
+          #- cast_dtype:
+          #    dtype: "category"
 
         # Material Instalación: target encoding directo
         material_instalacion:
           - target_encoding:
               w: 10
+          #- cast_dtype:
+          #    dtype: "category"
 
         # Opción 2: Mezclar built-in y custom en la misma columna
         # otra_columna:
@@ -116,7 +124,7 @@ training:
 
     feature_selection:
       enabled: true
-      # output_parquet: "data/processed/feature_selection.parquet"  # opcional
+      output_parquet: "data/processed/feature_selection.parquet"
 
       # Lista de pasos secuenciales de selección
       steps:
@@ -128,6 +136,11 @@ training:
             - "*"
             - "!index"
             - "!*_anterior"
+            - "!*zona*"
+            - "!*actividad*"
+            - "!*tipo_tarifa*"
+            - "!*nivel_tension*"
+            - "!*material_instalacion*"
 
       #   - name: boruta_consumo
       #     method: boruta
@@ -154,11 +167,11 @@ training:
           operation: union          # union | intersection | difference
           columns:
             - "*_anterior"
-            - "zona"
-            - "actividad"
-            - "tipo_tarifa"
-            - "nivel_tension"
-            - "material_instalacion"
+            - "*zona*"
+            - "*actividad*"
+            - "*tipo_tarifa*"
+            - "*nivel_tension*"
+            - "*material_instalacion*"
             - "@drop_constant"
 
   # ============================================
