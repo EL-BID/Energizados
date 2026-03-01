@@ -230,21 +230,21 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
 
 
 def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección evaluation."""
+    """Validates the evaluation section."""
     if "evaluation" not in config:
-        result.add_warning("Sección 'evaluation' no encontrada (opcional)")
+        result.add_warning("'evaluation' section not found (optional)")
         return
 
     eval_config = config["evaluation"]
     if not isinstance(eval_config, dict):
-        result.add_error("Sección 'evaluation' debe ser un diccionario")
+        result.add_error("'evaluation' section must be a dictionary")
         return
 
     if eval_config.get("enabled", True):
         if "metrics" in eval_config:
             metrics = eval_config["metrics"]
             if not isinstance(metrics, list):
-                result.add_error("evaluation.metrics debe ser una lista")
+                result.add_error("evaluation.metrics must be a list")
             else:
                 valid_metrics = [
                     "auc",
@@ -256,9 +256,9 @@ def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResul
                 ]
                 for metric in metrics:
                     if metric not in valid_metrics:
-                        result.add_warning(f"Métrica desconocida: {metric}")
+                        result.add_warning(f"Unknown metric: {metric}")
 
-        result.add_info(f"Evaluación: {'habilitada' if eval_config.get('enabled', True) else 'deshabilitada'}")
+        result.add_info(f"Evaluation: {'enabled' if eval_config.get('enabled', True) else 'disabled'}")
 
 
 def _validate_class_reference(class_path: str, result: ValidationResult):

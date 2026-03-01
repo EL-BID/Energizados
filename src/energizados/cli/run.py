@@ -130,7 +130,7 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
 
 def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = False) -> Dict[str, Any]:
     """
-    Ejecuta ETLs desde la configuración.
+    Executes ETLs from configuration.
 
     Supports:
     - Execute all ETLs

@@ -454,26 +454,26 @@ def _map_old_to_new_structure(old_path: str) -> str:
 
 def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name: str, new_name: str, old_structure: bool = False):
     """
-    Copia y adapta los archivos de configuración del proyecto origen.
+    Copies and adapts the configuration files from the source project.
 
     Args:
-        source_path: Ruta del proyecto origen
-        target_path: Ruta del proyecto destino
-        old_name: Nombre del proyecto origen
-        new_name: Nombre del proyecto destino
-        old_structure: Si el origen usa estructura antigua
+        source_path: Path to the source project
+        target_path: Path to the target project
+        old_name: Name of the source project
+        new_name: Name of the target project
+        old_structure: Whether the source uses old structure
     """
     import re
 
-    # Sanitizar nombres para usar en imports de paquetes
+    # Sanitize names for use in package imports
     old_package = _sanitize_package_name(old_name)
     new_package = _sanitize_package_name(new_name)
 
-    # Lista de archivos de configuración a copiar
+    # List of configuration files to copy
     config_files = ["etls.yaml", "training.yaml", "inference.yaml"]
 
     for config_file in config_files:
-        # Determinar ruta según estructura
+        # Determine path according to structure
         if old_structure:
             source_yaml = source_path / "configs" / config_file
         else:
@@ -484,17 +484,17 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
         if source_yaml.exists():
             content = source_yaml.read_text()
 
-            # Reemplazar el nombre del proyecto en la configuración
+            # Replace project name in configuration
             patterns = [
-                # En comentarios del encabezado (ej: "# ... for old_project")
+                # In header comments (e.g.: "# ... for old_project")
                 (rf"# .* for {re.escape(old_name)}", f"# ... for {new_name}"),
                 (rf"#.*Configuration for {re.escape(old_name)}", f"# Configuration for {new_name}"),
-                # En campos YAML (si existen)
+                # In YAML fields (if they exist)
                 (rf'name:\s*"{re.escape(old_name)}"', f'name: "{new_name}"'),
                 (rf"name:\s*'{re.escape(old_name)}'", f"name: '{new_name}'"),
             ]
 
-            # Mapear imports usando nombres de paquetes sanitizados
+            # Map imports using sanitized package names
             if old_structure:
                 patterns.extend(
                     [
@@ -507,12 +507,12 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
                         (rf"{re.escape(old_package)}\.inference", f"{new_package}.src.inference"),
                     ]
                 )
-                # Renombrar configs/ -> config/ en comentarios
+                # Rename configs/ -> config/ in comments
                 content = content.replace("configs/", "config/")
             else:
                 patterns.extend(
                     [
-                        # Nuevos proyectos usan {package}.data.custom_etl.CustomETL
+                        # New projects use {package}.data.custom_etl.CustomETL
                         (
                             rf"{re.escape(old_package)}\.data\.custom_etl",
                             f"{new_package}.data.custom_etl",
@@ -529,7 +529,7 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
                             rf"{re.escape(old_package)}\.inference\.custom_inference",
                             f"{new_package}.inference.custom_inference",
                         ),
-                        # Por si acaso, también el formato src.*
+                        # Also handle src.* format just in case
                         (rf"{re.escape(old_package)}\.src\.data", f"{new_package}.data"),
                         (rf"{re.escape(old_package)}\.src\.features", f"{new_package}.features"),
                         (rf"{re.escape(old_package)}\.src\.models", f"{new_package}.models"),
@@ -542,9 +542,9 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
 
             target_yaml.write_text(content)
         else:
-            # Si no existe, crear desde template
+            # If not found, create from template
             _create_config_files(target_path, new_name)
-            break  # Solo crear templates una vez
+            break  # Only create templates once
 
 
 def _copy_project_source(

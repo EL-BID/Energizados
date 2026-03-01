@@ -1,7 +1,7 @@
 """
 Main CLI entry point for Energizados Framework.
 
-Este módulo define el comando principal y los subcomandos disponibles.
+This module defines the main command and the available subcommands.
 """
 
 import logging
@@ -12,10 +12,10 @@ import click
 
 def _setup_logging(verbose: int = 0):
     """
-    Configura el logging para la CLI.
+    Configures logging for the CLI.
 
     Args:
-        verbose: Nivel de verbosidad (0=WARNING, 1=INFO, 2+=DEBUG)
+        verbose: Verbosity level (0=WARNING, 1=INFO, 2+=DEBUG)
     """
     if verbose == 0:
         level = logging.WARNING
@@ -24,46 +24,46 @@ def _setup_logging(verbose: int = 0):
     else:
         level = logging.DEBUG
 
-    # Configurar handler para consola
+    # Configure console handler
     handler = logging.StreamHandler()
     handler.setLevel(level)
     handler.setFormatter(logging.Formatter("%(message)s"))
 
-    # Configurar root logger
+    # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
-    root_logger.handlers = []  # Remover handlers existentes
+    root_logger.handlers = []  # Remove existing handlers
     root_logger.addHandler(handler)
 
 
 @click.group()
 @click.version_option(version="1.0.0", prog_name="energizados")
-@click.option("--verbose", "-v", count=True, help="Aumentar verbosidad (-v, -vv, -vvv)")
+@click.option("--verbose", "-v", count=True, help="Increase verbosity (-v, -vv, -vvv)")
 @click.pass_context
 def cli(ctx, verbose):
     """
-    Energizados - Framework para detección de fraude en consumo energético.
+    Energizados - Framework for detecting fraud in energy consumption.
 
-    Este framework permite crear pipelines de ML para detección de fraude
-    con configuración simple y posibilidad de extensión.
+    This framework allows creating ML pipelines for fraud detection
+    with simple configuration and extensibility.
 
-    Comandos disponibles:
-    - init: Inicializar un nuevo proyecto
-    - run: Ejecutar un pipeline desde configuración
-    - validate: Validar archivo de configuración
+    Available commands:
+    - init: Initialize a new project
+    - run: Execute a pipeline from configuration
+    - validate: Validate configuration file
 
-    Opciones de verbosidad:
-        -v: INFO (muestra mensajes informativos)
-        -vv: DEBUG (muestra mensajes de depuración)
-        -vvv: DEBUG (igual que -vv)
+    Verbosity options:
+        -v: INFO (shows informative messages)
+        -vv: DEBUG (shows debug messages)
+        -vvv: DEBUG (same as -vv)
 
-    Para ayuda sobre un comando específico:
-        energizados <comando> --help
+    For help on a specific command:
+        energizados <command> --help
     """
-    # Configurar logging
+    # Configure logging
     _setup_logging(verbose)
 
-    # Contexto compartido entre comandos
+    # Shared context between commands
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
 
@@ -74,14 +74,14 @@ def cli(ctx, verbose):
     "--template",
     "-t",
     default="default",
-    help="Template a usar para el proyecto (default)",
+    help="Template to use for the project (default)",
     show_default=True,
 )
 @click.option(
     "--path",
     "-p",
     default=".",
-    help="Directorio donde crear el proyecto",
+    help="Directory where to create the project",
     show_default=True,
 )
 @click.option(
@@ -89,28 +89,28 @@ def cli(ctx, verbose):
     "-c",
     "copy_from",
     default=None,
-    help="Copiar desde proyecto existente (tiene prioridad sobre --template)",
+    help="Copy from existing project (takes precedence over --template)",
 )
 @click.option(
     "--force",
     "-f",
     is_flag=True,
-    help="Forzar la creación eliminando el directorio existente si es necesario",
+    help="Force creation by removing the existing directory if necessary",
 )
 @click.pass_context
 def init(ctx, project_name, template, path, copy_from, force):
     """
-    Inicializar un nuevo proyecto Energizados.
+    Initialize a new Energizados project.
 
-    Este comando crea la estructura base de un proyecto con todos los
-    archivos necesarios para personalizar el pipeline.
+    This command creates the base structure of a project with all the
+    necessary files to customize the pipeline.
 
-    PROJECT_NAME es el nombre del proyecto a crear.
+    PROJECT_NAME is the name of the project to create.
 
-    Ejemplos:
-        energizados init mi_proyecto              # Crear desde template
-        energizados init nuevo --copy existente   # Copiar desde proyecto existente
-        energizados init mi_proyecto --force      # Reemplazar si existe
+    Examples:
+        energizados init my_project              # Create from template
+        energizados init new --copy existing     # Copy from existing project
+        energizados init my_project --force      # Replace if exists
     """
     from energizados.cli.init import create_project
 
@@ -120,11 +120,11 @@ def init(ctx, project_name, template, path, copy_from, force):
         if copy_from:
             source_path = Path(path) / copy_from
             if not source_path.exists():
-                click.echo(f"\n✗ El proyecto origen '{copy_from}' no existe en: {source_path}", err=True)
+                click.echo(f"\n✗ Source project '{copy_from}' does not exist at: {source_path}", err=True)
                 raise click.Abort()
-            click.echo(f"📋 Copiando proyecto desde '{copy_from}'...")
+            click.echo(f"📋 Copying project from '{copy_from}'...")
         else:
-            click.echo(f"🚀 Creando proyecto '{project_name}'...")
+            click.echo(f"🚀 Creating project '{project_name}'...")
 
         create_project(
             project_name=project_name,
@@ -133,19 +133,19 @@ def init(ctx, project_name, template, path, copy_from, force):
             copy_from=copy_from,
             force=force,
         )
-        click.echo(f"\n✓ Proyecto creado exitosamente en: {project_path}")
-        click.echo("\n📝 Próximos pasos:")
+        click.echo(f"\n✓ Project created successfully at: {project_path}")
+        click.echo("\n📝 Next steps:")
         click.echo(f"  1. cd {project_name}")
-        click.echo("  2. Editar los archivos de configuración en config/:")
+        click.echo("  2. Edit the configuration files in config/:")
         click.echo("     - etls.yaml")
         click.echo("     - training.yaml")
         click.echo("     - inference.yaml")
-        click.echo("  3. (Opcional) Personalizar src/data/custom_etl.py")
+        click.echo("  3. (Optional) Customize src/data/custom_etl.py")
         click.echo("  4. energizados run --config config/etls.yaml --config config/training.yaml")
     except FileExistsError as e:
-        # Preguntar si desea eliminar y recrear
-        if click.confirm(f"\n{e}\n¿Deseas eliminar el directorio existente y recrearlo?", default=False):
-            click.echo("🗑️  Eliminando directorio existente...")
+        # Ask if they want to delete and recreate
+        if click.confirm(f"\n{e}\nDo you want to delete the existing directory and recreate it?", default=False):
+            click.echo("🗑️  Removing existing directory...")
             create_project(
                 project_name=project_name,
                 project_path=project_path,
@@ -153,20 +153,20 @@ def init(ctx, project_name, template, path, copy_from, force):
                 copy_from=copy_from,
                 force=True,
             )
-            click.echo(f"\n✓ Proyecto creado exitosamente en: {project_path}")
-            click.echo("\n📝 Próximos pasos:")
+            click.echo(f"\n✓ Project created successfully at: {project_path}")
+            click.echo("\n📝 Next steps:")
             click.echo(f"  1. cd {project_name}")
-            click.echo("  2. Editar los archivos de configuración en config/:")
+            click.echo("  2. Edit the configuration files in config/:")
             click.echo("     - etls.yaml")
             click.echo("     - training.yaml")
             click.echo("     - inference.yaml")
-            click.echo("  3. (Opcional) Personalizar src/data/custom_etl.py")
+            click.echo("  3. (Optional) Customize src/data/custom_etl.py")
             click.echo("  4. energizados run --config config/etls.yaml --config config/training.yaml")
         else:
-            click.echo("\n✗ Operación cancelada.", err=True)
+            click.echo("\n✗ Operation cancelled.", err=True)
             raise click.Abort()
     except Exception as e:
-        click.echo(f"\n✗ Error creando proyecto: {e}", err=True)
+        click.echo(f"\n✗ Error creating project: {e}", err=True)
         raise click.Abort()
 
 
@@ -178,39 +178,39 @@ def init(ctx, project_name, template, path, copy_from, force):
     multiple=True,
     required=True,
     type=click.Path(exists=True),
-    help="Ruta(s) al archivo(s) de configuración YAML. Puede usarse múltiples veces.",
+    help="Path(s) to YAML configuration file(s). Can be used multiple times.",
 )
 @click.option(
     "--step",
     "-s",
-    help="Ejecutar solo un paso específico del pipeline (etl, split, training, evaluation, inference)",
+    help="Run only a specific pipeline step (etl, split, training, evaluation, inference)",
 )
 @click.option(
     "--etl",
     "-e",
-    help="Ejecutar una ETL específica (y sus dependencias). Solo válido con múltiples ETLs.",
+    help="Run a specific ETL (and its dependencies). Only valid with multiple ETLs.",
 )
 @click.option(
     "--dry-run",
     "-d",
     is_flag=True,
-    help="Mostrar qué se ejecutaría sin ejecutar realmente (para ETLs muestra el plan de ejecución)",
+    help="Show what would be executed without actually running (for ETLs shows the execution plan)",
 )
 @click.pass_context
 def run(ctx, config_paths, step, etl, dry_run):
     """
-    Ejecutar un pipeline desde configuración YAML.
+    Execute a pipeline from YAML configuration.
 
-    Este comando lee el(los) archivo(s) de configuración y ejecuta el pipeline
-    completo o un paso específico según lo especificado.
+    This command reads the configuration file(s) and executes the complete
+    pipeline or a specific step as specified.
 
-    Opciones de ejecución:
-    - Sin opciones: Ejecuta el pipeline completo
-    - --step: Ejecuta solo un paso específico
-    - --etl: Ejecuta una ETL específica (con múltiples ETLs)
-    - --dry-run: Muestra el plan sin ejecutar
+    Execution options:
+    - No options: Execute the complete pipeline
+    - --step: Execute only a specific step
+    - --etl: Execute a specific ETL (with multiple ETLs)
+    - --dry-run: Show the plan without executing
 
-    Se pueden especificar múltiples archivos de configuración:
+    You can specify multiple configuration files:
         energizados run --config config/etls.yaml --config config/training.yaml
     """
     from energizados.cli.run import (
@@ -220,50 +220,50 @@ def run(ctx, config_paths, step, etl, dry_run):
     )
 
     try:
-        # Si se especifica --etl, ejecuta ETLs específicas
+        # If --etl is specified, execute specific ETLs
         if etl:
-            click.echo(f"⚡ Ejecutando ETL '{etl}' (y sus dependencias)...")
+            click.echo(f"⚡ Executing ETL '{etl}' (and its dependencies)...")
             execute_etl(list(config_paths), etl_name=etl, dry_run=dry_run)
             if not dry_run:
-                click.echo("\n✓ ETLs completadas exitosamente")
+                click.echo("\n✓ ETLs completed successfully")
             return
 
-        # Si se especifica --step, ejecuta solo ese paso
+        # If --step is specified, execute only that step
         if step:
             if dry_run:
-                click.echo(f"🔍 Modo dry-run para paso '{step}'...")
+                click.echo(f"🔍 Dry-run mode for step '{step}'...")
                 from energizados.cli.validate import validate_config
 
                 validate_config(list(config_paths), verbose=True)
                 return
 
-            click.echo(f"⚡ Ejecutando paso '{step}' del pipeline...")
+            click.echo(f"⚡ Executing step '{step}' of the pipeline...")
             execute_step(list(config_paths), step)
-            click.echo("\n✓ Paso completado exitosamente")
+            click.echo("\n✓ Step completed successfully")
             return
 
-        # Si es dry-run sin step ni etl, mostrar plan de ETLs si existe
+        # If dry-run without step or etl, show ETLs plan if it exists
         if dry_run:
             from energizados.cli.run import show_etl_plan
 
-            click.echo("🔍 Modo dry-run - mostrando plan de ejecución...")
+            click.echo("🔍 Dry-run mode - showing execution plan...")
             try:
                 plan = show_etl_plan(list(config_paths))
                 click.echo(plan)
             except Exception:
-                # No hay ETLs, mostrar validación general
+                # No ETLs, show general validation
                 from energizados.cli.validate import validate_config
 
                 validate_config(list(config_paths), verbose=True)
             return
 
-        # Ejecutar pipeline completo
-        click.echo("⚡ Ejecutando pipeline completo...")
+        # Execute complete pipeline
+        click.echo("⚡ Executing complete pipeline...")
         execute_pipeline(list(config_paths))
-        click.echo("\n✓ Pipeline completado exitosamente")
+        click.echo("\n✓ Pipeline completed successfully")
 
     except Exception as e:
-        click.echo(f"\n✗ Error ejecutando pipeline: {e}", err=True)
+        click.echo(f"\n✗ Error executing pipeline: {e}", err=True)
         raise click.Abort()
 
 
@@ -275,31 +275,31 @@ def run(ctx, config_paths, step, etl, dry_run):
     multiple=True,
     required=True,
     type=click.Path(exists=True),
-    help="Ruta(s) al archivo(s) de configuración YAML. Puede usarse múltiples veces.",
+    help="Path(s) to YAML configuration file(s). Can be used multiple times.",
 )
 @click.option(
     "--verbose",
     "-v",
     is_flag=True,
-    help="Mostrar detalles completos de la validación",
+    help="Show complete validation details",
 )
 @click.pass_context
 def validate(ctx, config_paths, verbose):
     """
-    Validar archivo(s) de configuración YAML.
+    Validate YAML configuration file(s).
 
-    Este comando verifica que el(los) archivo(s) de configuración sea(n) válido(s)
-    y que todas las referencias a clases y parámetros sean correctas.
+    This command verifies that the configuration file(s) are valid
+    and that all references to classes and parameters are correct.
     """
     from energizados.cli.validate import validate_config
 
     try:
         for config_path in config_paths:
-            click.echo(f"🔍 Validando configuración: {config_path}")
+            click.echo(f"🔍 Validating configuration: {config_path}")
         validate_config(list(config_paths), verbose=verbose)
-        click.echo("\n✓ Configuración válida")
+        click.echo("\n✓ Configuration is valid")
     except Exception as e:
-        click.echo(f"\n✗ Validación falló: {e}", err=True)
+        click.echo(f"\n✗ Validation failed: {e}", err=True)
         raise click.Abort()
 
 

@@ -155,7 +155,7 @@ class TestInitCommand:
             result = self.runner.invoke(cli, ["init", "new_project", "--copy", "nonexistent", "--path", tmpdir])
 
             assert result.exit_code != 0
-            assert "no existe" in result.output.lower()
+            assert "does not exist" in result.output.lower()
 
     def test_init_copy_from_new_structure_project(self):
         """Verifica que init copie correctamente desde proyecto con estructura nueva."""
