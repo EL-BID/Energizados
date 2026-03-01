@@ -80,7 +80,7 @@ class ToDummy(BaseEstimator, TransformerMixin):
 
         for col in self.cols:
             # Crear dummies solo para esta columna
-            dummies = pd.get_dummies(X[col], prefix=f"dummy_{col}")
+            dummies = pd.get_dummies(X[col], prefix=f"dummy_{col}", dtype=float)
 
             # Agregar columnas faltantes (categorías en train pero no en test)
             for cat in self.categories_[col]:

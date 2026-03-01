@@ -6,34 +6,34 @@ from pathlib import Path
 
 def import_class(class_path: str) -> type:
     """
-    Importa una clase desde su path completo, soportando proyectos locales.
+    Import a class from its full path, supporting local projects.
 
-    Esta función permite importar clases desde proyectos locales que no están
-    instalados como paquetes, agregando temporalmente el directorio del proyecto
-    a sys.path si es necesario.
+    This function allows importing classes from local projects that are not
+    installed as packages, temporarily adding the project directory
+    to sys.path if necessary.
 
     Args:
-        class_path: Path completo (ej: "module.submodule.ClassName")
+        class_path: Full path (e.g., "module.submodule.ClassName")
 
     Returns:
-        Clase importada
+        Imported class
 
     Raises:
-        ImportError: Si no se puede importar la clase
+        ImportError: If the class cannot be imported
     """
     try:
         module_path, class_name = class_path.rsplit(".", 1)
         module = __import__(module_path, fromlist=[class_name])
         return getattr(module, class_name)
     except (ImportError, AttributeError, ValueError):
-        # Si falla, intentar agregando el directorio actual a sys.path
+        # If it fails, try adding the current directory to sys.path
         cwd = Path.cwd()
 
-        # Agregar directorio actual a sys.path temporalmente
+        # Add current directory to sys.path temporarily
         if str(cwd) not in sys.path:
             sys.path.insert(0, str(cwd))
 
-        # Si existe src/, también agregarlo
+        # If src/ exists, also add it
         src_path = cwd / "src"
         if src_path.exists() and str(src_path) not in sys.path:
             sys.path.insert(0, str(src_path))
@@ -43,7 +43,5 @@ def import_class(class_path: str) -> type:
             return getattr(module, class_name)
         except (ImportError, AttributeError, ValueError) as e:
             raise ImportError(
-                f"No se puede importar clase {class_path}. "
-                f"Asegúrate de estar ejecutando desde el directorio del proyecto "
-                f"y que el módulo existe."
+                f"Cannot import class {class_path}. " f"Make sure you are running from the project directory " f"and the module exists."
             ) from e

@@ -53,31 +53,31 @@ training:
       columns:
         # Actividad: reducir cardinalidad + one-hot encoding
         actividad:
-        #  - cardinality_reducer:
-        #      threshold: 0.001
-        #  - to_dummy: {}
-          - cast_dtype:
-              dtype: "category"
+          - cardinality_reducer:
+              threshold: 0.001
+          - to_dummy: {}
+        #  - cast_dtype:
+        #      dtype: "category"
 
         # Tipo Tarifa: reducir cardinalidad + target encoding
-        #tipo_tarifa:
-        #  - cardinality_reducer:
-        #      threshold: 0.001
-        #  - target_encoding:
-        #      w: 20
+        tipo_tarifa:
+          - cardinality_reducer:
+              threshold: 0.001
+          - target_encoding:
+              w: 20
 
         # Zona: encoding ordinal simple
-        #zona:
-        #  - ordinal_encoding: {}
+        zona:
+          - ordinal_encoding: {}
 
         # Nivel Tensión: encoding ordinal simple
-        #nivel_tension:
-        #  - ordinal_encoding: {}
+        nivel_tension:
+          - ordinal_encoding: {}
 
         # Material Instalación: target encoding directo
-        #material_instalacion:
-        #  - target_encoding:
-        #      w: 10
+        material_instalacion:
+          - target_encoding:
+              w: 10
 
         # Opción 2: Mezclar built-in y custom en la misma columna
         # otra_columna:
@@ -89,26 +89,26 @@ training:
 
       # Transformers globales
       global_transformers:
-      #   # Extracción de features de series temporales con tsfel
-      #   - tsfel_vars:
-      #       num_periodos: 12
-      #       features_names_path: null  # o path a JSON con configuración custom
-      #       periods_suffix: *period_suffix
-      #       n_jobs: -1        # -1 = todos los cores, 1 = secuencial (default)
-      #       chunk_size: 500   # filas por chunk por worker
-      #       cache_dir: null   # ej: ".cache/tsfel" para cachear en disco
-      #
+        # Extracción de features de series temporales con tsfel
+        - tsfel_vars:
+            num_periodos: 12
+            features_names_path: null  # o path a JSON con configuración custom
+            periods_suffix: *period_suffix
+            n_jobs: -1        # -1 = todos los cores, 1 = secuencial (default)
+            chunk_size: 500   # filas por chunk por worker
+            cache_dir: null   # ej: ".cache/tsfel" para cachear en disco
+
         # Variables estadísticas para diferentes ventanas de tiempo
         - extra_vars:
             num_periodos: 3
             periods_suffix: *period_suffix
-      #   - extra_vars:
-      #       num_periodos: 6
-      #       periods_suffix: *period_suffix
-      #   - extra_vars:
-      #       num_periodos: 12
-      #       periods_suffix: *period_suffix
-      #
+        - extra_vars:
+            num_periodos: 6
+            periods_suffix: *period_suffix
+        - extra_vars:
+            num_periodos: 12
+            periods_suffix: *period_suffix
+
       #   # Opción: Custom class para transformers globales
       #   - custom_class: "preprocessing.CustomGlobalTransformer"
       #     params:
