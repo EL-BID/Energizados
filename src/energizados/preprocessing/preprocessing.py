@@ -287,89 +287,172 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
 
 
+def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
+    """
+    Procesa un chunk de filas con tsfel. Función a nivel de módulo para ser
+    serializable por joblib en modo multiprocessing.
+
+    Args:
+        chunk_values: numpy array (N_filas, N_periodos)
+        chunk_indices: lista de índices originales del DataFrame
+        cfg: configuración de tsfel (resultado de get_features_by_domain)
+
+    Returns:
+        pd.DataFrame con features extraídas + columna 'index'
+    """
+    tsfel = _get_tsfel()
+    results = []
+    for idx, values in zip(chunk_indices, chunk_values):
+        features = tsfel.time_series_features_extractor(cfg, values, fs=1, verbose=0)
+        features["index"] = idx
+        results.append(features)
+    return pd.concat(results, ignore_index=True)
+
+
 class TsfelVars(BaseEstimator, TransformerMixin):
     """
-    Clase TsfelVars
-
-    Transformador para extraer características de series de tiempo utilizando la librería tsfel.
+    Transformador para extraer características de series de tiempo usando tsfel.
 
     Parámetros:
-    - time_column: str, nombre de la columna que contiene el tiempo.
+    - features_names_path: str o None, path a JSON con config custom de tsfel.
+    - num_periodos: int, número de periodos de consumo a usar (default=12).
+    - periods_suffix: str, sufijo de las columnas de consumo (default="_anterior").
+    - n_jobs: int, número de procesos paralelos. 1=secuencial, -1=todos los cores.
+    - chunk_size: int, filas por chunk enviadas a cada worker (default=500).
+    - cache_dir: str o None, directorio para cachear resultados en disco.
+      Si None, no se cachea. Útil para experimentación iterativa.
     """
 
-    def __init__(self, features_names_path=None, num_periodos=12, periods_suffix: str = "_anterior"):
+    def __init__(
+        self,
+        features_names_path=None,
+        num_periodos=12,
+        periods_suffix: str = "_anterior",
+        n_jobs: int = 1,
+        chunk_size: int = 500,
+        cache_dir: str = None,
+    ):
         self.num_periodos = num_periodos
         self.features_names_path = features_names_path
         self.periods_suffix = periods_suffix
+        self.n_jobs = n_jobs
+        self.chunk_size = chunk_size
+        self.cache_dir = cache_dir
 
     def obtener_cols_anterior(self, num_cols=12):
         return [f"{i}{self.periods_suffix}" for i in range(num_cols, 0, -1)]
 
+    def _run_parallel(self, df, cols, cfg, desc="tsfel"):
+        """
+        Divide df en chunks y los procesa en paralelo (o secuencial si n_jobs=1).
+
+        Args:
+            df: DataFrame completo
+            cols: columnas de consumo a usar
+            cfg: configuración de tsfel
+            desc: descripción para la barra de progreso
+
+        Returns:
+            pd.DataFrame con todas las features concatenadas + columna 'index'
+        """
+        from joblib import Parallel, delayed
+
+        data = df[cols].values
+        indices = df.index.tolist()
+        n = len(df)
+
+        # Dividir en chunks
+        chunks = [(data[i : i + self.chunk_size], indices[i : i + self.chunk_size]) for i in range(0, n, self.chunk_size)]
+
+        logger.info(f"TsfelVars [{desc}]: {n} filas en {len(chunks)} chunks, n_jobs={self.n_jobs}")
+
+        results = Parallel(n_jobs=self.n_jobs)(
+            delayed(_tsfel_process_chunk)(chunk_values, chunk_indices, cfg) for chunk_values, chunk_indices in tqdm(chunks, desc=desc)
+        )
+
+        return pd.concat(results, ignore_index=True)
+
+    def _get_cached_transform(self):
+        """Retorna versión cacheada de _compute si cache_dir está configurado."""
+        if self.cache_dir is not None:
+            from joblib import Memory
+
+            memory = Memory(location=self.cache_dir, verbose=0)
+            return memory.cache(self._compute)
+        return self._compute
+
+    def _compute(self, df_values, df_indices, cols, cfg_domain=None, cfg_json_path=None):
+        """
+        Núcleo del cómputo, separado para permitir caching con joblib.Memory.
+
+        Args:
+            df_values: numpy array con los valores de las columnas de consumo
+            df_indices: lista de índices originales
+            cols: nombres de columnas (para reconstruir DataFrame)
+            cfg_domain: nombre del dominio tsfel ('statistical', 'temporal', etc.)
+            cfg_json_path: path a JSON de config tsfel (mutuamente excluyente con cfg_domain)
+        """
+        tsfel = _get_tsfel()
+        if cfg_json_path is not None:
+            cfg = tsfel.get_features_by_domain(json_path=cfg_json_path)
+            desc = "tsfel_json"
+        else:
+            cfg = tsfel.get_features_by_domain(cfg_domain)
+            desc = cfg_domain
+
+        # Reconstruir DataFrame temporal para _run_parallel
+        df_temp = pd.DataFrame(df_values, index=df_indices, columns=cols)
+        return self._run_parallel(df_temp, cols, cfg, desc=desc)
+
     def extra_cols(self, df, domain, cols, window=12):
         tsfel = _get_tsfel()
         cfg = tsfel.get_features_by_domain(domain)
-        # Procesar cada fila individualmente ya que cada fila es una serie temporal
-        results = []
-        for idx, row in tqdm(df[cols].iterrows(), total=len(df), desc=domain):
-            # Extraer features para esta serie temporal individual
-            features = tsfel.time_series_features_extractor(
-                cfg,
-                row.values,
-                fs=1,
-                verbose=0,
-                # Pasar los valores de la fila como un array 1D  # Frecuencia de muestreo (1 por periodo)
-            )
-            features["index"] = idx
-            results.append(features)
-
-        df_result = pd.concat(results, ignore_index=True)
-        return df_result
+        return self._run_parallel(df, cols, cfg, desc=domain)
 
     def compute_by_json(self, df, cols, window=12):
         tsfel = _get_tsfel()
         cfg = tsfel.get_features_by_domain(json_path=self.features_names_path)
-        # Procesar cada fila individualmente ya que cada fila es una serie temporal
-        results = []
-        for idx, row in df[cols].iterrows():
-            # Extraer features para esta serie temporal individual
-            features = tsfel.time_series_features_extractor(
-                cfg,
-                row.values,
-                fs=1,
-                verbose=0,
-                # Pasar los valores de la fila como un array 1D  # Frecuencia de muestreo (1 por periodo)
-            )
-            features["index"] = idx
-            results.append(features)
-
-        df_result = pd.concat(results, ignore_index=True)
-        return df_result
+        return self._run_parallel(df, cols, cfg, desc="tsfel_json")
 
     def crear_all_tsfel(self, df):
         cols_anterior = self.obtener_cols_anterior(self.num_periodos)
         df_result_stat = self.extra_cols(df, "statistical", cols_anterior, window=self.num_periodos)
         df_result_temporal = self.extra_cols(df, "temporal", cols_anterior, window=self.num_periodos)
         # df_result_spectral = self.extra_cols(df, "spectral", cols_anterior, window=self.num_periodos)
-        self.temp_vars = df_result_temporal.columns.tolist()
-        self.temp_vars.remove("index")
-        self.stat_vars = df_result_stat.columns.tolist()
-        self.stat_vars.remove("index")
-        # self.spec_vars = df_result_spectral.columns.tolist()
-        # self.spec_vars.remove('index')
+        self.temp_vars = [c for c in df_result_temporal.columns if c != "index"]
+        self.stat_vars = [c for c in df_result_stat.columns if c != "index"]
+        # self.spec_vars = [c for c in df_result_spectral.columns if c != "index"]
         return df_result_stat, df_result_temporal  # , df_result_spectral
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        if self.features_names_path is not None:
-            cols_anterior = self.obtener_cols_anterior(self.num_periodos)
-            df_tsfel = self.compute_by_json(X, cols_anterior, window=self.num_periodos)
-            X = X.merge(df_tsfel, on="index", how="left")
+        cached_compute = self._get_cached_transform()
+        cols_anterior = self.obtener_cols_anterior(self.num_periodos)
 
+        if self.features_names_path is not None:
+            df_tsfel = cached_compute(
+                X[cols_anterior].values,
+                X.index.tolist(),
+                cols_anterior,
+                cfg_json_path=self.features_names_path,
+            )
+            X = X.merge(df_tsfel, on="index", how="left")
         else:
-            # df_result_stat, df_result_temporal, df_result_spectral = self.crear_all_tsfel(X)
-            df_result_stat, df_result_temporal = self.crear_all_tsfel(X)
+            df_result_stat = cached_compute(
+                X[cols_anterior].values,
+                X.index.tolist(),
+                cols_anterior,
+                cfg_domain="statistical",
+            )
+            df_result_temporal = cached_compute(
+                X[cols_anterior].values,
+                X.index.tolist(),
+                cols_anterior,
+                cfg_domain="temporal",
+            )
+            # df_result_spectral = cached_compute(..., cfg_domain="spectral")
             df_tsfel = pd.merge(df_result_stat, df_result_temporal, how="inner", on="index")
             # df_tsfel = pd.merge(df_tsfel, df_result_spectral, how='inner', on='index')
             X = X.merge(df_tsfel, on="index", how="left")

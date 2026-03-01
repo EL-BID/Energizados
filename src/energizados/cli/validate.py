@@ -1,8 +1,8 @@
 """
 Validate command implementation for Energizados CLI.
 
-Este módulo implementa la funcionalidad del comando 'validate' para
-validar archivos de configuración YAML.
+This module implements the 'validate' command functionality to
+validate YAML configuration files.
 """
 
 from pathlib import Path
@@ -12,7 +12,7 @@ from energizados.core.exceptions import ConfigurationError
 
 
 class ValidationResult:
-    """Resultado de validación con errores y advertencias."""
+    """Validation result with errors and warnings."""
 
     def __init__(self):
         self.errors: List[str] = []
@@ -20,203 +20,213 @@ class ValidationResult:
         self.info: List[str] = []
 
     def is_valid(self) -> bool:
-        """Retorna True si no hay errores."""
+        """Returns True if there are no errors."""
         return len(self.errors) == 0
 
     def add_error(self, message: str):
-        """Agrega un error."""
+        """Adds an error."""
         self.errors.append(message)
 
     def add_warning(self, message: str):
-        """Agrega una advertencia."""
+        """Adds a warning."""
         self.warnings.append(message)
 
     def add_info(self, message: str):
-        """Agrega información."""
+        """Adds information."""
         self.info.append(message)
 
 
 def validate_config(config_paths: List[str], verbose: bool = False) -> ValidationResult:
     """
-    Valida uno o más archivos de configuración YAML.
+    Validates one or more YAML configuration files.
 
     Args:
-        config_paths: Lista de rutas a archivos de configuración
-        verbose: Si es True, muestra detalles completos
+        config_paths: List of paths to configuration files
+        verbose: If True, shows complete details
 
     Returns:
-        ValidationResult: Resultado de la validación
+        ValidationResult: Validation result
 
     Raises:
-        ConfigurationError: Si hay errores críticos en la configuración
+        ConfigurationError: If there are critical configuration errors
     """
     from energizados.cli.run import merge_configs
 
     result = ValidationResult()
 
-    # Validar que cada archivo exista antes de mezclar
+    # Validate that each file exists before merging
     for config_path in config_paths:
         config_file = Path(config_path)
         if not config_file.exists():
-            result.add_error(f"Archivo no encontrado: {config_path}")
-            raise ConfigurationError(f"Archivo no encontrado: {config_path}", config_path)
+            result.add_error(f"File not found: {config_path}")
+            raise ConfigurationError(f"File not found: {config_path}", config_path)
 
-    # Mezclar configuraciones (la función también valida el formato YAML)
+    # Merge configurations (the function also validates YAML format)
     try:
         merged_config = merge_configs(config_paths)
     except Exception as e:
-        result.add_error(f"Error al mezclar configuraciones: {e}")
+        result.add_error(f"Error merging configurations: {e}")
         raise
 
     if not merged_config:
-        result.add_error("Configuración combinada vacía")
-        raise ConfigurationError("Configuración combinada vacía", str(config_paths))
+        result.add_error("Combined configuration empty")
+        raise ConfigurationError("Combined configuration empty", str(config_paths))
 
-    # Validar secciones
+    # Validate sections
     _validate_project_section(merged_config, result)
     _validate_etl_section(merged_config, result)
     _validate_training_section(merged_config, result)
     _validate_evaluation_section(merged_config, result)
     _validate_inference_section(merged_config, result)
 
-    # Mostrar resultados
+    # Show results
     if verbose:
         _print_validation_results(result, merged_config)
 
     if not result.is_valid():
-        raise ConfigurationError(f"Validación falló con {len(result.errors)} errores", str(config_paths))
+        raise ConfigurationError(f"Validation failed with {len(result.errors)} errors", str(config_paths))
 
     return result
 
 
 def _validate_project_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección project."""
+    """Validates the project section."""
     if "project" not in config:
-        result.add_warning("Sección 'project' no encontrada (opcional)")
+        result.add_warning("'project' section not found (optional)")
         return
 
     project = config["project"]
     if "name" not in project:
-        result.add_warning("project.name no definido")
+        result.add_warning("project.name not defined")
     else:
-        result.add_info(f"Proyecto: {project['name']}")
+        result.add_info(f"Project: {project['name']}")
 
 
 def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección etls (múltiples ETLs con dependencias)."""
+    """Validates the etls section (multiple ETLs with dependencies)."""
     if "etls" not in config:
-        result.add_error("Sección 'etls' requerida no encontrada")
+        result.add_error("'etls' required section not found")
         return
 
     etls = config["etls"]
     if not isinstance(etls, dict):
-        result.add_error("Sección 'etls' debe ser un diccionario")
+        result.add_error("'etls' section must be a dictionary")
         return
 
     if not etls:
-        result.add_warning("Sección 'etls' está vacía")
+        result.add_warning("'etls' section is empty")
         return
 
-    # Validar cada ETL
+    # Validate each ETL
     for etl_name, etl_config in etls.items():
         if not isinstance(etl_config, dict):
-            result.add_error(f"ETL '{etl_name}': debe ser un diccionario")
+            result.add_error(f"ETL '{etl_name}': must be a dictionary")
             continue
 
-        # Verificar campos requeridos
+        # Check required fields
         if "input" not in etl_config:
-            result.add_error(f"ETL '{etl_name}': campo 'input' requerido")
+            result.add_error(f"ETL '{etl_name}': required field 'input'")
 
         if "output" not in etl_config:
-            result.add_error(f"ETL '{etl_name}': campo 'output' requerido")
+            result.add_error(f"ETL '{etl_name}': required field 'output'")
 
         if "depends_on" not in etl_config:
-            result.add_warning(f"ETL '{etl_name}': campo 'depends_on' no encontrado, usando []")
+            result.add_warning(f"ETL '{etl_name}': field 'depends_on' not found, using []")
 
-        # custom_class es obligatorio
+        # custom_class is mandatory
         if "custom_class" not in etl_config:
-            result.add_error(f"ETL '{etl_name}': debe especificar 'custom_class'")
+            result.add_error(f"ETL '{etl_name}': must specify 'custom_class'")
         else:
             _validate_class_reference(etl_config["custom_class"], result)
 
         enabled = etl_config.get("enabled", True)
-        result.add_info(f"ETL '{etl_name}': {'habilitado' if enabled else 'deshabilitado'}")
+        result.add_info(f"ETL '{etl_name}': {'enabled' if enabled else 'disabled'}")
 
 
 def _validate_inference_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección inference."""
+    """Validates the inference section."""
     if "inference" not in config:
-        result.add_warning("Sección 'inference' no encontrada (opcional)")
+        result.add_warning("'inference' section not found (optional)")
         return
 
     inf = config["inference"]
     if not isinstance(inf, dict):
-        result.add_error("Sección 'inference' debe ser un diccionario")
+        result.add_error("'inference' section must be a dictionary")
         return
 
     if inf.get("enabled", False):
         if "input_path" not in inf:
-            result.add_warning("inference.input_path no definido")
+            result.add_warning("inference.input_path not defined")
 
         if "output_path" not in inf:
-            result.add_warning("inference.output_path no definido")
+            result.add_warning("inference.output_path not defined")
 
         if "custom_class" in inf:
             _validate_class_reference(inf["custom_class"], result)
 
-        result.add_info("Inference: habilitada")
+        result.add_info("Inference: enabled")
     else:
-        result.add_info("Inference: deshabilitada")
+        result.add_info("Inference: disabled")
 
 
 def _validate_training_section(config: Dict[str, Any], result: ValidationResult):
-    """Valida la sección training."""
+    """Validates the training section."""
     if "training" not in config:
-        result.add_error("Sección 'training' requerida no encontrada")
+        result.add_error("'training' required section not found")
         return
 
     training = config["training"]
     if not isinstance(training, dict):
-        result.add_error("Sección 'training' debe ser un diccionario")
+        result.add_error("'training' section must be a dictionary")
         return
 
-    # Verificar modelo
+    # Check model
     has_model_type = "model_type" in training
     has_custom = "custom_class" in training
 
     if not has_model_type and not has_custom:
-        result.add_error("training: se requiere 'model_type' o 'custom_class'")
+        result.add_error("training: requires 'model_type' or 'custom_class'")
 
     if has_model_type:
-        valid_models = ["lightgbm", "lgbm", "catboost", "cat", "neural_network", "nn", "lstm", "simple_trend", "simple_constant"]
+        valid_models = [
+            "lightgbm",
+            "lgbm",
+            "catboost",
+            "cat",
+            "neural_network",
+            "nn",
+            "lstm",
+            "simple_trend",
+            "simple_constant",
+        ]
         model_type = training["model_type"]
         if model_type not in valid_models:
-            result.add_warning(f"training.model_type desconocido: {model_type}")
+            result.add_warning(f"training.model_type unknown: {model_type}")
         else:
-            result.add_info(f"Modelo: {model_type}")
+            result.add_info(f"Model: {model_type}")
 
     if has_custom:
         _validate_class_reference(training["custom_class"], result)
 
-    # Verificar parámetros de partición
+    # Check split parameters
     if "test_size" in training:
         test_size = training["test_size"]
         if not 0 < test_size < 1:
-            result.add_warning(f"training.test_size debe estar entre 0 y 1, got: {test_size}")
+            result.add_warning(f"training.test_size must be between 0 and 1, got: {test_size}")
 
     if "val_size" in training:
         val_size = training["val_size"]
         if not 0 < val_size < 1:
-            result.add_warning(f"training.val_size debe estar entre 0 y 1, got: {val_size}")
+            result.add_warning(f"training.val_size must be between 0 and 1, got: {val_size}")
 
-    # Verificar sampling
+    # Check sampling
     if "sampling" in training:
         sampling = training["sampling"]
         if isinstance(sampling, dict):
             valid_methods = ["over", "under", "none"]
             method = sampling.get("method")
             if method and method not in valid_methods:
-                result.add_warning(f"training.sampling.method inválido: {method}")
+                result.add_warning(f"training.sampling.method invalid: {method}")
 
 
 def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResult):
@@ -236,7 +246,14 @@ def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResul
             if not isinstance(metrics, list):
                 result.add_error("evaluation.metrics debe ser una lista")
             else:
-                valid_metrics = ["auc", "precision", "recall", "f1", "confusion_matrix", "cumulative_gains"]
+                valid_metrics = [
+                    "auc",
+                    "precision",
+                    "recall",
+                    "f1",
+                    "confusion_matrix",
+                    "cumulative_gains",
+                ]
                 for metric in metrics:
                     if metric not in valid_metrics:
                         result.add_warning(f"Métrica desconocida: {metric}")
@@ -246,53 +263,53 @@ def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResul
 
 def _validate_class_reference(class_path: str, result: ValidationResult):
     """
-    Valida que una referencia de clase sea válida.
+    Validates that a class reference is valid.
 
     Args:
-        class_path: Path completo de la clase (ej: "module.submodule.ClassName")
-        result: Resultado de validación para agregar errores
+        class_path: Full path of the class (eg: "module.submodule.ClassName")
+        result: Validation result to add errors
     """
     if not class_path or "." not in class_path:
-        result.add_error(f"Referencia de clase inválida: {class_path}")
+        result.add_error(f"Invalid class reference: {class_path}")
         return
 
     try:
         module_path, class_name = class_path.rsplit(".", 1)
 
-        # Intentar importar
+        # Try to import
         module = __import__(module_path, fromlist=[class_name])
         cls = getattr(module, class_name, None)
 
         if cls is None:
-            result.add_warning(f"Clase '{class_name}' no encontrada en módulo '{module_path}'")
+            result.add_warning(f"Class '{class_name}' not found in module '{module_path}'")
     except (ImportError, AttributeError) as e:
-        result.add_warning(f"No se pudo importar '{class_path}': {e}")
+        result.add_warning(f"Could not import '{class_path}': {e}")
 
 
 def _print_validation_results(result: ValidationResult, config: Dict[str, Any]):
-    """Imprime los resultados de la validación."""
+    """Prints the validation results."""
     print("\n" + "=" * 60)
-    print("RESULTADOS DE VALIDACIÓN")
+    print("VALIDATION RESULTS")
     print("=" * 60)
 
     if result.info:
-        print("\n📋 Información:")
+        print("\n📋 Information:")
         for info in result.info:
             print(f"  • {info}")
 
     if result.warnings:
-        print(f"\n⚠️  Advertencias ({len(result.warnings)}):")
+        print(f"\n⚠️  Warnings ({len(result.warnings)}):")
         for warning in result.warnings:
             print(f"  • {warning}")
 
     if result.errors:
-        print(f"\n❌ Errores ({len(result.errors)}):")
+        print(f"\n❌ Errors ({len(result.errors)}):")
         for error in result.errors:
             print(f"  • {error}")
 
     print("\n" + "=" * 60)
     if result.is_valid():
-        print("✓ CONFIGURACIÓN VÁLIDA")
+        print("✓ VALID CONFIGURATION")
     else:
-        print("✗ CONFIGURACIÓN INVÁLIDA")
+        print("✗ INVALID CONFIGURATION")
     print("=" * 60)

@@ -437,6 +437,7 @@ class ConfigPipelineBuilder:
             generate_plots=eval_config.get("generate_plots", True),
             generate_html_report=eval_config.get("generate_html_report", True),
             generate_json_report=eval_config.get("generate_json_report", True),
+            calibration_config=eval_config.get("calibration"),
         )
 
     def _build_inference_step(self) -> Optional[PipelineStep]:

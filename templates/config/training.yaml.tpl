@@ -94,6 +94,9 @@ training:
       #       num_periodos: 12
       #       features_names_path: null  # o path a JSON con configuración custom
       #       periods_suffix: *period_suffix
+      #       n_jobs: -1        # -1 = todos los cores, 1 = secuencial (default)
+      #       chunk_size: 500   # filas por chunk por worker
+      #       cache_dir: null   # ej: ".cache/tsfel" para cachear en disco
       #
         # Variables estadísticas para diferentes ventanas de tiempo
         - extra_vars:
@@ -187,7 +190,7 @@ training:
   evaluation:
     enabled: true
     output_dir: "reports/evaluation/"
-    threshold: 0.5
+    threshold: 0.5  # Ignorado si calibration.enabled=true
 
     metrics:
       - auc
@@ -200,3 +203,17 @@ training:
     generate_plots: true
     generate_html_report: true
     generate_json_report: true
+
+    # Calibración automática del threshold usando validation set
+    # El threshold óptimo se busca en val y se aplica sobre test
+    # calibration:
+    #   enabled: true
+    #   method: "cost_benefit"   # Opciones: cost_benefit | operational | precision_recall
+    #   params:
+    #     # Para cost_benefit (minimiza costo total FP/FN):
+    #     cost_fp: 1    # costo de inspeccionar un usuario legítimo
+    #     cost_fn: 10   # costo de no detectar un fraude
+    #     # Para operational (fija cantidad de alarmas):
+    #     # capacity: 200   # alarmas máximas por período
+    #     # Para precision_recall (recall mínimo garantizado):
+    #     # min_recall: 0.80

@@ -171,10 +171,21 @@ class TrainingStep(PipelineStep):
         logger.info(f"\nValidation AUC: {val_auc:.4f}")
         logger.info(f"Validation F1:  {val_f1:.4f}")
 
+        # Guardar val predictions para calibración de threshold
+        val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/splits")
+        val_pred_path = val_pred_dir / "val_predictions.parquet"
+        val_predictions = pd.DataFrame(
+            {"y_true": y_val.values, "y_proba": val_proba},
+            index=y_val.index,
+        )
+        val_predictions.to_parquet(val_pred_path)
+        logger.info(f"Val predictions saved to: {val_pred_path}")
+
         return {
             **context,
             "model_path": str(model_path),
             "feature_engineering_path": str(fe_path),
+            "val_predictions_path": str(val_pred_path),
             "val_auc": val_auc,
             "val_f1": val_f1,
             "model": model,
@@ -201,7 +212,7 @@ class TrainingStep(PipelineStep):
 
     def get_output_keys(self) -> list:
         """Retorna las claves que agrega al contexto."""
-        return ["model_path", "feature_engineering_path", "val_auc", "val_f1", "model", "feature_engineering"]
+        return ["model_path", "feature_engineering_path", "val_predictions_path", "val_auc", "val_f1", "model", "feature_engineering"]
 
     def _prepare_model_params(self, model_type: str, X_train: pd.DataFrame) -> Dict:
         """

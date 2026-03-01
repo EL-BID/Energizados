@@ -1,8 +1,8 @@
 """
 CLI Module for Energizados Framework.
 
-Este módulo proporciona la interfaz de línea de comandos para interactuar
-con el framework Energizados.
+This module provides the command line interface to interact
+with the Energizados framework.
 """
 
 __all__ = ["cli"]

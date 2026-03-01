@@ -61,7 +61,17 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
         "minmax_scaler_row": (MinMaxScalerRow, {"feature_range": (0, 1)}),
         "cast_dtype": (CastDtype, {"dtype": "float32"}),
         # Global transformers (no requieren column name)
-        "tsfel_vars": (TsfelVars, {"num_periodos": 12, "features_names_path": None, "periods_suffix": "_anterior"}),
+        "tsfel_vars": (
+            TsfelVars,
+            {
+                "num_periodos": 12,
+                "features_names_path": None,
+                "periods_suffix": "_anterior",
+                "n_jobs": 1,
+                "chunk_size": 500,
+                "cache_dir": None,
+            },
+        ),
         "extra_vars": (ExtraVars, {"num_periodos": 3, "periods_suffix": "_anterior"}),
     }
 

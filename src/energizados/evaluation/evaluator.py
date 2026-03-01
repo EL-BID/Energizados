@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from energizados.core.base import PipelineStep
+from energizados.evaluation.calibration import ThresholdCalibrator
 from energizados.evaluation.metrics import Metrics
 from energizados.evaluation.plots import PlotGenerator
 from energizados.evaluation.report import ReportGenerator
@@ -58,6 +59,8 @@ class DefaultEvaluator(PipelineStep):
         generate_plots: bool = True,
         generate_html_report: bool = True,
         generate_json_report: bool = True,
+        calibration_config: Optional[Dict] = None,
+        val_predictions_path: Optional[str] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -71,6 +74,8 @@ class DefaultEvaluator(PipelineStep):
         self.generate_plots = generate_plots
         self.generate_html_report = generate_html_report
         self.generate_json_report = generate_json_report
+        self.calibration_config = calibration_config
+        self.val_predictions_path = val_predictions_path
 
         # Inicializar generadores
         self.plot_generator = PlotGenerator(str(self.output_dir))
@@ -106,12 +111,28 @@ class DefaultEvaluator(PipelineStep):
         else:
             X_test_transformed = X_test
 
-        # 4. Obtener predicciones
+        # 4. Calibrar threshold si está configurado
+        calibration_result = None
+        if self.calibration_config and self.calibration_config.get("enabled", False):
+            val_path = self.val_predictions_path or (context.get("val_predictions_path") if context else None)
+            if val_path and Path(val_path).exists():
+                val_df = pd.read_parquet(val_path)
+                calibrator = ThresholdCalibrator(
+                    method=self.calibration_config.get("method", "cost_benefit"),
+                    **self.calibration_config.get("params", {}),
+                )
+                calibration_result = calibrator.calibrate(val_df["y_true"].values, val_df["y_proba"].values)
+                self.threshold = calibration_result["threshold"]
+                logger.info(f"Threshold calibrado: {self.threshold:.4f} " f"(método: {calibration_result['method']})")
+            else:
+                logger.warning("calibration habilitado pero val_predictions_path no encontrado, " "usando threshold por defecto")
+
+        # 5. Obtener predicciones
         logger.info("Generating predictions...")
         y_proba = model.predict_proba(X_test_transformed)
         y_pred = (y_proba >= self.threshold).astype(int)
 
-        # 5. Calcular métricas
+        # 6. Calcular métricas
         logger.info("Calculating metrics...")
         metrics_calculator = Metrics(y_test, y_pred, y_proba, self.threshold)
         metrics_results = metrics_calculator.calculate_all(self.metrics)
@@ -127,13 +148,13 @@ class DefaultEvaluator(PipelineStep):
         logger.info(f"Accuracy:  {metrics_results.get('accuracy', 0):.4f}")
         logger.info(f"{'='*50}")
 
-        # 6. Generar visualizaciones
+        # 7. Generar visualizaciones
         plots_paths = {}
         if self.generate_plots:
             logger.info("Generating plots...")
             plots_paths = self._generate_plots(y_test, y_proba, y_pred, metrics_results)
 
-        # 7. Generar reportes
+        # 8. Generar reportes
         report_paths = {}
         if self.generate_html_report or self.generate_json_report:
             logger.info("Generating reports...")
@@ -141,7 +162,7 @@ class DefaultEvaluator(PipelineStep):
             model_info = self._get_model_info(model)
 
             if self.generate_json_report:
-                json_path = self.report_generator.generate_json(metrics_results, model_info)
+                json_path = self.report_generator.generate_json(metrics_results, model_info, calibration_result=calibration_result)
                 report_paths["json"] = json_path
 
             if self.generate_html_report:

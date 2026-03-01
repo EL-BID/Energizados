@@ -64,6 +64,7 @@ class ReportGenerator:
         metrics: Dict,
         model_info: Optional[Dict] = None,
         save_path: Optional[str] = None,
+        calibration_result: Optional[Dict] = None,
     ) -> str:
         """
         Genera un reporte JSON con los resultados.
@@ -72,6 +73,7 @@ class ReportGenerator:
             metrics: Diccionario con métricas calculadas
             model_info: Información del modelo (opcional)
             save_path: Ruta para guardar (opcional)
+            calibration_result: Resultado de ThresholdCalibrator.calibrate() (opcional)
 
         Returns:
             str: Ruta donde se guardó el reporte
@@ -81,6 +83,15 @@ class ReportGenerator:
             "metrics": metrics,
             "model_info": model_info or {},
         }
+
+        if calibration_result is not None:
+            report_data["calibration"] = {
+                "enabled": True,
+                "method": calibration_result.get("method"),
+                "threshold_used": calibration_result.get("threshold"),
+                "params": calibration_result.get("params", {}),
+                "metrics_at_threshold": calibration_result.get("metrics_at_threshold", {}),
+            }
 
         path = save_path or str(self.output_dir / "evaluation_report.json")
 

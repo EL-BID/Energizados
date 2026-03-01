@@ -1,9 +1,9 @@
 """
 Init command implementation for Energizados CLI.
 
-Este módulo implementa la funcionalidad del comando 'init' para crear
-nuevos proyectos con la estructura base siguiendo las mejores prácticas
-de la industria 2026.
+This module implements the 'init' command functionality to create
+new projects with the base structure following the best practices
+of the 2026 industry.
 """
 
 import keyword
@@ -16,42 +16,42 @@ PYTHON_KEYWORDS = set(keyword.kwlist)
 
 def _sanitize_package_name(name: str) -> str:
     """
-    Sanitiza un nombre de proyecto para que sea válido como paquete Python.
+    Sanitizes a project name to be valid as a Python package.
 
-    Los paquetes Python no pueden:
-    - Empezar con un número
-    - Empezar con _
-    - Contener guiones (-)
-    - Ser keywords de Python (for, class, etc.)
-    - Contener espacios
+    Python packages cannot:
+    - Start with a number
+    - Start with _
+    - Contain hyphens (-)
+    - Be Python keywords (for, class, etc.)
+    - Contain spaces
 
     Args:
-        name: Nombre del proyecto a sanitizar
+        name: Name of the project to sanitize
 
     Returns:
-        Nombre sanitizado válido como paquete Python
+        Sanitized name valid as a Python package
     """
     if not name:
         return "project"
 
-    # Eliminar espacios
+    # Remove spaces
     name = name.replace(" ", "")
 
-    # Reemplazar guiones con guiones bajos
+    # Replace hyphens with underscores
     name = name.replace("-", "_")
 
-    # Eliminar guiones bajos al inicio
+    # Remove underscores at the beginning
     name = name.lstrip("_")
 
-    # Si está vacío después de limpiar, usar default
+    # If empty after cleaning, use default
     if not name:
         return "project"
 
-    # Si empieza con número, agregar prefijo
+    # If starts with a number, add prefix
     if name[0].isdigit():
         name = f"pkg_{name}"
 
-    # Si es keyword de Python, agregar sufijo
+    # If it's a Python keyword, add suffix
     if name in PYTHON_KEYWORDS:
         name = f"{name}_pkg"
 
@@ -59,12 +59,12 @@ def _sanitize_package_name(name: str) -> str:
 
 
 def _get_template_path(template_name: str) -> Path:
-    """Retorna la ruta a un archivo de template."""
+    """Returns the path to a template file."""
     return Path(__file__).parent.parent.parent.parent / "templates" / template_name
 
 
 def _load_template(template_name: str) -> str:
-    """Carga el contenido de un template desde el archivo."""
+    """Loads the content of a template from the file."""
     template_path = _get_template_path(template_name)
     return template_path.read_text()
 
@@ -77,93 +77,93 @@ def create_project(
     force: bool = False,
 ):
     """
-    Crea un nuevo proyecto Energizados con la estructura base.
+    Creates a new Energizados project with the base structure.
 
     Args:
-        project_name: Nombre del proyecto
-        project_path: Ruta donde crear el proyecto
-        template: Nombre del template a usar
-        copy_from: Nombre del proyecto origen para copiar
-        force: Si es True, elimina el directorio existente antes de crear
+        project_name: Name of the project
+        project_path: Path where to create the project
+        template: Name of the template to use
+        copy_from: Name of the source project to copy
+        force: If True, removes the existing directory before creating
 
     Raises:
-        FileExistsError: Si el directorio del proyecto ya existe y force=False
-        ValueError: Si el template o proyecto origen no existe
+        FileExistsError: If the project directory already exists and force=False
+        ValueError: If the template or source project does not exist
     """
     if project_path.exists():
         if not force:
-            raise FileExistsError(f"El directorio '{project_path}' ya existe")
-        # Eliminar directorio existente
+            raise FileExistsError(f"The directory '{project_path}' already exists")
+        # Remove existing directory
         if project_path.is_dir():
             shutil.rmtree(project_path)
         else:
             project_path.unlink()
 
-    # Detectar si es copia desde estructura antigua
+    # Detect if it's a copy from old structure
     old_structure = False
     if copy_from:
         source_path = project_path.parent / copy_from
         old_structure = not _is_new_structure(source_path)
 
-    # Crear estructura de directorios
+    # Create directory structure
     _create_directory_structure(project_path)
 
-    # Copiar desde proyecto existente o crear desde templates
+    # Copy from existing project or create from templates
     if copy_from:
         source_path = project_path.parent / copy_from
         _copy_project_source(source_path, project_path, copy_from, project_name, old_structure=old_structure)
     else:
-        # Crear archivos base
+        # Create base files
         _create_base_files(project_path, project_name)
 
-        # Crear templates de código
+        # Create code templates
         _create_code_templates(project_path, project_name)
 
-        # Crear templates de tests
+        # Create test templates
         _create_test_templates(project_path, project_name)
 
-        # Crear templates de documentación y utilidades
+        # Create documentation and utility templates
         _create_extra_templates(project_path, project_name)
 
-        # Crear configuración
+        # Create configuration
         _create_config_files(project_path, project_name)
 
-        # Crear scripts de ejecución
+        # Create execution scripts
         _create_run_scripts(project_path, project_name)
 
-        # Crear requirements.txt
+        # Create requirements.txt
         _create_requirements_file(project_path)
 
 
 def _is_new_structure(project_path: Path) -> bool:
-    """Detecta si un proyecto usa la estructura nueva (con src/)."""
+    """Detects if a project uses the new structure (with src/)."""
     return (project_path / "src").exists()
 
 
 def _create_directory_structure(project_path: Path):
-    """Crea la estructura de directorios del proyecto (estructura 2026)."""
+    """Creates the directory structure of the project (2026 structure)."""
     directories = [
-        # Código fuente en src/
+        # Source code in src/
         project_path / "src" / "data",
         project_path / "src" / "features",
         project_path / "src" / "models",
         project_path / "src" / "inference",
         project_path / "src" / "utils",
-        # Scripts de ejecución en src/run/
+        # Execution scripts in src/run/
         project_path / "src" / "run",
         # Tests
         project_path / "tests",
-        # Documentación
+        # Documentation
         project_path / "docs",
-        # Configuración (singular)
+        # Configuration (singular)
         project_path / "config",
-        # Datos
+        # Data
         project_path / "data" / "raw",
         project_path / "data" / "processed",
         project_path / "data" / "splits",
-        # Modelos entrenados (solo archivos)
+        # Trained models (only files)
         project_path / "models" / "trained",
-        # Notebooks y reportes
+        # Notebooks and reports
         project_path / "notebooks",
         project_path / "reports",
     ]
@@ -171,7 +171,7 @@ def _create_directory_structure(project_path: Path):
     for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
 
-    # Crear archivos __init__.py para cada módulo en src/
+    # Create __init__.py files for each module in src/
     init_modules = {
         project_path / "src" / "__init__.py": ("", ""),
         project_path / "src" / "data" / "__init__.py": ("custom_etl", "CustomETL"),
@@ -184,9 +184,9 @@ def _create_directory_structure(project_path: Path):
 
     for init_file, (module_name, class_name) in init_modules.items():
         if module_name:
-            init_file.write_text(f'''"""Módulo {init_file.parent.name} del proyecto.
+            init_file.write_text(f'''"""{init_file.parent.name} module of the project.
 
-Este módulo contiene las implementaciones personalizadas para {project_path.name}.
+This module contains the custom implementations for {project_path.name}.
 """
 
 from .{module_name} import {class_name}
@@ -194,42 +194,42 @@ from .{module_name} import {class_name}
 __all__ = ["{class_name}"]
 ''')
         else:
-            init_file.write_text(f'''"""Módulo {init_file.parent.name} del proyecto."""''')
+            init_file.write_text(f'''"""{init_file.parent.name} module of the project."""''')
 
 
 def _create_base_files(project_path: Path, project_name: str, source_name: str = None):
     """
-    Crea archivos base del proyecto.
+    Creates base project files.
 
     Args:
-        project_path: Ruta del proyecto
-        project_name: Nombre del proyecto
-        source_name: Nombre del proyecto origen (si se copia)
+        project_path: Path of the project
+        project_name: Name of the project
+        source_name: Name of the source project (if copying)
     """
-    # Leer templates
+    # Read templates
     readme_template = _load_template("README.md.tpl")
     gitignore_template = _load_template(".gitignore.tpl")
 
-    # Reemplazar placeholders en README
+    # Replace placeholders in README
     readme_content = readme_template.replace("{{project_name}}", project_name)
     if source_name:
-        origin_note = f"\n> **Nota:** Este proyecto fue creado copiando desde `{source_name}`.\n"
+        origin_note = f"\n> **Note:** This project was created by copying from `{source_name}`.\n"
     else:
         origin_note = ""
-    readme_content = readme_content.replace("{{origin_note}}", origin_note)
+    readme_content = readme_template.replace("{{origin_note}}", origin_note)
 
-    # Escribir archivos
+    # Write files
     (project_path / "README.md").write_text(readme_content)
     (project_path / ".gitignore").write_text(gitignore_template)
 
-    # Archivos .gitkeep para mantener directorios vacíos en git
+    # .gitkeep files to keep empty directories in git
     (project_path / "data" / "raw" / ".gitkeep").write_text("")
     (project_path / "data" / "processed" / ".gitkeep").write_text("")
     (project_path / "data" / "splits" / ".gitkeep").write_text("")
     (project_path / "models" / "trained" / ".gitkeep").write_text("")
     (project_path / "reports" / ".gitkeep").write_text("")
 
-    # Copiar dataset de ejemplo si existe (solo para proyectos nuevos, no copias)
+    # Copy example dataset if it exists (only for new projects, not copies)
     if source_name is None:
         source_dataset = Path(__file__).parent.parent.parent.parent / "templates" / "data" / "raw" / "sample_dataset.parquet"
         if source_dataset.exists():
@@ -242,12 +242,12 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
 
 def _create_code_templates(project_path: Path, project_name: str, only: str = None):
     """
-    Crea templates de código para personalización.
+    Creates code templates for customization.
 
     Args:
-        project_path: Ruta del proyecto
-        project_name: Nombre del proyecto
-        only: Crear solo este template ("data", "features", "models", "inference")
+        project_path: Path of the project
+        project_name: Name of the project
+        only: Create only this template ("data", "features", "models", "inference")
     """
     template_map = {
         "data": "src/data/custom_etl.py.tpl",
@@ -279,11 +279,11 @@ def _create_code_templates(project_path: Path, project_name: str, only: str = No
 
 def _create_test_templates(project_path: Path, project_name: str):
     """
-    Crea templates de tests para el proyecto.
+    Creates test templates for the project.
 
     Args:
-        project_path: Ruta del proyecto
-        project_name: Nombre del proyecto
+        project_path: Path of the project
+        project_name: Name of the project
     """
     test_templates = {
         "conftest.py": "tests/conftest.py.tpl",
@@ -298,17 +298,17 @@ def _create_test_templates(project_path: Path, project_name: str):
             template_content = _load_template(template_file)
             content = template_content.replace("{{project_name}}", project_name)
             (project_path / "tests" / filename).write_text(content)
-        # Si el template no existe, se omite silenciosamente
-        # Los usuarios pueden crear sus propios tests
+        # If the template does not exist, it is silently omitted
+        # Users can create their own tests
 
 
 def _create_extra_templates(project_path: Path, project_name: str):
     """
-    Crea templates adicionales (docs y utils).
+    Creates additional templates (docs and utils).
 
     Args:
-        project_path: Ruta del proyecto
-        project_name: Nombre del proyecto
+        project_path: Path of the project
+        project_name: Name of the project
     """
     extra_templates = {
         "helpers.py": "src/utils/helpers.py.tpl",
@@ -327,10 +327,10 @@ def _create_extra_templates(project_path: Path, project_name: str):
 
 def _create_requirements_file(project_path: Path):
     """
-    Crea el archivo requirements.txt con dependencias base.
+    Creates the requirements.txt file with base dependencies.
 
     Args:
-        project_path: Ruta del proyecto
+        project_path: Path of the project
     """
     requirements_content = _load_template("requirements.txt.tpl")
     (project_path / "requirements.txt").write_text(requirements_content)
@@ -338,26 +338,26 @@ def _create_requirements_file(project_path: Path):
 
 def _validate_source_project(source_path: Path, old_structure: bool = False) -> bool:
     """
-    Valida que el proyecto origen exista y tenga estructura válida.
+    Validates that the source project exists and has a valid structure.
 
     Args:
-        source_path: Ruta al proyecto origen
-        old_structure: Si es True, valida estructura antigua
+        source_path: Path to the source project
+        old_structure: If True, validates old structure
 
     Returns:
-        True si el proyecto es válido
+        True if the project is valid
 
     Raises:
-        ValueError: Si el proyecto origen no existe o no es válido
+        ValueError: If the source project does not exist or is not valid
     """
     if not source_path.exists():
-        raise ValueError(f"El proyecto origen no existe: {source_path}")
+        raise ValueError(f"Source project does not exist: {source_path}")
 
-    # Detectar estructura automáticamente si no se especifica
+    # Detect structure automatically if not specified
     if old_structure is None:
         old_structure = not _is_new_structure(source_path)
 
-    # Verificar estructura según corresponda
+    # Verify structure accordingly
     if old_structure:
         required_dirs = ["etl", "feature_selection", "models", "configs"]
     else:
@@ -365,7 +365,7 @@ def _validate_source_project(source_path: Path, old_structure: bool = False) -> 
 
     for dir_name in required_dirs:
         if not (source_path / dir_name).exists():
-            raise ValueError(f"El proyecto origen no tiene el directorio '{dir_name}'")
+            raise ValueError(f"Source project does not have the directory '{dir_name}'")
 
     return True
 
@@ -379,22 +379,22 @@ def _copy_custom_file(
     old_to_new_map: dict = None,
 ) -> bool:
     """
-    Copia un archivo custom del proyecto origen al destino.
+    Copies a custom file from the source project to the destination.
 
     Args:
-        source_path: Ruta base del proyecto origen
-        target_path: Ruta base del proyecto destino
-        filename: Nombre del archivo a copiar (relativo a la base)
-        comment_origin: Comentario a agregar indicando el origen
-        map_structure: Si es True, mapea estructura antigua a nueva
-        old_to_new_map: Diccionario de mapeo de paths
+        source_path: Base path of the source project
+        target_path: Base path of the target project
+        filename: Name of the file to copy (relative to the base)
+        comment_origin: Comment to add indicating the origin
+        map_structure: If True, maps old structure to new
+        old_to_new_map: Dictionary of path mapping
 
     Returns:
-        True si se copió el archivo, False si no existía
+        True if the file was copied, False if it did not exist
     """
     source_file = source_path / filename
 
-    # Mapear path de destino si es necesario
+    # Map target path if necessary
     target_filename = filename
     if map_structure and old_to_new_map:
         for old_prefix, new_prefix in old_to_new_map.items():
@@ -407,10 +407,10 @@ def _copy_custom_file(
     if source_file.exists():
         content = source_file.read_text()
 
-        # Agregar comentario de origen si se especifica
+        # Add origin comment if specified
         if comment_origin:
-            comment = f"\n# Este archivo fue copiado desde: {comment_origin}\n"
-            # Insertar después del docstring si existe
+            comment = f"\n# This file was copied from: {comment_origin}\n"
+            # Insert after the docstring if it exists
             if '"""' in content:
                 lines = content.split("\n")
                 for i, line in enumerate(lines):
@@ -429,13 +429,13 @@ def _copy_custom_file(
 
 def _map_old_to_new_structure(old_path: str) -> str:
     """
-    Mapea rutas de estructura antigua a nueva.
+    Maps old structure paths to new structure paths.
 
     Args:
-        old_path: Ruta en formato antiguo
+        old_path: Path in old format
 
     Returns:
-        Ruta en formato nuevo
+        Path in new format
     """
     mapping = {
         "etl/": "src/data/",
@@ -555,22 +555,22 @@ def _copy_project_source(
     old_structure: bool = False,
 ):
     """
-    Copia archivos personalizados desde un proyecto existente.
+    Copies custom files from an existing project.
 
     Args:
-        source_path: Ruta del proyecto origen
-        target_path: Ruta del proyecto destino
-        source_name: Nombre del proyecto origen
-        target_name: Nombre del proyecto destino
-        old_structure: Si el origen usa estructura antigua
+        source_path: Path of the source project
+        target_path: Path of the target project
+        source_name: Name of the source project
+        target_name: Name of the target project
+        old_structure: If the source uses old structure
 
     Raises:
-        ValueError: Si el proyecto origen no es válido
+        ValueError: If the source project is not valid
     """
-    # Validar proyecto origen
+    # Validate source project
     _validate_source_project(source_path, old_structure)
 
-    # Mapeo de archivos según estructura
+    # File mapping according to structure
     if old_structure:
         custom_files = [
             "etl/custom_etl.py",
@@ -578,7 +578,7 @@ def _copy_project_source(
             "models/custom_model.py",
             "inference/custom_inference.py",
         ]
-        # Mapeo de estructura antigua a nueva
+        # Old structure to new structure mapping
         structure_map = {
             "etl/": "src/data/",
             "feature_selection/": "src/features/",
@@ -606,14 +606,14 @@ def _copy_project_source(
         ):
             copied_files.append(file_path)
 
-    # Crear archivos base (README, .gitignore) adaptados
+    # Create base files (README, .gitignore) adapted
     _create_base_files(target_path, target_name, source_name=source_name)
 
-    # Copiar y adaptar pipeline.yaml
+    # Copy and adapt pipeline.yaml
     _copy_and_adapt_pipeline_yaml(source_path, target_path, source_name, target_name, old_structure)
 
-    # Crear templates para archivos que no existían en el origen
-    # Mapeo de módulos a nombres internos
+    # Create templates for files that didn't exist in the source
+    # Mapping of modules to internal names
     module_map = {
         "data": "etl",
         "features": "feature_selection",
@@ -622,7 +622,7 @@ def _copy_project_source(
     }
 
     for new_name_short, old_name_short in module_map.items():
-        # Buscar tanto en estructura antigua como nueva
+        # Search both in old and new structure
         old_found = False
         for old_path in [
             "etl",
@@ -634,7 +634,7 @@ def _copy_project_source(
             "src/models",
             "src/inference",
         ]:
-            # El nombre del archivo puede variar
+            # The file name may vary
             if old_name_short == "inference":
                 file_name = "custom_inference.py"
             elif old_name_short == "etl":
@@ -651,7 +651,7 @@ def _copy_project_source(
                 break
 
         if not old_found:
-            # Crear template
+            # Create template
             if new_name_short == "data":
                 _create_code_templates(target_path, target_name, only="data")
             elif new_name_short == "features":
@@ -661,7 +661,7 @@ def _copy_project_source(
             elif new_name_short == "inference":
                 _create_code_templates(target_path, target_name, only="inference")
 
-    # Crear tests, docs y requirements si no se copiaron
+    # Create tests, docs and requirements if not copied
     if not (target_path / "tests" / "conftest.py").exists():
         _create_test_templates(target_path, target_name)
     if not (target_path / "docs" / "project_docs.md").exists():
@@ -672,15 +672,15 @@ def _copy_project_source(
 
 def _create_run_scripts(project_path: Path, project_name: str):
     """
-    Crea scripts de Python para ejecutar cada etapa del pipeline.
+    Creates Python scripts to execute each stage of the pipeline.
 
-    Scripts creados en src/run/:
-    - 01_etl.py - Ejecuta ETLs
-    - 02_training.py - Ejecuta entrenamiento
-    - 03_evaluation.py - Ejecuta evaluación
-    - 04_inference.py - Ejecuta inferencia
+    Scripts created in src/run/:
+    - 01_etl.py - Executes ETLs
+    - 02_training.py - Executes training
+    - 03_evaluation.py - Executes evaluation
+    - 04_inference.py - Executes inference
 
-    Nota: Estos scripts usan el API Python directamente, sin invocar al CLI.
+    Note: These scripts use the Python API directly, without invoking the CLI.
     """
     scripts = {
         "01_etl.py": "src/run/01_etl.py.tpl",
@@ -701,18 +701,18 @@ def _create_run_scripts(project_path: Path, project_name: str):
 
 def _create_config_files(project_path: Path, project_name: str):
     """
-    Crea archivos de configuración del proyecto.
+    Creates configuration files of the project.
 
-    Crea 3 archivos de configuración separados:
+    Creates 3 separate configuration files:
     - etls.yaml
     - training.yaml
     - inference.yaml
 
     Args:
-        project_path: Ruta del proyecto
-        project_name: Nombre del proyecto
+        project_path: Path of the project
+        project_name: Name of the project
     """
-    # Sanitizar nombre para imports de paquetes
+    # Sanitize name for package imports
     package_name = _sanitize_package_name(project_name)
 
     config_templates = {

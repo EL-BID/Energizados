@@ -1,8 +1,8 @@
 """
 Run command implementation for Energizados CLI.
 
-Este módulo implementa la funcionalidad del comando 'run' para ejecutar
-pipelines desde configuración YAML.
+This module implements the 'run' command functionality to execute
+pipelines from YAML configuration.
 """
 
 from pathlib import Path
@@ -16,26 +16,26 @@ from energizados.core.pipeline import ConfigPipelineBuilder
 
 def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
     """
-    Mezcla múltiples archivos de configuración en uno solo.
+    Merges multiple configuration files into one.
 
-    La estrategia es "last wins": si hay claves duplicadas,
-    el último archivo sobrescribe los valores anteriores.
+    The strategy is "last wins": if there are duplicate keys,
+    the last file overwrites the previous values.
 
     Args:
-        config_paths: Lista de rutas a archivos YAML
+        config_paths: List of paths to YAML files
 
     Returns:
-        Dict: Configuración combinada
+        Dict: Combined configuration
 
     Raises:
-        ConfigurationError: Si algún archivo no existe o tiene errores de formato
+        ConfigurationError: If any file does not exist or has format errors
     """
     merged_config = {}
 
     for config_path in config_paths:
         config_file = Path(config_path)
         if not config_file.exists():
-            raise ConfigurationError(f"Archivo de configuración no encontrado: {config_path}", config_path)
+            raise ConfigurationError(f"Configuration file not found: {config_path}", config_path)
 
         try:
             with open(config_path, "r") as f:
@@ -44,35 +44,35 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
                     config = {}
                 merged_config.update(config)
                 logger = __import__("logging").getLogger(__name__)
-                logger.debug(f"Configuración cargada desde: {config_path}")
+                logger.debug(f"Configuration loaded from: {config_path}")
         except yaml.YAMLError as e:
-            raise ConfigurationError(f"Error al parsear YAML en {config_path}: {e}", config_path)
+            raise ConfigurationError(f"Error parsing YAML in {config_path}: {e}", config_path)
 
     return merged_config
 
 
 def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
     """
-    Ejecuta el pipeline completo desde configuración(es) YAML.
+    Executes the complete pipeline from YAML configuration(s).
 
     Args:
-        config_paths: Lista de rutas a archivos de configuración YAML
+        config_paths: List of paths to YAML configuration files
 
     Returns:
-        Dict: Contexto final con resultados del pipeline
+        Dict: Final context with pipeline results
 
     Raises:
-        ConfigurationError: Si hay errores en la configuración
-        PipelineError: Si hay errores durante la ejecución
+        ConfigurationError: If there are configuration errors
+        PipelineError: If there are errors during execution
     """
-    # Mezclar configuraciones
+    # Merge configurations
     merged_config = merge_configs(config_paths)
 
-    # Construir pipeline desde configuración
+    # Build pipeline from configuration
     builder = ConfigPipelineBuilder(config=merged_config)
     pipeline = builder.build()
 
-    # Ejecutar pipeline
+    # Execute pipeline
     result = pipeline.run()
 
     return result
@@ -80,20 +80,20 @@ def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
 
 def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     """
-    Ejecuta un solo paso del pipeline.
+    Executes a single step of the pipeline.
 
     Args:
-        config_paths: Lista de rutas a archivos de configuración YAML
-        step_name: Nombre del paso a ejecutar
+        config_paths: List of paths to YAML configuration files
+        step_name: Name of the step to execute
 
     Returns:
-        Dict: Contexto actualizado después del paso
+        Dict: Updated context after the step
 
     Raises:
-        ConfigurationError: Si hay errores en la configuración
-        PipelineError: Si el paso no existe o hay errores durante la ejecución
+        ConfigurationError: If there are configuration errors
+        PipelineError: If the step does not exist or there are errors during execution
     """
-    # Mapeo de nombres de pasos
+    # Step name mapping
     step_map = {
         "etl": "ETLStep",
         "split": "SplitStep",
@@ -103,26 +103,26 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     }
 
     if step_name not in step_map:
-        raise PipelineError(f"Paso desconocido: {step_name}. " f"Pasos disponibles: {list(step_map.keys())}")
+        raise PipelineError(f"Unknown step: {step_name}. Available steps: {list(step_map.keys())}")
 
-    # Mezclar configuraciones
+    # Merge configurations
     merged_config = merge_configs(config_paths)
 
-    # Construir pipeline completo
+    # Build complete pipeline
     builder = ConfigPipelineBuilder(config=merged_config)
     pipeline = builder.build()
 
-    # Filtrar solo el paso solicitado
+    # Filter only the requested step
     step_class_name = step_map[step_name]
     filtered_steps = [s for s in pipeline.steps if s.__class__.__name__ == step_class_name]
 
     if not filtered_steps:
-        raise PipelineError(f"El paso '{step_name}' no está configurado o no está habilitado")
+        raise PipelineError(f"The step '{step_name}' is not configured or not enabled")
 
-    # Reemplazar pasos del pipeline
+    # Replace pipeline steps
     pipeline.steps = filtered_steps
 
-    # Ejecutar solo el paso seleccionado
+    # Execute only the selected step
     result = pipeline.run()
 
     return result
@@ -132,53 +132,53 @@ def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = F
     """
     Ejecuta ETLs desde la configuración.
 
-    Soporta:
-    - Ejecutar todas las ETLs
-    - Ejecutar una ETL específica (y sus dependencias)
-    - Mostrar plan de ejecución sin ejecutar (dry-run)
+    Supports:
+    - Execute all ETLs
+    - Execute a specific ETL (and its dependencies)
+    - Show execution plan without executing (dry-run)
 
     Args:
-        config_paths: Lista de rutas a archivos de configuración YAML
-        etl_name: Nombre de la ETL específica a ejecutar (None = todas)
-        dry_run: Si True, solo muestra el plan de ejecución
+        config_paths: List of paths to YAML configuration files
+        etl_name: Name of the specific ETL to execute (None = all)
+        dry_run: If True, only shows the execution plan
 
     Returns:
-        Dict: Resultados de las ETLs ejecutadas
+        Dict: Results of the executed ETLs
 
     Raises:
-        ConfigurationError: Si hay errores en la configuración
-        PipelineError: Si hay errores durante la ejecución
+        ConfigurationError: If there are configuration errors
+        PipelineError: If there are errors during execution
     """
     from energizados.etl.orchestrator import ETLOrchestrator
 
-    # Mezclar configuraciones
+    # Merge configurations
     merged_config = merge_configs(config_paths)
 
-    # Verificar si hay configuración de ETLs
+    # Verify if there is ETL configuration
     etl_configs = merged_config.get("etls")
 
     if not etl_configs:
-        raise PipelineError("No hay ETLs configuradas. Use la sección 'etls:' para configurar múltiples ETLs.")
+        raise PipelineError("No ETLs configured. Use the 'etls:' section to configure multiple ETLs.")
 
-    # Si se solicita una ETL específica, filtrar sus dependencias
+    # If a specific ETL is requested, filter its dependencies
     if etl_name:
         if etl_name not in etl_configs:
-            raise PipelineError(f"ETL '{etl_name}' no encontrada. " f"ETLs disponibles: {list(etl_configs.keys())}")
+            raise PipelineError(f"ETL '{etl_name}' not found. Available ETLs: {list(etl_configs.keys())}")
 
-        # Filtrar solo las ETLs necesarias (etl_name + dependencias)
+        # Filter only necessary ETLs (etl_name + dependencies)
         filtered_configs = _get_etl_with_dependencies(etl_configs, etl_name)
         orchestrator = ETLOrchestrator(filtered_configs)
     else:
         orchestrator = ETLOrchestrator(etl_configs)
 
-    # Mostrar plan de ejecución
+    # Show execution plan
     print(orchestrator.get_execution_plan())
 
     if dry_run:
-        print("\n--dry-run: No se ejecutaron las ETLs --")
+        print("\n--dry-run: ETLs were not executed --")
         return {}
 
-    # Ejecutar ETLs
+    # Execute ETLs
     results = orchestrator.run()
 
     return results
@@ -186,14 +186,14 @@ def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = F
 
 def _get_etl_with_dependencies(etl_configs: Dict[str, Dict], etl_name: str) -> Dict[str, Dict]:
     """
-    Obtiene una ETL y todas sus dependencias recursivamente.
+    Gets an ETL and all its dependencies recursively.
 
     Args:
-        etl_configs: Configuración de todas las ETLs
-        etl_name: Nombre de la ETL objetivo
+        etl_configs: Configuration of all ETLs
+        etl_name: Name of the target ETL
 
     Returns:
-        Dict con la ETL y sus dependencias
+        Dict with the ETL and its dependencies
     """
     result = {}
     visited = set()
@@ -202,16 +202,16 @@ def _get_etl_with_dependencies(etl_configs: Dict[str, Dict], etl_name: str) -> D
         if name in visited:
             return
         if name not in etl_configs:
-            raise PipelineError(f"ETL '{name}' no encontrada en configuración")
+            raise PipelineError(f"ETL '{name}' not found in configuration")
 
         visited.add(name)
         config = etl_configs[name]
 
-        # Primero recolectar dependencias
+        # First collect dependencies
         for dep in config.get("depends_on", []):
             collect_deps(dep)
 
-        # Luego agregar esta ETL
+        # Then add this ETL
         result[name] = config
 
     collect_deps(etl_name)
@@ -220,15 +220,15 @@ def _get_etl_with_dependencies(etl_configs: Dict[str, Dict], etl_name: str) -> D
 
 def show_etl_plan(config_paths: List[str]) -> str:
     """
-    Muestra el plan de ejecución de ETLs sin ejecutarlas.
+    Shows the ETL execution plan without executing them.
 
     Args:
-        config_paths: Lista de rutas a archivos de configuración YAML
+        config_paths: List of paths to YAML configuration files
 
     Returns:
-        str: Plan de ejecución formateado
+        str: Formatted execution plan
 
     Raises:
-        ConfigurationError: Si hay errores en la configuración
+        ConfigurationError: If there are configuration errors
     """
     return execute_etl(config_paths, dry_run=True)
