@@ -128,6 +128,22 @@ class TrainingStep(PipelineStep):
         if X_test_transformed is not None:
             logger.info(f"Test transformed shape: {X_test_transformed.shape}")
 
+        # Guardar parquets intermedios si están configurados
+        preprocessing_parquet = fe_config.get("output_parquet")
+        if preprocessing_parquet and feature_engineering.preprocessor is not None:
+            prep_path = Path(preprocessing_parquet)
+            prep_path.parent.mkdir(parents=True, exist_ok=True)
+            X_prep = feature_engineering.preprocessor.transform(X_train)
+            X_prep.to_parquet(prep_path, index=False)
+            logger.info(f"Preprocessing output saved to: {prep_path}")
+
+        fs_parquet = fs_config.get("output_parquet")
+        if fs_parquet:
+            fs_path = Path(fs_parquet)
+            fs_path.parent.mkdir(parents=True, exist_ok=True)
+            X_train_transformed.to_parquet(fs_path, index=False)
+            logger.info(f"Feature selection output saved to: {fs_path}")
+
         # Guardar feature engineering
         fe_path = self.output_dir / "feature_engineering.pkl"
         with open(fe_path, "wb") as f:

@@ -147,7 +147,7 @@ class TestInitCommand:
             result = self.runner.invoke(cli, ["init", "existing_project", "--path", tmpdir])
 
             assert result.exit_code != 0
-            assert "ya existe" in result.output.lower()
+            assert "already exists" in result.output.lower()
 
     def test_init_copy_from_nonexistent_project(self):
         """Verifica que init falle si el proyecto origen no existe."""

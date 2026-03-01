@@ -144,4 +144,4 @@ models/artifacts
 
 # TODO: Quitar del ignore cuando se termine
 docs/
-.sample/
+.sample*/

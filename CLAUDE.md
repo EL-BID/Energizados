@@ -202,10 +202,10 @@ training:
   feature_engineering:
     enabled: true
     output_pkl: "data/processed/feature_engineering.pkl"
-    output_parquet: "data/processed/feature_engineering.parquet"  # opcional
 
     preprocessing:
       enabled: true
+      # output_parquet: "data/processed/preprocessing.parquet"  # opcional
       columns:
         actividad:
           - cardinality_reducer:
@@ -226,6 +226,7 @@ training:
 
     feature_selection:
       enabled: false
+      # output_parquet: "data/processed/feature_selection.parquet"  # opcional
       method: "boruta"  # boruta, correlation, constant
       params:
         n_estimators: 100

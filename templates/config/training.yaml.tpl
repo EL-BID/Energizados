@@ -44,10 +44,10 @@ training:
   feature_engineering:
     enabled: true
     output_pkl: "data/processed/feature_engineering.pkl"
-    output_parquet: "data/processed/feature_engineering.parquet"  # opcional
 
     preprocessing:
       enabled: true
+      # output_parquet: "data/processed/preprocessing.parquet"  # opcional
 
       # Opción 1: Usar configuración por columna con transformers built-in
       columns:
@@ -116,6 +116,7 @@ training:
 
     feature_selection:
       enabled: true
+      # output_parquet: "data/processed/feature_selection.parquet"  # opcional
 
       # Lista de pasos secuenciales de selección
       steps:
@@ -152,12 +153,12 @@ training:
           method: selection
           operation: union          # union | intersection | difference
           columns:
-            #- "zona"
             - "*_anterior"
+            - "zona"
             - "actividad"
-            #- "tipo_tarifa"
-            #- "nivel_tension"
-            #- "material_instalacion"
+            - "tipo_tarifa"
+            - "nivel_tension"
+            - "material_instalacion"
             - "@drop_constant"
 
   # ============================================
