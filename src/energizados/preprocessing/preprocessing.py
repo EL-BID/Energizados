@@ -12,7 +12,7 @@ Clases:
 - ExtraVars: Crea características adicionales basadas en los valores anteriores.
 
 Funciones:
-- llenar_val_vacios_ciclo: Rellena los valores vacíos en las columnas de consumo con los valores anteriores o posteriores.
+- fill_empty_values_cycle: Rellena los valores vacíos en las columnas de consumo con los valores anteriores o posteriores.
 - fill_empty_values_str: Rellena los valores vacíos en columnas de tipo string con un valor específico.
 - fill_empty_values_numeric: Rellena los valores vacíos en columnas numéricas con un valor específico.
 - build_feature_engineering_pipeline: Construye una tubería de preprocesamiento para la ingeniería de características.
@@ -304,6 +304,10 @@ def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
     results = []
     for idx, values in zip(chunk_indices, chunk_values):
         features = tsfel.time_series_features_extractor(cfg, values, fs=1, verbose=0)
+        null_count = features.isnull().sum().sum()
+        if null_count > 0:
+            null_cols = features.columns[features.isnull().any()].tolist()
+            logger.warning(f"TsfelVars: índice {idx} generó {null_count} nulos " f"(ej: {null_cols[:3]}). values={values}")
         features["index"] = idx
         results.append(features)
     return pd.concat(results, ignore_index=True)

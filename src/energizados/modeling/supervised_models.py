@@ -82,7 +82,7 @@ class LGBMModel:
 
     def build_pipeline_preproceso_model(self):
         # preprocessor = get_preprocesor(self.preprocesor_num)
-        lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000)
+        lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000, verbosity=-1)
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, lgbm_model_search)
