@@ -50,9 +50,9 @@ class DefaultEvaluator(PipelineStep):
     def __init__(
         self,
         input_path: Optional[str] = None,
-        model_path: str = "models/trained/model.pkl",
+        model_path: str = "output/models/model.pkl",
         feature_engineering_path: Optional[str] = None,
-        output_dir: str = "reports/evaluation/",
+        output_dir: str = "output/reports/evaluation/",
         target_column: str = "target",
         threshold: float = 0.5,
         metrics: Optional[List[str]] = None,

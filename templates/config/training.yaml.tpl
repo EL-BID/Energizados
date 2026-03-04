@@ -14,8 +14,9 @@ training:
   target_column: "target"
   periods_suffix: &period_suffix "_anterior"
 
-  # Output
-  output_dir: "models/trained/"
+  # Output: cada ejecución genera output/train-YYYYMMDD_HHMM/
+  # con subdirectorios models/, reports/evaluation/ y config/.
+  # output_base_dir: "output"  # override opcional
 
   # ============================================
   # Split Configuration
@@ -203,7 +204,7 @@ training:
   # ============================================
   evaluation:
     enabled: true
-    output_dir: "reports/evaluation/"
+    # output_dir se gestiona automáticamente dentro del run directory
     threshold: 0.5  # Ignorado si calibration.enabled=true
 
     metrics:

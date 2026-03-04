@@ -161,11 +161,10 @@ def _create_directory_structure(project_path: Path):
         project_path / "data" / "raw",
         project_path / "data" / "processed",
         project_path / "data" / "splits",
-        # Trained models (only files)
-        project_path / "models" / "trained",
-        # Notebooks and reports
+        # Training outputs (organized by run)
+        project_path / "output",
+        # Notebooks
         project_path / "notebooks",
-        project_path / "reports",
     ]
 
     for directory in directories:
@@ -226,8 +225,7 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
     (project_path / "data" / "raw" / ".gitkeep").write_text("")
     (project_path / "data" / "processed" / ".gitkeep").write_text("")
     (project_path / "data" / "splits" / ".gitkeep").write_text("")
-    (project_path / "models" / "trained" / ".gitkeep").write_text("")
-    (project_path / "reports" / ".gitkeep").write_text("")
+    (project_path / "output" / ".gitkeep").write_text("")
 
     # Copy example dataset if it exists (only for new projects, not copies)
     if source_name is None:

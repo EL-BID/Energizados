@@ -8,7 +8,11 @@ inference:
 
   # Rutas de entrada/salida
   input_path: "data/processed/feature_pipeline.parquet"
-  output_path: "reports/predictions.csv"
+  output_path: "output/predictions.csv"
+
+  # Apuntar al último run de entrenamiento:
+  # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
+  # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
 
   # Umbral para predicciones binarias
   threshold: 0.5

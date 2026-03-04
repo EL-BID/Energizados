@@ -96,11 +96,15 @@ mi_proyecto/
 │   └── splits/            # Train/val/test splits
 ├── docs/
 │   └── project_docs.md
-├── models/
-│   └── trained/           # Trained models
+├── output/                # Training run outputs (auto-created per run)
+│   ├── index.html         # Summary table of all training runs with metrics
+│   └── train-YYYYMMDD_HHMM/  # One directory per training execution
+│       ├── models/        # model.pkl + feature_engineering.pkl
+│       ├── reports/
+│       │   └── evaluation/  # HTML report, JSON report, plots
+│       └── config/        # Copy of YAML config files used for this run
 ├── notebooks/
 │   └── example_notebook.ipynb
-├── reports/               # Evaluation outputs
 ├── src/
 │   ├── data/              # Custom ETL (custom_etl.py)
 │   ├── features/          # Custom feature selector (custom_selector.py)
@@ -183,7 +187,7 @@ training:
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
   periods_suffix: &period_suffix "_anterior"
-  output_dir: "models/trained/"
+  # output_base_dir: "output"  # override opcional; cada run genera output/train-YYYYMMDD_HHMM/
 
   split:
     method: "time_series"  # Opciones: stratified, random, time_series
@@ -248,7 +252,7 @@ training:
 
   evaluation:
     enabled: true
-    output_dir: "reports/evaluation/"
+    # output_dir se gestiona automáticamente dentro del run directory
     threshold: 0.5
     metrics: [auc, precision, recall, f1, confusion_matrix, cumulative_gains]
     generate_plots: true

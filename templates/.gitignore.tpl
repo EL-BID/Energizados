@@ -40,10 +40,9 @@ data/external/*
 !data/external/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
-models/trained/*
-!models/trained/.gitkeep
-reports/*
-!reports/.gitkeep
+# Training run outputs (each run gets its own dir)
+output/train-*/
+!output/.gitkeep
 
 # Jupyter
 .ipynb_checkpoints/

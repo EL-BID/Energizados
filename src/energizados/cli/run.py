@@ -68,12 +68,9 @@ def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
     # Merge configurations
     merged_config = merge_configs(config_paths)
 
-    # Build pipeline from configuration
-    builder = ConfigPipelineBuilder(config=merged_config)
-    pipeline = builder.build()
-
-    # Execute pipeline
-    result = pipeline.run()
+    # Build and run pipeline; post-run tasks (config copy, index HTML) handled by builder.run()
+    builder = ConfigPipelineBuilder(config=merged_config, config_paths=list(config_paths))
+    result = builder.run()
 
     return result
 
@@ -109,7 +106,7 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     merged_config = merge_configs(config_paths)
 
     # Build complete pipeline
-    builder = ConfigPipelineBuilder(config=merged_config)
+    builder = ConfigPipelineBuilder(config=merged_config, config_paths=list(config_paths))
     pipeline = builder.build()
 
     # Filter only the requested step
@@ -124,6 +121,11 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
 
     # Execute only the selected step
     result = pipeline.run()
+
+    # Post-run tasks if a run dir was generated
+    if builder._run_dir is not None:
+        builder._copy_configs_to_run_dir()
+        builder._generate_index_html()
 
     return result
 

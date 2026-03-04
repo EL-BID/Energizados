@@ -42,9 +42,8 @@ class TestInitCommand:
             assert (project_path / "data" / "raw").exists()
             assert (project_path / "data" / "processed").exists()
             assert (project_path / "data" / "splits").exists()
-            assert (project_path / "models" / "trained").exists()
+            assert (project_path / "output").exists()
             assert (project_path / "notebooks").exists()
-            assert (project_path / "reports").exists()
             assert (project_path / "src" / "run").exists()
 
             # Verificar scripts de ejecución
@@ -307,26 +306,29 @@ etls:
             assert "custom_etl" in data_init
 
     def test_init_copy_does_not_copy_data_or_models(self):
-        """Verifica que no se copien datos ni modelos entrenados."""
+        """Verifica que no se copien datos ni outputs de entrenamiento."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Crear proyecto base
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
             base_path = Path(tmpdir) / "base_project"
 
-            # Crear archivos de datos y modelos (que no deben copiarse)
+            # Crear archivos de datos (que no deben copiarse)
             (base_path / "data" / "raw" / "data.csv").write_text("test,data")
-            (base_path / "models" / "trained" / "model.pkl").write_text("model")
+            # Simular un training run en output/
+            run_dir = base_path / "output" / "train-20260303_1430" / "models"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "model.pkl").write_text("model")
 
             # Copiar proyecto
             self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar que NO se copiaron
+            # Verificar que NO se copiaron datos ni runs
             assert not (new_path / "data" / "raw" / "data.csv").exists()
-            assert not (new_path / "models" / "trained" / "model.pkl").exists()
+            assert not (new_path / "output" / "train-20260303_1430").exists()
             # Pero sí los .gitkeep
             assert (new_path / "data" / "raw" / ".gitkeep").exists()
-            assert (new_path / "models" / "trained" / ".gitkeep").exists()
+            assert (new_path / "output" / ".gitkeep").exists()
 
     def test_init_config_singular_not_configs(self):
         """Verifica que sea config/ y no configs/."""

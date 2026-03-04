@@ -51,7 +51,7 @@ class TrainingStep(PipelineStep):
         target_column: str = "target",
         feature_engineering_config: Optional[Dict] = None,
         model_config: Optional[Dict] = None,
-        output_dir: str = "models/trained/",
+        output_dir: str = "output/models/",
         **kwargs,
     ):
         self.train_path = train_path

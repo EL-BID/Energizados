@@ -6,6 +6,8 @@ coordinating the different pipeline steps.
 """
 
 import logging
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -193,13 +195,14 @@ class ConfigPipelineBuilder:
     PREPROCESSOR_REGISTRY = {}
     INFERENCE_REGISTRY = {}
 
-    def __init__(self, config_path: str = None, config: Dict = None):
+    def __init__(self, config_path: str = None, config: Dict = None, config_paths: List[str] = None):
         """
         Initialize the builder.
 
         Args:
             config_path: Path to the YAML configuration file (optional)
             config: Configuration dictionary (optional, takes precedence over config_path)
+            config_paths: List of all config files used (for copying to run dir)
         """
         if config is not None:
             self.config = config
@@ -209,6 +212,9 @@ class ConfigPipelineBuilder:
             self.config = self._load_config(config_path)
         else:
             raise ValueError("Must provide config_path or config")
+
+        self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
+        self._run_dir: Optional[Path] = None
 
     def _load_config(self, path: str) -> Dict:
         """
@@ -222,6 +228,78 @@ class ConfigPipelineBuilder:
         """
         return _load_yaml_config(path)
 
+    def _generate_run_dir(self, base_output_dir: str = "output") -> Path:
+        """
+        Creates a timestamped run directory inside the output base directory.
+
+        Args:
+            base_output_dir: Base output directory (default: "output")
+
+        Returns:
+            Path to the created run directory
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        run_name = f"train-{timestamp}"
+        base = Path(base_output_dir)
+        run_dir = base / run_name
+
+        # Handle timestamp collisions (same minute)
+        if run_dir.exists():
+            suffix = 1
+            while (base / f"{run_name}_{suffix}").exists():
+                suffix += 1
+            run_dir = base / f"{run_name}_{suffix}"
+
+        (run_dir / "models").mkdir(parents=True, exist_ok=True)
+        (run_dir / "reports" / "evaluation").mkdir(parents=True, exist_ok=True)
+        (run_dir / "config").mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Training run directory: {run_dir}")
+        return run_dir
+
+    def _copy_configs_to_run_dir(self):
+        """Copies the config files used for this run into the run directory."""
+        if self._run_dir is None:
+            return
+        config_target = self._run_dir / "config"
+        for config_path in self.config_paths:
+            src = Path(config_path)
+            if src.exists():
+                shutil.copy(src, config_target / src.name)
+                logger.info(f"Config copied to run dir: {src.name}")
+
+    def _generate_index_html(self):
+        """Regenerates output/index.html with all training runs."""
+        if self._run_dir is None:
+            return
+        from energizados.evaluation.index import RunIndexGenerator
+
+        output_dir = self._run_dir.parent
+        generator = RunIndexGenerator()
+        index_path = generator.generate_index_html(output_dir)
+        if index_path:
+            logger.info(f"Index HTML updated: {index_path}")
+
+    def run(self) -> Dict[str, Any]:
+        """
+        Convenience method: builds and runs the pipeline, then performs post-run tasks.
+
+        Post-run tasks:
+        - Copies config files to the run directory
+        - Regenerates output/index.html
+
+        Returns:
+            Dict: Final context with pipeline results
+        """
+        pipeline = self.build()
+        result = pipeline.run()
+
+        if self._run_dir is not None:
+            self._copy_configs_to_run_dir()
+            self._generate_index_html()
+
+        return result
+
     def build(self) -> Pipeline:
         """
         Build the pipeline from the configuration.
@@ -233,6 +311,13 @@ class ConfigPipelineBuilder:
             ConfigurationError: If required configuration is missing
         """
         pipeline = Pipeline(config=self.config)
+
+        # Generate timestamped run directory if training or evaluation is enabled
+        train_config = self.config.get("training", {})
+        eval_config = train_config.get("evaluation", {}) or self.config.get("evaluation", {})
+        if train_config.get("enabled", False) or eval_config.get("enabled", False):
+            base_output_dir = train_config.get("output_base_dir", "output")
+            self._run_dir = self._generate_run_dir(base_output_dir)
 
         # Step 1: ETL (multiple ETLs with dependencies)
         if "etls" in self.config:
@@ -395,12 +480,18 @@ class ConfigPipelineBuilder:
             cls = import_class(train_config["custom_class"])
             return cls(**train_config.get("params", {}))
 
+        # Determine output_dir: use run dir if available, else config value
+        if self._run_dir is not None:
+            output_dir = str(self._run_dir / "models")
+        else:
+            output_dir = train_config.get("output_dir", "output/models/")
+
         # Use unified TrainingStep
         return TrainingStep(
             target_column=train_config.get("target_column", "target"),
             feature_engineering_config=train_config.get("feature_engineering", {}),
             model_config=train_config.get("model", {}),
-            output_dir=train_config.get("output_dir", "models/trained/"),
+            output_dir=output_dir,
         )
 
     def _build_evaluation_step(self) -> Optional[PipelineStep]:
@@ -425,12 +516,23 @@ class ConfigPipelineBuilder:
             cls = import_class(eval_config["custom_class"])
             return cls(**eval_config.get("params", {}))
 
+        # Determine output_dir: use run dir if available, else config value
+        if self._run_dir is not None:
+            eval_output_dir = str(self._run_dir / "reports" / "evaluation")
+        else:
+            eval_output_dir = eval_config.get("output_dir", "output/reports/evaluation/")
+
+        # When running inside the same pipeline as TrainingStep, don't pass model_path
+        # so that DefaultEvaluator picks it up from context (avoids validate_input failure)
+        model_path = eval_config.get("model_path")
+        fe_path = eval_config.get("feature_engineering_path")
+
         # Use DefaultEvaluator
         return DefaultEvaluator(
             input_path=eval_config.get("input_path"),
-            model_path=eval_config.get("model_path"),
-            feature_engineering_path=eval_config.get("feature_engineering_path"),
-            output_dir=eval_config.get("output_dir", "reports/evaluation/"),
+            model_path=model_path,
+            feature_engineering_path=fe_path,
+            output_dir=eval_output_dir,
             target_column=eval_config.get("target_column", "target"),
             threshold=eval_config.get("threshold", 0.5),
             metrics=eval_config.get("metrics"),
