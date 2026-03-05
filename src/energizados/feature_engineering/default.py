@@ -1,8 +1,8 @@
 """
 Default Feature Engineering Implementation for Energizados Framework.
 
-Este módulo proporciona una implementación por defecto que combina
-preprocessing y feature_selection en un solo paso unificado.
+This module provides a default implementation that combines
+preprocessing and feature_selection in a single unified step.
 """
 
 import logging
@@ -26,30 +26,29 @@ logger = logging.getLogger(__name__)
 
 
 def _build_transformer_from_config(transform_name: str, params: dict, column: str, custom_class: str = None):
-    """
-    Construye un transformer desde config YAML.
+    """Builds a transformer from YAML config.
 
     Args:
-        transform_name: Nombre del transformer en YAML (o "custom_class")
-        params: Diccionario de parámetros desde YAML
-        column: Nombre de la columna a transformar
-        custom_class: Path completo de la clase custom (solo cuando transform_name=="custom_class")
+        transform_name: Transformer name in YAML (or "custom_class").
+        params: Parameter dictionary from YAML.
+        column: Name of the column to transform.
+        custom_class: Full path of custom class (only when transform_name=="custom_class").
 
     Returns:
-        Instancia del transformer configurado
+        Configured transformer instance.
     """
     from sklearn.preprocessing import OrdinalEncoder
 
     from energizados.core.utils import import_class
     from energizados.preprocessing.preprocessing import MinMaxScalerRow
 
-    # Caso especial para custom_class por columna (formato plano)
+    # Special case for custom_class per column (flat format)
     if transform_name == "custom_class":
         if custom_class is None:
-            raise ValueError("Se debe especificar 'custom_class' cuando se usa el transformer 'custom_class'")
+            raise ValueError("'custom_class' must be specified when using 'custom_class' transformer")
         return import_class(custom_class)(**params)
 
-    # Mapeo de nombres a (clase, params_default)
+    # Mapping of names to (class, default_params)
     transformer_map = {
         "cardinality_reducer": (CardinalityReducer, {"threshold": 0.001}),
         "to_dummy": (ToDummy, {}),
@@ -60,7 +59,7 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
         ),
         "minmax_scaler_row": (MinMaxScalerRow, {"feature_range": (0, 1)}),
         "cast_dtype": (CastDtype, {"dtype": "float32"}),
-        # Global transformers (no requieren column name)
+        # Global transformers (don't require column name)
         "tsfel_vars": (
             TsfelVars,
             {
@@ -76,12 +75,12 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     }
 
     if transform_name not in transformer_map:
-        raise ValueError(f"Transformer desconocido: {transform_name}. " f"Opciones disponibles: {list(transformer_map.keys())}")
+        raise ValueError(f"Unknown transformer: {transform_name}. " f"Available options: {list(transformer_map.keys())}")
 
     cls, default_params = transformer_map[transform_name]
     params = {**default_params, **(params or {})}
 
-    # Special handling para transformers que necesitan column name
+    # Special handling for transformers that need column name
     if transform_name in ["to_dummy", "target_encoding"]:
         params["cols"] = [column]
 
@@ -89,32 +88,31 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
 
 
 def _build_global_transformers_pipeline(global_transformers_config: list) -> Pipeline:
-    """
-    Construye un pipeline de transformers globales desde config YAML.
+    """Builds a global transformers pipeline from YAML config.
 
     Args:
-        global_transformers_config: Lista de dicts con configuración de transformers globales
+        global_transformers_config: List of dicts with global transformers configuration.
 
     Returns:
-        Pipeline: Pipeline con los transformers globales (o None si no hay config)
+        Pipeline: Pipeline with global transformers (or None if no config).
     """
     if not global_transformers_config:
         return None
 
     steps = []
     for i, transformer_config in enumerate(global_transformers_config):
-        # Caso custom_class
+        # Custom class case
         if "custom_class" in transformer_config:
             custom_class_path = transformer_config.get("custom_class")
             custom_params = transformer_config.get("params", {})
             transformer = _build_transformer_from_config("custom_class", custom_params, None, custom_class=custom_class_path)
             name = f"global_custom_{i}"
         else:
-            # Transformers built-in
+            # Built-in transformers
             for transform_name, params in transformer_config.items():
                 transformer = _build_transformer_from_config(transform_name, params, None)
                 name = f"global_{transform_name}_{i}"
-                break  # solo un transformer por item
+                break  # only one transformer per item
 
         steps.append((name, transformer))
 
@@ -124,35 +122,34 @@ def _build_global_transformers_pipeline(global_transformers_config: list) -> Pip
 
 
 def get_preprocesor(preprocessing_config: dict) -> Pipeline:
-    """
-    Construye el preprocesador desde config YAML.
+    """Builds the preprocessor from YAML config.
 
-    El pipeline resultante tiene dos pasos:
-    1. column_transformer: Preprocessing por columnas (column-based)
-    2. global_transformers: Transformers globales (opcional, dataset-wide)
+    The resulting pipeline has two steps:
+    1. column_transformer: Column-based preprocessing (column-based).
+    2. global_transformers: Global transformers (optional, dataset-wide).
 
     Args:
-        preprocessing_config: Dict con configuración de preprocessing.
+        preprocessing_config: Dictionary with preprocessing configuration.
 
     Returns:
-        Pipeline: Pipeline con column_transformer + global_transformers
+        Pipeline: Pipeline with column_transformer + global_transformers.
 
     Raises:
-        ValueError: Si no se encuentra configuración válida
+        ValueError: If no valid configuration is found.
     """
-    # Verificar si 'columns' key existe (incluso si está vacío)
+    # Check if 'columns' key exists (even if empty)
     if "columns" in preprocessing_config:
         columns_config = preprocessing_config["columns"]
         if not columns_config:
-            raise ValueError("El config 'columns' no puede estar vacío. Especifica al menos una columna con sus transformaciones.")
+            raise ValueError("The 'columns' config cannot be empty. Specify at least one column with its transformations.")
 
         transformers = []
 
         for column, transformations in columns_config.items():
-            # Construir Pipeline secuencial para esta columna
+            # Build sequential Pipeline for this column
             steps = []
             for transform_config in transformations:
-                # Caso especial: custom_class por columna (formato plano)
+                # Special case: custom_class per column (flat format)
                 # YAML: - custom_class: "path.to.Class", params: {...}
                 if "custom_class" in transform_config:
                     custom_class_path = transform_config.get("custom_class")
@@ -160,7 +157,7 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
                     transformer = _build_transformer_from_config("custom_class", custom_params, column, custom_class=custom_class_path)
                     steps.append(("custom_class", transformer))
                 else:
-                    # Transformers built-in estándar
+                    # Standard built-in transformers
                     for transform_name, params in transform_config.items():
                         transformer = _build_transformer_from_config(transform_name, params, column)
                         steps.append((transform_name, transformer))
@@ -169,40 +166,39 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
                 pipeline = Pipeline(steps)
                 transformers.append((f"{column}_pipeline", pipeline, [column]))
 
-        # ColumnTransformer con passthrough para columnas no mencionadas
+        # ColumnTransformer with passthrough for unmentioned columns
         ct = ColumnTransformer(transformers=transformers, remainder="passthrough", verbose_feature_names_out=False)
         ct.set_output(transform="pandas")
 
-        # Construir Pipeline de global_transformers
+        # Build global_transformers Pipeline
         global_config = preprocessing_config.get("global_transformers", [])
         global_pipeline = _build_global_transformers_pipeline(global_config)
 
-        # Combinar en Pipeline final
+        # Combine into final Pipeline
         if global_pipeline is not None:
             final_pipeline = Pipeline([("column_transformer", ct), ("global_transformers", global_pipeline)])
         else:
-            # Si no hay global transformers, envolver ct en Pipeline para consistencia
+            # If no global transformers, wrap ct in Pipeline for consistency
             final_pipeline = Pipeline([("column_transformer", ct)])
 
         return final_pipeline
 
-    # Error si no hay configuración válida
-    raise ValueError("Configuración de preprocessing inválida. Se requiere 'columns' con la configuración por columna. ")
+    # Error if no valid configuration
+    raise ValueError("Invalid preprocessing configuration. 'columns' with per-column configuration is required. ")
 
 
 class DefaultFeatureEngineering(BaseFeatureEngineering):
-    """
-    Implementación por defecto del Feature Engineering.
+    """Default Feature Engineering implementation.
 
-    Combina preprocessing (codificación de variables categóricas)
-    y feature selection (métodos como Boruta, correlación, constantes)
-    en un solo paso.
+    Combines preprocessing (categorical variable encoding)
+    and feature selection (methods like Boruta, correlation, constants)
+    in a single step.
 
     Attributes:
-        preprocessor: Pipeline de preprocessing (scikit-learn Pipeline con ColumnTransformer + global_transformers)
-        selector: Selector de features (BorutaSelector, CorrelationSelector, etc.)
-        preprocessing_config: Configuración de preprocessing
-        feature_selection_config: Configuración de feature selection
+        preprocessor: Preprocessing pipeline (scikit-learn Pipeline with ColumnTransformer + global_transformers).
+        selector: Feature selector (BorutaSelector, CorrelationSelector, etc.).
+        preprocessing_config: Preprocessing configuration.
+        feature_selection_config: Feature selection configuration.
     """
 
     def __init__(
@@ -211,17 +207,16 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         feature_selection_config: Optional[Dict] = None,
         config: Optional[Dict] = None,
     ):
-        """
-        Inicializa el Feature Engineering por defecto.
+        """Initializes the default Feature Engineering.
 
         Args:
-            preprocessing_config: Configuración de preprocessing (nuevo formato con 'columns')
-            feature_selection_config: Configuración de feature selection
-            config: Diccionario de configuración general (opcional)
+            preprocessing_config: Preprocessing configuration (new format with 'columns').
+            feature_selection_config: Feature selection configuration.
+            config: General configuration dictionary (optional).
         """
         super().__init__(config)
 
-        # Construir preprocessing_config desde config si no se proporciona
+        # Build preprocessing_config from config if not provided
         if preprocessing_config is None:
             preprocessing_config = self.config.get("preprocessing", {})
 
@@ -231,82 +226,80 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         self.selector = None
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "DefaultFeatureEngineering":
-        """
-        Aprende las transformaciones de preprocessing y feature selection.
+        """Learns preprocessing and feature selection transformations.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            self: Retorna la instancia entrenada
+            self: Returns the trained instance.
         """
-        logger.info("Iniciando fit del Feature Engineering...")
+        logger.info("Starting Feature Engineering fit...")
 
-        # Verificar si preprocessing está habilitado
+        # Check if preprocessing is enabled
         preprocessing_enabled = self.preprocessing_config.get("enabled", True)
 
-        # 1. Construir y ajustar preprocesador
+        # 1. Build and fit preprocessor
         if preprocessing_enabled:
-            # Verificar si hay custom_class
+            # Check if there's a custom_class
             custom_class = self.preprocessing_config.get("custom_class")
 
             if custom_class:
-                # Importar y usar custom preprocessor
+                # Import and use custom preprocessor
                 from energizados.core.utils import import_class
 
                 params = self.preprocessing_config.get("params", {})
                 self.preprocessor = import_class(custom_class)(**params)
-                logger.info(f"Usando custom preprocessor: {custom_class}")
+                logger.info(f"Using custom preprocessor: {custom_class}")
             else:
-                # Usar configuración YAML
-                logger.info("Construyendo preprocesador desde configuración...")
+                # Use YAML configuration
+                logger.info("Building preprocessor from configuration...")
                 self.preprocessor = get_preprocesor(self.preprocessing_config)
 
-            logger.info("Aplicando preprocessing de entrenamiento...")
+            logger.info("Applying training preprocessing...")
             X_prep = self.preprocessor.fit_transform(X, y)
-            logger.info(f"Features después de preprocessing: {X_prep.shape[1]}")
+            logger.info(f"Features after preprocessing: {X_prep.shape[1]}")
         else:
-            logger.info("Preprocessing deshabilitado, usando features originales")
+            logger.info("Preprocessing disabled, using original features")
             self.preprocessor = None
             X_prep = X.copy()
 
-        # 2. Feature Selection (si está habilitado)
+        # 2. Feature Selection (if enabled)
         if self.feature_selection_config.get("enabled", True):
-            logger.info("Aplicando feature selection...")
+            logger.info("Applying feature selection...")
             self.selector = self._build_selector()
             self.selector.fit(X_prep, y)
-            logger.info(f"Features seleccionadas: {len(self.selector.get_selected_features())}")
+            logger.info(f"Selected features: {len(self.selector.get_selected_features())}")
         else:
-            logger.info("Feature selection deshabilitado, usando todas las features")
+            logger.info("Feature selection disabled, using all features")
             self.selector = None
 
         self.is_fitted_ = True
-        logger.info("Fit del Feature Engineering completado")
+        logger.info("Feature Engineering fit completed")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        Aplica preprocessing y feature selection a los datos.
+        """Applies preprocessing and feature selection to data.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame transformado
+            pd.DataFrame: Transformed DataFrame.
 
         Raises:
-            ValueError: Si fit() no fue llamado previamente
+            ValueError: If fit() was not called previously.
         """
         self.check_fitted()
 
-        # 1. Aplicar preprocessing si está habilitado
+        # 1. Apply preprocessing if enabled
         if self.preprocessor is not None:
             X_prep = self.preprocessor.transform(X)
         else:
             X_prep = X.copy()
 
-        # 2. Aplicar feature selection si está habilitado
+        # 2. Apply feature selection if enabled
         if self.selector is not None:
             X_transformed = self.selector.transform(X_prep)
             return X_transformed
@@ -314,11 +307,10 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         return X_prep
 
     def _build_selector(self):
-        """
-        Construye el selector de features según la configuración.
+        """Builds the feature selector according to configuration.
 
         Returns:
-            FeatureSelectionPipeline: Selector configurado
+            FeatureSelectionPipeline: Configured selector.
         """
         from energizados.feature_selection.pipeline import FeatureSelectionPipeline
 
@@ -338,31 +330,28 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         return FeatureSelectionPipeline(steps_config=cfg["steps"])
 
     def _get_feature_names_out(self) -> list:
-        """
-        Retorna los nombres de las features después de todas las transformaciones.
+        """Returns feature names after all transformations.
 
         Returns:
-            list: Lista de nombres de features finales
+            list: List of final feature names.
         """
         if self.selector is not None:
             return self.selector.get_selected_features()
 
     def get_preprocessor(self):
-        """
-        Retorna el preprocesador ajustado.
+        """Returns the fitted preprocessor.
 
         Returns:
-            Pipeline: Preprocesador ajustado (column_transformer + global_transformers)
+            Pipeline: Fitted preprocessor (column_transformer + global_transformers).
         """
         self.check_fitted()
         return self.preprocessor
 
     def get_selector(self):
-        """
-        Retorna el selector ajustado.
+        """Returns the fitted selector.
 
         Returns:
-            BaseFeatureSelector: Selector ajustado o None
+            BaseFeatureSelector: Fitted selector or None.
         """
         self.check_fitted()
         return self.selector
