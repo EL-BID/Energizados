@@ -50,6 +50,8 @@ training:
       enabled: true
       output_parquet: "data/processed/preprocessing.parquet"
 
+      drop_columns: [index, fecha_inspeccion]  # columnas a excluir del modelo
+
       # Opción 1: Usar configuración por columna con transformers built-in
       columns:
         # Actividad: reducir cardinalidad + one-hot encoding

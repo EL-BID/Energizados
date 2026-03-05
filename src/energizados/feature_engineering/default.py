@@ -148,6 +148,11 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
 
         transformers = []
 
+        # Drop columns explícitamente antes de passthrough
+        drop_columns = preprocessing_config.get("drop_columns", [])
+        for col in drop_columns:
+            transformers.append((f"drop_{col}", "drop", [col]))
+
         for column, transformations in columns_config.items():
             # Construir Pipeline secuencial para esta columna
             steps = []
