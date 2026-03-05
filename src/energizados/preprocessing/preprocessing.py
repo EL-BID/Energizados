@@ -438,28 +438,42 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         if self.features_names_path is not None:
             df_tsfel = cached_compute(
                 X[cols_anterior].values,
-                X["index"].tolist(),
+                X.index.tolist(),
                 cols_anterior,
                 cfg_json_path=self.features_names_path,
             )
-            X = X.merge(df_tsfel, on="index", how="left")
+            df_tsfel = df_tsfel.set_index("index")
+            X = X.join(df_tsfel, how="left")
         else:
             df_result_stat = cached_compute(
                 X[cols_anterior].values,
-                X["index"].tolist(),
+                X.index.tolist(),
                 cols_anterior,
                 cfg_domain="statistical",
             )
             df_result_temporal = cached_compute(
                 X[cols_anterior].values,
-                X["index"].tolist(),
+                X.index.tolist(),
                 cols_anterior,
                 cfg_domain="temporal",
             )
 
             df_tsfel = pd.merge(df_result_stat, df_result_temporal, how="inner", on="index")
+            df_tsfel = df_tsfel.set_index("index")
 
-            X = X.merge(df_tsfel, on="index", how="left")
+            X = X.join(df_tsfel, how="left")
+
+        # Log diagnostics about NaN values from tsfel
+        tsfel_cols = [c for c in X.columns if c not in cols_anterior]
+        nan_counts = X[tsfel_cols].isnull().sum()
+        nan_cols = nan_counts[nan_counts > 0]
+        if len(nan_cols) > 0:
+            total_rows = len(X)
+            logger.warning(
+                f"TsfelVars: {len(nan_cols)} columns with NaN values "
+                f"(out of {len(tsfel_cols)} tsfel columns, {total_rows} rows). "
+                f"Top NaN columns: {nan_cols.nlargest(5).to_dict()}"
+            )
 
         return X
 

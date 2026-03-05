@@ -128,6 +128,16 @@ class TrainingStep(PipelineStep):
         if X_test_transformed is not None:
             logger.info(f"Test transformed shape: {X_test_transformed.shape}")
 
+        # Diagnostic: NaN counts in transformed data
+        train_nan = X_train_transformed.isnull().sum().sum()
+        val_nan = X_val_transformed.isnull().sum().sum()
+        if train_nan > 0 or val_nan > 0:
+            logger.warning(f"NaN values - Train: {train_nan}, Val: {val_nan}")
+            nan_per_col = X_train_transformed.isnull().sum()
+            nan_cols = nan_per_col[nan_per_col > 0]
+            if len(nan_cols) > 0:
+                logger.warning(f"Train NaN columns ({len(nan_cols)}): {nan_cols.nlargest(10).to_dict()}")
+
         # Save intermediate parquets if configured
         preprocessing_parquet = fe_config.get("output_parquet")
         if preprocessing_parquet and feature_engineering.preprocessor is not None:
@@ -186,6 +196,17 @@ class TrainingStep(PipelineStep):
 
         logger.info(f"\nValidation AUC: {val_auc:.4f}")
         logger.info(f"Validation F1:  {val_f1:.4f}")
+
+        # Diagnostic: probability distribution
+        import numpy as np
+
+        logger.info(
+            f"Val proba stats: min={val_proba.min():.4f}, max={val_proba.max():.4f}, "
+            f"mean={val_proba.mean():.4f}, median={np.median(val_proba):.4f}, "
+            f"pct>0.5={100*(val_proba >= 0.5).mean():.1f}%, "
+            f"pct>0.3={100*(val_proba >= 0.3).mean():.1f}%, "
+            f"pct>0.1={100*(val_proba >= 0.1).mean():.1f}%"
+        )
 
         # Save val predictions for threshold calibration
         val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/splits")
