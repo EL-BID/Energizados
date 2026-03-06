@@ -58,7 +58,6 @@ class ChangeTrendPercentajeIdentifierWide(BaseEstimator, ClassifierMixin):
         return X
 
     def fit(self, X, y=None):
-
         return self
 
     def predict(self, X):
@@ -84,12 +83,10 @@ class ConstantConsumptionClassifierWide(BaseEstimator, ClassifierMixin):
         return self
 
     def len_max_consumo_constante_seg(self, consumo):
-        #         print(consumo)
         g = [[k, len(list(v))] for k, v in groupby(consumo)]
         g = [x for x in g if (x[1] >= self.min_count_constante)]
         if any(g):
             return 1
-        #             return sorted(g, reverse=True, key=lambda x: x[-1])[0][1]
         else:
             return 0
 
