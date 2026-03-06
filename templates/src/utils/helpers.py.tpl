@@ -1,8 +1,8 @@
 """
-Funciones auxiliares y utilidades compartidas para {{project_name}}.
+Helper functions and shared utilities for {{project_name}}.
 
-Este módulo contiene funciones reutilizables que pueden ser utilizadas
-por distintos componentes del proyecto.
+This module contains reusable functions that can be used
+by different project components.
 """
 
 import pandas as pd
@@ -13,14 +13,14 @@ from typing import Any, Dict, List, Optional, Union
 
 def load_data(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
     """
-    Carga datos desde un archivo soportando múltiples formatos.
+    Load data from a file supporting multiple formats.
 
     Args:
-        file_path: Ruta al archivo (csv, parquet, excel)
-        **kwargs: Argumentos adicionales para pd.read_csv/read_parquet
+        file_path: Path to the file (csv, parquet, excel)
+        **kwargs: Additional arguments for pd.read_csv/read_parquet
 
     Returns:
-        pd.DataFrame: Datos cargados
+        pd.DataFrame: Loaded data
     """
     file_path = Path(file_path)
 
@@ -36,12 +36,12 @@ def load_data(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
 
 def save_data(df: pd.DataFrame, file_path: Union[str, Path], **kwargs) -> None:
     """
-    Guarda un DataFrame en el formato especificado.
+    Save a DataFrame in the specified format.
 
     Args:
-        df: DataFrame a guardar
-        file_path: Ruta de salida
-        **kwargs: Argumentos adicionales para df.to_csv/to_parquet
+        df: DataFrame to save
+        file_path: Output path
+        **kwargs: Additional arguments for df.to_csv/to_parquet
     """
     file_path = Path(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -58,13 +58,13 @@ def save_data(df: pd.DataFrame, file_path: Union[str, Path], **kwargs) -> None:
 
 def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:
     """
-    Calcula el uso de memoria de un DataFrame.
+    Calculate the memory usage of a DataFrame.
 
     Args:
-        df: DataFrame a analizar
+        df: DataFrame to analyze
 
     Returns:
-        Dict con uso de memoria en MB para cada tipo de dato
+        Dict with memory usage in MB for each data type
     """
     memory = df.memory_usage(deep=True)
     total_mb = memory.sum() / 1024 / 1024
@@ -77,13 +77,13 @@ def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:
 
 def reduce_memory(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Reduce el uso de memoria del DataFrame optimizando tipos de datos.
+    Reduce DataFrame memory usage by optimizing data types.
 
     Args:
-        df: DataFrame a optimizar
+        df: DataFrame to optimize
 
     Returns:
-        pd.DataFrame: DataFrame optimizado
+        pd.DataFrame: Optimized DataFrame
     """
     result = df.copy()
 
@@ -91,7 +91,7 @@ def reduce_memory(df: pd.DataFrame) -> pd.DataFrame:
         col_type = result[col].dtype
 
         if col_type == 'object':
-            # Para strings, usar category si tiene pocos valores únicos
+            # For strings, use category if few unique values
             unique_ratio = result[col].nunique() / len(result[col])
             if unique_ratio < 0.5:
                 result[col] = result[col].astype('category')
@@ -105,4 +105,4 @@ def reduce_memory(df: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-# Agrega aquí más funciones auxiliares según las necesidades de tu proyecto
+# Add more helper functions here as needed for your project

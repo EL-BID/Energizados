@@ -1,10 +1,10 @@
 """
-Selector de Features Personalizado para {{project_name}}.
+Custom Feature Selector for {{project_name}}.
 
-Este módulo implementa la lógica de selección de variables
-específica para este proyecto.
+This module implements specific feature selection logic
+for this project.
 
-Edita los métodos fit() y transform() según tus necesidades.
+Edit the fit() and transform() methods as needed.
 """
 
 from energizados.feature_selection.base import BaseFeatureSelector
@@ -13,45 +13,45 @@ import pandas as pd
 
 class CustomSelector(BaseFeatureSelector):
     """
-    Selector de features personalizado para {{project_name}}.
+    Custom feature selector for {{project_name}}.
 
-    Hereda de BaseFeatureSelector e implementa los métodos abstractos
-    para definir la lógica específica de este proyecto.
+    Inherits from BaseFeatureSelector and implements the abstract methods
+    to define the specific logic for this project.
     """
 
     def __init__(self, config = None, **kwargs):
         """
-        Inicializa el selector.
+        Initialize the selector.
 
         Args:
-            config: Diccionario de configuración (opcional)
-            **kwargs: Parámetros adicionales desde la configuración YAML
+            config: Configuration dictionary (optional)
+            **kwargs: Additional parameters from YAML configuration
         """
         super().__init__(config)
-        # Agrega tus parámetros personalizados aquí
+        # Add your custom parameters here
         # self.threshold = config.get('threshold', 0.01) if config else 0.01
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "CustomSelector":
         """
-        Aprende qué variables seleccionar.
+        Learn which features to select.
 
-        Edita este método para implementar tu lógica de selección.
+        Edit this method to implement your selection logic.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features
+            y: Training target
 
         Returns:
-            self: Retorna la instancia entrenada
+            self: Returns the trained instance
         """
-        # TODO: Implementar tu lógica de selección
-        # Ejemplo simple con varianza:
+        # TODO: Implement your selection logic
+        # Simple example with variance:
         # from sklearn.feature_selection import VarianceThreshold
         # selector = VarianceThreshold(threshold=0.01)
         # selector.fit(X)
         # self.selected_features_ = X.columns[selector.get_support()].tolist()
 
-        # Ejemplo con correlación:
+        # Example with correlation:
         # corr_matrix = X.corr().abs()
         # upper_triangle = corr_matrix.where(
         #     np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
@@ -59,19 +59,19 @@ class CustomSelector(BaseFeatureSelector):
         # to_drop = [column for column in upper_triangle.columns if any(upper_triangle[column] > 0.95)]
         # self.selected_features_ = [col for col in X.columns if col not in to_drop]
 
-        raise NotImplementedError("Implementa el método fit() en tu selector")
+        raise NotImplementedError("Implement the fit() method in your selector")
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma X dejando solo las variables seleccionadas.
+        Transform X keeping only selected features.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform
 
         Returns:
-            pd.DataFrame: DataFrame con variables seleccionadas
+            pd.DataFrame: DataFrame with selected features
         """
         if self.selected_features_ is None:
-            raise ValueError("Debes llamar a fit() antes de transform()")
+            raise ValueError("You must call fit() before transform()")
 
         return X[self.selected_features_]

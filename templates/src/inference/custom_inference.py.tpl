@@ -1,10 +1,10 @@
 """
-Inferencia Personalizada para {{project_name}}.
+Custom Inference for {{project_name}}.
 
-Este módulo implementa la lógica de inferencia y predicción
-específica para este proyecto.
+This module implements specific inference and prediction logic
+for this project.
 
-Edita los métodos predict() y predict_proba() según tus necesidades.
+Edit the predict() and predict_proba() methods as needed.
 """
 
 from energizados.inference.base import BaseInference
@@ -15,20 +15,20 @@ import numpy as np
 
 class CustomInference(BaseInference):
     """
-    Inferencia personalizada para {{project_name}}.
+    Custom inference for {{project_name}}.
 
-    Hereda de BaseInference e implementa métodos personalizados
-    para cargar modelos y hacer predicciones.
+    Inherits from BaseInference and implements custom methods
+    to load models and make predictions.
     """
 
     def __init__(self, model_path: str = None, threshold: float = 0.5, **kwargs):
         """
-        Inicializa el motor de inferencia.
+        Initialize the inference engine.
 
         Args:
-            model_path: Ruta al archivo del modelo entrenado
-            threshold: Umbral para predicciones binarias (default: 0.5)
-            **kwargs: Parámetros adicionales
+            model_path: Path to the trained model file
+            threshold: Threshold for binary predictions (default: 0.5)
+            **kwargs: Additional parameters
         """
         self.model_path = model_path
         self.threshold = threshold
@@ -36,19 +36,19 @@ class CustomInference(BaseInference):
 
     def load_model(self, model_path: str = None) -> BaseModel:
         """
-        Carga un modelo entrenado desde archivo.
+        Load a trained model from file.
 
         Args:
-            model_path: Ruta al archivo del modelo
+            model_path: Path to the model file
 
         Returns:
-            BaseModel: Modelo cargado
+            BaseModel: Loaded model
         """
         import pickle
 
         path = model_path or self.model_path
         if not path:
-            raise ValueError("No se especificó ruta del modelo")
+            raise ValueError("Model path not specified")
 
         with open(path, "rb") as f:
             self.model = pickle.load(f)
@@ -57,38 +57,38 @@ class CustomInference(BaseInference):
 
     def predict(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones binarias.
+        Make binary predictions.
 
         Args:
-            model: Modelo entrenado
-            data: Datos para predicción
+            model: Trained model
+            data: Data for prediction
 
         Returns:
-            np.ndarray: Predicciones binarias (0 o 1)
+            np.ndarray: Binary predictions (0 or 1)
         """
         proba = self.predict_proba(model, data)
         return (proba >= self.threshold).astype(int)
 
     def predict_proba(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones de probabilidad.
+        Make probability predictions.
 
         Args:
-            model: Modelo entrenado
-            data: Datos para predicción
+            model: Trained model
+            data: Data for prediction
 
         Returns:
-            np.ndarray: Probabilidades de la clase positiva
+            np.ndarray: Probabilities of the positive class
         """
         return model.predict_proba(data)
 
     def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
         """
-        Guarda predicciones en archivo.
+        Save predictions to file.
 
         Args:
-            predictions: Predicciones a guardar
-            output_path: Ruta de salida
+            predictions: Predictions to save
+            output_path: Output path
         """
         from pathlib import Path
 

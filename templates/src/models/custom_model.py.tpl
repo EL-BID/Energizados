@@ -1,10 +1,10 @@
 """
-Modelo Personalizado para {{project_name}}.
+Custom Model for {{project_name}}.
 
-Este módulo implementa un modelo de ML
-específico para este proyecto.
+This module implements a specific ML model
+for this project.
 
-Edita los métodos fit(), predict() y predict_proba() según tus necesidades.
+Edit the fit(), predict() and predict_proba() methods as needed.
 """
 
 from energizados.modeling.base import BaseModel
@@ -14,22 +14,22 @@ import numpy as np
 
 class CustomModel(BaseModel):
     """
-    Modelo personalizado para {{project_name}}.
+    Custom model for {{project_name}}.
 
-    Hereda de BaseModel e implementa los métodos abstractos
-    para definir la lógica específica de este proyecto.
+    Inherits from BaseModel and implements the abstract methods
+    to define the specific logic for this project.
     """
 
     def __init__(self, config = None, **kwargs):
         """
-        Inicializa el modelo.
+        Initialize the model.
 
         Args:
-            config: Diccionario de configuración (opcional)
-            **kwargs: Parámetros adicionales desde la configuración YAML
+            config: Configuration dictionary (optional)
+            **kwargs: Additional parameters from YAML configuration
         """
         super().__init__(config)
-        # Agrega tus parámetros personalizados aquí
+        # Add your custom parameters here
         # self.learning_rate = config.get('learning_rate', 0.01) if config else 0.01
         self.model_ = None
         self.is_fitted_ = False
@@ -42,21 +42,21 @@ class CustomModel(BaseModel):
         y_val: pd.Series = None
     ) -> "CustomModel":
         """
-        Entrena el modelo.
+        Train the model.
 
-        Edita este método para implementar tu lógica de entrenamiento.
+        Edit this method to implement your training logic.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
-            X_val: Features de validación (opcional)
-            y_val: Target de validación (opcional)
+            X: Training features
+            y: Training target
+            X_val: Validation features (optional)
+            y_val: Validation target (optional)
 
         Returns:
-            self: Retorna la instancia entrenada
+            self: Returns the trained instance
         """
-        # TODO: Implementar tu lógica de entrenamiento
-        # Ejemplo simple con scikit-learn:
+        # TODO: Implement your training logic
+        # Simple example with scikit-learn:
         # from sklearn.ensemble import RandomForestClassifier
         # self.model_ = RandomForestClassifier(
         #     n_estimators=100,
@@ -66,40 +66,40 @@ class CustomModel(BaseModel):
         # self.model_.fit(X, y)
         # self.is_fitted_ = True
 
-        raise NotImplementedError("Implementa el método fit() en tu modelo")
+        raise NotImplementedError("Implement the fit() method in your model")
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones binarias.
+        Make binary predictions.
 
         Args:
-            X: Features para predicción
+            X: Features for prediction
 
         Returns:
-            np.ndarray: Predicciones binarias (0 o 1)
+            np.ndarray: Binary predictions (0 or 1)
         """
         self.check_fitted()
 
-        # TODO: Implementar tu lógica de predicción
-        # Ejemplo:
+        # TODO: Implement your prediction logic
+        # Example:
         # return self.model_.predict(X).astype(int)
 
-        raise NotImplementedError("Implementa el método predict() en tu modelo")
+        raise NotImplementedError("Implement the predict() method in your model")
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones de probabilidad.
+        Make probability predictions.
 
         Args:
-            X: Features para predicción
+            X: Features for prediction
 
         Returns:
-            np.ndarray: Probabilidades de la clase positiva
+            np.ndarray: Probabilities of the positive class
         """
         self.check_fitted()
 
-        # TODO: Implementar tu lógica de predicción de probabilidades
-        # Ejemplo:
+        # TODO: Implement your probability prediction logic
+        # Example:
         # return self.model_.predict_proba(X)[:, 1]
 
-        raise NotImplementedError("Implementa el método predict_proba() en tu modelo")
+        raise NotImplementedError("Implement the predict_proba() method in your model")

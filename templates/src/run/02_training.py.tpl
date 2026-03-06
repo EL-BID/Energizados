@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Script para ejecutar entrenamiento (incluye feature engineering)."""
+"""Script to run training (includes feature engineering)."""
 
 from energizados.core.pipeline import ConfigPipelineBuilder
 
@@ -15,8 +15,8 @@ if __name__ == "__main__":
     results = builder.run()
 
     if builder._run_dir:
-        print(f"✓ Entrenamiento completado")
+        print(f"✓ Training completed")
         print(f"  Run directory: {builder._run_dir}")
         print(f"  Index: {builder._run_dir.parent / 'index.html'}")
     else:
-        print("✓ Entrenamiento completado")
+        print("✓ Training completed")

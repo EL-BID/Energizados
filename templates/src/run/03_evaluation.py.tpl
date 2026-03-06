@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Script para ejecutar evaluación del modelo."""
+"""Script to run model evaluation."""
 
 from energizados.core.pipeline import ConfigPipelineBuilder
 
@@ -15,8 +15,8 @@ if __name__ == "__main__":
     results = builder.run()
 
     if builder._run_dir:
-        print(f"✓ Evaluación completada")
+        print(f"✓ Evaluation completed")
         print(f"  Run directory: {builder._run_dir}")
         print(f"  Index: {builder._run_dir.parent / 'index.html'}")
     else:
-        print("✓ Evaluación completada")
+        print("✓ Evaluation completed")
