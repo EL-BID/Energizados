@@ -1,14 +1,14 @@
 """
 Modeling Module for Energizados Framework.
 
-Este módulo proporciona implementaciones de modelos de Machine Learning
-para la detección de fraude energético.
+This module provides Machine Learning model implementations
+for energy fraud detection.
 """
 
-# Importar nuevos componentes del framework (sin dependencias externas pesadas)
+# Import new framework components (without heavy external dependencies)
 from energizados.modeling.registry import ModelRegistry
 
-# Importar modelos originales de forma opcional según dependencias
+# Import original models optionally based on dependencies
 try:
     from energizados.feature_selection import (  # noqa: F401
         feature_selection_by_boruta,
@@ -60,7 +60,7 @@ __all__ = [
     "ModelRegistry",
 ]
 
-# Agregar a __all__ solo lo que esté disponible
+# Add to __all__ only what is available
 if _feature_selection_available:
     __all__.extend(
         [

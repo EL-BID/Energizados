@@ -1,13 +1,12 @@
 """
-Módulo modelos_simples.py
+simple_models.py Module
 
-Este módulo contiene implementaciones de modelos simples utilizados en análisis de datos.
+This module contains implementations of simple models used in data analysis.
 
-Clases:
-- ChangeTrendPercentajeIdentifierWide: Un clasificador para identificar cambios en el porcentaje de tendencia
-en datos en formato amplio (wide).
-- ConstantConsumptionClassifierWide: Un clasificador para identificar consumos constantes en datos en formato
-amplio (wide).
+Classes:
+- ChangeTrendPercentajeIdentifierWide: A classifier to identify changes in trend percentage
+in wide-format data.
+- ConstantConsumptionClassifierWide: A classifier to identify constant consumption in wide-format data.
 """
 
 from itertools import groupby
@@ -20,13 +19,13 @@ class ChangeTrendPercentajeIdentifierWide(BaseEstimator, ClassifierMixin):
 
     def __init__(self, last_base_value, last_eval_value, threshold, is_wide=True):
         """
-        Inicializa la clase ChangeTrendPercentajeIdentifierWide.
+        Initialize the ChangeTrendPercentajeIdentifierWide class.
 
-        Parámetros:
-        - last_base_value: int, el número de valores base utilizados para el cálculo del porcentaje de tendencia.
-        - last_eval_value: int, el número de valores de evaluación utilizados para el cálculo del porcentaje de tendencia.
-        - threshold: float, el umbral utilizado para determinar si el porcentaje de tendencia indica un fraude.
-        - is_wide: bool, indica si los datos de entrada están en formato ancho (wide) o no.
+        Parameters:
+        - last_base_value: int, the number of base values used for trend percentage calculation.
+        - last_eval_value: int, the number of evaluation values used for trend percentage calculation.
+        - threshold: float, the threshold used to determine if trend percentage indicates fraud.
+        - is_wide: bool, indicates whether input data is in wide format or not.
 
         """
         self.last_base_value = last_base_value
@@ -36,12 +35,12 @@ class ChangeTrendPercentajeIdentifierWide(BaseEstimator, ClassifierMixin):
 
     def convert_wide(self, df):
         df_wide = pd.pivot(df, index=["index"], columns=["date"], values=["consumo"]).reset_index()
-        # organizar las columnas con nombres apropiados
+        # organize columns with appropriate names
         df_wide.columns = ["index"] + [str(i) + "_anterior" for i in range(self.last_eval_value + self.last_base_value)][::-1]
         return df_wide
 
     def get_cant_cols(self):
-        # obtener columnas base y columnas usadas para evaluar
+        # get base columns and columns used for evaluation
         cols_base = [str(i) + "_anterior" for i in range(self.last_eval_value + 1, self.last_base_value + self.last_eval_value + 1)][
             ::-1
         ]  # last_base_value
@@ -73,10 +72,10 @@ class ConstantConsumptionClassifierWide(BaseEstimator, ClassifierMixin):
 
     def __init__(self, min_count_constante):
         """
-        Inicializa la clase ConstantConsumptionClassifierWide.
+        Initialize the ConstantConsumptionClassifierWide class.
 
-        Parámetros:
-        - min_count_constante: int, el número mínimo de ocurrencias consecutivas de un valor para ser considerado constante.
+        Parameters:
+        - min_count_constante: int, the minimum number of consecutive occurrences of a value to be considered constant.
 
         """
         self.min_count_constante = min_count_constante

@@ -1,8 +1,8 @@
 """
 Model Registry for Energizados Framework.
 
-Mantiene un registro centralizado de los modelos disponibles
-para ser utilizados en el pipeline del framework.
+Maintains a centralized registry of available models
+for use in the framework pipeline.
 """
 
 from typing import Any, Dict
@@ -10,9 +10,9 @@ from typing import Any, Dict
 
 class ModelRegistry:
     """
-    Registro centralizado de modelos disponibles.
+    Centralized registry of available models.
 
-    Permite registrar y recuperar modelos por su nombre.
+    Allows registering and retrieving models by name.
     """
 
     _registry: Dict[str, type] = {}
@@ -20,79 +20,79 @@ class ModelRegistry:
     @classmethod
     def register(cls, name: str, model_class: type) -> None:
         """
-        Registra un modelo con un nombre.
+        Register a model with a name.
 
         Args:
-            name: Nombre del modelo
-            model_class: Clase del modelo (debe heredar de BaseModel)
+            name: Model name.
+            model_class: Model class (must inherit from BaseModel).
         """
         cls._registry[name.lower()] = model_class
 
     @classmethod
     def get(cls, name: str) -> type:
         """
-        Obtiene una clase de modelo por su nombre.
+        Get a model class by name.
 
         Args:
-            name: Nombre del modelo
+            name: Model name.
 
         Returns:
-            type: Clase del modelo
+            type: Model class.
 
         Raises:
-            KeyError: Si el modelo no está registrado
+            KeyError: If the model is not registered.
         """
         name_lower = name.lower()
         if name_lower not in cls._registry:
             available = ", ".join(cls._registry.keys())
-            raise KeyError(f"Modelo '{name}' no encontrado. Modelos disponibles: {available}")
+            raise KeyError(f"Model '{name}' not found. Available models: {available}")
         return cls._registry[name_lower]
 
     @classmethod
     def list_models(cls) -> list:
         """
-        Retorna la lista de modelos registrados.
+        Return the list of registered models.
 
         Returns:
-            list: Nombres de modelos registrados
+            list: Names of registered models.
         """
         return list(cls._registry.keys())
 
     @classmethod
     def is_registered(cls, name: str) -> bool:
         """
-        Verifica si un modelo está registrado.
+        Check if a model is registered.
 
         Args:
-            name: Nombre del modelo
+            name: Model name.
 
         Returns:
-            bool: True si el modelo está registrado
+            bool: True if the model is registered.
         """
         return name.lower() in cls._registry
 
     @classmethod
     def create(cls, name: str, **kwargs) -> Any:
         """
-        Crea una instancia de un modelo.
+        Create a model instance.
 
         Args:
-            name: Nombre del modelo
-            **kwargs: Argumentos para pasar al constructor del modelo
+            name: Model name.
+            **kwargs: Arguments to pass to the model constructor.
 
         Returns:
-            Instancia del modelo
+            Model instance.
         """
         model_class = cls.get(name)
         return model_class(**kwargs)
 
 
-# Registro de modelos disponibles
+# Registration of available models
 def _register_default_models():
     """
-    Registra los modelos por defecto del framework.
+    Register the framework's default models.
 
-    Esta función se llama automáticamente al importar el módulo.
+    This function is called automatically when importing the module.
     """
     try:
         from energizados.modeling.adapters import (
@@ -104,7 +104,7 @@ def _register_default_models():
             SimpleTrendAdapter,
         )
 
-        # Modelos supervisados (adapters que implementan BaseModel)
+        # Supervised models (adapters that implement BaseModel)
         ModelRegistry.register("lightgbm", LGBMModelAdapter)
         ModelRegistry.register("lgbm", LGBMModelAdapter)
         ModelRegistry.register("catboost", CATModelAdapter)
@@ -113,26 +113,26 @@ def _register_default_models():
         ModelRegistry.register("nn", NNModelAdapter)
         ModelRegistry.register("lstm", LSTMNNModelAdapter)
 
-        # Modelos simples (baseline)
+        # Simple models (baseline)
         ModelRegistry.register("simple_trend", SimpleTrendAdapter)
         ModelRegistry.register("simple_constant", SimpleConstantAdapter)
 
     except ImportError as e:
-        # Los modelos pueden no estar disponibles si faltan dependencias
+        # Models may not be available if dependencies are missing
         import warnings
 
-        warnings.warn(f"No se pudieron registrar todos los modelos: {e}")
+        warnings.warn(f"Could not register all models: {e}")
 
 
-# Registrar modelos al importar
+# Register models on import
 _register_default_models()
 
 
 class InferenceRegistry:
     """
-    Registro centralizado de clases de inferencia disponibles.
+    Centralized registry of available inference classes.
 
-    Permite registrar y recuperar clases de inferencia por su nombre.
+    Allows registering and retrieving inference classes by name.
     """
 
     _registry: Dict[str, type] = {}
@@ -140,79 +140,79 @@ class InferenceRegistry:
     @classmethod
     def register(cls, name: str, inference_class: type) -> None:
         """
-        Registra una clase de inferencia con un nombre.
+        Register an inference class with a name.
 
         Args:
-            name: Nombre de la clase de inferencia
-            inference_class: Clase de inferencia (debe heredar de BaseInference)
+            name: Inference class name.
+            inference_class: Inference class (must inherit from BaseInference).
         """
         cls._registry[name.lower()] = inference_class
 
     @classmethod
     def get(cls, name: str) -> type:
         """
-        Obtiene una clase de inferencia por su nombre.
+        Get an inference class by name.
 
         Args:
-            name: Nombre de la clase de inferencia
+            name: Inference class name.
 
         Returns:
-            type: Clase de inferencia
+            type: Inference class.
 
         Raises:
-            KeyError: Si la clase de inferencia no está registrada
+            KeyError: If the inference class is not registered.
         """
         name_lower = name.lower()
         if name_lower not in cls._registry:
             available = ", ".join(cls._registry.keys())
-            raise KeyError(f"Clase de inferencia '{name}' no encontrada. Clases disponibles: {available}")
+            raise KeyError(f"Inference class '{name}' not found. Available classes: {available}")
         return cls._registry[name_lower]
 
     @classmethod
     def list_inference(cls) -> list:
         """
-        Retorna la lista de clases de inferencia registradas.
+        Return the list of registered inference classes.
 
         Returns:
-            list: Nombres de clases de inferencia registradas
+            list: Names of registered inference classes.
         """
         return list(cls._registry.keys())
 
     @classmethod
     def is_registered(cls, name: str) -> bool:
         """
-        Verifica si una clase de inferencia está registrada.
+        Check if an inference class is registered.
 
         Args:
-            name: Nombre de la clase de inferencia
+            name: Inference class name.
 
         Returns:
-            bool: True si la clase de inferencia está registrada
+            bool: True if the inference class is registered.
         """
         return name.lower() in cls._registry
 
     @classmethod
     def create(cls, name: str, **kwargs) -> Any:
         """
-        Crea una instancia de una clase de inferencia.
+        Create an inference class instance.
 
         Args:
-            name: Nombre de la clase de inferencia
-            **kwargs: Argumentos para pasar al constructor
+            name: Inference class name.
+            **kwargs: Arguments to pass to the constructor.
 
         Returns:
-            Instancia de la clase de inferencia
+            Inference class instance.
         """
         inference_class = cls.get(name)
         return inference_class(**kwargs)
 
 
-# Registro de clases de inferencia disponibles
+# Registration of available inference classes
 def _register_default_inference():
     """
-    Registra las clases de inferencia por defecto del framework.
+    Register the framework's default inference classes.
 
-    Esta función se llama automáticamente al importar el módulo.
+    This function is called automatically when importing the module.
     """
     try:
         from energizados.inference import DefaultInference
@@ -220,11 +220,11 @@ def _register_default_inference():
         InferenceRegistry.register("default", DefaultInference)
 
     except ImportError as e:
-        # Las clases de inferencia pueden no estar disponibles si faltan dependencias
+        # Inference classes may not be available if dependencies are missing
         import warnings
 
-        warnings.warn(f"No se pudieron registrar todas las clases de inferencia: {e}")
+        warnings.warn(f"Could not register all inference classes: {e}")
 
 
-# Registrar clases de inferencia al importar
+# Register inference classes on import
 _register_default_inference()
