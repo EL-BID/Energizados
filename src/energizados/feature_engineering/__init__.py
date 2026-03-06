@@ -1,9 +1,9 @@
 """
 Feature Engineering Module for Energizados Framework.
 
-Este módulo combina preprocessing y feature_selection en un solo paso,
-permitiendo transformaciones más eficientes y un manejo unificado del
-pipeline de características.
+This module combines preprocessing and feature_selection in a single step,
+allowing more efficient transformations and unified management of the
+feature pipeline.
 """
 
 from energizados.feature_engineering.base import BaseFeatureEngineering

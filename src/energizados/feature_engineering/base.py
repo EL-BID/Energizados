@@ -1,8 +1,8 @@
 """
 Base Feature Engineering Module.
 
-Define la clase abstracta BaseFeatureEngineering que los usuarios pueden
-heredar para implementar sus propios pipelines de características.
+Defines the abstract BaseFeatureEngineering class that users can
+inherit to implement their own feature pipelines.
 """
 
 import logging
@@ -16,14 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 class BaseFeatureEngineering(ABC):
-    """
-    Clase base para feature engineering personalizado.
+    """Base class for custom feature engineering.
 
-    El usuario hereda e implementa los métodos abstractos para definir
-    su propia lógica de preprocessing y feature selection.
+    Users inherit and implement abstract methods to define their own
+    preprocessing and feature selection logic.
 
-    Combina ambas operaciones en un solo paso para mayor eficiencia
-    y mejor manejo del estado del pipeline.
+    Combines both operations in a single step for greater efficiency
+    and better pipeline state management.
 
     Example:
         >>> from energizados.feature_engineering.base import BaseFeatureEngineering
@@ -51,134 +50,125 @@ class BaseFeatureEngineering(ABC):
     """
 
     def __init__(self, config: Optional[Dict] = None):
-        """
-        Inicializa el pipeline de características.
+        """Initializes the feature pipeline.
 
         Args:
-            config: Diccionario de configuración opcional
+            config: Optional configuration dictionary.
         """
         self.config = config or {}
         self.is_fitted_ = False
 
     @abstractmethod
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "BaseFeatureEngineering":
-        """
-        Aprende las transformaciones de preprocessing y feature selection.
+        """Learns preprocessing and feature selection transformations.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            self: Retorna la instancia entrenada
+            self: Returns the trained instance.
         """
         pass
 
     @abstractmethod
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        Aplica preprocessing y feature selection a los datos.
+        """Applies preprocessing and feature selection to data.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame transformado
+            pd.DataFrame: Transformed DataFrame.
 
         Raises:
-            ValueError: Si fit() no fue llamado previamente
+            ValueError: If fit() was not called previously.
         """
         pass
 
     def fit_transform(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
-        """
-        Fit y transform en un solo paso.
+        """Fit and transform in a single step.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            pd.DataFrame: DataFrame transformado
+            pd.DataFrame: Transformed DataFrame.
         """
         return self.fit(X, y).transform(X)
 
     def save(self, path: str) -> None:
-        """
-        Guarda el pipeline completo en disco.
+        """Saves the complete pipeline to disk.
 
-        Guarda todo el estado del pipeline incluyendo preprocesadores
-        y selectores entrenados para su uso posterior.
+        Saves the entire pipeline state including preprocessors
+        and trained selectors for later use.
 
         Args:
-            path: Ruta donde guardar el pipeline (extension .pkl)
+            path: Path where to save the pipeline (.pkl extension).
 
         Raises:
-            ValueError: Si fit() no fue llamado previamente
+            ValueError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("Debe llamar a fit() antes de guardar el pipeline")
+            raise ValueError("You must call fit() before saving the pipeline")
 
-        import pickle  # nosec: B403 - pickle usado solo para datos internos del usuario
+        import pickle  # nosec: B403 - pickle used only for internal user data
 
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         with open(path, "wb") as f:
-            pickle.dump(self, f)  # nosec: B301 - pickle usado solo para datos internos
+            pickle.dump(self, f)  # nosec: B301 - pickle used only for internal user data
 
-        logger.info(f"Feature engineering guardado en: {path}")
+        logger.info(f"Feature engineering saved to: {path}")
 
     @classmethod
     def load(cls, path: str) -> "BaseFeatureEngineering":
-        """
-        Carga un pipeline guardado desde disco.
+        """Loads a saved pipeline from disk.
 
         Args:
-            path: Ruta al archivo del pipeline guardado
+            path: Path to the saved pipeline file.
 
         Returns:
-            BaseFeatureEngineering: Pipeline cargado
+            BaseFeatureEngineering: Loaded pipeline.
         """
-        import pickle  # nosec: B403 - pickle usado solo para datos internos del usuario
+        import pickle  # nosec: B403 - pickle used only for internal user data
 
         with open(path, "rb") as f:
-            pipeline = pickle.load(f)  # nosec: B301 - pickle usado solo para datos internos
+            pipeline = pickle.load(f)  # nosec: B301 - pickle used only for internal user data
 
-        logger.info(f"Feature engineering cargado desde: {path}")
+        logger.info(f"Feature engineering loaded from: {path}")
         return pipeline
 
     def get_feature_names_out(self) -> list:
-        """
-        Retorna los nombres de las features después de las transformaciones.
+        """Returns feature names after transformations.
 
         Returns:
-            list: Lista de nombres de features de salida
+            list: List of output feature names.
 
         Raises:
-            ValueError: Si fit() no fue llamado previamente
+            ValueError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("Debe llamar a fit() primero")
+            raise ValueError("You must call fit() first")
         return self._get_feature_names_out()
 
     def _get_feature_names_out(self) -> list:
-        """
-        Método interno para obtener los nombres de features.
+        """Internal method to get feature names.
 
-        Puede ser sobrescrito por subclases.
+        Can be overridden by subclasses.
 
         Returns:
-            list: Lista de nombres de features
+            list: List of feature names.
         """
         return []
 
     def check_fitted(self) -> None:
-        """
-        Verifica que el pipeline esté entrenado.
+        """Verifies the pipeline is trained.
 
         Raises:
-            ValueError: Si el pipeline no está entrenado
+            ValueError: If the pipeline is not trained.
         """
         if not self.is_fitted_:
-            raise ValueError(f"{self.__class__.__name__} no está entrenado. Llame a fit() primero.")
+            raise ValueError(f"{self.__class__.__name__} is not fitted. Call fit() first.")
