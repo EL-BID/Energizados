@@ -1,8 +1,8 @@
 """
 Inference Module for Energizados Framework.
 
-Este módulo proporciona clases base e implementaciones
-para inferencia y predicción.
+This module provides base classes and implementations
+for inference and prediction.
 """
 
 from energizados.inference.base import BaseInference

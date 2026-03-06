@@ -1,8 +1,8 @@
 """
 Base Feature Selector Module.
 
-Define la clase abstracta BaseFeatureSelector que los usuarios pueden
-heredar para implementar sus propios métodos de selección de variables.
+Defines the BaseFeatureSelector abstract class that users can
+inherit to implement their own feature selection methods.
 
 This module re-exports BaseFeatureSelector from core for backward compatibility.
 """
@@ -15,10 +15,10 @@ import pandas as pd
 
 class BaseFeatureSelector(ABC):
     """
-    Clase base para selección de variables personalizada.
+    Base class for custom feature selection.
 
-    El usuario hereda e implementa los métodos abstractos para definir
-    su propia lógica de selección de features.
+    Users inherit and implement the abstract methods to define
+    their own feature selection logic.
 
     Example:
         >>> from energizados.feature_selection.base import BaseFeatureSelector
@@ -32,10 +32,10 @@ class BaseFeatureSelector(ABC):
 
     def __init__(self, config: Optional[Dict] = None):
         """
-        Inicializa el selector.
+        Initialize the selector.
 
         Args:
-            config: Diccionario de configuración opcional
+            config: Optional configuration dictionary.
         """
         self.config = config or {}
         self.selected_features_ = None
@@ -43,56 +43,56 @@ class BaseFeatureSelector(ABC):
     @abstractmethod
     def fit(self, X: pd.DataFrame, y: pd.Series) -> "BaseFeatureSelector":
         """
-        Aprende qué variables seleccionar.
+        Learn which features to select.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            self: Retorna la instancia entrenada
+            self: The fitted instance.
         """
         pass
 
     @abstractmethod
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma X dejando solo las variables seleccionadas.
+        Transform X keeping only the selected features.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame con variables seleccionadas
+            pd.DataFrame: DataFrame with selected features.
 
         Raises:
-            ValueError: Si fit() no fue llamado previamente
+            ValueError: If fit() has not been called previously.
         """
         pass
 
     def fit_transform(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         """
-        Fit y transform en un paso.
+        Fit and transform in one step.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            pd.DataFrame: DataFrame transformado
+            pd.DataFrame: Transformed DataFrame.
         """
         return self.fit(X, y).transform(X)
 
     def get_selected_features(self) -> list:
         """
-        Retorna la lista de variables seleccionadas.
+        Return the list of selected features.
 
         Returns:
-            list: Lista de nombres de variables seleccionadas
+            list: List of selected feature names.
 
         Raises:
-            ValueError: Si fit() no fue llamado previamente
+            ValueError: If fit() has not been called previously.
         """
         if self.selected_features_ is None:
-            raise ValueError("Debe llamar a fit() primero")
+            raise ValueError("Must call fit() first")
         return self.selected_features_

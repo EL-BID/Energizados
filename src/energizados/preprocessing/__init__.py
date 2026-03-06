@@ -1,8 +1,8 @@
 """
 Preprocessing Module for Energizados Framework.
 
-Este módulo proporciona transformadores y utilidades para el preprocesamiento
-de datos antes del análisis y modelado.
+This module provides transformers and utilities for data preprocessing
+before analysis and modeling.
 """
 
 from energizados.preprocessing.preprocessing import (
@@ -18,13 +18,13 @@ from energizados.preprocessing.preprocessing import (
 )
 
 __all__ = [
-    # Clases de transformación
+    # Transformation classes
     "ToDummy",
     "CardinalityReducer",
     "MinMaxScalerRow",
     "TsfelVars",
     "ExtraVars",
-    # Funciones de utilidad
+    # Utility functions
     "fill_empty_values_cycle",
     "fill_empty_values_str",
     "fill_empty_values_numeric",
