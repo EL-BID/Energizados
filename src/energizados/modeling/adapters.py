@@ -149,11 +149,11 @@ class CATModelAdapter(BaseModel):
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         self.check_fitted()
-        return (self._model.pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
+        return (self._model.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         self.check_fitted()
-        return self._model.pipeline.predict_proba(X[self.cols_for_model])[:, 1]
+        return self._model.predict_proba(X[self.cols_for_model])[:, 1]
 
 
 class NNModelAdapter(BaseModel):
