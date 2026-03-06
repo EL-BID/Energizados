@@ -1,6 +1,6 @@
 """
 Test suite for Energizados Framework.
 
-Este módulo contiene tests unitarios para las clases base
-y componentes principales del framework.
+This module contains unit tests for the base classes
+and main components of the framework.
 """

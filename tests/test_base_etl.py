@@ -1,8 +1,8 @@
 """
 Unit tests for BaseETL.
 
-Pruebas para la clase base de ETL que define la interfaz
-que deben implementar todas las ETLs personalizadas.
+Tests for the ETL base class that defines the interface
+that all custom ETLs must implement.
 """
 
 import pandas as pd
@@ -13,15 +13,15 @@ from energizados.etl.base import BaseETL
 
 
 class TestBaseETL:
-    """Tests para la clase BaseETL."""
+    """Tests for the BaseETL class."""
 
     def test_base_etl_is_abstract(self):
-        """Verifica que BaseETL no pueda instanciarse directamente."""
+        """Verify that BaseETL cannot be directly instantiated."""
         with pytest.raises(TypeError):
             BaseETL()
 
     def test_concrete_etl_must_implement_extract(self):
-        """Verifica que una ETL concreta deba implementar extract()."""
+        """Verify that a concrete ETL must implement extract()."""
 
         class IncompleteETL(BaseETL):
             def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -34,7 +34,7 @@ class TestBaseETL:
             IncompleteETL()
 
     def test_concrete_etl_must_implement_transform(self):
-        """Verifica que una ETL concreta deba implementar transform()."""
+        """Verify that a concrete ETL must implement transform()."""
 
         class IncompleteETL(BaseETL):
             def extract(self) -> pd.DataFrame:
@@ -47,7 +47,7 @@ class TestBaseETL:
             IncompleteETL()
 
     def test_concrete_etl_must_implement_load(self):
-        """Verifica que una ETL concreta deba implementar load()."""
+        """Verify that a concrete ETL must implement load()."""
 
         class IncompleteETL(BaseETL):
             def extract(self) -> pd.DataFrame:
@@ -60,7 +60,7 @@ class TestBaseETL:
             IncompleteETL()
 
     def test_complete_etl_can_be_instantiated(self):
-        """Verifica que una ETL completa pueda instanciarse."""
+        """Verify that a complete ETL can be instantiated."""
 
         class CompleteETL(BaseETL):
             def extract(self) -> pd.DataFrame:
@@ -72,12 +72,12 @@ class TestBaseETL:
             def load(self, df: pd.DataFrame, path: str) -> None:
                 pass
 
-        # No debería lanzar excepción
+        # Should not raise exception
         etl = CompleteETL()
         assert etl is not None
 
     def test_run_method_uses_all_steps(self):
-        """Verifica que el método run() llame a extract, transform y load."""
+        """Verify that the run() method calls extract, transform, and load."""
 
         class TestETL(BaseETL):
             def __init__(self):
@@ -105,7 +105,7 @@ class TestBaseETL:
         assert result is not None
 
     def test_run_returns_transformed_dataframe(self):
-        """Verifica que run() retorne el DataFrame transformado."""
+        """Verify that run() returns the transformed DataFrame."""
 
         class TestETL(BaseETL):
             def extract(self) -> pd.DataFrame:
@@ -124,11 +124,11 @@ class TestBaseETL:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_run_raises_etl_on_error(self):
-        """Verifica que run() levante ETLError en caso de error."""
+        """Verify that run() raises ETLError in case of error."""
 
         class FailingETL(BaseETL):
             def extract(self) -> pd.DataFrame:
-                raise ValueError("Error de extracción")
+                raise ValueError("Extraction error")
 
             def transform(self, df: pd.DataFrame) -> pd.DataFrame:
                 return df

@@ -15,19 +15,31 @@ from energizados.evaluation.calibration import ThresholdCalibrator
 
 @pytest.fixture
 def imbalanced_data():
-    """Dataset sintético desbalanceado (~5% fraude) con 1000 muestras."""
+    """Synthetic imbalanced dataset (~5% fraud) with 1000 samples.
+
+    Returns:
+        tuple: A tuple containing:
+            - y_true (np.ndarray): True binary labels.
+            - y_proba (np.ndarray): Predicted probabilities.
+    """
     rng = np.random.default_rng(42)
     n = 1000
     y_true = (rng.random(n) < 0.05).astype(int)
 
-    # Modelo que asigna probabilidades más altas a los positivos
+    # Model that assigns higher probabilities to positives
     y_proba = np.where(y_true == 1, rng.uniform(0.3, 0.9, n), rng.uniform(0.0, 0.3, n))
     return y_true, y_proba
 
 
 @pytest.fixture
 def balanced_data():
-    """Dataset sintético balanceado con 200 muestras."""
+    """Synthetic balanced dataset with 200 samples.
+
+    Returns:
+        tuple: A tuple containing:
+            - y_true (np.ndarray): True binary labels.
+            - y_proba (np.ndarray): Predicted probabilities.
+    """
     rng = np.random.default_rng(7)
     n = 200
     y_true = np.array([0] * (n // 2) + [1] * (n // 2))
@@ -36,12 +48,15 @@ def balanced_data():
 
 
 # ---------------------------------------------------------------------------
-# Tests para ThresholdCalibrator - método cost_benefit
+# Tests for ThresholdCalibrator - cost_benefit method
 # ---------------------------------------------------------------------------
 
 
 class TestCostBenefitCalibration:
+    """Tests for cost_benefit calibration method."""
+
     def test_returns_required_keys(self, imbalanced_data):
+        """Verify that all required keys are returned."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="cost_benefit", cost_fp=1, cost_fn=10)
         result = cal.calibrate(y_true, y_proba)
@@ -53,6 +68,7 @@ class TestCostBenefitCalibration:
         assert "search_results" in result
 
     def test_threshold_in_range(self, imbalanced_data):
+        """Verify that threshold is in valid range [0, 1]."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="cost_benefit")
         result = cal.calibrate(y_true, y_proba)
@@ -60,7 +76,7 @@ class TestCostBenefitCalibration:
         assert 0.0 <= result["threshold"] <= 1.0
 
     def test_higher_fn_cost_lowers_threshold(self, imbalanced_data):
-        """Mayor cost_fn debe resultar en threshold más bajo (detectar más fraudes)."""
+        """Verify that higher cost_fn results in lower threshold (detect more frauds)."""
         y_true, y_proba = imbalanced_data
 
         cal_low = ThresholdCalibrator(method="cost_benefit", cost_fp=1, cost_fn=1)
@@ -72,6 +88,7 @@ class TestCostBenefitCalibration:
         assert result_high["threshold"] <= result_low["threshold"]
 
     def test_metrics_at_threshold_keys(self, imbalanced_data):
+        """Verify that metrics_at_threshold contains required keys."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="cost_benefit")
         result = cal.calibrate(y_true, y_proba)
@@ -82,6 +99,7 @@ class TestCostBenefitCalibration:
         assert "f1" in metrics
 
     def test_search_results_present(self, imbalanced_data):
+        """Verify that search results are present."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="cost_benefit")
         result = cal.calibrate(y_true, y_proba)
@@ -94,12 +112,15 @@ class TestCostBenefitCalibration:
 
 
 # ---------------------------------------------------------------------------
-# Tests para ThresholdCalibrator - método operational
+# Tests for ThresholdCalibrator - operational method
 # ---------------------------------------------------------------------------
 
 
 class TestOperationalCalibration:
+    """Tests for operational calibration method."""
+
     def test_returns_required_keys(self, imbalanced_data):
+        """Verify that all required keys are returned."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="operational", capacity=50)
         result = cal.calibrate(y_true, y_proba)
@@ -109,7 +130,7 @@ class TestOperationalCalibration:
         assert result["search_results"] is None
 
     def test_capacity_limits_alarms(self, imbalanced_data):
-        """El número de alarmas no debe superar capacity significativamente."""
+        """Verify that the number of alarms does not exceed capacity significantly."""
         y_true, y_proba = imbalanced_data
         capacity = 50
 
@@ -117,19 +138,20 @@ class TestOperationalCalibration:
         result = cal.calibrate(y_true, y_proba)
 
         n_alarms = int(np.sum(y_proba >= result["threshold"]))
-        # El percentil puede dar un threshold que incluya ligeramente más (empates)
+        # The percentile may give a threshold that includes slightly more (ties)
         assert n_alarms <= capacity + 10
 
     def test_large_capacity_gives_low_threshold(self, imbalanced_data):
-        """capacity >= n debe dar threshold <= min(y_proba) (alarma en todos)."""
+        """Verify that capacity >= n gives threshold <= min(y_proba) (alarm on all)."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="operational", capacity=len(y_proba) + 100)
         result = cal.calibrate(y_true, y_proba)
 
-        # Con capacity > n, el percentil 0 devuelve el mínimo de y_proba
+        # With capacity > n, percentile 0 returns the minimum of y_proba
         assert result["threshold"] <= float(np.min(y_proba)) + 1e-9
 
     def test_threshold_in_range(self, imbalanced_data):
+        """Verify that threshold is in valid range [0, 1]."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="operational", capacity=100)
         result = cal.calibrate(y_true, y_proba)
@@ -138,12 +160,15 @@ class TestOperationalCalibration:
 
 
 # ---------------------------------------------------------------------------
-# Tests para ThresholdCalibrator - método precision_recall
+# Tests for ThresholdCalibrator - precision_recall method
 # ---------------------------------------------------------------------------
 
 
 class TestPrecisionRecallCalibration:
+    """Tests for precision_recall calibration method."""
+
     def test_returns_required_keys(self, balanced_data):
+        """Verify that all required keys are returned."""
         y_true, y_proba = balanced_data
         cal = ThresholdCalibrator(method="precision_recall", min_recall=0.80)
         result = cal.calibrate(y_true, y_proba)
@@ -153,33 +178,33 @@ class TestPrecisionRecallCalibration:
         assert "search_results" in result
 
     def test_recall_met_at_threshold(self, balanced_data):
-        """El recall en val debe ser >= min_recall para el threshold seleccionado."""
+        """Verify that recall on val is >= min_recall for the selected threshold."""
         y_true, y_proba = balanced_data
         min_recall = 0.70
 
         cal = ThresholdCalibrator(method="precision_recall", min_recall=min_recall)
         result = cal.calibrate(y_true, y_proba)
 
-        # Verificar recall al threshold encontrado
+        # Verify recall at the found threshold
         y_pred = (y_proba >= result["threshold"]).astype(int)
         from sklearn.metrics import recall_score
 
         actual_recall = recall_score(y_true, y_pred, zero_division=0)
 
-        assert actual_recall >= min_recall - 0.05  # pequeña tolerancia numérica
+        assert actual_recall >= min_recall - 0.05  # small numerical tolerance
 
     def test_fallback_when_recall_impossible(self, imbalanced_data):
-        """Si min_recall=1.0 es imposible, debe usar threshold=0.5 como fallback."""
+        """Verify that if min_recall=1.0 is impossible, threshold=0.5 is used as fallback."""
         y_true, y_proba = imbalanced_data
-        # min_recall=1.0 es muy difícil de lograr
+        # min_recall=1.0 is very difficult to achieve
         cal = ThresholdCalibrator(method="precision_recall", min_recall=1.0)
         result = cal.calibrate(y_true, y_proba)
 
-        # Puede ser 0.5 (fallback) u otro valor si efectivamente lo logra
+        # Can be 0.5 (fallback) or another value if actually achieved
         assert 0.0 <= result["threshold"] <= 1.0
 
     def test_higher_min_recall_lowers_threshold(self, balanced_data):
-        """Mayor min_recall debe resultar en threshold más bajo."""
+        """Verify that higher min_recall results in lower threshold."""
         y_true, y_proba = balanced_data
 
         cal_low = ThresholdCalibrator(method="precision_recall", min_recall=0.50)
@@ -192,12 +217,15 @@ class TestPrecisionRecallCalibration:
 
 
 # ---------------------------------------------------------------------------
-# Tests para método desconocido
+# Tests for unknown method
 # ---------------------------------------------------------------------------
 
 
 class TestUnknownMethod:
+    """Tests for unknown calibration method."""
+
     def test_raises_value_error(self, imbalanced_data):
+        """Verify that unknown method raises ValueError."""
         y_true, y_proba = imbalanced_data
         cal = ThresholdCalibrator(method="unknown_method")
 
@@ -206,22 +234,31 @@ class TestUnknownMethod:
 
 
 # ---------------------------------------------------------------------------
-# Tests de integración con DefaultEvaluator
+# Integration tests with DefaultEvaluator
 # ---------------------------------------------------------------------------
 
 
 class TestEvaluatorCalibrationIntegration:
-    """Tests de integración: evaluador usa threshold calibrado cuando habilitado."""
+    """Integration tests: evaluator uses calibrated threshold when enabled."""
 
     def _make_val_predictions_file(self, tmp_path, y_true, y_proba):
-        """Guarda val predictions en parquet y retorna el path."""
+        """Save val predictions to parquet and return the path.
+
+        Args:
+            tmp_path: Temporary directory path.
+            y_true: True labels.
+            y_proba: Predicted probabilities.
+
+        Returns:
+            str: Path to the saved parquet file.
+        """
         val_df = pd.DataFrame({"y_true": y_true, "y_proba": y_proba})
         path = tmp_path / "val_predictions.parquet"
         val_df.to_parquet(path)
         return str(path)
 
     def test_evaluator_applies_calibrated_threshold(self, tmp_path, balanced_data):
-        """El evaluador debe actualizar self.threshold al valor calibrado."""
+        """Verify that the evaluator updates self.threshold to the calibrated value."""
         from energizados.evaluation.evaluator import DefaultEvaluator
 
         y_true, y_proba = balanced_data
@@ -234,17 +271,17 @@ class TestEvaluatorCalibrationIntegration:
             val_predictions_path=val_path,
         )
 
-        # Simular el proceso de calibración sin ejecutar el pipeline completo
+        # Simulate the calibration process without running the full pipeline
         val_df = pd.read_parquet(val_path)
         calibrator = ThresholdCalibrator(method="cost_benefit", cost_fp=1, cost_fn=10)
         result = calibrator.calibrate(val_df["y_true"].values, val_df["y_proba"].values)
 
-        # El threshold calibrado debe diferir de 0.5 para datos desbalanceados
+        # The calibrated threshold must differ from 0.5 for imbalanced data
         assert isinstance(result["threshold"], float)
         assert 0.0 <= result["threshold"] <= 1.0
 
     def test_evaluator_fallback_when_no_val_path(self, tmp_path, balanced_data):
-        """Sin val_predictions_path, el evaluador mantiene threshold por defecto."""
+        """Verify that without val_predictions_path, the evaluator keeps default threshold."""
         from energizados.evaluation.evaluator import DefaultEvaluator
 
         evaluator = DefaultEvaluator(
@@ -254,11 +291,11 @@ class TestEvaluatorCalibrationIntegration:
             val_predictions_path=None,
         )
 
-        # Threshold por defecto no cambia sin val_path
+        # Default threshold does not change without val_path
         assert evaluator.threshold == 0.5
 
     def test_evaluator_no_calibration_when_disabled(self, tmp_path):
-        """Sin calibration config, el evaluador usa threshold estático."""
+        """Verify that without calibration config, the evaluator uses static threshold."""
         from energizados.evaluation.evaluator import DefaultEvaluator
 
         evaluator = DefaultEvaluator(
@@ -269,7 +306,7 @@ class TestEvaluatorCalibrationIntegration:
         assert evaluator.threshold == 0.3
 
     def test_evaluator_calibration_disabled_flag(self, tmp_path):
-        """Con calibration.enabled=False, el evaluador usa threshold estático."""
+        """Verify that with calibration.enabled=False, the evaluator uses static threshold."""
         from energizados.evaluation.evaluator import DefaultEvaluator
 
         evaluator = DefaultEvaluator(
@@ -281,13 +318,15 @@ class TestEvaluatorCalibrationIntegration:
 
 
 # ---------------------------------------------------------------------------
-# Tests para JSON report con calibración
+# Tests for JSON report with calibration
 # ---------------------------------------------------------------------------
 
 
 class TestReportCalibrationSection:
+    """Tests for calibration section in JSON report."""
+
     def test_json_includes_calibration_when_provided(self, tmp_path):
-        """El JSON debe incluir sección 'calibration' si se pasa calibration_result."""
+        """Verify that the JSON includes 'calibration' section if calibration_result is passed."""
         import json
 
         from energizados.evaluation.report import ReportGenerator
@@ -312,7 +351,7 @@ class TestReportCalibrationSection:
         assert data["calibration"]["threshold_used"] == pytest.approx(0.23)
 
     def test_json_no_calibration_when_not_provided(self, tmp_path):
-        """Sin calibration_result, el JSON NO debe incluir sección 'calibration'."""
+        """Verify that without calibration_result, the JSON does NOT include 'calibration' section."""
         import json
 
         from energizados.evaluation.report import ReportGenerator

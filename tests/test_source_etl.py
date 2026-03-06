@@ -1,7 +1,7 @@
 """
 Unit tests for SourceETL.
 
-Pruebas para la clase SourceETL que soporta mode concat y merge.
+Tests for the SourceETL class that supports mode concat and merge.
 """
 
 import tempfile
@@ -15,10 +15,10 @@ from energizados.etl.pipeline import SourceETL
 
 
 class TestSourceETLInit:
-    """Tests para inicialización de SourceETL."""
+    """Tests for SourceETL initialization."""
 
     def test_init_with_default_mode(self):
-        """Verifica que mode por defecto sea 'concat'."""
+        """Verify that the default mode is 'concat'."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -26,7 +26,7 @@ class TestSourceETLInit:
         assert etl.mode == "concat"
 
     def test_init_with_concat_mode(self):
-        """Verifica inicialización con mode='concat'."""
+        """Verify initialization with mode='concat'."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -35,7 +35,7 @@ class TestSourceETLInit:
         assert etl.mode == "concat"
 
     def test_init_with_merge_mode_and_config(self):
-        """Verifica inicialización con mode='merge' y merge_config."""
+        """Verify initialization with mode='merge' and merge_config."""
         config = {"how": "left", "on": "id"}
         etl = SourceETL(
             name="test",
@@ -47,7 +47,7 @@ class TestSourceETLInit:
         assert etl.merge_config == config
 
     def test_init_with_invalid_mode(self):
-        """Verifica que lanza error con mode inválido."""
+        """Verify that invalid mode raises error."""
         with pytest.raises(ValueError, match="Mode must be 'concat' or 'merge'"):
             SourceETL(
                 name="test",
@@ -56,7 +56,7 @@ class TestSourceETLInit:
             )
 
     def test_init_merge_without_config_raises_error(self):
-        """Verifica que mode='merge' sin merge_config lance error."""
+        """Verify that mode='merge' without merge_config raises error."""
         with pytest.raises(ValueError, match="mode='merge' requires merge_config"):
             SourceETL(
                 name="test",
@@ -65,7 +65,7 @@ class TestSourceETLInit:
             )
 
     def test_init_case_insensitive_mode(self):
-        """Verifica que mode sea case-insensitive."""
+        """Verify that mode is case-insensitive."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -74,7 +74,7 @@ class TestSourceETLInit:
         assert etl.mode == "concat"
 
     def test_init_with_key_column(self):
-        """Verifica inicialización con key_column personalizado."""
+        """Verify initialization with custom key_column."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -84,15 +84,19 @@ class TestSourceETLInit:
 
 
 class TestSourceETLExtract:
-    """Tests para el método extract."""
+    """Tests for the extract method."""
 
     @pytest.fixture
     def temp_dir_with_csv_files(self):
-        """Crea directorio temporal con archivos CSV para pruebas."""
+        """Create a temporary directory with CSV files for testing.
+
+        Yields:
+            Path: Path to temporary directory with test CSV files.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
-            # Crear archivos de prueba
+            # Create test files
             df1 = pd.DataFrame({"id": [1, 2], "value": [10, 20]})
             df2 = pd.DataFrame({"id": [3, 4], "value": [30, 40]})
 
@@ -106,11 +110,15 @@ class TestSourceETLExtract:
 
     @pytest.fixture
     def temp_dir_with_parquet_files(self):
-        """Crea directorio temporal con archivos parquet para pruebas."""
+        """Create a temporary directory with parquet files for testing.
+
+        Yields:
+            Path: Path to temporary directory with test parquet files.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
-            # Crear archivos de prueba
+            # Create test files
             df1 = pd.DataFrame({"id": [1, 2], "value": [10, 20]})
             df2 = pd.DataFrame({"id": [3, 4], "value": [30, 40]})
 
@@ -123,7 +131,7 @@ class TestSourceETLExtract:
             yield tmpdir_path
 
     def test_extract_single_file_concat_mode(self, temp_dir_with_csv_files):
-        """Verifica extract con un solo archivo en modo concat."""
+        """Verify extract with a single file in concat mode."""
         file1 = temp_dir_with_csv_files / "file1.csv"
 
         etl = SourceETL(
@@ -138,7 +146,7 @@ class TestSourceETLExtract:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_extract_multiple_files_concat_mode(self, temp_dir_with_csv_files):
-        """Verifica extract con múltiples archivos en modo concat."""
+        """Verify extract with multiple files in concat mode."""
         file1 = temp_dir_with_csv_files / "file1.csv"
         file2 = temp_dir_with_csv_files / "file2.csv"
 
@@ -154,7 +162,7 @@ class TestSourceETLExtract:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_extract_parquet_files(self, temp_dir_with_parquet_files):
-        """Verifica extract con archivos parquet."""
+        """Verify extract with parquet files."""
         file1 = temp_dir_with_parquet_files / "file1.parquet"
 
         etl = SourceETL(
@@ -169,7 +177,7 @@ class TestSourceETLExtract:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_extract_empty_input_paths_raises_error(self):
-        """Verifica que extract lance error con input_paths vacío."""
+        """Verify that extract raises error with empty input_paths."""
         etl = SourceETL(
             name="test",
             input_paths=[],
@@ -180,7 +188,7 @@ class TestSourceETLExtract:
             etl.extract()
 
     def test_extract_nonexistent_file_raises_error(self):
-        """Verifica que extract lance error con archivo inexistente."""
+        """Verify that extract raises error with nonexistent file."""
         etl = SourceETL(
             name="test",
             input_paths=["nonexistent.csv"],
@@ -191,7 +199,7 @@ class TestSourceETLExtract:
             etl.extract()
 
     def test_extract_unsupported_format_raises_error(self):
-        """Verifica que extract lance error con formato no soportado."""
+        """Verify that extract raises error with unsupported format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             unsupported_file = tmpdir_path / "file.txt"
@@ -208,10 +216,10 @@ class TestSourceETLExtract:
 
 
 class TestSourceETLMergeDataframes:
-    """Tests para el método _merge_dataframes."""
+    """Tests for the _merge_dataframes method."""
 
     def test_merge_with_single_dataframe(self):
-        """Verifica merge con un solo dataframe."""
+        """Verify merge with a single dataframe."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -225,7 +233,7 @@ class TestSourceETLMergeDataframes:
         pd.testing.assert_frame_equal(result, df)
 
     def test_merge_with_empty_list_raises_error(self):
-        """Verifica que _merge_dataframes lance error con lista vacía."""
+        """Verify that _merge_dataframes raises error with empty list."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -237,7 +245,7 @@ class TestSourceETLMergeDataframes:
             etl._merge_dataframes([])
 
     def test_merge_two_dataframes_left(self):
-        """Verifica merge left de dos dataframes."""
+        """Verify left merge of two dataframes."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv", "file2.csv"],
@@ -260,7 +268,7 @@ class TestSourceETLMergeDataframes:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_merge_two_dataframes_inner(self):
-        """Verifica merge inner de dos dataframes."""
+        """Verify inner merge of two dataframes."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv", "file2.csv"],
@@ -283,7 +291,7 @@ class TestSourceETLMergeDataframes:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_merge_three_dataframes_sequential(self):
-        """Verifica merge secuencial de tres dataframes."""
+        """Verify sequential merge of three dataframes."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv", "file2.csv", "file3.csv"],
@@ -311,12 +319,12 @@ class TestSourceETLMergeDataframes:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_merge_uses_key_column_by_default(self):
-        """Verifica que merge use key_column por defecto si no se especifica 'on'."""
+        """Verify that merge uses key_column by default when 'on' is not specified."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv", "file2.csv"],
             mode="merge",
-            merge_config={"how": "left"},  # Sin 'on'
+            merge_config={"how": "left"},  # Without 'on'
             key_column="custom_id",
         )
 
@@ -335,7 +343,7 @@ class TestSourceETLMergeDataframes:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_merge_with_left_on_right_on(self):
-        """Verifica merge con left_on y right_on diferentes."""
+        """Verify merge with different left_on and right_on."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv", "file2.csv"],
@@ -360,15 +368,19 @@ class TestSourceETLMergeDataframes:
 
 
 class TestSourceETLExtractWithMerge:
-    """Tests para extract en modo merge con archivos reales."""
+    """Tests for extract in merge mode with real files."""
 
     @pytest.fixture
     def temp_dir_with_merge_files(self):
-        """Crea directorio temporal con archivos para merge."""
+        """Create a temporary directory with files for merge.
+
+        Yields:
+            Path: Path to temporary directory with test merge files.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
-            # Crear archivos de prueba
+            # Create test files
             df1 = pd.DataFrame(
                 {
                     "id_cliente": [1, 2, 3],
@@ -391,7 +403,7 @@ class TestSourceETLExtractWithMerge:
             yield tmpdir_path
 
     def test_extract_merge_mode(self, temp_dir_with_merge_files):
-        """Verifica extract en modo merge."""
+        """Verify extract in merge mode."""
         file1 = temp_dir_with_merge_files / "consumos.parquet"
         file2 = temp_dir_with_merge_files / "clientes.parquet"
 
@@ -415,10 +427,10 @@ class TestSourceETLExtractWithMerge:
 
 
 class TestSourceETLTransform:
-    """Tests para el método transform."""
+    """Tests for the transform method."""
 
     def test_transform_drops_empty_rows(self):
-        """Verifica que transform elimine filas completamente vacías."""
+        """Verify that transform removes completely empty rows."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -443,7 +455,7 @@ class TestSourceETLTransform:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_transform_returns_copy(self):
-        """Verifica que transform retorne una copia del dataframe."""
+        """Verify that transform returns a copy of the dataframe."""
         etl = SourceETL(
             name="test",
             input_paths=["file1.csv"],
@@ -452,16 +464,16 @@ class TestSourceETLTransform:
         df = pd.DataFrame({"id": [1, 2], "value": [10, 20]})
         result = etl.transform(df)
 
-        # Modificar el resultado no debería afectar el original
+        # Modifying the result should not affect the original
         result.iloc[0, 0] = 999
         assert df.iloc[0, 0] == 1
 
 
 class TestSourceETLLoad:
-    """Tests para el método load."""
+    """Tests for the load method."""
 
     def test_load_parquet(self):
-        """Verifica load en formato parquet."""
+        """Verify load in parquet format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             output_file = tmpdir_path / "output.parquet"
@@ -479,7 +491,7 @@ class TestSourceETLLoad:
             pd.testing.assert_frame_equal(result, df)
 
     def test_load_csv(self):
-        """Verifica load en formato CSV."""
+        """Verify load in CSV format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             output_file = tmpdir_path / "output.csv"
@@ -497,7 +509,7 @@ class TestSourceETLLoad:
             pd.testing.assert_frame_equal(result, df)
 
     def test_load_creates_parent_directories(self):
-        """Verifica que load cree directorios padre si no existen."""
+        """Verify that load creates parent directories if they don't exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             output_file = tmpdir_path / "nested" / "dir" / "output.parquet"
@@ -513,10 +525,10 @@ class TestSourceETLLoad:
             assert output_file.exists()
 
     def test_load_without_extension_defaults_to_parquet(self):
-        """Verifica que load guarde como parquet si no hay extensión."""
+        """Verify that load saves as parquet if there's no extension."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
-            output_file = tmpdir_path / "output"  # Sin extensión
+            output_file = tmpdir_path / "output"  # Without extension
 
             etl = SourceETL(
                 name="test",
@@ -526,21 +538,25 @@ class TestSourceETLLoad:
             df = pd.DataFrame({"id": [1], "value": [10]})
             etl.load(df, str(output_file))
 
-            # Debería crear archivo .parquet
+            # Should create .parquet file
             expected_file = tmpdir_path / "output.parquet"
             assert expected_file.exists()
 
 
 class TestSourceETLRun:
-    """Tests de integración para el método run."""
+    """Integration tests for the run method."""
 
     @pytest.fixture
     def temp_dir_for_run(self):
-        """Crea directorio temporal para pruebas de run."""
+        """Create a temporary directory for run tests.
+
+        Yields:
+            Path: Path to temporary directory with test input file.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
-            # Crear archivo de entrada
+            # Create input file
             df = pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
             input_file = tmpdir_path / "input.csv"
             df.to_csv(input_file, index=False)
@@ -548,7 +564,7 @@ class TestSourceETLRun:
             yield tmpdir_path
 
     def test_run_concat_mode(self, temp_dir_for_run):
-        """Verifica run completo en modo concat."""
+        """Verify complete run in concat mode."""
         input_file = temp_dir_for_run / "input.csv"
         output_file = temp_dir_for_run / "output.parquet"
 

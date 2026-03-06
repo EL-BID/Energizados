@@ -1,8 +1,8 @@
 """
 Unit tests for BaseFeatureSelector.
 
-Pruebas para la clase base de Feature Selection que define la interfaz
-que deben implementar todos los selectores personalizados.
+Tests for the Feature Selection base class that defines the interface
+that all custom selectors must implement.
 """
 
 import pandas as pd
@@ -12,16 +12,22 @@ from energizados.feature_selection.base import BaseFeatureSelector
 
 
 class TestBaseFeatureSelector:
-    """Tests para la clase BaseFeatureSelector."""
+    """Tests for the BaseFeatureSelector class."""
 
     @pytest.fixture
     def sample_data(self):
-        """Retorna datos de ejemplo para pruebas."""
+        """Returns sample data for testing.
+
+        Returns:
+            tuple: A tuple containing:
+                - X (pd.DataFrame): Feature DataFrame with constant and variable features.
+                - y (pd.Series): Target Series with binary labels.
+        """
         X = pd.DataFrame(
             {
                 "feature1": [1, 2, 3, 4, 5],
                 "feature2": [2, 4, 6, 8, 10],
-                "feature3": [1, 1, 1, 1, 1],  # Constante
+                "feature3": [1, 1, 1, 1, 1],  # Constant
                 "feature4": [5, 4, 3, 2, 1],
             }
         )
@@ -29,9 +35,9 @@ class TestBaseFeatureSelector:
         return X, y
 
     def test_base_selector_has_config(self):
-        """Verifica que BaseFeatureSelector acepte config."""
+        """Verify that BaseFeatureSelector accepts config."""
 
-        # Crear implementación concreta mínima para testear config
+        # Create minimal concrete implementation to test config
         class ConcreteSelector(BaseFeatureSelector):
             def fit(self, X, y):
                 return self
@@ -43,7 +49,7 @@ class TestBaseFeatureSelector:
         assert selector.config == {"threshold": 0.5}
 
     def test_base_selector_default_config(self):
-        """Verifica que BaseFeatureSelector use config vacío por defecto."""
+        """Verify that BaseFeatureSelector uses empty config by default."""
 
         class ConcreteSelector(BaseFeatureSelector):
             def fit(self, X, y):
@@ -56,7 +62,7 @@ class TestBaseFeatureSelector:
         assert selector.config == {}
 
     def test_base_selector_initialized_with_selected_features(self):
-        """Verifica que selected_features_ se inicialice como None."""
+        """Verify that selected_features_ is initialized as None."""
 
         class ConcreteSelector(BaseFeatureSelector):
             def fit(self, X, y):
@@ -69,7 +75,7 @@ class TestBaseFeatureSelector:
         assert selector.selected_features_ is None
 
     def test_concrete_selector_must_implement_fit(self):
-        """Verifica que un selector deba implementar fit()."""
+        """Verify that a selector must implement fit()."""
 
         class IncompleteSelector(BaseFeatureSelector):
             def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -79,7 +85,7 @@ class TestBaseFeatureSelector:
             IncompleteSelector()
 
     def test_concrete_selector_must_implement_transform(self):
-        """Verifica que un selector deba implementar transform()."""
+        """Verify that a selector must implement transform()."""
 
         class IncompleteSelector(BaseFeatureSelector):
             def fit(self, X: pd.DataFrame, y: pd.Series):
@@ -89,7 +95,7 @@ class TestBaseFeatureSelector:
             IncompleteSelector()
 
     def test_complete_selector_can_be_instantiated(self):
-        """Verifica que un selector completo pueda instanciarse."""
+        """Verify that a complete selector can be instantiated."""
 
         class CompleteSelector(BaseFeatureSelector):
             def fit(self, X: pd.DataFrame, y: pd.Series):
@@ -103,7 +109,7 @@ class TestBaseFeatureSelector:
         assert selector is not None
 
     def test_fit_transform_method(self, sample_data):
-        """Verifica que fit_transform funcione correctamente."""
+        """Verify that fit_transform works correctly."""
         X, y = sample_data
 
         class TestSelector(BaseFeatureSelector):
@@ -121,7 +127,7 @@ class TestBaseFeatureSelector:
         pd.testing.assert_frame_equal(result, expected)
 
     def test_get_selected_features_raises_error_if_not_fitted(self):
-        """Verifica que get_selected_features lance error si no se llamó a fit."""
+        """Verify that get_selected_features raises error if fit was not called."""
 
         class ConcreteSelector(BaseFeatureSelector):
             def fit(self, X, y):
@@ -132,11 +138,11 @@ class TestBaseFeatureSelector:
 
         selector = ConcreteSelector()
 
-        with pytest.raises(ValueError, match="Debe llamar a fit"):
+        with pytest.raises(ValueError, match="Must call fit"):
             selector.get_selected_features()
 
     def test_get_selected_features_returns_features(self, sample_data):
-        """Verifica que get_selected_features retorne las features seleccionadas."""
+        """Verify that get_selected_features returns the selected features."""
         X, y = sample_data
 
         class TestSelector(BaseFeatureSelector):

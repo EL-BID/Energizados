@@ -1,8 +1,8 @@
 """
 Unit tests for BaseModel.
 
-Pruebas para la clase base de Model que define la interfaz
-que deben implementar todos los modelos personalizados.
+Tests for the Model base class that defines the interface
+that all custom models must implement.
 """
 
 import numpy as np
@@ -13,11 +13,17 @@ from energizados.core.base import BaseModel
 
 
 class TestBaseModel:
-    """Tests para la clase BaseModel."""
+    """Tests for the BaseModel class."""
 
     @pytest.fixture
     def sample_data(self):
-        """Retorna datos de ejemplo para pruebas."""
+        """Returns sample data for testing.
+
+        Returns:
+            tuple: A tuple containing:
+                - X (pd.DataFrame): Feature DataFrame with 5 rows and 2 columns.
+                - y (pd.Series): Target Series with 5 binary labels.
+        """
         X = pd.DataFrame(
             {
                 "feature1": [1, 2, 3, 4, 5],
@@ -28,9 +34,9 @@ class TestBaseModel:
         return X, y
 
     def test_base_model_has_config(self):
-        """Verifica que BaseModel acepte config."""
+        """Verify that BaseModel accepts config."""
 
-        # Crear implementación concreta mínima para testear config
+        # Create minimal concrete implementation to test config
         class ConcreteModel(BaseModel):
             def fit(self, X, y, X_val=None, y_val=None):
                 return self
@@ -45,7 +51,7 @@ class TestBaseModel:
         assert model.config == {"learning_rate": 0.01}
 
     def test_base_model_default_config(self):
-        """Verifica que BaseModel use config vacío por defecto."""
+        """Verify that BaseModel uses empty config by default."""
 
         class ConcreteModel(BaseModel):
             def fit(self, X, y, X_val=None, y_val=None):
@@ -61,7 +67,7 @@ class TestBaseModel:
         assert model.config == {}
 
     def test_base_model_initialized_attributes(self):
-        """Verifica los atributos iniciales del modelo."""
+        """Verify the initial attributes of the model."""
 
         class ConcreteModel(BaseModel):
             def fit(self, X, y, X_val=None, y_val=None):
@@ -78,7 +84,7 @@ class TestBaseModel:
         assert model.is_fitted_ is False
 
     def test_concrete_model_must_implement_fit(self):
-        """Verifica que un modelo deba implementar fit()."""
+        """Verify that a model must implement fit()."""
 
         class IncompleteModel(BaseModel):
             def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -91,7 +97,7 @@ class TestBaseModel:
             IncompleteModel()
 
     def test_concrete_model_must_implement_predict(self):
-        """Verifica que un modelo deba implementar predict()."""
+        """Verify that a model must implement predict()."""
 
         class IncompleteModel(BaseModel):
             def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
@@ -105,7 +111,7 @@ class TestBaseModel:
             IncompleteModel()
 
     def test_concrete_model_must_implement_predict_proba(self):
-        """Verifica que un modelo deba implementar predict_proba()."""
+        """Verify that a model must implement predict_proba()."""
 
         class IncompleteModel(BaseModel):
             def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
@@ -119,7 +125,7 @@ class TestBaseModel:
             IncompleteModel()
 
     def test_complete_model_can_be_instantiated(self):
-        """Verifica que un modelo completo pueda instanciarse."""
+        """Verify that a complete model can be instantiated."""
 
         class CompleteModel(BaseModel):
             def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
@@ -139,7 +145,7 @@ class TestBaseModel:
         assert model is not None
 
     def test_check_fitted_raises_error_if_not_fitted(self):
-        """Verifica que check_fitted lance error si el modelo no está entrenado."""
+        """Verify that check_fitted raises error if model is not trained."""
         from energizados.core.exceptions import ModelNotFittedError
 
         class ConcreteModel(BaseModel):
@@ -158,7 +164,7 @@ class TestBaseModel:
             model.check_fitted()
 
     def test_check_fitted_passes_if_fitted(self):
-        """Verifica que check_fitted no lance error si el modelo está entrenado."""
+        """Verify that check_fitted does not raise error if model is trained."""
 
         class ConcreteModel(BaseModel):
             def fit(self, X, y, X_val=None, y_val=None):
@@ -173,11 +179,11 @@ class TestBaseModel:
         model = ConcreteModel()
         model.is_fitted_ = True
 
-        # No debería lanzar excepción
+        # Should not raise exception
         model.check_fitted()
 
     def test_fit_accepts_validation_data(self, sample_data):
-        """Verifica que fit() acepte datos de validación opcionales."""
+        """Verify that fit() accepts optional validation data."""
         X, y = sample_data
         X_val = X.iloc[:2]
         y_val = y.iloc[:2]
@@ -200,7 +206,7 @@ class TestBaseModel:
         assert model.is_fitted_
 
     def test_fit_without_validation_data(self, sample_data):
-        """Verifica que fit() funcione sin datos de validación."""
+        """Verify that fit() works without validation data."""
         X, y = sample_data
 
         class TestModel(BaseModel):

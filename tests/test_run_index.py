@@ -15,7 +15,17 @@ class TestRunIndexGenerator:
     """Tests for RunIndexGenerator."""
 
     def _make_run(self, output_dir: Path, run_name: str, metrics: dict = None, model_type: str = "LGBMModel") -> Path:
-        """Helper: create a fake training run directory with evaluation report."""
+        """Helper: create a fake training run directory with evaluation report.
+
+        Args:
+            output_dir: Output directory path.
+            run_name: Name of the run directory.
+            metrics: Optional dictionary of metrics.
+            model_type: Model class name.
+
+        Returns:
+            Path: Path to the created run directory.
+        """
         run_dir = output_dir / run_name
         eval_dir = run_dir / "reports" / "evaluation"
         eval_dir.mkdir(parents=True, exist_ok=True)
@@ -32,7 +42,7 @@ class TestRunIndexGenerator:
         return run_dir
 
     def test_scan_runs_finds_directories(self):
-        """scan_runs returns all runs that have evaluation reports."""
+        """Verify that scan_runs returns all runs with evaluation reports."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -46,7 +56,7 @@ class TestRunIndexGenerator:
             assert len(runs) == 2
 
     def test_scan_runs_sorted_newest_first(self):
-        """scan_runs returns runs sorted newest first."""
+        """Verify that scan_runs returns runs sorted newest first."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -62,7 +72,7 @@ class TestRunIndexGenerator:
             assert runs[-1]["run_name"] == "train-20260301_1000"
 
     def test_scan_runs_skips_missing_json(self):
-        """scan_runs tolerates run directories without evaluation_report.json."""
+        """Verify that scan_runs tolerates run directories without evaluation_report.json."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -80,7 +90,7 @@ class TestRunIndexGenerator:
             assert runs[0]["run_name"] == "train-20260303_1430"
 
     def test_scan_runs_skips_invalid_json(self):
-        """scan_runs tolerates run directories with malformed JSON."""
+        """Verify that scan_runs tolerates run directories with malformed JSON."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -99,7 +109,7 @@ class TestRunIndexGenerator:
             assert len(runs) == 1
 
     def test_scan_runs_extracts_metrics(self):
-        """scan_runs correctly extracts metrics from JSON."""
+        """Verify that scan_runs correctly extracts metrics from JSON."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -114,7 +124,7 @@ class TestRunIndexGenerator:
             assert runs[0]["model_type"] == "LGBMModel"
 
     def test_generate_index_html_creates_file(self):
-        """generate_index_html creates output/index.html."""
+        """Verify that generate_index_html creates output/index.html."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -129,7 +139,7 @@ class TestRunIndexGenerator:
             assert index_path.name == "index.html"
 
     def test_generate_index_html_contains_run_names(self):
-        """The generated HTML contains run names."""
+        """Verify that the generated HTML contains run names."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -145,7 +155,7 @@ class TestRunIndexGenerator:
             assert "train-20260302_0900" in html
 
     def test_generate_index_html_contains_links(self):
-        """The generated HTML contains links to evaluation reports."""
+        """Verify that the generated HTML contains links to evaluation reports."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -160,7 +170,7 @@ class TestRunIndexGenerator:
             assert "View Report" in html
 
     def test_generate_index_html_empty_output(self):
-        """generate_index_html works with no training runs."""
+        """Verify that generate_index_html works with no training runs."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir) / "output"
             output_dir.mkdir()
@@ -173,18 +183,18 @@ class TestRunIndexGenerator:
             assert "No training runs found" in html
 
     def test_generate_index_html_nonexistent_dir(self):
-        """generate_index_html returns None for a nonexistent directory."""
+        """Verify that generate_index_html returns None for a nonexistent directory."""
         generator = RunIndexGenerator()
         result = generator.generate_index_html(Path("/nonexistent/output"))
         assert result is None
 
     def test_fmt_handles_none(self):
-        """_fmt returns dash for None values."""
+        """Verify that _fmt returns dash for None values."""
         generator = RunIndexGenerator()
         assert generator._fmt(None) == "—"
 
     def test_fmt_formats_float(self):
-        """_fmt correctly formats float values."""
+        """Verify that _fmt correctly formats float values."""
         generator = RunIndexGenerator()
         assert generator._fmt(0.85432) == "0.8543"
         assert generator._fmt(1.0) == "1.0000"
