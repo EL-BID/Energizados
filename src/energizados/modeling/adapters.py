@@ -1,8 +1,8 @@
 """
 Model Adapters for Energizados Framework.
 
-Proporciona adaptadores/wrappers para los modelos existentes
-para que cumplan con la interfaz de BaseModel del framework.
+Provides adapters/wrappers for existing models
+to comply with the framework's BaseModel interface.
 """
 
 from typing import Optional
@@ -15,17 +15,17 @@ from energizados.core.base import BaseModel
 
 class LGBMModelAdapter(BaseModel):
     """
-    Adaptador para LGBMModel que implementa la interfaz BaseModel.
+    Adapter for LGBMModel that implements the BaseModel interface.
 
-    Este wrapper permite que el modelo LGBMModel existente
-    se use en el pipeline del framework.
+    This wrapper allows the existing LGBMModel
+    to be used in the framework pipeline.
 
     Args:
-        cols_for_model: Columnas a usar para el modelo
-        hyperparams: Hiperparámetros del modelo
-        search_hip: Si es True, realiza búsqueda de hiperparámetros
-        sampling_th: Umbral de muestreo para clases desbalanceadas
-        sampling_method: Método de muestreo ('over', 'under', 'none')
+        cols_for_model: Columns to use for the model.
+        hyperparams: Model hyperparameters.
+        search_hip: If True, performs hyperparameter search.
+        sampling_th: Sampling threshold for imbalanced classes.
+        sampling_method: Sampling method ('over', 'under', 'none').
     """
 
     def __init__(
@@ -44,7 +44,7 @@ class LGBMModelAdapter(BaseModel):
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
 
-        # Importar el modelo original
+        # Import the original model
         from energizados.modeling.supervised_models import LGBMModel as OriginalLGBM
 
         self._model = OriginalLGBM(
@@ -63,16 +63,16 @@ class LGBMModelAdapter(BaseModel):
         y_val: Optional[pd.Series] = None,
     ) -> "LGBMModelAdapter":
         """
-        Entrena el modelo LightGBM.
+        Train the LightGBM model.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
-            X_val: Features de validación (opcional)
-            y_val: Target de validación (opcional)
+            X: Training features.
+            y: Training target.
+            X_val: Validation features (optional).
+            y_val: Validation target (optional).
 
         Returns:
-            self
+            self: The fitted instance.
         """
         self._model = self._model.train(X, y, X_val, y_val)
         self.is_fitted_ = True
@@ -80,26 +80,26 @@ class LGBMModelAdapter(BaseModel):
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones binarias.
+        Make binary predictions.
 
         Args:
-            X: Features para predicción
+            X: Features for prediction.
 
         Returns:
-            np.ndarray: Predicciones binarias (0 o 1)
+            np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
         return (self._model.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones de probabilidad.
+        Make probability predictions.
 
         Args:
-            X: Features para predicción
+            X: Features for prediction.
 
         Returns:
-            np.ndarray: Probabilidades de la clase positiva
+            np.ndarray: Positive class probabilities.
         """
         self.check_fitted()
         return self._model.predict_proba(X[self.cols_for_model])[:, 1]
@@ -107,7 +107,7 @@ class LGBMModelAdapter(BaseModel):
 
 class CATModelAdapter(BaseModel):
     """
-    Adaptador para CATModel que implementa la interfaz BaseModel.
+    Adapter for CATModel that implements the BaseModel interface.
     """
 
     def __init__(
@@ -158,7 +158,7 @@ class CATModelAdapter(BaseModel):
 
 class NNModelAdapter(BaseModel):
     """
-    Adaptador para NNModel que implementa la interfaz BaseModel.
+    Adapter for NNModel that implements the BaseModel interface.
     """
 
     def __init__(
@@ -220,7 +220,7 @@ class NNModelAdapter(BaseModel):
 
 class LSTMNNModelAdapter(BaseModel):
     """
-    Adaptador para LSTMNNModel que implementa la interfaz BaseModel.
+    Adapter for LSTMNNModel that implements the BaseModel interface.
     """
 
     def __init__(
@@ -284,7 +284,7 @@ class LSTMNNModelAdapter(BaseModel):
 
 class SimpleTrendAdapter(BaseModel):
     """
-    Adaptador para ChangeTrendPercentajeIdentifierWide que implementa BaseModel.
+    Adapter for ChangeTrendPercentajeIdentifierWide that implements BaseModel.
     """
 
     def __init__(
@@ -317,7 +317,7 @@ class SimpleTrendAdapter(BaseModel):
         X_val: Optional[pd.DataFrame] = None,
         y_val: Optional[pd.Series] = None,
     ) -> "SimpleTrendAdapter":
-        # Modelo simple no requiere entrenamiento
+        # Simple model does not require training
         self.is_fitted_ = True
         return self
 
@@ -329,13 +329,13 @@ class SimpleTrendAdapter(BaseModel):
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         self.check_fitted()
         result = self._model.predict(X)
-        # Usar trend_perc como proxy de probabilidad
+        # Use trend_perc as probability proxy
         return (100 - result["trend_perc"]).values / 100
 
 
 class SimpleConstantAdapter(BaseModel):
     """
-    Adaptador para ConstantConsumptionClassifierWide que implementa BaseModel.
+    Adapter for ConstantConsumptionClassifierWide that implements BaseModel.
     """
 
     def __init__(
@@ -357,7 +357,7 @@ class SimpleConstantAdapter(BaseModel):
         X_val: Optional[pd.DataFrame] = None,
         y_val: Optional[pd.Series] = None,
     ) -> "SimpleConstantAdapter":
-        # Modelo simple no requiere entrenamiento
+        # Simple model does not require training
         self.is_fitted_ = True
         return self
 
@@ -367,5 +367,5 @@ class SimpleConstantAdapter(BaseModel):
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         self.check_fitted()
-        # Para este modelo, las predicciones binarias son las únicas disponibles
+        # For this model, binary predictions are the only ones available
         return self._model.predict(X).values.astype(float)

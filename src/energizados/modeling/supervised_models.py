@@ -1,16 +1,16 @@
 """
-Este módulo contiene las implementaciones de los modelos supervisados utilizados en el proyecto de aprendizaje automático.
+This module contains implementations of supervised models used in the machine learning project.
 
-Los modelos implementados son:
+The implemented models are:
 
-- LGBMModel: Implementa un modelo de Gradient Boosting con LightGBM.
-- CATModel: Implementa un modelo de Gradient Boosting con CatBoost.
-- NNModel: Implementa un modelo de Red Neuronal.
+- LGBMModel: Implements a Gradient Boosting model with LightGBM.
+- CATModel: Implements a Gradient Boosting model with CatBoost.
+- NNModel: Implements a Neural Network model.
 
-Cada modelo tiene métodos para entrenar y realizar predicciones.
+Each model has methods for training and making predictions.
 
-Nota: Este módulo requiere que se instalen las librerías LightGBM y CatBoost para los modelos de gradient boosting.
-TensorFlow solo se requiere para los modelos de redes neuronales (NNModel y LSTMNNModel).
+Note: This module requires LightGBM and CatBoost libraries to be installed for gradient boosting models.
+TensorFlow is only required for neural network models (NNModel and LSTMNNModel).
 
 """
 
@@ -40,10 +40,10 @@ logger = logging.getLogger(__name__)
 
 def get_preprocesor(preprocesor):
     if preprocesor == 4:
-        # Actividad
+        # Activity
         pipe_actividad = Pipeline([("cardinality_reducer", CardinalityReducer(threshold=0.001)), ("a_dummy", ToDummy(["actividad"]))])
 
-        # Segmento Tarifa
+        # Tariff Segment
         pipe_tarifa = Pipeline(
             [("cardinality_reducer", CardinalityReducer(threshold=0.001)), ("tarifa_te", TeEncoder(["tipo_tarifa"], w=20))]
         )
@@ -244,15 +244,15 @@ class NNModel:
 
     def __init__(self, features_names, spents_names, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
         """
-        Clase para un modelo de red neuronal feedforward.
+        Class for a feedforward neural network model.
 
         Args:
-        - features_names: lista de nombres de las características.
-        - spents_names: lista de nombres de los consumos.
-        - search_hip: booleano que indica si se debe buscar hiperparámetros (opcional).
-        - sampling_th: umbral de muestreo para el método de muestreo (opcional).
-        - preprocesor_num: número del preprocesador a utilizar (opcional).
-        - sampling_method: método de muestreo a utilizar ('over' o 'under') (opcional).
+        - features_names: list of feature names.
+        - spents_names: list of consumption names.
+        - search_hip: boolean indicating whether to search for hyperparameters (optional).
+        - sampling_th: sampling threshold for the sampling method (optional).
+        - preprocesor_num: preprocessor number to use (optional).
+        - sampling_method: sampling method to use ('over' or 'under') (optional).
         """
         self.features_names = features_names
         self.spents_names = spents_names
@@ -361,15 +361,15 @@ class LSTMNNModel:
 
     def __init__(self, features_names, spents_names, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
         """
-        Clase para un modelo de red neuronal LSTM.
+        Class for an LSTM neural network model.
 
         Args:
-        - features_names: lista de nombres de las características.
-        - spents_names: lista de nombres de los gastos.
-        - search_hip: booleano que indica si se debe buscar hiperparámetros (opcional).
-        - sampling_th: umbral de muestreo (opcional).
-        - preprocesor_num: número de preprocesador a utilizar (opcional).
-        - sampling_method: método de muestreo a utilizar (opcional).
+        - features_names: list of feature names.
+        - spents_names: list of spending names.
+        - search_hip: boolean indicating whether to search for hyperparameters (optional).
+        - sampling_th: sampling threshold (optional).
+        - preprocesor_num: preprocessor number to use (optional).
+        - sampling_method: sampling method to use (optional).
         """
         self.features_names = features_names
         self.spents_names = spents_names
