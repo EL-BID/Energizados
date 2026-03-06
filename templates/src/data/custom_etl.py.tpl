@@ -1,10 +1,10 @@
 """
-ETL Personalizado para {{project_name}}.
+Custom ETL for {{project_name}}.
 
-Este módulo extiende SourceETL para implementar lógica de procesamiento
-específica para este proyecto.
+This module extends SourceETL to implement specific processing logic
+for this project.
 
-Puedes sobrescribir los métodos extract(), transform() y load() según tus necesidades.
+You can override the extract(), transform() and load() methods as needed.
 """
 
 import pandas as pd
@@ -15,14 +15,14 @@ from energizados.preprocessing import fill_empty_values_cycle, fill_empty_values
 
 class CustomETL(SourceETL):
     """
-    ETL personalizado para {{project_name}}.
+    Custom ETL for {{project_name}}.
 
-    Hereda de SourceETL que ya implementa:
-    - Lectura de múltiples archivos (csv, parquet, xlsx)
-    - Modo concat (por defecto) para concatenar archivos verticalmente
-    - Modo merge para unir archivos horizontalmente
+    Inherits from SourceETL which already implements:
+    - Reading multiple files (csv, parquet, xlsx)
+    - Concat mode (default) to vertically concatenate files
+    - Merge mode to horizontally join files
 
-    Sobrescribe solo los métodos que necesites personalizar.
+    Override only the methods you need to customize.
     """
 
     def __init__(
@@ -35,16 +35,16 @@ class CustomETL(SourceETL):
             **kwargs,
     ):
         """
-        Inicializa el ETL.
+        Initialize the ETL.
 
         Args:
-            name: Nombre del ETL
-            input_paths: Lista de rutas de archivos de entrada
-            output_path: Ruta de salida para los datos transformados
-            mode: Modo de procesamiento ('concat' o 'merge'). Default: 'concat'
-            merge_config: Configuración para merge si mode='merge'
-                Ej: {'how': 'left', 'on': 'id_cliente'}
-            **kwargs: Parámetros adicionales desde la configuración
+            name: Name of the ETL
+            input_paths: List of input file paths
+            output_path: Output path for transformed data
+            mode: Processing mode ('concat' or 'merge'). Default: 'concat'
+            merge_config: Configuration for merge if mode='merge'
+                Ex: {'how': 'left', 'on': 'customer_id'}
+            **kwargs: Additional parameters from configuration
         """
         super().__init__(
             name=name,
@@ -55,13 +55,13 @@ class CustomETL(SourceETL):
             **kwargs,
         )
 
-    # Ejemplo: Sobrescribir extract() si necesitas lógica personalizada
+    # Example: Override extract() if you need custom logic
     # def extract(self) -> pd.DataFrame:
-    #     """Extrae datos con lógica personalizada."""
-    #     # Llamar al método padre para usar la lógica estándar
+    #     """Extract data with custom logic."""
+    #     # Call parent method to use standard logic
     #     df = super().extract()
     #
-    #     # O implementar tu propia lógica
+    #     # Or implement your own logic
     #     # dfs = [pd.read_csv(f) for f in self.input_paths]
     #     # df = pd.concat(dfs, axis=0)
     #
@@ -69,17 +69,17 @@ class CustomETL(SourceETL):
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma y limpia los datos.
+        Transform and clean the data.
 
-        Edita este método para implementar tu lógica de transformación.
+        Edit this method to implement your transformation logic.
 
         Args:
-            df: DataFrame crudo
+            df: Raw DataFrame
 
         Returns:
-            pd.DataFrame: DataFrame limpio
+            pd.DataFrame: Cleaned DataFrame
         """
-        # TODO: Implementar tu lógica de transformación
+        # TODO: Implement your transformation logic
 
         # Fill empty values for consuming vars
         df = fill_empty_values_cycle(df, cant_ciclos_validos=12, suffix="_anterior")
@@ -92,67 +92,67 @@ class CustomETL(SourceETL):
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """
-        Guarda los datos transformados.
+        Save the transformed data.
 
-        Por defecto usa el método padre que guarda en formato parquet.
-        Sobrescribe si necesitas formato diferente o validación de esquema.
+        By default uses the parent method which saves in parquet format.
+        Override if you need a different format or schema validation.
 
         Args:
-            df: DataFrame transformado
-            path: Ruta de salida
+            df: Transformed DataFrame
+            path: Output path
         """
-        # Ejemplo: Validar esquema antes de guardar
+        # Example: Validate schema before saving
         # validator = SchemaValidator(
-        #     required_columns=['id_cliente', 'fecha', 'consumo'],
-        #     categorical_columns=['actividad', 'zona'],
-        #     numeric_columns=['consumo', 'facturacion'],
+        #     required_columns=['customer_id', 'date', 'consumption'],
+        #     categorical_columns=['activity', 'zone'],
+        #     numeric_columns=['consumption', 'billing'],
         # )
         # validator.validate_and_raise(df)
 
-        # Usar el método padre que soporta csv, parquet, xlsx
+        # Use parent method which supports csv, parquet, xlsx
         super().load(df, path)
 
-# EJEMPLO DE USO EN CONFIG YAML
+# YAML CONFIG USAGE EXAMPLE
 # ================================
 #
-# 1. Concatenar múltiples archivos (modo por defecto):
+# 1. Concatenate multiple files (default mode):
 #
-#    mi_etl:
+#    my_etl:
 #      enabled: true
-#      description: "Concatena datos de múltiples archivos CSV"
+#      description: "Concatenates data from multiple CSV files"
 #      input:
 #        - "data/raw/file1.csv"
 #        - "data/raw/file2.csv"
 #        - "data/raw/file3.csv"
-#      output: "data/processed/concatenado.parquet"
+#      output: "data/processed/concatenated.parquet"
 #      custom_class: "{{package}}.data.custom_etl.CustomETL"
 #      params:
 #        mode: "concat"
 #
-# 2. Merging múltiples archivos:
+# 2. Merge multiple files:
 #
 #    merge_etl:
 #      enabled: true
-#      description: "Une consumos con clientes"
+#      description: "Merges consumption with customers"
 #      input:
-#        - "data/processed/consumos.parquet"
-#        - "data/processed/clientes.parquet"
+#        - "data/processed/consumption.parquet"
+#        - "data/processed/customers.parquet"
 #      output: "data/processed/merged.parquet"
 #      custom_class: "{{package}}.data.custom_etl.CustomETL"
 #      params:
 #        mode: "merge"
 #        merge_config:
 #          how: "left"
-#          on: "id_cliente"
+#          on: "customer_id"
 #
-# 3. Con transformación personalizada:
+# 3. With custom transformation:
 #
 #    transform_etl:
 #      enabled: true
-#      description: "Procesa datos con limpieza personalizada"
+#      description: "Processes data with custom cleaning"
 #      input:
-#        - "data/raw/datos.csv"
-#      output: "data/processed/lmpio.parquet"
+#        - "data/raw/data.csv"
+#      output: "data/processed/clean.parquet"
 #      custom_class: "{{package}}.data.custom_etl.CustomETL"
 #      params:
 #        mode: "concat"
