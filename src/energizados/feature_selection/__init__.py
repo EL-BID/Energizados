@@ -1,8 +1,8 @@
 """
 Feature Selection Module for Energizados Framework.
 
-Este módulo proporciona clases base e implementaciones
-para selección de características.
+This module provides base classes and implementations
+for feature selection.
 """
 
 from energizados.feature_selection.base import BaseFeatureSelector
@@ -28,7 +28,7 @@ __all__ = [
     "CorrelationSelector",
     "FeatureSelectionPipeline",
     "SelectionStep",
-    # Funciones legacy para compatibilidad
+    # Legacy functions for backward compatibility
     "feature_selection_by_correlation",
     "feature_selection_by_constant",
     "feature_selection_by_boruta",

@@ -1,8 +1,8 @@
 """
 Base inference class for Energizados Framework.
 
-Este módulo re-exporta BaseInference desde core para
-mantener consistencia con otros módulos del framework.
+This module re-exports BaseInference from core to
+maintain consistency with other framework modules.
 """
 
 from energizados.core.base import BaseInference

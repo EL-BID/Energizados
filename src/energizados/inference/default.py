@@ -1,8 +1,8 @@
 """
 Default inference implementation for Energizados Framework.
 
-Implementación por defecto de inferencia que permite cargar modelos,
-hacer predicciones y guardar resultados.
+Default inference implementation that allows loading models,
+making predictions, and saving results.
 """
 
 import pickle  # nosec: B403 - Standard for ML model serialization in Python ecosystem
@@ -17,16 +17,16 @@ from energizados.core.base import BaseInference, BaseModel
 
 class DefaultInference(BaseInference):
     """
-    Implementación por defecto de inferencia.
+    Default inference implementation.
 
-    Esta clase proporciona funcionalidad estándar para:
-    - Cargar modelos entrenados desde archivos pickle
-    - Realizar predicciones binarias y de probabilidad
-    - Guardar predicciones en archivos CSV
+    This class provides standard functionality for:
+    - Loading trained models from pickle files
+    - Making binary and probability predictions
+    - Saving predictions to CSV files
 
     Args:
-        model_path: Ruta al archivo del modelo entrenado
-        threshold: Umbral para predicciones binarias (default: 0.5)
+        model_path: Path to the trained model file.
+        threshold: Threshold for binary predictions (default: 0.5).
 
     Example:
         >>> from energizados.inference import DefaultInference
@@ -37,11 +37,11 @@ class DefaultInference(BaseInference):
 
     def __init__(self, model_path: Optional[str] = None, threshold: float = 0.5):
         """
-        Inicializa el motor de inferencia.
+        Initialize the inference engine.
 
         Args:
-            model_path: Ruta al archivo del modelo entrenado
-            threshold: Umbral para predicciones binarias (default: 0.5)
+            model_path: Path to the trained model file.
+            threshold: Threshold for binary predictions (default: 0.5).
         """
         self.model_path = model_path
         self.threshold = threshold
@@ -49,21 +49,21 @@ class DefaultInference(BaseInference):
 
     def load_model(self, model_path: str = None) -> BaseModel:
         """
-        Carga un modelo entrenado desde archivo pickle.
+        Load a trained model from a pickle file.
 
         SECURITY NOTE: Only load models from trusted sources. Pickle can execute
         arbitrary code during deserialization. This is the standard method for
         ML model serialization in the Python/scikit-learn ecosystem.
 
         Args:
-            model_path: Ruta al archivo del modelo (usa self.model_path si es None)
+            model_path: Path to the model file (uses self.model_path if None).
 
         Returns:
-            BaseModel: Modelo cargado
+            BaseModel: The loaded model.
 
         Raises:
-            ValueError: Si no se proporciona una ruta válida
-            FileNotFoundError: Si el archivo no existe
+            ValueError: If no valid path is provided.
+            FileNotFoundError: If the file does not exist.
         """
         path = model_path or self.model_path
         if not path:
@@ -76,43 +76,42 @@ class DefaultInference(BaseInference):
 
     def predict(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones binarias.
+        Make binary predictions.
 
-        Convierte las probabilidades en predicciones binarias usando
-        el umbral configurado.
+        Converts probabilities to binary predictions using the configured threshold.
 
         Args:
-            model: Modelo entrenado
-            data: Datos para predicción
+            model: Trained model.
+            data: Data for prediction.
 
         Returns:
-            np.ndarray: Predicciones binarias (0 o 1)
+            np.ndarray: Binary predictions (0 or 1).
         """
         proba = self.predict_proba(model, data)
         return (proba >= self.threshold).astype(int)
 
     def predict_proba(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
         """
-        Realiza predicciones de probabilidad.
+        Make probability predictions.
 
         Args:
-            model: Modelo entrenado
-            data: Datos para predicción
+            model: Trained model.
+            data: Data for prediction.
 
         Returns:
-            np.ndarray: Probabilidades de la clase positiva
+            np.ndarray: Probabilities of the positive class.
         """
         return model.predict_proba(data)
 
     def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
         """
-        Guarda predicciones en archivo CSV.
+        Save predictions to a CSV file.
 
-        Crea el directorio padre si no existe.
+        Creates the parent directory if it does not exist.
 
         Args:
-            predictions: Predicciones a guardar
-            output_path: Ruta de salida
+            predictions: Predictions to save.
+            output_path: Output path.
         """
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame({"prediction": predictions}).to_csv(output_path, index=False)
@@ -124,12 +123,12 @@ class DefaultInference(BaseInference):
         output_path: str,
     ) -> None:
         """
-        Guarda predicciones binarias y probabilidades en archivo CSV.
+        Save binary predictions and probabilities to a CSV file.
 
         Args:
-            predictions: Predicciones binarias
-            probas: Probabilidades
-            output_path: Ruta de salida
+            predictions: Binary predictions.
+            probas: Probabilities.
+            output_path: Output path.
         """
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(

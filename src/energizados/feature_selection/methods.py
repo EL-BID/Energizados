@@ -1,8 +1,8 @@
 """
 Feature Selection Methods for Energizados Framework.
 
-Implementaciones de métodos de selección de características basadas
-en el código existente del proyecto.
+Implementations of feature selection methods based on
+the existing project code.
 """
 
 import logging
@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 
 class CorrelationSelector(BaseFeatureSelector):
     """
-    Selector de variables basado en correlación.
+    Feature selector based on correlation.
 
-    Elimina variables altamente correlacionadas entre sí, manteniendo
-    la que tiene mayor correlación con el target.
+    Removes highly correlated variables, keeping the one with
+    the highest correlation with the target.
 
     Args:
-        method: Método de correlación ('pearson', 'spearman', 'kendall')
-        threshold: Umbral de correlación para eliminar variables (0.9 por defecto)
+        method: Correlation method ('pearson', 'spearman', 'kendall').
+        threshold: Correlation threshold for removing variables (default: 0.9).
     """
 
     def __init__(
@@ -44,14 +44,14 @@ class CorrelationSelector(BaseFeatureSelector):
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "CorrelationSelector":
         """
-        Aprende qué variables eliminar por alta correlación.
+        Learn which variables to remove due to high correlation.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            self
+            self: The fitted instance.
         """
         # Convert numpy array to DataFrame if needed
         if not isinstance(X, pd.DataFrame):
@@ -64,11 +64,11 @@ class CorrelationSelector(BaseFeatureSelector):
         X = X.copy()
         variables = X.columns.tolist()
 
-        logger.info("Calculando Correlación Entre Variables")
+        logger.info("Calculating Correlation Between Variables")
         X["target"] = y.values
         df_corr = X[variables + ["target"]].corr(method=self.method)
 
-        # Buscar variables más correlacionadas
+        # Find most correlated variables
         vars_to_drop_corr = []
         for x in variables:
             for y_var in variables:
@@ -83,35 +83,38 @@ class CorrelationSelector(BaseFeatureSelector):
         self.vars_to_drop_ = list(set(vars_to_drop_corr))
         self.selected_features_ = [v for v in variables if v not in self.vars_to_drop_]
 
-        logger.info(f"Eliminando {len(self.vars_to_drop_)} Variables Altamente Correlacionadas")
+        logger.info(f"Removing {len(self.vars_to_drop_)} Highly Correlated Variables")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma X eliminando variables correlacionadas.
+        Transform X by removing correlated variables.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame sin variables altamente correlacionadas
+            pd.DataFrame: DataFrame without highly correlated variables.
+
+        Raises:
+            ValueError: If fit() has not been called previously.
         """
         if self.selected_features_ is None:
-            raise ValueError("Debe llamar a fit() primero")
+            raise ValueError("Must call fit() first")
         return X[self.selected_features_].copy()
 
 
 class ConstantSelector(BaseFeatureSelector):
     """
-    Selector que elimina variables con valores constantes.
+    Selector that removes variables with constant values.
 
-    Elimina variables donde un mismo valor representa más del
-    porcentaje especificado de las filas.
+    Removes variables where a single value represents more than
+    the specified percentage of rows.
 
     Args:
-        threshold: Umbral de variabilidad (0.99 por defecto).
-                   Una variable se elimina si un valor representa
-                   más de este porcentaje de las filas.
+        threshold: Variability threshold (default: 0.99).
+                   A variable is removed if a value represents
+                   more than this percentage of rows.
     """
 
     def __init__(self, threshold: float = 0.99, config: Optional[dict] = None):
@@ -121,14 +124,14 @@ class ConstantSelector(BaseFeatureSelector):
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "ConstantSelector":
         """
-        Aprende qué variables son constantes.
+        Learn which variables are constant.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento (no usado en este método)
+            X: Training features.
+            y: Training target (not used in this method).
 
         Returns:
-            self
+            self: The fitted instance.
         """
         # Convert numpy array to DataFrame if needed
         if not isinstance(X, pd.DataFrame):
@@ -146,38 +149,41 @@ class ConstantSelector(BaseFeatureSelector):
         self.vars_to_drop_ = [label for label in all_labels if constant_per_feature[label] > self.threshold]
         self.selected_features_ = [x for x in all_labels if x not in self.vars_to_drop_]
 
-        logger.info(f"Eliminando {len(self.vars_to_drop_)} Variables Constantes")
+        logger.info(f"Removing {len(self.vars_to_drop_)} Constant Variables")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma X eliminando variables constantes.
+        Transform X by removing constant variables.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame sin variables constantes
+            pd.DataFrame: DataFrame without constant variables.
+
+        Raises:
+            ValueError: If fit() has not been called previously.
         """
         if self.selected_features_ is None:
-            raise ValueError("Debe llamar a fit() primero")
+            raise ValueError("Must call fit() first")
         return X[self.selected_features_].copy()
 
 
 class BorutaSelector(BaseFeatureSelector):
     """
-    Selector de variables usando el algoritmo Boruta.
+    Feature selector using the Boruta algorithm.
 
-    Boruta es un algoritmo de selección de features que compara
-    la importancia de variables originales con variables aleatorias
-    ("shadow features") para determinar cuáles son realmente importantes.
+    Boruta is a feature selection algorithm that compares the importance
+    of original variables with random variables ("shadow features") to
+    determine which are truly important.
 
     Args:
-        n_estimators: Número de árboles en el RandomForest
-        max_depth: Profundidad máxima de los árboles
-        max_iter: Número de iteraciones para ejecutar Boruta
-        perc: Percentil para features confirmados (default: 100)
-        random_state: Semilla aleatoria
+        n_estimators: Number of trees in the RandomForest.
+        max_depth: Maximum depth of the trees.
+        max_iter: Number of iterations to run Boruta.
+        perc: Percentile for confirmed features (default: 100).
+        random_state: Random seed.
     """
 
     def __init__(
@@ -195,18 +201,18 @@ class BorutaSelector(BaseFeatureSelector):
         self.max_iter = max_iter
         self.perc = perc
         self.random_state = random_state
-        self.n_runs_ = 10  # Número de ejecuciones para estabilidad
+        self.n_runs_ = 10  # Number of runs for stability
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "BorutaSelector":
         """
-        Aprende qué variables seleccionar usando Boruta.
+        Learn which features to select using Boruta.
 
         Args:
-            X: Features de entrenamiento
-            y: Target de entrenamiento
+            X: Training features.
+            y: Training target.
 
         Returns:
-            self
+            self: The fitted instance.
         """
         # Convert numpy array to DataFrame if needed
         if not isinstance(X, pd.DataFrame):
@@ -230,8 +236,8 @@ class BorutaSelector(BaseFeatureSelector):
         y = y.copy()
 
         d = {}
-        for i in tqdm(range(self.n_runs_), total=self.n_runs_, desc="Ejecutando Boruta"):
-            # Agregar variable aleatoria como shadow feature
+        for i in tqdm(range(self.n_runs_), total=self.n_runs_, desc="Running Boruta"):
+            # Add random variable as shadow feature
             X_temp = X.copy()
             X_temp["random"] = np.random.randn(len(X_temp))
 
@@ -255,7 +261,7 @@ class BorutaSelector(BaseFeatureSelector):
 
             ranking = pd.DataFrame({"col": X_temp.columns, "ranking": feat_selector.ranking_}).sort_values("ranking")
 
-            # Variables hasta el "random"
+            # Variables up to the "random"
             random_idx = ranking[ranking.col == "random"].index
             if len(random_idx) > 0:
                 random_rank = ranking[ranking.col == "random"]["ranking"].values[0]
@@ -265,7 +271,7 @@ class BorutaSelector(BaseFeatureSelector):
 
             d[i] = variables
 
-        # Contar cuántas veces apareció cada variable
+        # Count how many times each variable appeared
         E = {}
         for i in d.keys():
             for var in d[i]:
@@ -274,37 +280,40 @@ class BorutaSelector(BaseFeatureSelector):
                 else:
                     E[var] += 1
 
-        # Variables que aparecen en al menos la mitad de las ejecuciones
+        # Variables that appear in at least half of the runs
         self.selected_features_ = [k for k in E.keys() if E[k] >= self.n_runs_ // 2]
         self.selected_features_ = [v for v in self.selected_features_ if v != "random"]
 
-        logger.info(f"Seleccionadas {len(self.selected_features_)} variables por Boruta")
+        logger.info(f"Selected {len(self.selected_features_)} variables by Boruta")
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma X dejando solo las variables seleccionadas.
+        Transform X keeping only the selected variables.
 
         Args:
-            X: DataFrame a transformar
+            X: DataFrame to transform.
 
         Returns:
-            pd.DataFrame: DataFrame con variables seleccionadas
+            pd.DataFrame: DataFrame with selected variables.
+
+        Raises:
+            ValueError: If fit() has not been called previously.
         """
         if self.selected_features_ is None:
-            raise ValueError("Debe llamar a fit() primero")
+            raise ValueError("Must call fit() first")
 
-        # Asegurar que todas las variables existan
+        # Ensure all variables exist
         available_features = [f for f in self.selected_features_ if f in X.columns]
         return X[available_features].copy()
 
 
 def feature_selection_by_correlation(x_train, y_train, variables, method="pearson", th=0.9):
     """
-    Función legada para compatibilidad con código existente.
+    Legacy function for compatibility with existing code.
 
     .. deprecated::
-        Use CorrelationSelector en su lugar.
+        Use CorrelationSelector instead.
     """
     selector = CorrelationSelector(method=method, threshold=th)
     selector.fit(x_train[variables], y_train)
@@ -313,10 +322,10 @@ def feature_selection_by_correlation(x_train, y_train, variables, method="pearso
 
 def feature_selection_by_constant(x_train, y_train, variables, th=0.99):
     """
-    Función legada para compatibilidad con código existente.
+    Legacy function for compatibility with existing code.
 
     .. deprecated::
-        Use ConstantSelector en su lugar.
+        Use ConstantSelector instead.
     """
     selector = ConstantSelector(threshold=th)
     selector.fit(x_train[variables], y_train)
@@ -325,10 +334,10 @@ def feature_selection_by_constant(x_train, y_train, variables, th=0.99):
 
 def feature_selection_by_boruta(X_train, y_train, N=10):
     """
-    Función legada para compatibilidad con código existente.
+    Legacy function for compatibility with existing code.
 
     .. deprecated::
-        Use BorutaSelector en su lugar.
+        Use BorutaSelector instead.
     """
     selector = BorutaSelector(max_iter=N, n_runs_=N)
     selector.fit(X_train, y_train)

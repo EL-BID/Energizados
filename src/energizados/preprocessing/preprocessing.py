@@ -1,21 +1,21 @@
 """
-Módulo preprocessing.py
+preprocessing.py Module
 
-Este módulo contiene clases y funciones utilizadas para el preprocesamiento de datos antes de su análisis.
+This module contains classes and functions used for data preprocessing before analysis.
 
-Clases:
-- ToDummy: Transforma variables categóricas en variables dummy.
-- TeEncoder: Codifica variables categóricas utilizando target encoding.
-- CardinalityReducer: Reduce la cardinalidad de variables categóricas.
-- MinMaxScalerRow: Aplica la transformación Min-Max a las filas de una matriz.
-- TsfelVars: Calcula características utilizando la biblioteca tsfel.
-- ExtraVars: Crea características adicionales basadas en los valores anteriores.
+Classes:
+- ToDummy: Transforms categorical variables into dummy variables.
+- TeEncoder: Encodes categorical variables using target encoding.
+- CardinalityReducer: Reduces the cardinality of categorical variables.
+- MinMaxScalerRow: Applies Min-Max transformation to matrix rows.
+- TsfelVars: Calculates features using the tsfel library.
+- ExtraVars: Creates additional features based on previous values.
 
-Funciones:
-- fill_empty_values_cycle: Rellena los valores vacíos en las columnas de consumo con los valores anteriores o posteriores.
-- fill_empty_values_str: Rellena los valores vacíos en columnas de tipo string con un valor específico.
-- fill_empty_values_numeric: Rellena los valores vacíos en columnas numéricas con un valor específico.
-- build_feature_engineering_pipeline: Construye una tubería de preprocesamiento para la ingeniería de características.
+Functions:
+- fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent values.
+- fill_empty_values_str: Fills empty values in string columns with a specific value.
+- fill_empty_values_numeric: Fills empty values in numeric columns with a specific value.
+- build_feature_engineering_pipeline: Builds a preprocessing pipeline for feature engineering.
 """
 
 import logging
@@ -31,9 +31,9 @@ from tqdm import tqdm
 logger = logging.getLogger()
 
 
-# tsfel se importa de forma lazy para evitar problemas de compatibilidad con scipy
+# tsfel is imported lazily to avoid scipy compatibility issues
 def _get_tsfel():
-    """Importa tsfel de forma lazy."""
+    """Import tsfel lazily."""
     import tsfel
 
     return tsfel
@@ -41,11 +41,11 @@ def _get_tsfel():
 
 class ToDummy(BaseEstimator, TransformerMixin):
     """
-    Transforma variables categóricas en variables dummy.
+    Transforms categorical variables into dummy variables.
 
-    Parámetros:
-    - cols: list, lista de columnas que se convertirán en variables dummy.
-    - sparse: bool, si True devuelve matriz sparse (default=False)
+    Parameters:
+    - cols: list, list of columns to convert to dummy variables.
+    - sparse: bool, if True returns sparse matrix (default=False).
     """
 
     def __init__(self, cols=None, sparse=False):
@@ -53,21 +53,21 @@ class ToDummy(BaseEstimator, TransformerMixin):
         self.sparse = sparse
 
     def fit(self, X, y=None):
-        # X es un DataFrame con solo las columnas a transformar
+        # X is a DataFrame with only the columns to transform
         if self.cols is None:
             self.cols = X.columns.tolist()
 
-        # Guardar categorías vistas durante fit
+        # Store categories seen during fit
         self.categories_ = {}
         for col in self.cols:
             self.categories_[col] = set(X[col].unique())
 
-        # Generar nombres de columnas dummy
+        # Generate dummy column names
         self.dummy_names_ = self._generate_dummy_names(self.categories_)
         return self
 
     def _generate_dummy_names(self, categories):
-        """Genera nombres de columnas dummy basado en las categorías"""
+        """Generate dummy column names based on categories."""
         names = []
         for col, cats in categories.items():
             for cat in cats:
@@ -75,26 +75,26 @@ class ToDummy(BaseEstimator, TransformerMixin):
         return names
 
     def transform(self, X, y=None):
-        # X es un DataFrame con solo las columnas a transformar
+        # X is a DataFrame with only the columns to transform
         X_transformed = pd.DataFrame(index=X.index)
 
         for col in self.cols:
-            # Crear dummies solo para esta columna
+            # Create dummies only for this column
             dummies = pd.get_dummies(X[col], prefix=f"dummy_{col}", dtype=float)
 
-            # Agregar columnas faltantes (categorías en train pero no en test)
+            # Add missing columns (categories in train but not in test)
             for cat in self.categories_[col]:
                 col_name = f"dummy_{col}_{cat}"
                 if col_name not in dummies.columns:
                     dummies[col_name] = 0
 
-            # Eliminar columnas extra (categorías en test pero no en train)
+            # Remove extra columns (categories in test but not in train)
             cols_to_keep = [f"dummy_{col}_{cat}" for cat in self.categories_[col]]
             dummies = dummies[cols_to_keep]
 
             X_transformed = pd.concat([X_transformed, dummies], axis=1)
 
-        # Devolver en el orden correcto y como array numpy
+        # Return in correct order and as numpy array
         X_transformed = X_transformed[self.dummy_names_]
 
         if self.sparse:
@@ -105,17 +105,17 @@ class ToDummy(BaseEstimator, TransformerMixin):
         return X_transformed.values
 
     def get_feature_names_out(self, input_features=None):
-        """Metodo requerido por scikit-learn 1.2+ para set_output"""
+        """Method required by scikit-learn 1.2+ for set_output."""
         return self.dummy_names_
 
 
 class TeEncoder(BaseEstimator, TransformerMixin):
     """
-    Codifica variables categóricas utilizando target encoding.
+    Encodes categorical variables using target encoding.
 
-    Parámetros:
-    - cols: list, lista de columnas que se codificarán.
-    - w: int, peso para el cálculo del target encoding (suavizado).
+    Parameters:
+    - cols: list, list of columns to encode.
+    - w: int, weight for target encoding calculation (smoothing).
     """
 
     def __init__(self, cols=None, w=20):
@@ -124,47 +124,47 @@ class TeEncoder(BaseEstimator, TransformerMixin):
         self.te_var_name = None
 
     def _generate_output_name(self):
-        """Genera el nombre de la columna de salida"""
+        """Generate the output column name."""
         if self.cols is None:
             return "target_enc_prob"
         return "_".join(self.cols) + "_prob"
 
     def fit(self, X, y=None):
-        # X es un DataFrame con solo las columnas a codificar
+        # X is a DataFrame with only the columns to encode
         if self.cols is None:
             self.cols = X.columns.tolist()
 
         self.te_var_name = self._generate_output_name()
         self.mean_global = y.mean()
 
-        # Crear mapping sin modificar X original
+        # Create mapping without modifying original X
         df = X.copy()
         df["target"] = y.values
 
-        # Agrupar y calcular target encoding con suavizado
+        # Group and calculate target encoding with smoothing
         te = df.groupby(self.cols)["target"].agg(["mean", "count"]).reset_index()
         te[self.te_var_name] = ((te["mean"] * te["count"]) + (self.mean_global * self.w)) / (te["count"] + self.w)
 
-        # Guardar solo las columnas necesarias para el merge
+        # Store only the necessary columns for merge
         self.te_mapping_ = te[self.cols + [self.te_var_name]]
 
         return self
 
     def transform(self, X):
-        # X es un DataFrame con solo las columnas a codificar
+        # X is a DataFrame with only the columns to encode
         X_copy = X.copy()
 
-        # Hacer merge con el mapping
+        # Merge with the mapping
         X_copy = X_copy.merge(self.te_mapping_, on=self.cols, how="left")
 
-        # Rellenar NaNs con la media global
+        # Fill NaNs with global mean
         X_copy[self.te_var_name] = X_copy[self.te_var_name].fillna(self.mean_global)
 
-        # Devolver solo la columna codificada como numpy array (2D)
+        # Return only the encoded column as numpy array (2D)
         return X_copy[[self.te_var_name]].values
 
     def get_feature_names_out(self, input_features=None):
-        """Método requerido por scikit-learn 1.2+ para set_output"""
+        """Method required by scikit-learn 1.2+ for set_output."""
         if self.te_var_name is None:
             self.te_var_name = self._generate_output_name()
         return np.array([self.te_var_name])
@@ -172,13 +172,13 @@ class TeEncoder(BaseEstimator, TransformerMixin):
 
 class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
     """
-    Clase CardinalityReducer
+    CardinalityReducer Class
 
-    Transformador para reducir la cardinalidad de variables categóricas.
+    Transformer to reduce the cardinality of categorical variables.
 
-    Parámetros:
-    - cols: list, lista de columnas categóricas a reducir su cardinalidad.
-    - threshold: int, límite de frecuencia para agrupar categorías poco frecuentes en una categoría "otro".
+    Parameters:
+    - cols: list, list of categorical columns to reduce cardinality.
+    - threshold: int, frequency limit to group infrequent categories into an "other" category.
     """
 
     def __init__(self, threshold=0.1):
@@ -190,7 +190,7 @@ class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         return categories
 
     def fit(self, X, y=None):
-        # Guardar nombres de columnas para soporte de set_output
+        # Store column names for set_output support
         if hasattr(X, "columns"):
             self.feature_names_in_ = np.array(X.columns.tolist())
         else:
@@ -210,23 +210,23 @@ class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
 
     def get_feature_names_out(self, input_features=None):
         """
-        Método requerido por scikit-learn 1.2+ para set_output.
-        Devuelve los nombres de las características de salida (iguales a las de entrada).
+        Method required by scikit-learn 1.2+ for set_output.
+        Returns output feature names (same as input features).
         """
         if input_features is not None:
             return input_features
         if hasattr(self, "feature_names_in_"):
             return self.feature_names_in_
-        # Fallback: generar nombres genéricos si no se guardaron
+        # Fallback: generate generic names if none were stored
         return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
 
 
 class CastDtype(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
     """
-    Convierte columnas a un tipo de dato pandas específico.
+    Converts columns to a specific pandas dtype.
 
-    Parámetros:
-    - dtype: str o tipo pandas, dtype destino (ej: 'float32', 'int8', 'category', 'bool').
+    Parameters:
+    - dtype: str or pandas type, target dtype (e.g., 'float32', 'int8', 'category', 'bool').
     """
 
     def __init__(self, dtype="float32"):
@@ -243,19 +243,19 @@ class CastDtype(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
 
 class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
     """
-    Clase MinMaxScalerRow
+    MinMaxScalerRow Class
 
-    Transformador para escalar las filas de una matriz utilizando Min-Max Scaling.
+    Transformer to scale matrix rows using Min-Max Scaling.
 
-    Parámetros:
-    - feature_range: tuple, rango de valores para el escalado.
+    Parameters:
+    - feature_range: tuple, range of values for scaling.
     """
 
     def __init__(self, feature_range=(0, 1)):
         self.feature_range = feature_range
 
     def fit(self, X, y=None):
-        # Guardar nombres de columnas para soporte de set_output
+        # Store column names for set_output support
         if hasattr(X, "columns"):
             self.feature_names_in_ = np.array(X.columns.tolist())
         else:
@@ -266,7 +266,7 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         scaler = MinMaxScaler(feature_range=self.feature_range)
         X_scaled = scaler.fit_transform(X.T).T
 
-        # Si X es un DataFrame, devolver un DataFrame con los mismos nombres e índice
+        # If X is a DataFrame, return a DataFrame with same names and index
         if hasattr(X, "columns") and hasattr(X, "index"):
             import pandas as pd
 
@@ -276,29 +276,29 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
 
     def get_feature_names_out(self, input_features=None):
         """
-        Método requerido por scikit-learn 1.2+ para set_output.
-        Devuelve los nombres de las características de salida (iguales a las de entrada).
+        Method required by scikit-learn 1.2+ for set_output.
+        Returns output feature names (same as input features).
         """
         if input_features is not None:
             return input_features
         if hasattr(self, "feature_names_in_"):
             return self.feature_names_in_
-        # Fallback: generar nombres genéricos si no se guardaron
+        # Fallback: generate generic names if none were stored
         return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
 
 
 def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
     """
-    Procesa un chunk de filas con tsfel. Función a nivel de módulo para ser
-    serializable por joblib en modo multiprocessing.
+    Process a chunk of rows with tsfel. Module-level function to be
+    serializable by joblib in multiprocessing mode.
 
     Args:
-        chunk_values: numpy array (N_filas, N_periodos)
-        chunk_indices: lista de índices originales del DataFrame
-        cfg: configuración de tsfel (resultado de get_features_by_domain)
+        chunk_values: numpy array (N_rows, N_periods).
+        chunk_indices: list of original DataFrame indices.
+        cfg: tsfel configuration (result of get_features_by_domain).
 
     Returns:
-        pd.DataFrame con features extraídas + columna 'index'
+        pd.DataFrame with extracted features + 'index' column.
     """
     tsfel = _get_tsfel()
     results = []
@@ -307,7 +307,7 @@ def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
         null_count = features.isnull().sum().sum()
         if null_count > 0:
             null_cols = features.columns[features.isnull().any()].tolist()
-            logger.warning(f"TsfelVars: índice {idx} generó {null_count} nulos " f"(ej: {null_cols[:3]}). values={values}")
+            logger.warning(f"TsfelVars: index {idx} generated {null_count} nulls " f"(e.g., {null_cols[:3]}). values={values}")
         features["index"] = idx
         results.append(features)
     return pd.concat(results, ignore_index=True)
@@ -315,16 +315,16 @@ def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
 
 class TsfelVars(BaseEstimator, TransformerMixin):
     """
-    Transformador para extraer características de series de tiempo usando tsfel.
+    Transformer to extract time series features using tsfel.
 
-    Parámetros:
-    - features_names_path: str o None, path a JSON con config custom de tsfel.
-    - num_periodos: int, número de periodos de consumo a usar (default=12).
-    - periods_suffix: str, sufijo de las columnas de consumo (default="_anterior").
-    - n_jobs: int, número de procesos paralelos. 1=secuencial, -1=todos los cores.
-    - chunk_size: int, filas por chunk enviadas a cada worker (default=500).
-    - cache_dir: str o None, directorio para cachear resultados en disco.
-      Si None, no se cachea. Útil para experimentación iterativa.
+    Parameters:
+    - features_names_path: str or None, path to JSON with custom tsfel config.
+    - num_periodos: int, number of consumption periods to use (default=12).
+    - periods_suffix: str, suffix of consumption columns (default="_anterior").
+    - n_jobs: int, number of parallel processes. 1=sequential, -1=all cores.
+    - chunk_size: int, rows per chunk sent to each worker (default=500).
+    - cache_dir: str or None, directory to cache results on disk.
+      If None, no caching. Useful for iterative experimentation.
     """
 
     def __init__(
@@ -348,16 +348,16 @@ class TsfelVars(BaseEstimator, TransformerMixin):
 
     def _run_parallel(self, df, cols, cfg, desc="tsfel"):
         """
-        Divide df en chunks y los procesa en paralelo (o secuencial si n_jobs=1).
+        Split df into chunks and process them in parallel (or sequential if n_jobs=1).
 
         Args:
-            df: DataFrame completo
-            cols: columnas de consumo a usar
-            cfg: configuración de tsfel
-            desc: descripción para la barra de progreso
+            df: Complete DataFrame.
+            cols: Consumption columns to use.
+            cfg: tsfel configuration.
+            desc: Description for progress bar.
 
         Returns:
-            pd.DataFrame con todas las features concatenadas + columna 'index'
+            pd.DataFrame with all features concatenated + 'index' column.
         """
         from joblib import Parallel, delayed
 
@@ -365,10 +365,10 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         indices = df.index.tolist()
         n = len(df)
 
-        # Dividir en chunks
+        # Split into chunks
         chunks = [(data[i : i + self.chunk_size], indices[i : i + self.chunk_size]) for i in range(0, n, self.chunk_size)]
 
-        logger.info(f"TsfelVars [{desc}]: {n} filas en {len(chunks)} chunks, n_jobs={self.n_jobs}")
+        logger.info(f"TsfelVars [{desc}]: {n} rows in {len(chunks)} chunks, n_jobs={self.n_jobs}")
 
         results = Parallel(n_jobs=self.n_jobs)(
             delayed(_tsfel_process_chunk)(chunk_values, chunk_indices, cfg) for chunk_values, chunk_indices in tqdm(chunks, desc=desc)
@@ -377,7 +377,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         return pd.concat(results, ignore_index=True)
 
     def _get_cached_transform(self):
-        """Retorna versión cacheada de _compute si cache_dir está configurado."""
+        """Return cached version of _compute if cache_dir is configured."""
         if self.cache_dir is not None:
             from joblib import Memory
 
@@ -387,14 +387,14 @@ class TsfelVars(BaseEstimator, TransformerMixin):
 
     def _compute(self, df_values, df_indices, cols, cfg_domain=None, cfg_json_path=None):
         """
-        Núcleo del cómputo, separado para permitir caching con joblib.Memory.
+        Core computation, separated to allow caching with joblib.Memory.
 
         Args:
-            df_values: numpy array con los valores de las columnas de consumo
-            df_indices: lista de índices originales
-            cols: nombres de columnas (para reconstruir DataFrame)
-            cfg_domain: nombre del dominio tsfel ('statistical', 'temporal', etc.)
-            cfg_json_path: path a JSON de config tsfel (mutuamente excluyente con cfg_domain)
+            df_values: numpy array with consumption column values.
+            df_indices: list of original indices.
+            cols: column names (to reconstruct DataFrame).
+            cfg_domain: tsfel domain name ('statistical', 'temporal', etc.).
+            cfg_json_path: path to tsfel config JSON (mutually exclusive with cfg_domain).
         """
         tsfel = _get_tsfel()
         if cfg_json_path is not None:
@@ -404,7 +404,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
             cfg = tsfel.get_features_by_domain(cfg_domain)
             desc = cfg_domain
 
-        # Reconstruir DataFrame temporal para _run_parallel
+        # Reconstruct temporary DataFrame for _run_parallel
         df_temp = pd.DataFrame(df_values, index=df_indices, columns=cols)
         return self._run_parallel(df_temp, cols, cfg, desc=desc)
 
@@ -480,12 +480,12 @@ class TsfelVars(BaseEstimator, TransformerMixin):
 
 class ExtraVars(BaseEstimator, TransformerMixin):
     """
-    Clase ExtraVars
+    ExtraVars Class
 
-    Transformador para generar variables adicionales basadas en datos de series de tiempo.
+    Transformer to generate additional features based on time series data.
 
-    Parámetros:
-    - aggregation_functions: dict, diccionario que mapea el nombre de la nueva variable con una función de agregación.
+    Parameters:
+    - aggregation_functions: dict, dictionary mapping new feature names to aggregation functions.
     """
 
     def __init__(self, num_periodos=3, periods_suffix: str = "_anterior"):
@@ -520,24 +520,24 @@ class ExtraVars(BaseEstimator, TransformerMixin):
         return slope
 
     def create_vbles(self, df_total_super):
-        # generar listado de cols de atras hacia delante i.e: ['3_anterior', '2_anterior', '1_anterior'], etc.
+        # generate list of cols from back to front i.e: ['3_anterior', '2_anterior', '1_anterior'], etc.
         cols_3_anterior = self.obtener_cols_anterior(num_cols=self.num_periodos)
         num_periodos_str = str(self.num_periodos)
-        # promedios
+        # averages
         df_total_super.loc[:, "mean_" + num_periodos_str] = df_total_super[cols_3_anterior].mean(axis=1)
-        # Cantidad de ceros
+        # Zero count
         df_total_super.loc[:, "cant_ceros_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(self.count_cero, axis=1)
         df_total_super.loc[:, "max_cant_ceros_seg_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(
             self.count_cero_seguidos, axis=1
         )
         # Slope
         df_total_super.loc[:, "slope_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(self.calc_slope, axis=1)
-        # Min, Max, STD, Varianza 3 periodos
+        # Min, Max, STD, Variance for 3 periods
         df_total_super.loc[:, "min_cons" + num_periodos_str] = df_total_super[cols_3_anterior].min(axis=1)
         df_total_super.loc[:, "max_cons" + num_periodos_str] = df_total_super[cols_3_anterior].max(axis=1)
         df_total_super.loc[:, "std_cons" + num_periodos_str] = df_total_super[cols_3_anterior].std(axis=1)
         df_total_super.loc[:, "var_cons" + num_periodos_str] = df_total_super[cols_3_anterior].var(axis=1)
-        # skewness y kurtosis 3 periodos
+        # skewness and kurtosis for 3 periods
         df_total_super.loc[:, "skew_cons" + num_periodos_str] = df_total_super[cols_3_anterior].skew(axis=1)
         if self.num_periodos > 3:
             df_total_super.loc[:, "kurt_cons" + num_periodos_str] = df_total_super[cols_3_anterior].kurt(axis=1)
