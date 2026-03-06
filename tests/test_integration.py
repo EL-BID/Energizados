@@ -1,8 +1,8 @@
 """
 Integration tests for Energizados Framework.
 
-Pruebas de integración que verifican el funcionamiento conjunto
-de los componentes del framework.
+Integration tests that verify the joint operation of
+framework components.
 """
 
 import shutil
@@ -17,25 +17,36 @@ from energizados.etl.orchestrator import ETLOrchestrator
 
 
 class TestPipelineIntegration:
-    """Tests de integración para Pipeline."""
+    """Integration tests for Pipeline."""
 
     @pytest.fixture
     def temp_dir(self):
-        """Crea directorio temporal para tests."""
+        """Create a temporary directory for tests.
+
+        Yields:
+            Path: Path to temporary directory that is cleaned up after test.
+        """
         temp = Path(tempfile.mkdtemp())
         yield temp
         shutil.rmtree(temp)
 
     @pytest.fixture
     def valid_config(self, temp_dir):
-        """Crea configuración válida para pruebas."""
+        """Create a valid configuration for testing.
+
+        Args:
+            temp_dir: Temporary directory path.
+
+        Yields:
+            Path: Path to the configuration file.
+        """
         config_file = temp_dir / "config.yaml"
 
-        # Crear archivos de datos
+        # Create data files
         data_dir = temp_dir / "data"
         data_dir.mkdir()
 
-        # Crear datos de prueba
+        # Create test data
         test_df = pd.DataFrame(
             {
                 "consumo_12_anterior": [100, 200, 150],
@@ -72,7 +83,7 @@ evaluation:
         return config_file
 
     def test_config_pipeline_builder_with_valid_config(self, valid_config):
-        """Verifica que ConfigPipelineBuilder construya un pipeline válido."""
+        """Verify that ConfigPipelineBuilder builds a valid pipeline."""
         builder = ConfigPipelineBuilder(str(valid_config))
         pipeline = builder.build()
 
@@ -80,22 +91,22 @@ evaluation:
         assert isinstance(pipeline, Pipeline)
 
     def test_pipeline_run_with_no_steps(self, valid_config):
-        """Verifica que un pipeline sin pasos se maneje correctamente."""
+        """Verify that a pipeline with no steps is handled correctly."""
         builder = ConfigPipelineBuilder(str(valid_config))
         pipeline = builder.build()
 
-        # Pipeline sin pasos debería poder crearse
+        # Pipeline with no steps should be able to be created
         assert len(pipeline.steps) == 0
 
     def test_pipeline_with_multi_etl_config(self, temp_dir):
-        """Verifica integración con múltiples ETLs."""
+        """Verify integration with multiple ETLs."""
         config_file = temp_dir / "multi_etl_config.yaml"
 
-        # Crear directorios para ETLs
+        # Create directories for ETLs
         raw_dir = temp_dir / "data" / "raw"
         raw_dir.mkdir(parents=True)
 
-        # Crear datos de prueba
+        # Create test data
         df1 = pd.DataFrame({"id": [1, 2], "valor": [10, 20]})
         df1.to_csv(raw_dir / "source1.csv", index=False)
 
@@ -107,7 +118,7 @@ project:
 etls:
   source1:
     enabled: true
-    description: "Procesa fuente 1"
+    description: "Processes source 1"
     input: "data/raw/source1.csv"
     output: "data/processed/source1.parquet"
     depends_on: []
@@ -126,27 +137,31 @@ evaluation:
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
 
-        # Verificar que se creó el paso MultiETLStep
+        # Verify that MultiETLStep was created
         assert len(pipeline.steps) == 1
 
 
 class TestETLOrchestratorIntegration:
-    """Tests de integración para ETLOrchestrator."""
+    """Integration tests for ETLOrchestrator."""
 
     @pytest.fixture
     def temp_dir(self):
-        """Crea directorio temporal para tests."""
+        """Create a temporary directory for tests.
+
+        Yields:
+            Path: Path to temporary directory that is cleaned up after test.
+        """
         temp = Path(tempfile.mkdtemp())
         yield temp
         shutil.rmtree(temp)
 
     def test_full_etl_workflow(self, temp_dir):
-        """Verifica flujo completo de ETLs con dependencias."""
-        # Crear directorios y archivos de prueba
+        """Verify complete ETL workflow with dependencies."""
+        # Create directories and test files
         raw_dir = temp_dir / "data" / "raw"
         raw_dir.mkdir(parents=True)
 
-        # Crear datos de prueba
+        # Create test data
         df_consumos = pd.DataFrame(
             {
                 "id_cliente": [1, 2, 3, 4],
@@ -163,11 +178,11 @@ class TestETLOrchestratorIntegration:
         df_consumos.to_csv(raw_dir / "consumos.csv", index=False)
         df_clientes.to_csv(raw_dir / "clientes.csv", index=False)
 
-        # Configuración con múltiples ETLs - solo las que podemos probar
+        # Configuration with multiple ETLs - only the ones we can test
         configs = {
             "consumos": {
                 "enabled": True,
-                "description": "Procesa consumos",
+                "description": "Processes consumptions",
                 "input": "data/raw/consumos.csv",
                 "output": "data/consumos.parquet",
                 "custom_class": "energizados.etl.pipeline.SourceETL",
@@ -176,7 +191,7 @@ class TestETLOrchestratorIntegration:
             },
             "clientes": {
                 "enabled": True,
-                "description": "Procesa clientes",
+                "description": "Processes customers",
                 "input": "data/raw/clientes.csv",
                 "output": "data/clientes.parquet",
                 "custom_class": "energizados.etl.pipeline.SourceETL",
@@ -185,7 +200,7 @@ class TestETLOrchestratorIntegration:
             },
         }
 
-        # Cambiar al directorio temporal
+        # Change to temporary directory
         import os
 
         original_dir = os.getcwd()
@@ -194,17 +209,17 @@ class TestETLOrchestratorIntegration:
         try:
             orchestrator = ETLOrchestrator(configs)
 
-            # Validar dependencias
+            # Validate dependencies
             orchestrator.validate_dependencies()
 
-            # Obtener orden de ejecución
+            # Get execution order
             order = orchestrator.build_execution_order()
             assert set(order) == {"consumos", "clientes"}
 
-            # Ejecutar ETLs
+            # Run ETLs
             results = orchestrator.run()
 
-            # Verificar resultados
+            # Verify results
             assert "consumos" in results
             assert "clientes" in results
 
@@ -213,10 +228,10 @@ class TestETLOrchestratorIntegration:
 
 
 class TestETLDependencyScenarios:
-    """Tests de escenarios de dependencias complejas."""
+    """Tests for complex dependency scenarios."""
 
     def test_linear_chain_dependency(self):
-        """Verifica cadena lineal de dependencias (A → B → C)."""
+        """Verify linear dependency chain (A → B → C)."""
         configs = {
             "a": {"enabled": True, "input": "a.csv", "output": "a.parquet", "depends_on": []},
             "b": {"enabled": True, "input": "@a", "output": "b.parquet", "depends_on": ["a"]},
@@ -229,7 +244,7 @@ class TestETLDependencyScenarios:
         assert order == ["a", "b", "c"]
 
     def test_diamond_dependency_pattern(self):
-        """Verifica patrón diamante (top → left/right → bottom)."""
+        """Verify diamond pattern (top → left/right → bottom)."""
         configs = {
             "top": {"enabled": True, "input": "top.csv", "output": "top.parquet", "depends_on": []},
             "left": {"enabled": True, "input": "@top", "output": "left.parquet", "depends_on": ["top"]},
@@ -240,14 +255,14 @@ class TestETLDependencyScenarios:
         orchestrator = ETLOrchestrator(configs)
         order = orchestrator.build_execution_order()
 
-        # top debe estar primero, bottom último
+        # top must be first, bottom last
         assert order[0] == "top"
         assert order[-1] == "bottom"
-        # left y right deben estar en medio
+        # left and right must be in middle
         assert set(order[1:3]) == {"left", "right"}
 
     def test_multiple_independent_roots(self):
-        """Verifica múltiples raíces independientes que convergen."""
+        """Verify multiple independent roots that converge."""
         configs = {
             "root1": {"enabled": True, "input": "r1.csv", "output": "r1.parquet", "depends_on": []},
             "root2": {"enabled": True, "input": "r2.csv", "output": "r2.parquet", "depends_on": []},
@@ -263,14 +278,14 @@ class TestETLDependencyScenarios:
         orchestrator = ETLOrchestrator(configs)
         order = orchestrator.build_execution_order()
 
-        # Las tres raíces pueden estar en cualquier orden al inicio
+        # The three roots can be in any order at the beginning
         roots = set(order[:3])
         assert roots == {"root1", "root2", "root3"}
-        # final debe estar último
+        # final must be last
         assert order[-1] == "final"
 
     def test_complex_dependency_graph(self):
-        """Verifica grafo complejo de dependencias."""
+        """Verify complex dependency graph."""
         configs = {
             "a": {"enabled": True, "input": "a.csv", "output": "a.parquet", "depends_on": []},
             "b": {"enabled": True, "input": "a.csv", "output": "b.parquet", "depends_on": []},
@@ -282,11 +297,11 @@ class TestETLDependencyScenarios:
         orchestrator = ETLOrchestrator(configs)
         order = orchestrator.build_execution_order()
 
-        # Verificar orden topológico
-        assert "a" in order[:2]  # a debe estar en los primeros (sin dependencias)
-        assert "e" == order[-1]  # e debe estar último (depende de todos)
+        # Verify topological order
+        assert "a" in order[:2]  # a must be in first (no dependencies)
+        assert "e" == order[-1]  # e must be last (depends on all)
 
-        # Verificar que cada ETL aparezca después de sus dependencias
+        # Verify that each ETL appears after its dependencies
         for i, etl_name in enumerate(order):
             deps = configs[etl_name]["depends_on"]
             for dep in deps:
@@ -294,10 +309,10 @@ class TestETLDependencyScenarios:
 
 
 class TestCLIIntegration:
-    """Tests de integración para la CLI."""
+    """Integration tests for the CLI."""
 
     def test_validate_command_with_valid_config(self, tmp_path):
-        """Verifica que el comando validate funcione con configuración válida."""
+        """Verify that the validate command works with valid config."""
         from energizados.cli.validate import validate_config
 
         config_file = tmp_path / "config.yaml"
@@ -309,7 +324,7 @@ project:
 etls:
   consumos:
     enabled: false
-    description: "Procesa datos de consumo"
+    description: "Processes consumption data"
     input: "data/raw/consumos.csv"
     output: "data/processed/consumos.parquet"
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -327,17 +342,17 @@ evaluation:
 """
         config_file.write_text(config_content)
 
-        # No debería lanzar excepción
+        # Should not raise exception
         validate_config([str(config_file)])
 
     def test_validate_command_with_invalid_yaml(self, tmp_path):
-        """Verifica que el comando validate detecte YAML inválido."""
+        """Verify that the validate command detects invalid YAML."""
 
         from energizados.cli.validate import validate_config
         from energizados.core.exceptions import ConfigurationError
 
         config_file = tmp_path / "invalid.yaml"
-        # Usar YAML realmente inválido que cause error de parsing
+        # Use truly invalid YAML that causes parsing error
         config_file.write_text("invalid: [unclosed")
 
         with pytest.raises(ConfigurationError):
@@ -346,35 +361,39 @@ evaluation:
 
 @pytest.mark.slow
 class TestEndToEndScenarios:
-    """Tests end-to-end que simulan casos de uso reales."""
+    """End-to-end tests simulating real use cases."""
 
     @pytest.fixture
     def project_dir(self):
-        """Crea un proyecto de prueba."""
+        """Create a test project directory.
+
+        Yields:
+            Path: Path to temporary project directory.
+        """
         temp = Path(tempfile.mkdtemp())
         yield temp
         shutil.rmtree(temp)
 
     def test_create_and_run_simple_project(self, project_dir):
-        """Verifica creación y ejecución de un proyecto simple."""
+        """Verify creation and execution of a simple project."""
         from energizados.cli.init import create_project
 
         project_name = "simple_test"
         project_path = project_dir / project_name
 
-        # Crear proyecto
+        # Create project
         create_project(project_name, project_path)
 
-        # Verificar estructura creada (nueva estructura 2026)
+        # Verify created structure (new 2026 structure)
         assert (project_path / "src" / "data" / "custom_etl.py").exists()
         assert (project_path / "src" / "features" / "custom_selector.py").exists()
         assert (project_path / "src" / "models" / "custom_model.py").exists()
-        # Verificar que existe config con los 3 archivos separados
+        # Verify that config exists with 3 separate files
         assert (project_path / "config" / "etls.yaml").exists()
         assert (project_path / "config" / "training.yaml").exists()
         assert (project_path / "config" / "inference.yaml").exists()
         assert (project_path / "README.md").exists()
-        # Test templates ya no se crean por defecto
+        # Test templates are no longer created by default
         assert (project_path / "tests" / "__init__.py").exists()
         assert (project_path / "docs" / "project_docs.md").exists()
         assert (project_path / "requirements.txt").exists()

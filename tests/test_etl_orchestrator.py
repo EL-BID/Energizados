@@ -1,7 +1,7 @@
 """
 Unit tests for ETLOrchestrator.
 
-Pruebas para el orquestador de múltiples ETLs con dependencias.
+Tests for the orchestrator of multiple ETLs with dependencies.
 """
 
 import shutil
@@ -16,22 +16,56 @@ from energizados.etl.orchestrator import ETLOrchestrator
 
 
 class MockETL:
-    """ETL mock para pruebas."""
+    """Mock ETL for testing."""
 
     def __init__(self, input_paths=None, output_path=None, **kwargs):
+        """Initialize the MockETL.
+
+        Args:
+            input_paths: List of input file paths.
+            output_path: Output file path.
+            **kwargs: Additional keyword arguments.
+        """
         self.input_paths = input_paths or []
         self.output_path = output_path
 
     def extract(self):
+        """Extract data from source.
+
+        Returns:
+            pd.DataFrame: A simple DataFrame with test data.
+        """
         return pd.DataFrame({"data": [1, 2, 3]})
 
     def transform(self, df):
+        """Transform the data (no-op).
+
+        Args:
+            df: Input DataFrame.
+
+        Returns:
+            pd.DataFrame: The unchanged DataFrame.
+        """
         return df
 
     def load(self, df, path):
+        """Load data to destination (no-op).
+
+        Args:
+            df: DataFrame to load.
+            path: Destination path.
+        """
         pass
 
     def run(self, output_path=None):
+        """Run the full ETL process.
+
+        Args:
+            output_path: Optional output path.
+
+        Returns:
+            pd.DataFrame: The transformed DataFrame.
+        """
         df = self.extract()
         df = self.transform(df)
         if output_path or self.output_path:
@@ -40,11 +74,15 @@ class MockETL:
 
 
 class TestETLOrchestrator:
-    """Tests para ETLOrchestrator."""
+    """Tests for ETLOrchestrator."""
 
     @pytest.fixture
     def sample_configs(self):
-        """Retorna configuraciones de ejemplo."""
+        """Returns sample configurations.
+
+        Returns:
+            dict: A dictionary of ETL configurations for testing.
+        """
         return {
             "etl1": {
                 "enabled": True,
@@ -63,20 +101,20 @@ class TestETLOrchestrator:
         }
 
     def test_orchestrator_initialization(self, sample_configs):
-        """Verifica que el orchestrator se inicialice correctamente."""
+        """Verify that the orchestrator initializes correctly."""
         orchestrator = ETLOrchestrator(sample_configs)
         assert orchestrator.etl_configs == sample_configs
         assert orchestrator.execution_order == []
         assert orchestrator.results == {}
 
     def test_validate_dependencies_passes_with_valid_config(self, sample_configs):
-        """Verifica que validate_dependencies pase con configuración válida."""
+        """Verify that validate_dependencies passes with valid config."""
         orchestrator = ETLOrchestrator(sample_configs)
-        # No debería lanzar excepción
+        # Should not raise exception
         orchestrator.validate_dependencies()
 
     def test_validate_dependencies_raises_on_unknown_dependency(self):
-        """Verifica que validate_dependencies lance error con dependencia desconocida."""
+        """Verify that validate_dependencies raises error with unknown dependency."""
         configs = {
             "etl1": {
                 "enabled": True,
@@ -92,7 +130,7 @@ class TestETLOrchestrator:
             orchestrator.validate_dependencies()
 
     def test_detect_cycles_raises_on_cycle(self):
-        """Verifica que se detecten ciclos en las dependencias."""
+        """Verify that cycles in dependencies are detected."""
         from energizados.core.exceptions import ETLDependencyError
 
         configs = {
@@ -116,14 +154,14 @@ class TestETLOrchestrator:
             orchestrator.validate_dependencies()
 
     def test_build_execution_order_returns_correct_order(self, sample_configs):
-        """Verifica que build_execution_order retorne el orden correcto."""
+        """Verify that build_execution_order returns the correct order."""
         orchestrator = ETLOrchestrator(sample_configs)
         order = orchestrator.build_execution_order()
 
         assert order == ["etl1", "etl2"]
 
     def test_execution_order_with_multiple_roots(self):
-        """Verifica el orden de ejecución con múltiples ETLs raíz."""
+        """Verify execution order with multiple root ETLs."""
         configs = {
             "root1": {
                 "enabled": True,
@@ -148,12 +186,12 @@ class TestETLOrchestrator:
         orchestrator = ETLOrchestrator(configs)
         order = orchestrator.build_execution_order()
 
-        # root1 y root2 pueden estar en cualquier orden, pero child debe estar último
+        # root1 and root2 can be in any order, but child must be last
         assert order[-1] == "child"
         assert set(order[:2]) == {"root1", "root2"}
 
     def test_execution_order_with_diamond_dependency(self):
-        """Verifica el orden de ejecución con patrón diamante."""
+        """Verify execution order with diamond pattern."""
         configs = {
             "top": {
                 "enabled": True,
@@ -189,7 +227,7 @@ class TestETLOrchestrator:
         assert set(order[1:3]) == {"left", "right"}
 
     def test_resolve_input_paths_with_string(self):
-        """Verifica resolución de input con string simple."""
+        """Verify input resolution with simple string."""
         configs = {
             "etl1": {
                 "enabled": True,
@@ -199,14 +237,14 @@ class TestETLOrchestrator:
             },
         }
 
-        # Crear archivo temporal
+        # Create temporary file
         temp_dir = Path(tempfile.mkdtemp())
         try:
             test_file = temp_dir / "data"
             test_file.mkdir(parents=True)
             (test_file / "file.csv").write_text("data")
 
-            # Cambiar al directorio temporal para que las rutas relativas funcionen
+            # Change to temp directory so relative paths work
             import os
 
             original_dir = os.getcwd()
@@ -222,8 +260,8 @@ class TestETLOrchestrator:
             shutil.rmtree(temp_dir)
 
     def test_resolve_input_paths_with_list(self):
-        """Verifica resolución de input con lista."""
-        # Crear archivos temporales para el test
+        """Verify input resolution with list."""
+        # Create temp files for testing
         temp_dir = Path(tempfile.mkdtemp())
         try:
             file1 = temp_dir / "file1.csv"
@@ -231,7 +269,7 @@ class TestETLOrchestrator:
             file1.write_text("data1")
             file2.write_text("data2")
 
-            # Cambiar al directorio temporal
+            # Change to temp directory
             import os
 
             original_dir = os.getcwd()
@@ -256,7 +294,7 @@ class TestETLOrchestrator:
             shutil.rmtree(temp_dir)
 
     def test_resolve_input_paths_with_reference(self):
-        """Verifica resolución de input con referencia @etl_name."""
+        """Verify input resolution with @etl_name reference."""
         configs = {
             "etl1": {
                 "enabled": True,
@@ -274,14 +312,14 @@ class TestETLOrchestrator:
 
         orchestrator = ETLOrchestrator(configs)
 
-        # Simular que etl1 ya se ejecutó
+        # Simulate that etl1 already executed
         orchestrator.results["etl1"] = pd.DataFrame()
 
         paths = orchestrator.resolve_input_paths("etl2")
         assert paths == ["data/output1.parquet"]
 
     def test_get_execution_plan_returns_formatted_plan(self, sample_configs):
-        """Verifica que get_execution_plan retorne un plan formateado."""
+        """Verify that get_execution_plan returns a formatted plan."""
         orchestrator = ETLOrchestrator(sample_configs)
         orchestrator.build_execution_order()
 

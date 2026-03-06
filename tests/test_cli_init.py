@@ -1,10 +1,10 @@
 """
 Unit tests for CLI init command.
 
-Pruebas para el comando de inicialización de proyectos incluyendo
-la funcionalidad de copiar desde proyectos existentes.
+Tests for the project initialization command including
+the functionality to copy from existing projects.
 
-Actualizado para soportar la nueva estructura 2026 con src/, tests/, docs/, etc.
+Updated to support the new 2026 structure with src/, tests/, docs/, etc.
 """
 
 import tempfile
@@ -16,21 +16,21 @@ from energizados.cli.main import cli
 
 
 class TestInitCommand:
-    """Tests para el comando init."""
+    """Tests for the init command."""
 
     def setup_method(self):
-        """Configura el entorno de prueba."""
+        """Set up the test environment."""
         self.runner = CliRunner()
 
     def test_init_creates_project_structure(self):
-        """Verifica que init cree la estructura correcta del proyecto (estructura 2026)."""
+        """Verify that init creates the correct project structure (2026 structure)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            # Verificar directorios creados (estructura nueva con src/)
+            # Verify created directories (new structure with src/)
             assert (project_path / "src" / "data").exists()
             assert (project_path / "src" / "features").exists()
             assert (project_path / "src" / "models").exists()
@@ -46,28 +46,28 @@ class TestInitCommand:
             assert (project_path / "notebooks").exists()
             assert (project_path / "src" / "run").exists()
 
-            # Verificar scripts de ejecución
+            # Verify execution scripts
             assert (project_path / "src" / "run" / "01_etl.py").exists()
             assert (project_path / "src" / "run" / "02_training.py").exists()
             assert (project_path / "src" / "run" / "03_evaluation.py").exists()
             assert (project_path / "src" / "run" / "04_inference.py").exists()
 
-            # Verificar archivos creados
+            # Verify created files
             assert (project_path / "src" / "data" / "custom_etl.py").exists()
             assert (project_path / "src" / "features" / "custom_selector.py").exists()
             assert (project_path / "src" / "models" / "custom_model.py").exists()
             assert (project_path / "src" / "inference" / "custom_inference.py").exists()
             assert (project_path / "src" / "utils" / "helpers.py").exists()
-            # Test templates ya no se crean por defecto (los usuarios crean sus propios tests)
+            # Test templates are no longer created by default (users create their own tests)
             assert (project_path / "tests" / "__init__.py").exists()
             assert (project_path / "docs" / "project_docs.md").exists()
 
-            # Verificar archivos de configuración (3 archivos separados)
+            # Verify configuration files (3 separate files)
             assert (project_path / "config" / "etls.yaml").exists()
             assert (project_path / "config" / "training.yaml").exists()
             assert (project_path / "config" / "inference.yaml").exists()
 
-            # Verificar que el antiguo pipeline.yaml ya NO existe
+            # Verify that the old pipeline.yaml NO longer exists
             assert not (project_path / "config" / "pipeline.yaml").exists()
 
             assert (project_path / "requirements.txt").exists()
@@ -75,14 +75,14 @@ class TestInitCommand:
             assert (project_path / ".gitignore").exists()
 
     def test_init_creates_src_init_files(self):
-        """Verifica que se creen los archivos __init__.py en src/."""
+        """Verify that __init__.py files are created in src/."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            # Verificar __init__.py files
+            # Verify __init__.py files
             assert (project_path / "src" / "__init__.py").exists()
             assert (project_path / "src" / "data" / "__init__.py").exists()
             assert (project_path / "src" / "features" / "__init__.py").exists()
@@ -91,27 +91,27 @@ class TestInitCommand:
             assert (project_path / "src" / "utils" / "__init__.py").exists()
             assert (project_path / "tests" / "__init__.py").exists()
 
-            # Verificar imports correctos
+            # Verify correct imports
             data_init = (project_path / "src" / "data" / "__init__.py").read_text()
             assert "CustomETL" in data_init
             assert "custom_etl" in data_init
 
     def test_init_creates_test_templates(self):
-        """Verifica que se cree el directorio de tests con __init__.py."""
+        """Verify that the tests directory is created with __init__.py."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            # Verificar que el directorio de tests existe
+            # Verify that tests directory exists
             assert (project_path / "tests").exists()
             assert (project_path / "tests" / "__init__.py").exists()
-            # Los templates de tests ya no se crean por defecto
-            # Los usuarios pueden crear sus propios tests según sus necesidades
+            # Test templates are no longer created by default
+            # Users can create their own tests as needed
 
     def test_init_creates_requirements_txt(self):
-        """Verifica que se cree requirements.txt con dependencias."""
+        """Verify that requirements.txt is created with dependencies."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
@@ -125,7 +125,7 @@ class TestInitCommand:
             assert "scikit-learn" in requirements
 
     def test_init_creates_docs_template(self):
-        """Verifica que se cree template de documentación."""
+        """Verify that documentation template is created."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
@@ -138,7 +138,7 @@ class TestInitCommand:
             assert "pytest" in docs
 
     def test_init_fails_if_project_exists(self):
-        """Verifica que init falle si el proyecto ya existe."""
+        """Verify that init fails if the project already exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
             project_path = Path(tmpdir) / "existing_project"
             project_path.mkdir()
@@ -149,7 +149,7 @@ class TestInitCommand:
             assert "already exists" in result.output.lower()
 
     def test_init_copy_from_nonexistent_project(self):
-        """Verifica que init falle si el proyecto origen no existe."""
+        """Verify that init fails if the source project does not exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "new_project", "--copy", "nonexistent", "--path", tmpdir])
 
@@ -157,23 +157,23 @@ class TestInitCommand:
             assert "does not exist" in result.output.lower()
 
     def test_init_copy_from_new_structure_project(self):
-        """Verifica que init copie correctamente desde proyecto con estructura nueva."""
+        """Verify that init correctly copies from a project with new structure."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Primero crear un proyecto base (estructura nueva)
+            # First create a base project (new structure)
             base_result = self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
             assert base_result.exit_code == 0
 
-            # Modificar un archivo custom para verificar que se copia
+            # Modify a custom file to verify it's copied
             base_path = Path(tmpdir) / "base_project"
             custom_etl = base_path / "src" / "data" / "custom_etl.py"
             content = custom_etl.read_text()
             custom_etl.write_text(content.replace("# TODO:", "# MODIFIED:"))
 
-            # Copiar el proyecto
+            # Copy the project
             copy_result = self.runner.invoke(cli, ["init", "copied_project", "--copy", "base_project", "--path", tmpdir])
             assert copy_result.exit_code == 0
 
-            # Verificar que el archivo fue copiado
+            # Verify that the file was copied
             copied_path = Path(tmpdir) / "copied_project"
             copied_etl = copied_path / "src" / "data" / "custom_etl.py"
             copied_content = copied_etl.read_text()
@@ -181,39 +181,39 @@ class TestInitCommand:
             assert "# MODIFIED:" in copied_content
 
     def test_init_copy_updates_project_name_in_yaml(self):
-        """Verifica que init actualice el nombre del proyecto en los archivos YAML."""
+        """Verify that init updates the project name in YAML files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto base
+            # Create base project
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
 
-            # Copiar proyecto
+            # Copy project
             self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar que el nombre se actualizó en el YAML
+            # Verify that the name was updated in YAML
             etls_yaml = (new_path / "config" / "etls.yaml").read_text()
-            # El nombre aparece en el comentario del encabezado
+            # The name appears in the header comment
             assert "new_project" in etls_yaml
             assert "base_project" not in etls_yaml
 
     def test_init_copy_creates_readme_with_origin_note(self):
-        """Verifica que el README indique el proyecto origen."""
+        """Verify that the README indicates the source project."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto base
+            # Create base project
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
 
-            # Copiar proyecto
+            # Copy project
             self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar nota de origen en README
+            # Verify origin note in README
             readme_content = (new_path / "README.md").read_text()
             assert "base_project" in readme_content
 
     def test_init_copy_from_old_structure_project(self):
-        """Verifica copia desde proyecto con estructura antigua (sin src/)."""
+        """Verify copy from project with old structure (without src/)."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear estructura antigua manualmente
+            # Manually create old structure
             old_path = Path(tmpdir) / "old_project"
             old_path.mkdir()
             (old_path / "etl").mkdir()
@@ -222,7 +222,7 @@ class TestInitCommand:
             (old_path / "inference").mkdir()
             (old_path / "configs").mkdir()
 
-            # Crear archivos necesarios
+            # Create required files
             (old_path / "etl" / "custom_etl.py").write_text("# OLD ETL")
             (old_path / "feature_selection" / "custom_selector.py").write_text("# OLD SELECTOR")
             (old_path / "models" / "custom_model.py").write_text("# OLD MODEL")
@@ -235,53 +235,53 @@ etls:
     custom_class: "old_project.etl.custom_etl.CustomETL"
 """)
 
-            # Copiar desde estructura antigua
+            # Copy from old structure
             result = self.runner.invoke(cli, ["init", "new_project", "--copy", "old_project", "--path", tmpdir])
             assert result.exit_code == 0
 
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar estructura nueva creada
+            # Verify new structure was created
             assert (new_path / "src" / "data" / "custom_etl.py").exists()
             assert (new_path / "src" / "features" / "custom_selector.py").exists()
             assert (new_path / "src" / "models" / "custom_model.py").exists()
             assert (new_path / "src" / "inference" / "custom_inference.py").exists()
 
-            # Verificar que se crearon los 3 archivos de config
+            # Verify that 3 config files were created
             assert (new_path / "config" / "etls.yaml").exists()
             assert (new_path / "config" / "training.yaml").exists()
             assert (new_path / "config" / "inference.yaml").exists()
 
-            # Verificar que los archivos custom se copiaron
+            # Verify that custom files were copied
             assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text()
 
-            # Verificar que el nombre se actualizó en el YAML (en el comentario)
+            # Verify that the name was updated in YAML (in comment)
             yaml_content = (new_path / "config" / "etls.yaml").read_text()
             assert "new_project" in yaml_content
             assert "old_project" not in yaml_content
 
     def test_init_copy_without_custom_files_uses_templates(self):
-        """Verifica que si no hay archivos custom, se usen templates."""
+        """Verify that templates are used if custom files are missing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto base
+            # Create base project
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
             base_path = Path(tmpdir) / "base_project"
 
-            # Eliminar archivo custom
+            # Delete custom file
             (base_path / "src" / "data" / "custom_etl.py").unlink()
 
-            # Copiar proyecto
+            # Copy project
             result = self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             assert result.exit_code == 0
 
-            # Verificar que se creó el template
+            # Verify that template was created
             new_path = Path(tmpdir) / "new_project"
             assert (new_path / "src" / "data" / "custom_etl.py").exists()
 
     def test_init_copy_validates_source_structure(self):
-        """Verifica que se valide la estructura del proyecto origen."""
+        """Verify that the source project structure is validated."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear directorio incompleto
+            # Create incomplete directory
             incomplete_path = Path(tmpdir) / "incomplete_project"
             incomplete_path.mkdir()
             (incomplete_path / "src").mkdir()
@@ -291,66 +291,66 @@ etls:
             assert result.exit_code != 0
 
     def test_init_copy_preserves_init_files(self):
-        """Verifica que se preserven los __init__.py con imports correctos."""
+        """Verify that __init__.py files are preserved with correct imports."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto base
+            # Create base project
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
 
-            # Copiar proyecto
+            # Copy project
             self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar __init__.py files
+            # Verify __init__.py files
             data_init = (new_path / "src" / "data" / "__init__.py").read_text()
             assert "CustomETL" in data_init
             assert "custom_etl" in data_init
 
     def test_init_copy_does_not_copy_data_or_models(self):
-        """Verifica que no se copien datos ni outputs de entrenamiento."""
+        """Verify that data and training outputs are not copied."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto base
+            # Create base project
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
             base_path = Path(tmpdir) / "base_project"
 
-            # Crear archivos de datos (que no deben copiarse)
+            # Create data files (that should not be copied)
             (base_path / "data" / "raw" / "data.csv").write_text("test,data")
-            # Simular un training run en output/
+            # Simulate a training run in output/
             run_dir = base_path / "output" / "train-20260303_1430" / "models"
             run_dir.mkdir(parents=True, exist_ok=True)
             (run_dir / "model.pkl").write_text("model")
 
-            # Copiar proyecto
+            # Copy project
             self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
             new_path = Path(tmpdir) / "new_project"
 
-            # Verificar que NO se copiaron datos ni runs
+            # Verify that data and runs were NOT copied
             assert not (new_path / "data" / "raw" / "data.csv").exists()
             assert not (new_path / "output" / "train-20260303_1430").exists()
-            # Pero sí los .gitkeep
+            # But .gitkeep files are present
             assert (new_path / "data" / "raw" / ".gitkeep").exists()
             assert (new_path / "output" / ".gitkeep").exists()
 
     def test_init_config_singular_not_configs(self):
-        """Verifica que sea config/ y no configs/."""
+        """Verify that it's config/ and not configs/."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            # Debe ser config/ (singular)
+            # Must be config/ (singular)
             assert (project_path / "config").exists()
 
-            # Debe tener los 3 archivos de config
+            # Must have the 3 config files
             assert (project_path / "config" / "etls.yaml").exists()
             assert (project_path / "config" / "training.yaml").exists()
             assert (project_path / "config" / "inference.yaml").exists()
 
-            # NO debe ser configs/ (plural)
+            # Must NOT be configs/ (plural)
             assert not (project_path / "configs").exists()
 
     def test_init_gitignore_includes_tests_and_docs(self):
-        """Verifica que .gitignore incluya entradas para tests y docs."""
+        """Verify that .gitignore includes entries for tests and docs."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
 
@@ -363,65 +363,65 @@ etls:
             assert "htmlcov/" in gitignore
 
     def test_init_sanitizes_invalid_package_names(self):
-        """Verifica que init sanitize nombres inválidos de paquetes Python."""
+        """Verify that init sanitizes invalid Python package names."""
         from energizados.cli.init import _sanitize_package_name
 
-        # Casos de prueba para sanitización
+        # Test cases for sanitization
         test_cases = [
-            ("_sample", "sample"),  # Elimina _ al inicio
-            ("__test", "test"),  # Elimina múltiples _ al inicio
-            ("my-project", "my_project"),  # Reemplaza - con _
-            ("my-project-name", "my_project_name"),  # Múltiples -
-            ("123project", "pkg_123project"),  # Prefijo si empieza con número
-            ("test", "test"),  # Nombre válido sin cambios
-            ("Test_Project", "Test_Project"),  # Nombre válido con mayúsculas
-            ("for", "for_pkg"),  # Keyword de Python
-            ("class", "class_pkg"),  # Keyword de Python
-            ("", "project"),  # Vacío → "project"
-            ("_", "project"),  # Solo _ → "project"
-            ("___", "project"),  # Solo _ múltiples → "project"
-            ("project-123", "project_123"),  # - con números
-            ("my project", "myproject"),  # Espacios eliminados
+            ("_sample", "sample"),  # Removes leading _
+            ("__test", "test"),  # Removes multiple leading _
+            ("my-project", "my_project"),  # Replaces - with _
+            ("my-project-name", "my_project_name"),  # Multiple -
+            ("123project", "pkg_123project"),  # Prefix if starts with number
+            ("test", "test"),  # Valid name unchanged
+            ("Test_Project", "Test_Project"),  # Valid name with uppercase
+            ("for", "for_pkg"),  # Python keyword
+            ("class", "class_pkg"),  # Python keyword
+            ("", "project"),  # Empty -> "project"
+            ("_", "project"),  # Only _ -> "project"
+            ("___", "project"),  # Multiple _ only -> "project"
+            ("project-123", "project_123"),  # - with numbers
+            ("my project", "myproject"),  # Spaces removed
         ]
 
         for input_name, expected in test_cases:
             result = _sanitize_package_name(input_name)
-            assert result == expected, f"Para {input_name!r}, se esperaba {expected!r} pero se obtuvo {result!r}"
+            assert result == expected, f"For {input_name!r}, expected {expected!r} but got {result!r}"
 
     def test_init_underscore_project_name_generates_valid_yaml(self):
-        """Verifica que un nombre de proyecto con _ al inicio genere YAML válido."""
+        """Verify that a project name with leading _ generates valid YAML."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto con nombre inválido
+            # Create project with invalid name
             result = self.runner.invoke(cli, ["init", "_sample", "--path", tmpdir])
             assert result.exit_code == 0
 
             project_path = Path(tmpdir) / "_sample"
 
-            # Verificar que el YAML use la ruta de importación correcta (sin prefijo de paquete)
+            # Verify that YAML uses correct import path (without package prefix)
             etls_yaml = (project_path / "config" / "etls.yaml").read_text()
-            # El YAML debe usar "data.custom_etl.CustomETL" (sin prefijo de paquete)
+            # YAML must use "data.custom_etl.CustomETL" (without package prefix)
             assert "data.custom_etl.CustomETL" in etls_yaml
-            # No debe contener el prefijo del paquete sanitizado
+            # Must not contain sanitized package prefix
             assert "sample.data.custom_etl.CustomETL" not in etls_yaml
-            # El comentario del encabezado puede usar el nombre original
-            assert "_sample" in etls_yaml  # En el comentario
+            # Header comment can use original name
+            assert "_sample" in etls_yaml  # In comment
 
     def test_init_copy_sanitizes_package_names_in_yaml(self):
-        """Verifica que al copiar proyectos se sanitize los nombres de paquetes."""
+        """Verify that package names are sanitized when copying projects."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Crear proyecto con nombre inválido
+            # Create project with invalid name
             self.runner.invoke(cli, ["init", "_old", "--path", tmpdir])
 
-            # Copiar a otro proyecto con nombre inválido
+            # Copy to another project with invalid name
             self.runner.invoke(cli, ["init", "_new", "--copy", "_old", "--path", tmpdir])
 
             new_path = Path(tmpdir) / "_new"
 
-            # Verificar que el YAML use la ruta de importación correcta (sin prefijo de paquete)
+            # Verify that YAML uses correct import path (without package prefix)
             etls_yaml = (new_path / "config" / "etls.yaml").read_text()
-            # Los imports deben usar rutas sin prefijo de paquete
+            # Imports must use paths without package prefix
             assert "data.custom_etl.CustomETL" in etls_yaml
-            # No debe contener prefijos de paquete
+            # Must not contain package prefixes
             assert "new.data.custom_etl.CustomETL" not in etls_yaml
             assert "_new.data" not in etls_yaml
             assert "_old.data" not in etls_yaml
