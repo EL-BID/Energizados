@@ -45,7 +45,7 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     # Special case for custom_class per column (flat format)
     if transform_name == "custom_class":
         if custom_class is None:
-            raise ValueError("'custom_class' must be specified when using 'custom_class' transformer")
+            raise ValueError("Must specify 'custom_class' path when using custom transformer")
         return import_class(custom_class)(**params)
 
     # Mapping of names to (class, default_params)
@@ -189,7 +189,7 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
         return final_pipeline
 
     # Error if no valid configuration
-    raise ValueError("Invalid preprocessing configuration. 'columns' with per-column configuration is required. ")
+    raise ValueError("Invalid preprocessing configuration. 'columns' is required with per-column configuration.")
 
 
 class DefaultFeatureEngineering(BaseFeatureEngineering):
