@@ -155,17 +155,17 @@ class CATModelAdapter(BaseModel):
         X_val: Optional[pd.DataFrame] = None,
         y_val: Optional[pd.Series] = None,
     ) -> "CATModelAdapter":
-        self._model.train(X, y, X_val, y_val)
+        self._trained_pipeline = self._model.train(X, y, X_val, y_val)
         self.is_fitted_ = True
         return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         self.check_fitted()
-        return (self._model.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
+        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         self.check_fitted()
-        return self._model.predict_proba(X[self.cols_for_model])[:, 1]
+        return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
 
 
 class NNModelAdapter(BaseModel):

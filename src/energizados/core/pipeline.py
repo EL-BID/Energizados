@@ -602,6 +602,11 @@ class ConfigPipelineBuilder:
                 else:
                     raise ValueError("No inference data found")
 
+                # Apply feature engineering if available
+                feature_engineering = context.get("feature_engineering")
+                if feature_engineering is not None:
+                    data = feature_engineering.transform(data)
+
                 # Make predictions
                 predictions = self.inference.predict(model, data)
                 probas = self.inference.predict_proba(model, data)

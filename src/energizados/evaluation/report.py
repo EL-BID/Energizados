@@ -310,9 +310,9 @@ class ReportGenerator:
     <div class="section">
         <h2>Confusion Matrix</h2>
         <div class="confusion-matrix">
-            <div class="cm-cell tp">
-                <div class="value">{tp}</div>
-                <div class="label">True Positive</div>
+            <div class="cm-cell tn">
+                <div class="value">{tn}</div>
+                <div class="label">True Negative</div>
             </div>
             <div class="cm-cell fp">
                 <div class="value">{fp}</div>
@@ -322,9 +322,9 @@ class ReportGenerator:
                 <div class="value">{fn}</div>
                 <div class="label">False Negative</div>
             </div>
-            <div class="cm-cell tn">
-                <div class="value">{tn}</div>
-                <div class="label">True Negative</div>
+            <div class="cm-cell tp">
+                <div class="value">{tp}</div>
+                <div class="label">True Positive</div>
             </div>
         </div>
         <p style="text-align: center; color: #666;">

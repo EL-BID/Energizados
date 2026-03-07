@@ -273,15 +273,17 @@ class NNModel:
         self.BATCH_SIZE = 2048
 
     def build_pipeline_preproceso(self):
-        preprocessor = get_preprocesor(self.preprocesor_num)
-        pipe_features = Pipeline([("features_var", preprocessor), ("scaler", MinMaxScaler())])
+        # Data arriving here is already preprocessed by the framework's DefaultFeatureEngineering
+        pipe_features = Pipeline([("scaler", MinMaxScaler())])
 
         pipe_spent = Pipeline([("scaler", MinMaxScalerRow())])
 
         if self.sampling_method == "over":
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
-        if self.sampling_method == "under":
+        elif self.sampling_method == "under":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
+        else:
+            ramdom_s = None
 
         return pipe_features, pipe_spent, ramdom_s
 
@@ -300,7 +302,10 @@ class NNModel:
         X_train_features = np.concatenate([X_train_features, X_train_spents], axis=1)
         X_val_features = np.concatenate([X_val_features, X_val_spents], axis=1)
 
-        X_resample, y_resample = ramdom_s.fit_resample(X_train_features, y_train)
+        if ramdom_s is not None:
+            X_resample, y_resample = ramdom_s.fit_resample(X_train_features, y_train)
+        else:
+            X_resample, y_resample = X_train_features, y_train
 
         rnn_final_model = self.train_rnn_model(X_resample, y_resample, X_val_features, y_val, output_bias=None)
         return rnn_final_model, pipe_features, pipe_spent
@@ -390,15 +395,17 @@ class LSTMNNModel:
         self.BATCH_SIZE = 2048
 
     def build_pipeline_preproceso(self):
-        preprocessor = get_preprocesor(self.preprocesor_num)
-        pipe_features = Pipeline([("features_var", preprocessor), ("scaler", MinMaxScaler())])
+        # Data arriving here is already preprocessed by the framework's DefaultFeatureEngineering
+        pipe_features = Pipeline([("scaler", MinMaxScaler())])
 
         pipe_spent = Pipeline([("scaler", MinMaxScalerRow())])
 
         if self.sampling_method == "over":
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
-        if self.sampling_method == "under":
+        elif self.sampling_method == "under":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
+        else:
+            ramdom_s = None
 
         return pipe_features, pipe_spent, ramdom_s
 
@@ -416,7 +423,10 @@ class LSTMNNModel:
         X_val_spents = X_val_spents.reshape((X_val_spents.shape[0], self.periodo, 1))
 
         X_train_features = np.concatenate([X_train_spents, X_train_features], axis=1)
-        X_resample, y_resample = ramdom_s.fit_resample(X_train_features, y_train)
+        if ramdom_s is not None:
+            X_resample, y_resample = ramdom_s.fit_resample(X_train_features, y_train)
+        else:
+            X_resample, y_resample = X_train_features, y_train
 
         X_resample_features = X_resample[:, self.periodo :]
         X_resample_spents = X_resample[:, : self.periodo]
