@@ -243,12 +243,18 @@ class ConfigPipelineBuilder:
         base = Path(base_output_dir)
         run_dir = base / run_name
 
-        # Handle timestamp collisions (same minute)
-        if run_dir.exists():
-            suffix = 1
-            while (base / f"{run_name}_{suffix}").exists():
+        # Handle timestamp collisions atomically (avoid TOCTOU race)
+        import os
+
+        suffix = 0
+        while True:
+            candidate = run_dir if suffix == 0 else base / f"{run_name}_{suffix}"
+            try:
+                os.makedirs(candidate)
+                run_dir = candidate
+                break
+            except FileExistsError:
                 suffix += 1
-            run_dir = base / f"{run_name}_{suffix}"
 
         (run_dir / "models").mkdir(parents=True, exist_ok=True)
         (run_dir / "reports" / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -462,6 +468,7 @@ class ConfigPipelineBuilder:
             train_period=split_config.get("train_period"),
             val_period=split_config.get("val_period"),
             test_period=split_config.get("test_period"),
+            save_splits=split_config.get("save_splits", True),
         )
 
     def _build_training_step(self) -> Optional[PipelineStep]:

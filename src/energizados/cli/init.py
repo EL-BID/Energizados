@@ -674,17 +674,15 @@ def _create_run_scripts(project_path: Path, project_name: str):
 
     Scripts created in src/run/:
     - 01_etl.py - Executes ETLs
-    - 02_training.py - Executes training
-    - 03_evaluation.py - Executes evaluation
-    - 04_inference.py - Executes inference
+    - 02_training.py - Executes training (includes feature engineering + evaluation)
+    - 03_inference.py - Executes inference (requires --run-dir argument)
 
     Note: These scripts use the Python API directly, without invoking the CLI.
     """
     scripts = {
         "01_etl.py": "src/run/01_etl.py.tpl",
         "02_training.py": "src/run/02_training.py.tpl",
-        "03_evaluation.py": "src/run/03_evaluation.py.tpl",
-        "04_inference.py": "src/run/04_inference.py.tpl",
+        "03_inference.py": "src/run/03_inference.py.tpl",
     }
 
     run_dir = project_path / "src" / "run"

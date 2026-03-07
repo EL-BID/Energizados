@@ -103,8 +103,11 @@ class SourceETL(BaseETL):
             raise ETLError(f"SourceETL '{self.name}': input_paths is empty")
 
         # Read all files
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
         dataframes = []
         for path in self.input_paths:
+            validate_no_traversal(path, label=f"ETL '{self.name}' input")
             source_file = Path(path)
 
             if not source_file.exists():
@@ -219,6 +222,9 @@ class SourceETL(BaseETL):
             ETLError: If data cannot be saved
         """
         try:
+            from energizados.core.utils.secure_pickle import validate_no_traversal
+
+            validate_no_traversal(path, label=f"ETL '{self.name}' output")
             output_path = Path(path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 

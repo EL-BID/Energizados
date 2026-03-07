@@ -105,7 +105,7 @@ def _validate_project_section(config: Dict[str, Any], result: ValidationResult):
 def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
     """Validates the etls section (multiple ETLs with dependencies)."""
     if "etls" not in config:
-        result.add_error("'etls' required section not found")
+        result.add_info("'etls' section not present in this config (skipping ETL validation)")
         return
 
     etls = config["etls"]
@@ -172,7 +172,7 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
 def _validate_training_section(config: Dict[str, Any], result: ValidationResult):
     """Validates the training section."""
     if "training" not in config:
-        result.add_error("'training' required section not found")
+        result.add_info("'training' section not present in this config (skipping training validation)")
         return
 
     training = config["training"]
@@ -180,12 +180,13 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
         result.add_error("'training' section must be a dictionary")
         return
 
-    # Check model
-    has_model_type = "model_type" in training
-    has_custom = "custom_class" in training
+    # Check model: config nests it as training.model.type
+    model_config = training.get("model", {})
+    has_model_type = "type" in model_config
+    has_custom = "custom_class" in model_config or "custom_class" in training
 
     if not has_model_type and not has_custom:
-        result.add_error("training: requires 'model_type' or 'custom_class'")
+        result.add_warning("training: no 'model.type' or 'model.custom_class' defined")
 
     if has_model_type:
         valid_models = [
@@ -199,13 +200,15 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
             "simple_trend",
             "simple_constant",
         ]
-        model_type = training["model_type"]
+        model_type = model_config["type"]
         if model_type not in valid_models:
-            result.add_warning(f"training.model_type unknown: {model_type}")
+            result.add_warning(f"training.model.type unknown: {model_type}")
         else:
             result.add_info(f"Model: {model_type}")
 
-    if has_custom:
+    if "custom_class" in model_config:
+        _validate_class_reference(model_config["custom_class"], result)
+    elif "custom_class" in training:
         _validate_class_reference(training["custom_class"], result)
 
     # Check split parameters
@@ -263,27 +266,34 @@ def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResul
 
 def _validate_class_reference(class_path: str, result: ValidationResult):
     """
-    Validates that a class reference is valid.
+    Validates a class reference by format and allowlist only (no import).
+
+    Importing during validation is avoided because it executes arbitrary
+    module-level code from user-defined classes. Format and prefix checks
+    are sufficient to catch configuration typos at validate time.
 
     Args:
         class_path: Full path of the class (eg: "module.submodule.ClassName")
         result: Validation result to add errors
     """
+    from energizados.core.utils.import_utils import ALLOWED_PREFIXES
+
     if not class_path or "." not in class_path:
-        result.add_error(f"Invalid class reference: {class_path}")
+        result.add_error(f"Invalid class reference (expected 'module.ClassName'): {class_path}")
         return
 
-    try:
-        module_path, class_name = class_path.rsplit(".", 1)
+    parts = class_path.rsplit(".", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        result.add_error(f"Invalid class reference format: {class_path}")
+        return
 
-        # Try to import
-        module = __import__(module_path, fromlist=[class_name])
-        cls = getattr(module, class_name, None)
-
-        if cls is None:
-            result.add_warning(f"Class '{class_name}' not found in module '{module_path}'")
-    except (ImportError, AttributeError) as e:
-        result.add_warning(f"Could not import '{class_path}': {e}")
+    if not any(class_path.startswith(prefix) for prefix in ALLOWED_PREFIXES):
+        result.add_warning(
+            f"Class '{class_path}' does not match allowed prefixes {ALLOWED_PREFIXES}. "
+            "Custom local classes are fine if running from the project directory."
+        )
+    else:
+        result.add_info(f"Class reference format valid: {class_path}")
 
 
 def _print_validation_results(result: ValidationResult, config: Dict[str, Any]):

@@ -62,6 +62,7 @@ class SplitStep(PipelineStep):
         train_period: Optional[list] = None,
         val_period: Optional[list] = None,
         test_period: Optional[list] = None,
+        save_splits: bool = True,
         **kwargs,
     ):
         self.input_path = input_path
@@ -75,6 +76,7 @@ class SplitStep(PipelineStep):
         self.train_period = train_period
         self.val_period = val_period
         self.test_period = test_period
+        self.save_splits = save_splits
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the split and save the datasets."""
@@ -87,6 +89,11 @@ class SplitStep(PipelineStep):
             # Use the last ETL result
             last_etl = list(context["etl_results"].keys())[-1]
             input_path = context["etl_results"][last_etl]
+
+        # Validate path safety before reading
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        validate_no_traversal(input_path, label="split input_path")
 
         # Load data
         df = pd.read_parquet(input_path)
@@ -156,9 +163,10 @@ class SplitStep(PipelineStep):
         val_path = self.splits_dir / "val.parquet"
         test_path = self.splits_dir / "test.parquet"
 
-        train_df.to_parquet(train_path, index=False)
-        val_df.to_parquet(val_path, index=False)
-        test_df.to_parquet(test_path, index=False)
+        if self.save_splits:
+            train_df.to_parquet(train_path, index=False)
+            val_df.to_parquet(val_path, index=False)
+            test_df.to_parquet(test_path, index=False)
 
         # Save split metadata
         metadata = {
@@ -186,8 +194,9 @@ class SplitStep(PipelineStep):
             "test": test_df[self.target_column].value_counts().to_dict(),
         }
 
-        with open(self.splits_dir / "split_metadata.json", "w") as f:
-            json.dump(metadata, f, indent=2, default=str)
+        if self.save_splits:
+            with open(self.splits_dir / "split_metadata.json", "w") as f:
+                json.dump(metadata, f, indent=2, default=str)
 
         logger.info(f"\n{'='*50}")
         logger.info(f"DATA SPLIT ({self.method.upper()})")
@@ -214,7 +223,8 @@ class SplitStep(PipelineStep):
             logger.info(f"Test:  {metadata['test_dates']}")
 
         logger.info(f"{'='*50}")
-        logger.info(f"Splits saved to: {self.splits_dir}")
+        if self.save_splits:
+            logger.info(f"Splits saved to: {self.splits_dir}")
 
         # Return context with paths to splits
         return {

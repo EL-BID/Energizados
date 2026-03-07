@@ -63,15 +63,33 @@ These scripts use `ConfigPipelineBuilder` API directly.
 src/energizados/
 ├── preprocessing/      # Data cleaning and feature engineering transformers
 ├── modeling/           # Model implementations (supervised and simple models)
-├── feature_pipeline/   # Combined preprocessing + feature selection
-│   ├── base.py        # BaseFeaturePipeline abstract class
-│   └── default.py     # DefaultFeaturePipeline implementation
+│   └── adapters.py    # LGBMModelAdapter, CATModelAdapter, NNModelAdapter, LSTMNNModelAdapter
+├── feature_engineering/  # Combined preprocessing + feature selection
+│   ├── base.py        # BaseFeatureEngineering abstract class
+│   └── default.py     # DefaultFeatureEngineering implementation
 ├── feature_selection/  # Feature selection methods
 │   ├── base.py        # BaseFeatureSelector abstract class
 │   └── methods.py     # BorutaSelector, CorrelationSelector, ConstantSelector
+├── evaluation/        # Model evaluation and reporting
+│   ├── evaluator.py   # DefaultEvaluator
+│   ├── metrics.py     # Metrics calculation
+│   ├── plots.py       # PlotGenerator
+│   ├── report.py      # ReportGenerator
+│   └── index.py       # Run index (output/index.html)
+├── inference/         # Inference implementations
+│   ├── base.py        # BaseInference abstract class
+│   └── default.py     # DefaultInference implementation
 ├── core/              # Core framework components
 │   ├── base.py        # Base classes for pipeline, models, inference
-│   └── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
+│   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
+│   ├── steps/         # Pipeline step implementations
+│   │   ├── split.py   # SplitStep
+│   │   └── training.py # TrainingStep
+│   ├── plots/         # Shared plot utilities
+│   │   └── utils.py
+│   └── utils/         # Internal utilities
+│       ├── import_utils.py   # Dynamic class import with allowlist
+│       └── secure_pickle.py  # SHA-256 verified pickle save/load
 ├── cli/               # Command-line interface
 │   ├── main.py        # CLI commands
 │   ├── init.py        # Project initialization
@@ -79,7 +97,7 @@ src/energizados/
 │   └── validate.py    # Configuration validation
 └── etl/               # ETL framework components
     ├── base.py        # BaseETL abstract class
-    ├── pipeline.py    # SourceETL, MultiSourceETL, MergeETL implementations
+    ├── pipeline.py    # SourceETL implementation
     └── orchestrator.py # ETLOrchestrator for dependency management
 ```
 
@@ -266,7 +284,7 @@ training:
 
 | Transformation | Description | Parameters |
 |----------------|-------------|------------|
-| `cardinality_reducer` | Groups infrequent categories into "otros" | `threshold` (float, default=0.001) |
+| `cardinality_reducer` | Groups infrequent categories into "otros" | `threshold` (float, class default=0.1; YAML template default=0.001) |
 | `to_dummy` | One-hot encoding | None |
 | `target_encoding` | Replaces category with target probability (requires y) | `w` (int, default=20) |
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |
@@ -311,9 +329,9 @@ preprocessing:
 - Full feature engineering replacement: `feature_engineering.custom_class`
 - Custom model: `model.custom_class`
 
-**Key Feature Pipeline Classes (internal framework):**
-- `BaseFeaturePipeline`: Abstract base class for custom implementations
-- `DefaultFeaturePipeline`: Default implementation combining preprocessing + feature selection
+**Key Feature Engineering Classes (internal framework):**
+- `BaseFeatureEngineering`: Abstract base class for custom implementations (`feature_engineering/base.py`)
+- `DefaultFeatureEngineering`: Default implementation combining preprocessing + feature selection (`feature_engineering/default.py`)
 - Methods: `fit(X, y)`, `transform(X)`, `fit_transform(X, y)`, `save(path)`, `load(path)`
 
 Additional ETL examples are provided (commented out) in the template:
@@ -332,9 +350,9 @@ Additional ETL examples are provided (commented out) in the template:
 
 **Key ETL Classes:**
 - `BaseETL`: Abstract base class for all ETL implementations
-- `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`)
+- `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
 - `ETLOrchestrator`: Manages execution order based on dependencies
-- `SchemaValidator`: Validates DataFrame schemas (required columns, categorical/numeric types)
+- `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Uses deprecated pandas API; not recommended for use.
 
 **IMPORTANT:** Each ETL must specify `custom_class`. The `DefaultETL` class has been removed.
 
@@ -397,7 +415,7 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 - LSTM models reshape consumption data to (samples, 12, 1) for sequential processing
 - Preprocessed datasets are saved in `data/processed/` as parquet files
 - Feature pipelines are saved as `.pkl` files for reuse in training and inference
-- **ETL configuration requires `custom_class` for each ETL** - use `SourceETL`, `MultiSourceETL`, `MergeETL`, or custom classes
+- **ETL configuration requires `custom_class` for each ETL** - use `SourceETL` (supports both `concat` and `merge` modes) or a custom class
 - **New projects include `data/raw/sample_dataset.parquet`** for immediate testing
 - The framework uses Python's `logging` module for all internal logging (configurable via logging handlers)
 - CLI output uses `click.echo` for user-facing messages

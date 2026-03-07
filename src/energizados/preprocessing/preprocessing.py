@@ -15,7 +15,6 @@ Functions:
 - fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent values.
 - fill_empty_values_str: Fills empty values in string columns with a specific value.
 - fill_empty_values_numeric: Fills empty values in numeric columns with a specific value.
-- build_feature_engineering_pipeline: Builds a preprocessing pipeline for feature engineering.
 """
 
 import logging
@@ -24,7 +23,6 @@ from itertools import groupby
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, OneToOneFeatureMixin, TransformerMixin
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 
@@ -499,7 +497,7 @@ class ExtraVars(BaseEstimator, TransformerMixin):
         return [f"{i}{self.periods_suffix}" for i in range(num_cols, 0, -1)]
 
     def transform(self, X):
-        return self.create_vbles(X)
+        return self.create_vbles(X.copy())
 
     def count_cero(self, x):
         return (x == 0.0).sum()
@@ -563,15 +561,3 @@ def fill_empty_values_numeric(df, cols, numeric_value):
     for x in cols:
         df.loc[:, x] = df[x].fillna(numeric_value)
     return df
-
-
-def build_feature_engineering_pipeline(f_names_path, num_periodos):
-    pipe_feature_eng_train = Pipeline(
-        [
-            ("tsfel vars", TsfelVars("all", features_names_path=f_names_path, read=False, num_periodos=num_periodos)),
-            ("add vars3", ExtraVars(None, read=False, num_periodos=3)),
-            ("add vars6", ExtraVars(None, read=False, num_periodos=6)),
-            ("add vars12", ExtraVars(None, read=False, num_periodos=12)),
-        ]
-    )
-    return pipe_feature_eng_train

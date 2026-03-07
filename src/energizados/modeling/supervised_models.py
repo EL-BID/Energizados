@@ -126,11 +126,10 @@ class LGBMModel:
         return pipe_preproceso_model
 
     def find_hyp_lgbm_model(self, X_train, y_train, X_val, y_val, imba_pipeline):
-        fit_params = {
-            "eval_metric": ["auc"],
-            "eval_set": [(X_val, y_val)],
-            "eval_names": ["valid"],
-            "callbacks": [early_stopping(stopping_rounds=30, first_metric_only=True), log_evaluation(0)],
+        # Phase 1 (search): do NOT pass eval_set so early stopping does not use the
+        # held-out validation set during CV — that would leak val into hyperparameter selection.
+        # The final model is retrained with eval_set in train() (Phase 2).
+        search_fit_params = {
             "categorical_feature": "auto",
             "feature_name": "auto",
         }
@@ -152,7 +151,7 @@ class LGBMModel:
         }
 
         new_params = {"lgbmclassifier__" + key: param_test[key] for key in param_test}
-        new_fit_params = {"lgbmclassifier__" + key: fit_params[key] for key in fit_params}
+        new_fit_params = {"lgbmclassifier__" + key: search_fit_params[key] for key in search_fit_params}
 
         random_imba = RandomizedSearchCV(
             estimator=imba_pipeline,
@@ -160,7 +159,7 @@ class LGBMModel:
             cv=self.cv,
             #                            scoring = 'average_precision',
             scoring="roc_auc",
-            n_jobs=35,
+            n_jobs=-1,
             n_iter=self.n_iter,
             refit=True,
             random_state=314,
@@ -216,8 +215,9 @@ class CATModel:
         return pipe_preproceso_model
 
     def find_hyp_catboost_model(self, X_train, y_train, X_val, y_val, imba_catboost):
-        fit_params = {"eval_set": [(X_val, y_val)], "early_stopping_rounds": 30}
-
+        # Phase 1 (search): do NOT pass eval_set so early stopping does not use the
+        # held-out validation set during CV — that would leak val into hyperparameter selection.
+        # The final model is retrained with eval_set in train() (Phase 2).
         param_test = {
             "depth": sp_randint(4, 16),
             #     'min_child_samples': sp_randint(100,500),
@@ -229,7 +229,6 @@ class CATModel:
         }
 
         new_params = {"catboostclassifier__" + key: param_test[key] for key in param_test}
-        new_fit_params = {"catboostclassifier__" + key: fit_params[key] for key in fit_params}
 
         random_imba = RandomizedSearchCV(
             estimator=imba_catboost,
@@ -242,7 +241,7 @@ class CATModel:
             random_state=314,
         )
 
-        random_imba.fit(X_train, y_train, **new_fit_params)
+        random_imba.fit(X_train, y_train)
         logger.info("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
         return random_imba.best_score_, random_imba.best_params_
 

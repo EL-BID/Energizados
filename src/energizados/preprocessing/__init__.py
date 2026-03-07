@@ -11,7 +11,6 @@ from energizados.preprocessing.preprocessing import (
     MinMaxScalerRow,
     ToDummy,
     TsfelVars,
-    build_feature_engineering_pipeline,
     fill_empty_values_cycle,
     fill_empty_values_numeric,
     fill_empty_values_str,
@@ -28,5 +27,4 @@ __all__ = [
     "fill_empty_values_cycle",
     "fill_empty_values_str",
     "fill_empty_values_numeric",
-    "build_feature_engineering_pipeline",
 ]

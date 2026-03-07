@@ -113,14 +113,12 @@ class BaseFeatureEngineering(ABC):
         if not self.is_fitted_:
             raise ValueError("You must call fit() before saving the pipeline")
 
-        import pickle  # nosec: B403 - pickle used only for internal user data
+        from energizados.core.utils.secure_pickle import secure_dump
 
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, "wb") as f:
-            pickle.dump(self, f)  # nosec: B301 - pickle used only for internal user data
-
+        secure_dump(self, path)
         logger.info(f"Feature engineering saved to: {path}")
 
     @classmethod
@@ -133,11 +131,9 @@ class BaseFeatureEngineering(ABC):
         Returns:
             BaseFeatureEngineering: Loaded pipeline.
         """
-        import pickle  # nosec: B403 - pickle used only for internal user data
+        from energizados.core.utils.secure_pickle import secure_load
 
-        with open(path, "rb") as f:
-            pipeline = pickle.load(f)  # nosec: B301 - pickle used only for internal user data
-
+        pipeline = secure_load(path)
         logger.info(f"Feature engineering loaded from: {path}")
         return pipeline
 

@@ -5,7 +5,6 @@ Evaluates ML models using metrics, visualizations and reports.
 """
 
 import logging
-import pickle  # nosec B403: ML model serialization (local files only)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -145,8 +144,10 @@ class DefaultEvaluator(PipelineStep):
         logger.info(f"F1:        {metrics_results.get('f1', 0):.4f}")
         logger.info(f"Precision: {metrics_results.get('precision', 0):.4f}")
         logger.info(f"Recall:    {metrics_results.get('recall', 0):.4f}")
-        logger.info(f"Accuracy:  {metrics_results.get('accuracy', 0):.4f}")
+        if "accuracy" in metrics_results:
+            logger.info(f"Accuracy:  {metrics_results['accuracy']:.4f}")
         logger.info(f"{'='*50}")
+        metrics_results["threshold"] = self.threshold
 
         # 7. Generate visualizations
         plots_paths = {}
@@ -204,16 +205,18 @@ class DefaultEvaluator(PipelineStep):
 
     def _load_model(self):
         """Loads the trained model."""
+        from energizados.core.utils.secure_pickle import secure_load
+
         logger.info(f"Loading model from: {self.model_path}")
-        with open(self.model_path, "rb") as f:
-            return pickle.load(f)  # nosec B301: trusted local model file
+        return secure_load(self.model_path)
 
     def _load_feature_engineering(self):
         """Loads feature engineering if it exists."""
+        from energizados.core.utils.secure_pickle import secure_load
+
         if self.feature_engineering_path and Path(self.feature_engineering_path).exists():
             logger.info(f"Loading feature engineering from: {self.feature_engineering_path}")
-            with open(self.feature_engineering_path, "rb") as f:
-                return pickle.load(f)  # nosec B301: trusted local feature engineering file
+            return secure_load(self.feature_engineering_path)
         return None
 
     def _generate_plots(

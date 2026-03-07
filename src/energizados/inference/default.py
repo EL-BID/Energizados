@@ -5,7 +5,6 @@ Default inference implementation that allows loading models,
 making predictions, and saving results.
 """
 
-import pickle  # nosec: B403 - Standard for ML model serialization in Python ecosystem
 from pathlib import Path
 from typing import Optional
 
@@ -65,13 +64,13 @@ class DefaultInference(BaseInference):
             ValueError: If no valid path is provided.
             FileNotFoundError: If the file does not exist.
         """
+        from energizados.core.utils.secure_pickle import secure_load
+
         path = model_path or self.model_path
         if not path:
             raise ValueError("No model path provided")
 
-        with open(path, "rb") as f:
-            self.model = pickle.load(f)  # nosec: B301 - Standard for ML models; ensure trusted source
-
+        self.model = secure_load(path)
         return self.model
 
     def predict(self, model: BaseModel, data: pd.DataFrame) -> np.ndarray:
@@ -113,6 +112,9 @@ class DefaultInference(BaseInference):
             predictions: Predictions to save.
             output_path: Output path.
         """
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        validate_no_traversal(output_path, label="inference output_path")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame({"prediction": predictions}).to_csv(output_path, index=False)
 
@@ -130,6 +132,9 @@ class DefaultInference(BaseInference):
             probas: Probabilities.
             output_path: Output path.
         """
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        validate_no_traversal(output_path, label="inference output_path")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(
             {
