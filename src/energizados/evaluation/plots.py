@@ -6,7 +6,7 @@ Generates visualizations for model evaluation.
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,16 +25,30 @@ class PlotGenerator:
 
     Example:
         >>> plotter = PlotGenerator("reports/evaluation/")
-        >>> plotter.roc_curve(y_true, y_proba)
+        >>> plotter.roc_curve_plot(y_true, y_proba, auc_score)
         >>> plotter.confusion_matrix_plot(cm)
     """
 
     def __init__(self, output_dir: str = "reports/evaluation/"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Configure style
         plt.style.use("default")
+
+    # ------------------------------------------------------------------
+    # Internal helper (MEJORAS P3-12)
+    # ------------------------------------------------------------------
+
+    def _save_figure(self, filename: str, save_path: Optional[str] = None) -> str:
+        """Saves the current figure, closes it, and returns the path."""
+        path = save_path or str(self.output_dir / filename)
+        plt.savefig(path, dpi=150, bbox_inches="tight")
+        plt.close()
+        logger.info(f"Plot saved to: {path}")
+        return path
+
+    # ------------------------------------------------------------------
+    # Standard evaluation plots
+    # ------------------------------------------------------------------
 
     def roc_curve_plot(
         self,
@@ -68,12 +82,7 @@ class PlotGenerator:
         plt.legend(loc="lower right")
         plt.grid(True, alpha=0.3)
 
-        path = save_path or str(self.output_dir / "roc_curve.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close()
-
-        logger.info(f"ROC curve saved to: {path}")
-        return path
+        return self._save_figure("roc_curve.png", save_path)
 
     def precision_recall_plot(
         self,
@@ -101,12 +110,7 @@ class PlotGenerator:
         plt.title("Precision-Recall Curve")
         plt.grid(True, alpha=0.3)
 
-        path = save_path or str(self.output_dir / "precision_recall_curve.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close()
-
-        logger.info(f"Precision-Recall curve saved to: {path}")
-        return path
+        return self._save_figure("precision_recall_curve.png", save_path)
 
     def confusion_matrix_plot(
         self,
@@ -131,19 +135,20 @@ class PlotGenerator:
         thresh = cm.max() / 2.0
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
-                plt.text(j, i, format(cm[i, j], "d"), horizontalalignment="center", color="white" if cm[i, j] > thresh else "black")
+                plt.text(
+                    j,
+                    i,
+                    format(cm[i, j], "d"),
+                    horizontalalignment="center",
+                    color="white" if cm[i, j] > thresh else "black",
+                )
 
         plt.ylabel("True label")
         plt.xlabel("Predicted label")
         plt.xticks([0, 1], ["Negative", "Positive"])
         plt.yticks([0, 1], ["Negative", "Positive"])
 
-        path = save_path or str(self.output_dir / "confusion_matrix.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close()
-
-        logger.info(f"Confusion matrix saved to: {path}")
-        return path
+        return self._save_figure("confusion_matrix.png", save_path)
 
     def cumulative_gains_plot(
         self,
@@ -154,13 +159,13 @@ class PlotGenerator:
         Generates cumulative gains curve.
 
         Args:
-            gains_data: Dictionary with deciles and cumulative_gain
+            gains_data: Dictionary with deciles, cumulative_gain and cumulative_population
             save_path: Path to save (optional)
 
         Returns:
             str: Path where plot was saved
         """
-        _deciles = gains_data["deciles"]  # noqa: F841 - reference only
+        # _deciles removed — not used in the plot (MEJORAS P0-2)
         cumulative_gain = gains_data["cumulative_gain"]
         cumulative_population = gains_data["cumulative_population"]
 
@@ -173,12 +178,41 @@ class PlotGenerator:
         plt.grid(True, alpha=0.3)
         plt.legend()
 
-        path = save_path or str(self.output_dir / "cumulative_gains.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close()
+        return self._save_figure("cumulative_gains.png", save_path)
 
-        logger.info(f"Cumulative gains saved to: {path}")
-        return path
+    def lift_chart_plot(
+        self,
+        gains_data: Dict,
+        save_path: Optional[str] = None,
+    ) -> str:
+        """
+        Generates lift chart from cumulative gains data (MEJORAS P4-16).
+
+        Lift = cumulative_gain / cumulative_population for each population decile.
+        A lift of 2.0 at 10% means the model finds twice as many frauds as random.
+
+        Args:
+            gains_data: Dictionary with cumulative_gain and cumulative_population
+            save_path: Path to save (optional)
+
+        Returns:
+            str: Path where plot was saved
+        """
+        cumulative_gain = gains_data["cumulative_gain"]
+        cumulative_population = gains_data["cumulative_population"]
+
+        lifts = [g / p if p > 0 else 0 for g, p in zip(cumulative_gain, cumulative_population)]
+
+        plt.figure(figsize=(8, 6))
+        plt.plot(cumulative_population, lifts, marker="o", linestyle="-", color="darkblue", lw=2, label="Model")
+        plt.axhline(y=1.0, linestyle="--", color="navy", label="Random (lift=1)")
+        plt.xlabel("Cumulative Population")
+        plt.ylabel("Lift")
+        plt.title("Lift Chart")
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+
+        return self._save_figure("lift_chart.png", save_path)
 
     def calibration_plot(
         self,
@@ -199,11 +233,9 @@ class PlotGenerator:
         Returns:
             str: Path where plot was saved
         """
-        # Create bins
         df = pd.DataFrame({"y_true": y_true, "y_proba": y_proba})
         df["bin"] = pd.cut(df["y_proba"], bins=n_bins, labels=False)
 
-        # Calculate statistics per bin
         bin_stats = df.groupby("bin").agg({"y_true": "mean", "y_proba": "mean"}).reset_index()
 
         plt.figure(figsize=(8, 6))
@@ -215,12 +247,7 @@ class PlotGenerator:
         plt.grid(True, alpha=0.3)
         plt.legend()
 
-        path = save_path or str(self.output_dir / "calibration_curve.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close()
-
-        logger.info(f"Calibration curve saved to: {path}")
-        return path
+        return self._save_figure("calibration_curve.png", save_path)
 
     def probability_distribution_plot(
         self,
@@ -241,7 +268,6 @@ class PlotGenerator:
         """
         plt.figure(figsize=(10, 6))
 
-        # Separate probabilities by class
         proba_0 = y_proba[y_true == 0]
         proba_1 = y_proba[y_true == 1]
 
@@ -254,9 +280,41 @@ class PlotGenerator:
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-        path = save_path or str(self.output_dir / "probability_distribution.png")
-        plt.savefig(path, dpi=150, bbox_inches="tight")
-        plt.close()
+        return self._save_figure("probability_distribution.png", save_path)
 
-        logger.info(f"Probability distribution saved to: {path}")
-        return path
+    def feature_importance_plot(
+        self,
+        feature_names: List[str],
+        importances: np.ndarray,
+        top_n: int = 20,
+        save_path: Optional[str] = None,
+    ) -> str:
+        """
+        Generates feature importance bar chart (MEJORAS P2-8).
+
+        Args:
+            feature_names: List of feature names
+            importances: Importance scores (one per feature)
+            top_n: Maximum number of features to display
+            save_path: Path to save (optional)
+
+        Returns:
+            str: Path where plot was saved
+        """
+        importances = np.asarray(importances)
+        n = min(top_n, len(feature_names), len(importances))
+
+        indices = np.argsort(importances)[::-1][:n]
+        top_features = [feature_names[i] for i in indices]
+        top_importances = importances[indices]
+
+        fig_height = max(6, n * 0.35)
+        plt.figure(figsize=(10, fig_height))
+        plt.barh(range(n), top_importances[::-1], color="steelblue")
+        plt.yticks(range(n), top_features[::-1])
+        plt.xlabel("Importance")
+        plt.title(f"Feature Importance (Top {n})")
+        plt.grid(True, alpha=0.3, axis="x")
+        plt.tight_layout()
+
+        return self._save_figure("feature_importance.png", save_path)

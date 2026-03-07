@@ -37,6 +37,9 @@ class DefaultEvaluator(PipelineStep):
         generate_plots: If True, generates visualizations
         generate_html_report: If True, generates HTML report
         generate_json_report: If True, generates JSON report
+        segment_columns: List of column names to compute per-segment metrics
+        calibration_config: Dict with calibration settings (enabled, method, params)
+        val_predictions_path: Path to validation predictions parquet (for calibration)
 
     Example:
         >>> evaluator = DefaultEvaluator(
@@ -58,6 +61,7 @@ class DefaultEvaluator(PipelineStep):
         generate_plots: bool = True,
         generate_html_report: bool = True,
         generate_json_report: bool = True,
+        segment_columns: Optional[List[str]] = None,
         calibration_config: Optional[Dict] = None,
         val_predictions_path: Optional[str] = None,
         **kwargs,
@@ -73,10 +77,10 @@ class DefaultEvaluator(PipelineStep):
         self.generate_plots = generate_plots
         self.generate_html_report = generate_html_report
         self.generate_json_report = generate_json_report
+        self.segment_columns = segment_columns or []
         self.calibration_config = calibration_config
         self.val_predictions_path = val_predictions_path
 
-        # Initialize generators
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
 
@@ -86,34 +90,44 @@ class DefaultEvaluator(PipelineStep):
         logger.info("EVALUATION STEP")
         logger.info("=" * 50)
 
-        # Get paths from context if not provided
-        if context:
-            self.input_path = self.input_path or context.get("test_path")
-            self.model_path = self.model_path or context.get("model_path")
-            self.feature_engineering_path = self.feature_engineering_path or context.get("feature_engineering_path")
+        # Resolve paths from context without mutating instance state (MEJORAS P1-5)
+        ctx = context or {}
+        input_path = self.input_path or ctx.get("test_path")
+        model_path = self.model_path or ctx.get("model_path")
+        feature_engineering_path = self.feature_engineering_path or ctx.get("feature_engineering_path")
+
+        # Validate inputs before loading (MEJORAS P1-4)
+        if not input_path:
+            raise ValueError("No input_path provided and 'test_path' not found in context.")
+        if not Path(input_path).exists():
+            raise FileNotFoundError(f"Test dataset not found: {input_path}")
 
         # 1. Load model and feature engineering
-        model = self._load_model()
-        feature_engineering = self._load_feature_engineering()
+        model = self._load_model(model_path)
+        feature_engineering = self._load_feature_engineering(feature_engineering_path)
 
         # 2. Load test data
-        test_df = pd.read_parquet(self.input_path)
+        test_df = pd.read_parquet(input_path)
         logger.info(f"Test dataset shape: {test_df.shape}")
 
         X_test = test_df.drop(columns=[self.target_column])
         y_test = test_df[self.target_column]
 
-        # 3. Apply feature engineering if it exists
+        # 3. Apply feature engineering if available
         if feature_engineering is not None:
             logger.info("Applying feature engineering...")
             X_test_transformed = feature_engineering.transform(X_test)
         else:
             X_test_transformed = X_test
 
+        # Capture feature names for importance plot (MEJORAS P2-8)
+        feature_names = list(X_test_transformed.columns) if hasattr(X_test_transformed, "columns") else None
+
         # 4. Calibrate threshold if configured
         calibration_result = None
+        threshold = self.threshold  # local copy — do not mutate self.threshold
         if self.calibration_config and self.calibration_config.get("enabled", False):
-            val_path = self.val_predictions_path or (context.get("val_predictions_path") if context else None)
+            val_path = self.val_predictions_path or ctx.get("val_predictions_path")
             if val_path and Path(val_path).exists():
                 val_df = pd.read_parquet(val_path)
                 calibrator = ThresholdCalibrator(
@@ -121,39 +135,59 @@ class DefaultEvaluator(PipelineStep):
                     **self.calibration_config.get("params", {}),
                 )
                 calibration_result = calibrator.calibrate(val_df["y_true"].values, val_df["y_proba"].values)
-                self.threshold = calibration_result["threshold"]
-                logger.info(f"Calibrated threshold: {self.threshold:.4f} " f"(method: {calibration_result['method']})")
+                threshold = calibration_result["threshold"]
+                logger.info(f"Calibrated threshold: {threshold:.4f} (method: {calibration_result['method']})")
             else:
-                logger.warning("Calibration enabled but val_predictions_path not found, " "using default threshold")
+                logger.warning("Calibration enabled but val_predictions_path not found, using default threshold")
 
         # 5. Get predictions
         logger.info("Generating predictions...")
         y_proba = model.predict_proba(X_test_transformed)
-        y_pred = (y_proba >= self.threshold).astype(int)
+        y_pred = (y_proba >= threshold).astype(int)
 
         # 6. Calculate metrics
         logger.info("Calculating metrics...")
-        metrics_calculator = Metrics(y_test, y_pred, y_proba, self.threshold)
+        metrics_calculator = Metrics(y_test, y_pred, y_proba, threshold)
         metrics_results = metrics_calculator.calculate_all(self.metrics)
 
         # Log main metrics
-        logger.info(f"\n{'='*50}")
+        logger.info(f"\n{'=' * 50}")
         logger.info("METRICS SUMMARY")
-        logger.info(f"{'='*50}")
+        logger.info(f"{'=' * 50}")
         logger.info(f"AUC:       {metrics_results.get('auc', 0):.4f}")
         logger.info(f"F1:        {metrics_results.get('f1', 0):.4f}")
         logger.info(f"Precision: {metrics_results.get('precision', 0):.4f}")
         logger.info(f"Recall:    {metrics_results.get('recall', 0):.4f}")
         if "accuracy" in metrics_results:
             logger.info(f"Accuracy:  {metrics_results['accuracy']:.4f}")
-        logger.info(f"{'='*50}")
-        metrics_results["threshold"] = self.threshold
+        logger.info(f"{'=' * 50}")
+        metrics_results["threshold"] = threshold
+
+        # 6b. Segment metrics (MEJORAS P4-15)
+        if self.segment_columns:
+            logger.info(f"Calculating segment metrics for: {self.segment_columns}")
+            segment_metrics = {}
+            for col in self.segment_columns:
+                if col in test_df.columns:
+                    segments = test_df[col].values
+                    segment_metrics[col] = metrics_calculator.segment_metrics(segments)
+                else:
+                    logger.warning(f"Segment column '{col}' not found in test dataset, skipping.")
+            if segment_metrics:
+                metrics_results["segment_metrics"] = segment_metrics
 
         # 7. Generate visualizations
         plots_paths = {}
         if self.generate_plots:
             logger.info("Generating plots...")
-            plots_paths = self._generate_plots(y_test, y_proba, y_pred, metrics_results)
+            plots_paths = self._generate_plots(
+                y_test,
+                y_proba,
+                y_pred,
+                metrics_results,
+                model=model,
+                feature_names=feature_names,
+            )
 
         # 8. Generate reports
         report_paths = {}
@@ -163,17 +197,26 @@ class DefaultEvaluator(PipelineStep):
             model_info = self._get_model_info(model)
 
             if self.generate_json_report:
-                json_path = self.report_generator.generate_json(metrics_results, model_info, calibration_result=calibration_result)
+                json_path = self.report_generator.generate_json(
+                    metrics_results,
+                    model_info,
+                    calibration_result=calibration_result,
+                )
                 report_paths["json"] = json_path
 
             if self.generate_html_report:
-                html_path = self.report_generator.generate_html(metrics_results, plots_paths, model_info)
+                html_path = self.report_generator.generate_html(
+                    metrics_results,
+                    plots_paths,
+                    model_info,
+                    calibration_result=calibration_result,
+                )
                 report_paths["html"] = html_path
 
         logger.info(f"\nEvaluation complete. Reports saved to: {self.output_dir}")
 
         return {
-            **context,
+            **ctx,
             "metrics": metrics_results,
             "plots": plots_paths,
             "reports": report_paths,
@@ -182,11 +225,9 @@ class DefaultEvaluator(PipelineStep):
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
         """Validates that necessary inputs exist."""
-        # Check model
         if self.model_path and not Path(self.model_path).exists():
             return False
 
-        # Check that input_path was provided or exists in context
         input_path = self.input_path or context.get("test_path")
         return input_path is not None and Path(input_path).exists()
 
@@ -203,20 +244,22 @@ class DefaultEvaluator(PipelineStep):
         """Returns keys added to context."""
         return ["metrics", "plots", "reports", "evaluation_dir"]
 
-    def _load_model(self):
-        """Loads the trained model."""
+    def _load_model(self, model_path: Optional[str] = None):
+        """Loads the trained model from the given path."""
         from energizados.core.utils.secure_pickle import secure_load
 
-        logger.info(f"Loading model from: {self.model_path}")
-        return secure_load(self.model_path)
+        path = model_path or self.model_path
+        logger.info(f"Loading model from: {path}")
+        return secure_load(path)
 
-    def _load_feature_engineering(self):
-        """Loads feature engineering if it exists."""
+    def _load_feature_engineering(self, feature_engineering_path: Optional[str] = None):
+        """Loads feature engineering if the path exists."""
         from energizados.core.utils.secure_pickle import secure_load
 
-        if self.feature_engineering_path and Path(self.feature_engineering_path).exists():
-            logger.info(f"Loading feature engineering from: {self.feature_engineering_path}")
-            return secure_load(self.feature_engineering_path)
+        path = feature_engineering_path or self.feature_engineering_path
+        if path and Path(path).exists():
+            logger.info(f"Loading feature engineering from: {path}")
+            return secure_load(path)
         return None
 
     def _generate_plots(
@@ -225,6 +268,8 @@ class DefaultEvaluator(PipelineStep):
         y_proba: np.ndarray,
         y_pred: np.ndarray,
         metrics: Dict,
+        model=None,
+        feature_names: Optional[List[str]] = None,
     ) -> Dict[str, str]:
         """Generates all visualizations."""
         plots = {}
@@ -256,6 +301,13 @@ class DefaultEvaluator(PipelineStep):
         except Exception as e:
             logger.warning(f"Could not generate cumulative gains: {e}")
 
+        # Lift Chart (MEJORAS P4-16)
+        try:
+            if "cumulative_gains" in metrics:
+                plots["lift_chart"] = self.plot_generator.lift_chart_plot(metrics["cumulative_gains"])
+        except Exception as e:
+            logger.warning(f"Could not generate lift chart: {e}")
+
         # Probability Distribution
         try:
             plots["probability_distribution"] = self.plot_generator.probability_distribution_plot(y_true, y_proba)
@@ -268,19 +320,52 @@ class DefaultEvaluator(PipelineStep):
         except Exception as e:
             logger.warning(f"Could not generate calibration curve: {e}")
 
+        # Feature Importance (MEJORAS P2-8)
+        if model is not None and feature_names is not None:
+            try:
+                inner = getattr(model, "_model", None)
+                importances = None
+                if inner is not None:
+                    if hasattr(inner, "feature_importances_"):
+                        importances = inner.feature_importances_
+                    elif hasattr(inner, "get_feature_importance"):
+                        importances = inner.get_feature_importance()
+
+                if importances is not None:
+                    plots["feature_importance"] = self.plot_generator.feature_importance_plot(feature_names, importances)
+            except Exception as e:
+                logger.warning(f"Could not generate feature importance plot: {e}")
+
         return plots
 
     def _get_model_info(self, model) -> Dict:
-        """Gets model information for the report."""
-        info = {
-            "model_class": model.__class__.__name__,
-        }
+        """Gets model information for the report (MEJORAS P2-9)."""
+        info = {"model_class": model.__class__.__name__}
 
-        # Try to get additional information
         if hasattr(model, "config"):
             info["config"] = str(model.config)
 
-        if hasattr(model, "_model"):
-            info["inner_model"] = model._model.__class__.__name__
+        inner = getattr(model, "_model", None)
+        if inner is not None:
+            info["inner_model"] = inner.__class__.__name__
+
+            # Hyperparameters (scikit-learn compatible API)
+            if hasattr(inner, "get_params"):
+                try:
+                    params = inner.get_params()
+                    # Filter out nested objects; keep scalar/string params
+                    info["hyperparams"] = {k: v for k, v in params.items() if isinstance(v, (int, float, str, bool, type(None)))}
+                except Exception as e:
+                    logger.debug("Could not retrieve hyperparams from inner model: %s", e)
+
+            # Number of features seen during fit
+            if hasattr(inner, "n_features_in_"):
+                info["n_features"] = int(inner.n_features_in_)
+
+            # Number of estimators / iterations
+            if hasattr(inner, "n_estimators"):
+                info["n_estimators"] = inner.n_estimators
+            elif hasattr(inner, "num_trees"):
+                info["n_estimators"] = inner.num_trees()
 
         return info

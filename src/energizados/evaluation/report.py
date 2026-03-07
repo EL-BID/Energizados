@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
+from energizados.evaluation._html_templates import REPORT_CSS
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +38,7 @@ class ReportGenerator:
         plots: Dict[str, str],
         model_info: Optional[Dict] = None,
         save_path: Optional[str] = None,
+        calibration_result: Optional[Dict] = None,
     ) -> str:
         """
         Generates HTML report with results.
@@ -45,11 +48,12 @@ class ReportGenerator:
             plots: Dictionary with paths to plots
             model_info: Model information (optional)
             save_path: Path to save (optional)
+            calibration_result: Result from ThresholdCalibrator.calibrate() (optional)
 
         Returns:
             str: Path where report was saved
         """
-        html_content = self._build_html(metrics, plots, model_info)
+        html_content = self._build_html(metrics, plots, model_info, calibration_result)
 
         path = save_path or str(self.output_dir / "evaluation_report.html")
 
@@ -101,138 +105,31 @@ class ReportGenerator:
         logger.info(f"JSON report saved to: {path}")
         return path
 
+    # ------------------------------------------------------------------
+    # HTML builders
+    # ------------------------------------------------------------------
+
     def _build_html(
         self,
         metrics: Dict,
         plots: Dict[str, str],
         model_info: Optional[Dict] = None,
+        calibration_result: Optional[Dict] = None,
     ) -> str:
         """Builds HTML content of the report."""
-        # Convert file paths to relative
+        # Convert file paths to relative names so the HTML works from the report directory
         plots_rel = {k: Path(v).name for k, v in plots.items()}
 
-        html = f"""
-<!DOCTYPE html>
-<html lang="es">
+        calibration_section = self._build_calibration_html(calibration_result) if calibration_result else ""
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evaluation Report - Energizados</title>
     <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }}
-        .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }}
-        .header h1 {{
-            margin: 0;
-            font-size: 2.5em;
-        }}
-        .header p {{
-            margin: 10px 0 0 0;
-            opacity: 0.9;
-        }}
-        .section {{
-            background: white;
-            padding: 25px;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .section h2 {{
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-            margin-top: 0;
-        }}
-        .metrics-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }}
-        .metric-card {{
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            border-left: 4px solid #667eea;
-        }}
-        .metric-card .value {{
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #667eea;
-        }}
-        .metric-card .label {{
-            color: #666;
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }}
-        .plots-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }}
-        .plot-container {{
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }}
-        .plot-container img {{
-            max-width: 100%;
-            height: auto;
-            border-radius: 5px;
-        }}
-        .plot-container h3 {{
-            margin-top: 0;
-            color: #667eea;
-        }}
-        .confusion-matrix {{
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            max-width: 300px;
-            margin: 20px auto;
-        }}
-        .cm-cell {{
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px;
-        }}
-        .cm-cell.tp {{ border-left: 4px solid #28a745; }}
-        .cm-cell.tn {{ border-left: 4px solid #6c757d; }}
-        .cm-cell.fp {{ border-left: 4px solid #dc3545; }}
-        .cm-cell.fn {{ border-left: 4px solid #ffc107; }}
-        .cm-cell .value {{
-            font-size: 2em;
-            font-weight: bold;
-        }}
-        .cm-cell .label {{
-            font-size: 0.8em;
-            color: #666;
-        }}
-        .footer {{
-            text-align: center;
-            padding: 20px;
-            color: #666;
-            font-size: 0.9em;
-        }}
+{REPORT_CSS}
     </style>
 </head>
 <body>
@@ -249,6 +146,8 @@ class ReportGenerator:
         </div>
     </div>
 
+    {calibration_section}
+
     {self._build_confusion_matrix_html(metrics)}
 
     <div class="section">
@@ -264,13 +163,11 @@ class ReportGenerator:
 </body>
 </html>
 """
-        return html
 
     def _build_metrics_html(self, metrics: Dict) -> str:
         """Builds HTML for metric cards."""
         html_parts = []
 
-        # Main metrics
         metric_configs = [
             ("AUC", "auc", "Area Under ROC Curve"),
             ("F1 Score", "f1", "F1 Score"),
@@ -279,12 +176,9 @@ class ReportGenerator:
             ("Accuracy", "accuracy", "Accuracy"),
         ]
 
-        for label, key, description in metric_configs:
+        for label, key, _description in metric_configs:
             value = metrics.get(key, 0)
-            if isinstance(value, (int, float)):
-                display_value = f"{value:.4f}"
-            else:
-                display_value = str(value)
+            display_value = f"{value:.4f}" if isinstance(value, (int, float)) else str(value)
 
             html_parts.append(f"""
             <div class="metric-card">
@@ -295,8 +189,30 @@ class ReportGenerator:
 
         return "".join(html_parts)
 
+    def _build_calibration_html(self, calibration_result: Dict) -> str:
+        """Builds HTML section showing threshold calibration info (MEJORAS P2-10)."""
+        method = calibration_result.get("method", "—")
+        threshold = calibration_result.get("threshold", 0)
+        params = calibration_result.get("params", {})
+        at_threshold = calibration_result.get("metrics_at_threshold", {})
+
+        params_str = " &nbsp;|&nbsp; ".join(f"<strong>{k}:</strong> {v}" for k, v in params.items())
+
+        return f"""
+    <div class="section">
+        <h2>Threshold Calibration</h2>
+        <div class="calibration-info">
+            <p><strong>Method:</strong> {method} &nbsp;&nbsp; {params_str}</p>
+            <p><strong>Calibrated Threshold:</strong> {threshold:.4f}</p>
+            <p><strong>Precision @ threshold:</strong> {at_threshold.get('precision', 0):.4f}</p>
+            <p><strong>Recall @ threshold:</strong> {at_threshold.get('recall', 0):.4f}</p>
+            <p><strong>F1 @ threshold:</strong> {at_threshold.get('f1', 0):.4f}</p>
+        </div>
+    </div>
+"""
+
     def _build_confusion_matrix_html(self, metrics: Dict) -> str:
-        """Builds HTML for confusion matrix."""
+        """Builds HTML for confusion matrix (numeric cells only — image is in Visualizations)."""
         cm = metrics.get("confusion_matrix", {})
         if not cm or "matrix" not in cm:
             return ""
@@ -306,6 +222,7 @@ class ReportGenerator:
         fp = cm.get("fp", 0)
         fn = cm.get("fn", 0)
 
+        # Image removed here — it already appears in the Visualizations grid (MEJORAS P0-3)
         return f"""
     <div class="section">
         <h2>Confusion Matrix</h2>
@@ -327,9 +244,6 @@ class ReportGenerator:
                 <div class="label">True Positive</div>
             </div>
         </div>
-        <p style="text-align: center; color: #666;">
-            <img src="confusion_matrix.png" alt="Confusion Matrix" style="max-width: 400px;">
-        </p>
     </div>
 """
 
@@ -353,8 +267,5 @@ class ReportGenerator:
         if not model_info:
             return ""
 
-        info_lines = []
-        for key, value in model_info.items():
-            info_lines.append(f"<strong>{key}:</strong> {value}")
-
-        return f'<p>{" | ".join(info_lines)}</p>'
+        info_lines = [f"<strong>{key}:</strong> {value}" for key, value in model_info.items()]
+        return f'<p>{" &nbsp;|&nbsp; ".join(info_lines)}</p>'

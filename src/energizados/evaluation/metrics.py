@@ -11,7 +11,9 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
-    confusion_matrix,
+)
+from sklearn.metrics import confusion_matrix as sklearn_confusion_matrix
+from sklearn.metrics import (
     f1_score,
     precision_score,
     recall_score,
@@ -19,6 +21,42 @@ from sklearn.metrics import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def compute_threshold_metrics(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    n_thresholds: int = 101,
+) -> Dict:
+    """
+    Computes precision, recall and f1 across a range of thresholds.
+
+    Standalone function used by both Metrics.get_threshold_metrics() and
+    ThresholdCalibrator to avoid coupling (MEJORAS P3-13).
+
+    Args:
+        y_true: True binary labels
+        y_proba: Predicted probabilities
+        n_thresholds: Number of thresholds to evaluate (default: 101)
+
+    Returns:
+        Dict with thresholds, precisions, recalls and f1s lists
+    """
+    thresholds = np.linspace(0, 1, n_thresholds)
+    precisions, recalls, f1s = [], [], []
+
+    for thresh in thresholds:
+        y_pred_thresh = (y_proba >= thresh).astype(int)
+        precisions.append(precision_score(y_true, y_pred_thresh, zero_division=0))
+        recalls.append(recall_score(y_true, y_pred_thresh, zero_division=0))
+        f1s.append(f1_score(y_true, y_pred_thresh, zero_division=0))
+
+    return {
+        "thresholds": thresholds.tolist(),
+        "precisions": precisions,
+        "recalls": recalls,
+        "f1s": f1s,
+    }
 
 
 class Metrics:
@@ -36,6 +74,8 @@ class Metrics:
         >>> results = metrics.calculate_all()
     """
 
+    _DEFAULT_METRICS = ["auc", "precision", "recall", "f1", "confusion_matrix", "accuracy"]
+
     def __init__(
         self,
         y_true: np.ndarray,
@@ -43,9 +83,9 @@ class Metrics:
         y_proba: np.ndarray,
         threshold: float = 0.5,
     ):
-        self.y_true = y_true
-        self.y_pred = y_pred
-        self.y_proba = y_proba
+        self.y_true = np.asarray(y_true)
+        self.y_pred = np.asarray(y_pred)
+        self.y_proba = np.asarray(y_proba)
         self.threshold = threshold
 
     def calculate_all(self, metrics_list: Optional[List[str]] = None) -> Dict:
@@ -60,25 +100,25 @@ class Metrics:
             Dict: Dictionary with calculated metrics
         """
         if metrics_list is None:
-            metrics_list = ["auc", "precision", "recall", "f1", "confusion_matrix", "accuracy"]
+            metrics_list = self._DEFAULT_METRICS
+
+        # Dict dispatch avoids open-ended if/elif and makes adding metrics easy (MEJORAS P2-7)
+        dispatch = {
+            "auc": self.auc,
+            "precision": self.precision,
+            "recall": self.recall,
+            "f1": self.f1,
+            "accuracy": self.accuracy,
+            "confusion_matrix": self.confusion_matrix,
+            "cumulative_gains": self.cumulative_gains,
+        }
 
         results = {}
-
         for metric_name in metrics_list:
-            if metric_name == "auc":
-                results["auc"] = self.auc()
-            elif metric_name == "precision":
-                results["precision"] = self.precision()
-            elif metric_name == "recall":
-                results["recall"] = self.recall()
-            elif metric_name == "f1":
-                results["f1"] = self.f1()
-            elif metric_name == "confusion_matrix":
-                results["confusion_matrix"] = self.confusion_matrix()
-            elif metric_name == "accuracy":
-                results["accuracy"] = self.accuracy()
-            elif metric_name == "cumulative_gains":
-                results["cumulative_gains"] = self.cumulative_gains()
+            if metric_name in dispatch:
+                results[metric_name] = dispatch[metric_name]()
+            else:
+                logger.warning(f"Unknown metric: '{metric_name}', skipping.")
 
         return results
 
@@ -111,9 +151,10 @@ class Metrics:
         Calculates confusion matrix.
 
         Returns:
-            Dict with tp, fp, fn, tn
+            Dict with tp, fp, fn, tn and matrix
         """
-        cm = confusion_matrix(self.y_true, self.y_pred)
+        # Use aliased import to avoid name shadowing with this method (MEJORAS P0-1)
+        cm = sklearn_confusion_matrix(self.y_true, self.y_pred)
         tn, fp, fn, tp = cm.ravel()
         return {
             "tp": int(tp),
@@ -133,14 +174,12 @@ class Metrics:
         Returns:
             Dict with deciles and cumulative gains
         """
-        # Create DataFrame with true values and probabilities
         df = pd.DataFrame({"y_true": self.y_true, "y_proba": self.y_proba})
-
-        # Sort by descending probability
         df = df.sort_values("y_proba", ascending=False).reset_index(drop=True)
 
-        # Calculate bin size
-        bin_size = len(df) // n_bins
+        # Guard against n_bins > len(df) which would make bin_size = 0 (MEJORAS P1-6)
+        n_bins = min(n_bins, len(df))
+        bin_size = max(1, len(df) // n_bins)
 
         results = {
             "deciles": [],
@@ -157,13 +196,47 @@ class Metrics:
             end_idx = (i + 1) * bin_size if i < n_bins - 1 else len(df)
 
             bin_df = df.iloc[start_idx:end_idx]
-            bin_positives = bin_df["y_true"].sum()
-            cumulative_positives += bin_positives
+            cumulative_positives += bin_df["y_true"].sum()
             cumulative_count += len(bin_df)
 
             results["deciles"].append(i + 1)
             results["cumulative_gain"].append(cumulative_positives / total_positives if total_positives > 0 else 0)
             results["cumulative_population"].append(cumulative_count / len(df))
+
+        return results
+
+    def segment_metrics(self, segments: np.ndarray) -> Dict:
+        """
+        Calculates metrics broken down by segment (MEJORAS P4-15).
+
+        Args:
+            segments: Array with segment values, aligned with y_true
+
+        Returns:
+            Dict mapping segment_value -> metrics dict (count, positive_rate, auc, precision, recall, f1)
+        """
+        segments = np.asarray(segments)
+        results = {}
+
+        for segment_value in np.unique(segments):
+            mask = segments == segment_value
+            if mask.sum() == 0:
+                continue
+
+            seg_calc = Metrics(
+                self.y_true[mask],
+                self.y_pred[mask],
+                self.y_proba[mask],
+                self.threshold,
+            )
+            results[str(segment_value)] = {
+                "count": int(mask.sum()),
+                "positive_rate": float(self.y_true[mask].mean()),
+                "auc": seg_calc.auc(),
+                "precision": seg_calc.precision(),
+                "recall": seg_calc.recall(),
+                "f1": seg_calc.f1(),
+            }
 
         return results
 
@@ -174,20 +247,4 @@ class Metrics:
         Returns:
             Dict with lists of thresholds and their metrics
         """
-        thresholds = np.linspace(0, 1, 101)
-        precisions = []
-        recalls = []
-        f1s = []
-
-        for thresh in thresholds:
-            y_pred_thresh = (self.y_proba >= thresh).astype(int)
-            precisions.append(precision_score(self.y_true, y_pred_thresh, zero_division=0))
-            recalls.append(recall_score(self.y_true, y_pred_thresh, zero_division=0))
-            f1s.append(f1_score(self.y_true, y_pred_thresh, zero_division=0))
-
-        return {
-            "thresholds": thresholds.tolist(),
-            "precisions": precisions,
-            "recalls": recalls,
-            "f1s": f1s,
-        }
+        return compute_threshold_metrics(self.y_true, self.y_proba)

@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from energizados.evaluation._html_templates import INDEX_CSS
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +22,7 @@ class RunIndexGenerator:
 
     Scans output/train-*/ directories, reads evaluation JSON reports,
     and generates a summary table with metrics and links to reports.
+    Supports side-by-side run comparison via checkboxes (MEJORAS P4-14).
 
     Example:
         >>> generator = RunIndexGenerator()
@@ -59,7 +62,6 @@ class RunIndexGenerator:
             metrics = report_data.get("metrics", {})
             model_info = report_data.get("model_info", {})
 
-            # Relative link from output/ to the evaluation report
             relative_link = None
             if html_path.exists():
                 relative_link = f"{run_dir.name}/reports/evaluation/evaluation_report.html"
@@ -121,143 +123,13 @@ class RunIndexGenerator:
         run_count = len(runs)
 
         return f"""<!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Training Runs Index - Energizados</title>
     <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f5f5f5;
-            padding: 20px;
-        }}
-        .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px 35px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }}
-        .header h1 {{
-            font-size: 2em;
-            margin-bottom: 5px;
-        }}
-        .header p {{
-            opacity: 0.85;
-            font-size: 0.95em;
-        }}
-        .summary-bar {{
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }}
-        .summary-card {{
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.07);
-            border-left: 4px solid #667eea;
-            min-width: 140px;
-        }}
-        .summary-card .value {{
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #667eea;
-        }}
-        .summary-card .label {{
-            font-size: 0.8em;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }}
-        .section {{
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-            overflow: hidden;
-        }}
-        .section-header {{
-            padding: 18px 25px;
-            border-bottom: 2px solid #667eea;
-        }}
-        .section-header h2 {{
-            color: #667eea;
-            font-size: 1.2em;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.92em;
-        }}
-        thead th {{
-            background: #f8f9fa;
-            padding: 12px 16px;
-            text-align: left;
-            font-weight: 600;
-            color: #555;
-            text-transform: uppercase;
-            font-size: 0.78em;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #e9ecef;
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-        }}
-        thead th:hover {{ background: #e9ecef; color: #333; }}
-        thead th.sorted-asc::after {{ content: " ▲"; color: #667eea; }}
-        thead th.sorted-desc::after {{ content: " ▼"; color: #667eea; }}
-        tbody tr {{
-            border-bottom: 1px solid #f0f0f0;
-            transition: background 0.15s;
-        }}
-        tbody tr:hover {{ background: #f8f9ff; }}
-        tbody tr:last-child {{ border-bottom: none; }}
-        td {{ padding: 12px 16px; vertical-align: middle; }}
-        td.run-name {{
-            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
-            font-size: 0.88em;
-            color: #444;
-            font-weight: 500;
-        }}
-        td.metric {{
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-            font-weight: 500;
-        }}
-        td.metric.high {{ color: #28a745; }}
-        td.metric.mid {{ color: #ffc107; }}
-        td.metric.low {{ color: #dc3545; }}
-        td.metric.na {{ color: #999; }}
-        .report-link {{
-            display: inline-block;
-            padding: 5px 12px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-size: 0.82em;
-            font-weight: 500;
-            transition: background 0.15s;
-        }}
-        .report-link:hover {{ background: #5a6fd6; }}
-        .no-runs {{
-            padding: 50px;
-            text-align: center;
-            color: #aaa;
-            font-size: 1.05em;
-        }}
-        .footer {{
-            text-align: center;
-            padding: 20px;
-            color: #aaa;
-            font-size: 0.85em;
-        }}
+{INDEX_CSS}
     </style>
 </head>
 <body>
@@ -275,6 +147,14 @@ class RunIndexGenerator:
         {self._build_best_metric_card(runs, "f1", "Best F1")}
     </div>
 
+    <div id="comparison-panel">
+        <div class="section-header">
+            <h2>Run Comparison</h2>
+            <button class="btn-close-compare" onclick="closeComparison()">Close ✕</button>
+        </div>
+        <div id="comparison-body" style="overflow-x:auto;padding:0 0 10px 0"></div>
+    </div>
+
     <div class="section">
         <div class="section-header">
             <h2>All Training Runs</h2>
@@ -286,14 +166,22 @@ class RunIndexGenerator:
         Generated by Energizados Framework
     </div>
 
+    <div class="compare-bar" id="compare-bar">
+        <span><strong id="compare-count">0</strong> runs selected</span>
+        <button class="btn-compare" onclick="showComparison()">Compare</button>
+        <button class="btn-clear-compare" onclick="clearComparison()">Clear</button>
+    </div>
+
     <script>
-        // Simple column sorting
+        // ----------------------------------------------------------------
+        // Column sorting
+        // ----------------------------------------------------------------
         document.querySelectorAll('thead th[data-col]').forEach(function(th) {{
             th.addEventListener('click', function() {{
                 var table = th.closest('table');
                 var tbody = table.querySelector('tbody');
                 var col = parseInt(th.getAttribute('data-col'));
-                var asc = th.classList.contains('sorted-asc') ? false : true;
+                var asc = !th.classList.contains('sorted-asc');
 
                 table.querySelectorAll('thead th').forEach(function(h) {{
                     h.classList.remove('sorted-asc', 'sorted-desc');
@@ -311,6 +199,102 @@ class RunIndexGenerator:
                 rows.forEach(function(r) {{ tbody.appendChild(r); }});
             }});
         }});
+
+        // ----------------------------------------------------------------
+        // Run comparison (MEJORAS P4-14)
+        // ----------------------------------------------------------------
+        var selectedRuns = {{}};
+
+        function updateCompareBar() {{
+            var count = Object.keys(selectedRuns).length;
+            document.getElementById('compare-count').textContent = count;
+            var bar = document.getElementById('compare-bar');
+            if (count >= 2) {{
+                bar.classList.add('visible');
+            }} else {{
+                bar.classList.remove('visible');
+                document.getElementById('comparison-panel').style.display = 'none';
+            }}
+        }}
+
+        document.querySelectorAll('.row-select').forEach(function(cb) {{
+            cb.addEventListener('change', function() {{
+                var row = cb.closest('tr');
+                var cells = row.querySelectorAll('td');
+                // col 0 = checkbox, col 1 = run name, col 2 = timestamp, etc.
+                var runName = cells[1].textContent.trim();
+                if (cb.checked) {{
+                    row.classList.add('selected');
+                    selectedRuns[runName] = {{
+                        run: runName,
+                        timestamp: cells[2].textContent.trim(),
+                        model: cells[3].textContent.trim(),
+                        auc: cells[4].getAttribute('data-val') || cells[4].textContent.trim(),
+                        f1: cells[5].getAttribute('data-val') || cells[5].textContent.trim(),
+                        precision: cells[6].getAttribute('data-val') || cells[6].textContent.trim(),
+                        recall: cells[7].getAttribute('data-val') || cells[7].textContent.trim()
+                    }};
+                }} else {{
+                    row.classList.remove('selected');
+                    delete selectedRuns[runName];
+                }}
+                updateCompareBar();
+            }});
+        }});
+
+        function showComparison() {{
+            var panel = document.getElementById('comparison-panel');
+            var runs = Object.values(selectedRuns);
+
+            var headers = '<th></th>' + runs.map(function(r) {{
+                return '<th style="color:#667eea">' + r.run + '</th>';
+            }}).join('');
+
+            var metricRows = [
+                ['Timestamp', runs.map(function(r) {{ return {{ val: r.timestamp, numeric: false }}; }})],
+                ['Model', runs.map(function(r) {{ return {{ val: r.model, numeric: false }}; }})],
+                ['AUC', runs.map(function(r) {{ return {{ val: r.auc, numeric: true }}; }})],
+                ['F1', runs.map(function(r) {{ return {{ val: r.f1, numeric: true }}; }})],
+                ['Precision', runs.map(function(r) {{ return {{ val: r.precision, numeric: true }}; }})],
+                ['Recall', runs.map(function(r) {{ return {{ val: r.recall, numeric: true }}; }})]
+            ];
+
+            var rowsHtml = metricRows.map(function(row) {{
+                var label = row[0];
+                var cells = row[1];
+                var best = null;
+                if (cells[0].numeric) {{
+                    var nums = cells.map(function(c) {{ return parseFloat(c.val); }});
+                    if (!nums.some(isNaN)) best = Math.max.apply(null, nums);
+                }}
+                var cellsHtml = cells.map(function(c) {{
+                    var highlight = (best !== null && parseFloat(c.val) === best) ?
+                        ' style="color:#28a745;font-weight:700"' : '';
+                    return '<td' + highlight + '>' + c.val + '</td>';
+                }}).join('');
+                return '<tr><td>' + label + '</td>' + cellsHtml + '</tr>';
+            }}).join('');
+
+            document.getElementById('comparison-body').innerHTML =
+                '<table><thead><tr>' + headers + '</tr></thead><tbody>' + rowsHtml + '</tbody></table>';
+
+            panel.style.display = 'block';
+            panel.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+        }}
+
+        function closeComparison() {{
+            document.getElementById('comparison-panel').style.display = 'none';
+        }}
+
+        function clearComparison() {{
+            document.querySelectorAll('.row-select:checked').forEach(function(cb) {{
+                cb.checked = false;
+                cb.closest('tr').classList.remove('selected');
+            }});
+            selectedRuns = {{}};
+            updateCompareBar();
+            closeComparison();
+        }}
     </script>
 </body>
 </html>"""
@@ -353,8 +337,11 @@ class RunIndexGenerator:
             prec_cls = self._metric_class(run.get("precision"), "precision")
             rec_cls = self._metric_class(run.get("recall"), "recall")
 
+            # col 0: checkbox  col 1: run  col 2: timestamp  col 3: model
+            # col 4: AUC  col 5: F1  col 6: Precision  col 7: Recall  col 8: Report
             rows.append(f"""
             <tr>
+                <td style="width:30px;text-align:center"><input type="checkbox" class="row-select"></td>
                 <td class="run-name" data-val="{run['run_name']}">{run['run_name']}</td>
                 <td data-val="{run['timestamp']}">{run['timestamp'][:19] if run['timestamp'] else '—'}</td>
                 <td data-val="{run['model_type']}">{run['model_type']}</td>
@@ -372,18 +359,20 @@ class RunIndexGenerator:
             return '<div class="no-runs">No training runs found yet. Run a training to see results here.</div>'
 
         rows_html = "".join(rows)
+        # data-col values offset by 1 due to checkbox column at position 0
         return f"""
         <table>
             <thead>
                 <tr>
-                    <th data-col="0">Run</th>
-                    <th data-col="1">Timestamp</th>
-                    <th data-col="2">Model</th>
-                    <th data-col="3">AUC</th>
-                    <th data-col="4">F1</th>
-                    <th data-col="5">Precision</th>
-                    <th data-col="6">Recall</th>
-                    <th>Report</th>
+                    <th class="no-sort" style="width:30px"></th>
+                    <th data-col="1">Run</th>
+                    <th data-col="2">Timestamp</th>
+                    <th data-col="3">Model</th>
+                    <th data-col="4">AUC</th>
+                    <th data-col="5">F1</th>
+                    <th data-col="6">Precision</th>
+                    <th data-col="7">Recall</th>
+                    <th class="no-sort">Report</th>
                 </tr>
             </thead>
             <tbody>{rows_html}

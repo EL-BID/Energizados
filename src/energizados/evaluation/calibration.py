@@ -11,6 +11,8 @@ from typing import Dict
 import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score
 
+from energizados.evaluation.metrics import compute_threshold_metrics
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,17 +119,13 @@ class ThresholdCalibrator:
         """
         Minimizes weighted total cost: cost_fp * FP + cost_fn * FN.
 
-        Reuses Metrics.get_threshold_metrics() to explore 101 thresholds.
+        Uses compute_threshold_metrics() directly instead of instantiating Metrics
+        with a dummy y_pred (MEJORAS P3-13).
         """
-        from energizados.evaluation.metrics import Metrics
-
         cost_fp = float(self.params.get("cost_fp", 1))
         cost_fn = float(self.params.get("cost_fn", 10))
 
-        # Instantiate Metrics with dummy y_pred (not used by get_threshold_metrics)
-        dummy_pred = np.zeros_like(y_true, dtype=int)
-        metrics_calc = Metrics(y_true, dummy_pred, y_proba)
-        search = metrics_calc.get_threshold_metrics()
+        search = compute_threshold_metrics(y_true, y_proba)
 
         thresholds = np.array(search["thresholds"])
         precisions = np.array(search["precisions"])
