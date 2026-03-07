@@ -231,10 +231,12 @@ training:
     feature_selection:
       enabled: false
       # output_parquet: "data/processed/feature_selection.parquet"  # opcional
-      method: "boruta"  # boruta, correlation, constant
-      params:
-        n_estimators: 100
-        max_iter: 100
+      steps:
+        - name: selector
+          method: "boruta"  # boruta, correlation, constant
+          params:
+            n_estimators: 100
+            max_iter: 100
 
   model:
     type: "lightgbm"  # lightgbm, catboost, neural_network, lstm

@@ -81,7 +81,6 @@ class LGBMModel:
         self.hyperparams = hyperparams
 
     def build_pipeline_preproceso_model(self):
-        # preprocessor = get_preprocesor(self.preprocesor_num)
         lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000, verbosity=-1)
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
@@ -193,7 +192,7 @@ class CATModel:
         if df_val is None:
             df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
 
-        cat_features = df_train[self.cols_for_model].select_dtypes(include=["object"]).columns.tolist()
+        cat_features = df_train[self.cols_for_model].select_dtypes(include=["object", "category"]).columns.tolist()
         pipe_preproceso_model = self.build_pipeline_preproceso_model(cat_features)
 
         if self.search_hip:
