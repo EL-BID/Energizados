@@ -54,7 +54,7 @@ training:
 
       # Option 1: Use per-column configuration with built-in transformers
       columns:
-        # Activity: reduce cardinality + one-hot encoding
+        # actividad: reduce cardinality + one-hot encoding
         actividad:
           - cardinality_reducer:
               threshold: 0.001
@@ -62,7 +62,7 @@ training:
           #- cast_dtype:
           #    dtype: "category"
 
-        # Tariff type: reduce cardinality + target encoding
+        # tipo_tarifa: reduce cardinality + target encoding
         tipo_tarifa:
           - cardinality_reducer:
               threshold: 0.001
@@ -71,19 +71,19 @@ training:
           #- cast_dtype:
           #    dtype: "category"
 
-        # Zone: simple ordinal encoding
+        # zona: simple ordinal encoding
         zona:
           - ordinal_encoding: {}
           #- cast_dtype:
           #    dtype: "category"
 
-        # Voltage level: simple ordinal encoding
+        # nivel_tension: simple ordinal encoding
         nivel_tension:
           - ordinal_encoding: {}
           #- cast_dtype:
           #    dtype: "category"
 
-        # Installation material: direct target encoding
+        # material_instalacion: direct target encoding
         material_instalacion:
           - target_encoding:
               w: 10

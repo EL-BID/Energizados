@@ -1,5 +1,5 @@
 # Energizados Project Dependencies
-# Actualiza según las necesidades específicas de tu proyecto
+# Update as needed for your project
 
 # Framework core
 energizados>=1.0.0
