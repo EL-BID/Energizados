@@ -106,8 +106,13 @@ class TrainingStep(PipelineStep):
         logger.info("=" * 50)
         logger.info("Fitting feature engineering on TRAIN data only...")
 
+        fe_enabled = self.feature_engineering_config.get("enabled", True)
         fe_config = self.feature_engineering_config.get("preprocessing", {})
         fs_config = self.feature_engineering_config.get("feature_selection", {})
+
+        if not fe_enabled:
+            fe_config = {"enabled": False}
+            fs_config = {"enabled": False}
 
         feature_engineering = DefaultFeatureEngineering(
             preprocessing_config=fe_config,
@@ -154,8 +159,10 @@ class TrainingStep(PipelineStep):
             X_train_transformed.to_parquet(fs_path, index=False)
             logger.info(f"Feature selection output saved to: {fs_path}")
 
-        # Save feature engineering
-        fe_path = self.output_dir / "feature_engineering.pkl"
+        # Save feature engineering (use output_pkl from config if specified)
+        output_pkl = self.feature_engineering_config.get("output_pkl")
+        fe_path = Path(output_pkl) if output_pkl else self.output_dir / "feature_engineering.pkl"
+        fe_path.parent.mkdir(parents=True, exist_ok=True)
         with open(fe_path, "wb") as f:
             pickle.dump(feature_engineering, f)
         logger.info(f"Feature Engineering saved to: {fe_path}")
@@ -267,10 +274,14 @@ class TrainingStep(PipelineStep):
         # For models that need specific columns
         if model_type in ["lightgbm", "lgbm", "catboost", "cat"]:
             params["cols_for_model"] = X_train.columns.tolist()
-            params["sampling_method"] = params.pop("sampling", {}).get("method", "under")
-            params["sampling_th"] = params.pop("sampling", {}).get("threshold", 0.5)
+            sampling_config = params.pop("sampling", {})
+            params["sampling_method"] = sampling_config.get("method", "under")
+            params["sampling_th"] = sampling_config.get("threshold", 0.5)
             params["hyperparams"] = params.pop("hyperparams", {})
-            params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
+            hyperparam_search = params.pop("hyperparam_search", {})
+            params["search_hip"] = hyperparam_search.get("enabled", False)
+            params["n_iter"] = hyperparam_search.get("n_iter", 60)
+            params["cv"] = hyperparam_search.get("cv", 3)
 
         # For neural models
         elif model_type in ["neural_network", "nn", "lstm"]:
@@ -280,8 +291,9 @@ class TrainingStep(PipelineStep):
 
             params["features_names"] = feature_cols
             params["spents_names"] = consumption_cols
-            params["sampling_method"] = params.pop("sampling", {}).get("method", "under")
-            params["sampling_th"] = params.pop("sampling", {}).get("threshold", 0.5)
+            sampling_config = params.pop("sampling", {})
+            params["sampling_method"] = sampling_config.get("method", "under")
+            params["sampling_th"] = sampling_config.get("threshold", 0.5)
             params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
 
         # Remove 'type' key as it's used for model selection, not for the model constructor

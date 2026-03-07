@@ -63,7 +63,7 @@ def get_preprocesor(preprocesor):
 
 class LGBMModel:
 
-    def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, sampling_method="under"):
+    def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, sampling_method="under", n_iter=60, cv=3):
         """
         Initializes the LGBMModel.
 
@@ -73,12 +73,16 @@ class LGBMModel:
             search_hip (bool): Flag indicating whether to perform hyperparameter search.
             sampling_th (float): The sampling threshold.
             sampling_method (str): The sampling method ('over' or 'under').
+            n_iter (int): Number of iterations for RandomizedSearchCV.
+            cv (int): Number of cross-validation folds for RandomizedSearchCV.
         """
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
         self.search_hip = search_hip
         self.hyperparams = hyperparams
+        self.n_iter = n_iter
+        self.cv = cv
 
     def build_pipeline_preproceso_model(self):
         lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000, verbosity=-1)
@@ -153,11 +157,11 @@ class LGBMModel:
         random_imba = RandomizedSearchCV(
             estimator=imba_pipeline,
             param_distributions=new_params,
-            cv=3,
+            cv=self.cv,
             #                            scoring = 'average_precision',
             scoring="roc_auc",
             n_jobs=35,
-            n_iter=60,
+            n_iter=self.n_iter,
             refit=True,
             random_state=314,
         )
@@ -167,13 +171,17 @@ class LGBMModel:
 
 
 class CATModel:
-    def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
+    def __init__(
+        self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under", n_iter=60, cv=3
+    ):
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
         self.preprocesor_num = preprocesor_num
         self.sampling_method = sampling_method
         self.search_hip = search_hip
         self.hyperparams = hyperparams
+        self.n_iter = n_iter
+        self.cv = cv
 
     def build_pipeline_preproceso_model(self, cat_features):
         cb_model_search = cb.CatBoostClassifier(
@@ -226,10 +234,10 @@ class CATModel:
         random_imba = RandomizedSearchCV(
             estimator=imba_catboost,
             param_distributions=new_params,
-            cv=3,
+            cv=self.cv,
             scoring="roc_auc",
             n_jobs=5,
-            n_iter=60,
+            n_iter=self.n_iter,
             refit=True,
             random_state=314,
         )

@@ -35,6 +35,8 @@ class LGBMModelAdapter(BaseModel):
         search_hip: bool = False,
         sampling_th: float = 0.5,
         sampling_method: str = "under",
+        n_iter: int = 60,
+        cv: int = 3,
         config: Optional[dict] = None,
     ):
         super().__init__(config)
@@ -43,6 +45,8 @@ class LGBMModelAdapter(BaseModel):
         self.search_hip = search_hip
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
+        self.n_iter = n_iter
+        self.cv = cv
 
         # Import the original model
         from energizados.modeling.supervised_models import LGBMModel as OriginalLGBM
@@ -53,6 +57,8 @@ class LGBMModelAdapter(BaseModel):
             search_hip=search_hip,
             sampling_th=sampling_th,
             sampling_method=sampling_method,
+            n_iter=n_iter,
+            cv=cv,
         )
 
     def fit(
@@ -117,6 +123,8 @@ class CATModelAdapter(BaseModel):
         search_hip: bool = False,
         sampling_th: float = 0.5,
         sampling_method: str = "under",
+        n_iter: int = 60,
+        cv: int = 3,
         config: Optional[dict] = None,
     ):
         super().__init__(config)
@@ -125,6 +133,8 @@ class CATModelAdapter(BaseModel):
         self.search_hip = search_hip
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
+        self.n_iter = n_iter
+        self.cv = cv
 
         from energizados.modeling.supervised_models import CATModel as OriginalCAT
 
@@ -134,6 +144,8 @@ class CATModelAdapter(BaseModel):
             search_hip=search_hip,
             sampling_th=sampling_th,
             sampling_method=sampling_method,
+            n_iter=n_iter,
+            cv=cv,
         )
 
     def fit(

@@ -448,9 +448,11 @@ class ConfigPipelineBuilder:
         # If it's a reference @etl_name, we process it later
         # For now, return the split_step with the input_path
 
+        target_column = split_config.get("target_column") or self.config.get("training", {}).get("target_column", "target")
+
         return SplitStep(
             input_path=input_path,
-            target_column=split_config.get("target_column", "target"),
+            target_column=target_column,
             test_size=split_config.get("test_size", 0.2),
             val_size=split_config.get("val_size", 0.1),
             random_state=split_config.get("random_state", 42),
