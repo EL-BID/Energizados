@@ -1,75 +1,75 @@
 # {{project_name}}
 {{origin_note}}
-Proyecto de detección de fraude energético con Energizados Framework.
+Energy fraud detection project with Energizados Framework.
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 {{project_name}}/
-├── config/                 # Configuraciones del pipeline (3 archivos)
-│   ├── etls.yaml           # Configuración de ETLs
-│   ├── training.yaml       # Configuración de entrenamiento (incluye feature_engineering)
-│   └── inference.yaml      # Configuración de inferencia
-├── data/                   # Datos del proyecto
-│   ├── raw/               # Datos crudos (inmutables)
-│   ├── processed/         # Datos procesados
-│   └── splits/            # Splits de train/val/test
-├── docs/                   # Documentación del proyecto
-│   └── project_docs.md    # Documentación específica
-├── models/                 # Modelos entrenados (archivos)
-│   └── trained/           # Modelos guardados
-├── notebooks/              # Notebooks de experimentación
+├── config/                 # Pipeline configurations (3 files)
+│   ├── etls.yaml           # ETL configuration
+│   ├── training.yaml       # Training configuration (includes feature_engineering)
+│   └── inference.yaml      # Inference configuration
+├── data/                   # Project data
+│   ├── raw/               # Raw data (immutable)
+│   ├── processed/         # Processed data
+│   └── splits/            # Train/val/test splits
+├── docs/                   # Project documentation
+│   └── project_docs.md    # Project-specific documentation
+├── models/                 # Trained model files
+│   └── trained/           # Saved models
+├── notebooks/              # Experimentation notebooks
 │   └── example_notebook.ipynb
-├── reports/                # Reportes y resultados
-├── src/run/                # Scripts de ejecución
-│   ├── 01_etl.py          # Ejecuta ETLs
-│   ├── 02_training.py     # Ejecuta entrenamiento
-│   ├── 03_evaluation.py   # Ejecuta evaluación
-│   └── 04_inference.py    # Ejecuta inferencia
-├── src/                    # Código fuente
-│   ├── data/              # ETL y preprocessing
+├── reports/                # Reports and results
+├── src/run/                # Execution scripts
+│   ├── 01_etl.py          # Runs ETLs
+│   ├── 02_training.py     # Runs training
+│   ├── 03_evaluation.py   # Runs evaluation
+│   └── 04_inference.py    # Runs inference
+├── src/                    # Source code
+│   ├── data/              # ETL and preprocessing
 │   │   ├── __init__.py
 │   │   └── custom_etl.py
 │   ├── features/          # Feature engineering
 │   │   ├── __init__.py
 │   │   └── custom_selector.py
-│   ├── models/            # Definiciones de modelos
+│   ├── models/            # Model definitions
 │   │   ├── __init__.py
 │   │   └── custom_model.py
-│   ├── inference/         # Inferencia
+│   ├── inference/         # Inference
 │   │   ├── __init__.py
 │   │   └── custom_inference.py
-│   └── utils/             # Utilidades compartidas
+│   └── utils/             # Shared utilities
 │       ├── __init__.py
 │       └── helpers.py
 ├── tests/                  # Tests
-│   ├── conftest.py        # Configuración pytest
-│   ├── test_data.py       # Tests de ETL
-│   ├── test_features.py   # Tests de features
-│   └── test_models.py     # Tests de modelos
-├── requirements.txt        # Dependencias
+│   ├── conftest.py        # pytest configuration
+│   ├── test_data.py       # ETL tests
+│   ├── test_features.py   # Feature tests
+│   └── test_models.py     # Model tests
+├── requirements.txt        # Dependencies
 ├── .gitignore
 └── README.md
 ```
 
-## Uso
+## Usage
 
-> **Nota:** Este proyecto incluye un dataset de ejemplo en `data/raw/sample_dataset.parquet`
-> que puedes usar para probar el pipeline inmediatamente.
+> **Note:** This project includes a sample dataset at `data/raw/sample_dataset.parquet`
+> that you can use to test the pipeline immediately.
 
 ### Run Scripts
 
-El proyecto incluye scripts en el directorio `src/run/` para ejecutar cada etapa:
+The project includes scripts in the `src/run/` directory to run each stage:
 
 ```bash
-# Ejecutar etapa específica
+# Run a specific stage
 python src/run/01_etl.py          # ETLs
-python src/run/02_training.py     # Entrenamiento
-python src/run/03_evaluation.py   # Evaluación
-python src/run/04_inference.py    # Inferencia
+python src/run/02_training.py     # Training
+python src/run/03_evaluation.py   # Evaluation
+python src/run/04_inference.py    # Inference
 ```
 
-### Ejecutar el pipeline completo
+### Run the full pipeline
 
 ```bash
 energizados run \
@@ -77,52 +77,52 @@ energizados run \
   --config config/training.yaml
 ```
 
-### Ejecutar solo un paso específico
+### Run a specific step only
 
 ```bash
-# Ejecutar solo ETLs
+# Run ETLs only
 energizados run --config config/etls.yaml --step etl
 
-# Ejecutar solo Split
+# Run Split only
 energizados run --config config/training.yaml --step split
 
-# Ejecutar solo Training
+# Run Training only
 energizados run --config config/training.yaml --step training
 ```
 
-### Ejecutar una ETL específica (con múltiples ETLs)
+### Run a specific ETL (with multiple ETLs)
 
 ```bash
-# Ejecutar una ETL y sus dependencias
+# Run an ETL and its dependencies
 energizados run --config config/etls.yaml --etl sample
 
-# Ver plan de ejecución sin ejecutar
+# View execution plan without running
 energizados run --config config/etls.yaml --dry-run
 ```
 
-### Validar configuración
+### Validate configuration
 
 ```bash
-# Validar un solo archivo
+# Validate a single file
 energizados validate --config config/etls.yaml
 
-# Validar múltiples archivos
+# Validate multiple files
 energizados validate \
   --config config/etls.yaml \
   --config config/training.yaml
 ```
 
-### Ejecutar tests
+### Run tests
 
 ```bash
 pytest tests/
 ```
 
-## Personalización
+## Customization
 
-### 1. Configurar ETLs
+### 1. Configure ETLs
 
-Edita `config/etls.yaml` para definir tus ETLs:
+Edit `config/etls.yaml` to define your ETLs:
 
 ```yaml
 etls:
@@ -136,16 +136,16 @@ etls:
   merge:
     enabled: true
     input:
-      - "@consumos"  # Referencia al output de consumos
+      - "@consumos"  # Reference to consumos output
       - "data/raw/clientes.csv"
     output: "data/processed/merged.parquet"
     custom_class: "energizados.etl.pipeline.MultiSourceETL"
     depends_on: ["consumos"]
 ```
 
-### 2. Configurar Training (incluye Feature Engineering)
+### 2. Configure Training (includes Feature Engineering)
 
-Edita `config/training.yaml`:
+Edit `config/training.yaml`:
 
 ```yaml
 training:
@@ -172,28 +172,27 @@ training:
       n_estimators: 100
 ```
 
-### 3. Personalizar ETL
+### 3. Customize ETL
 
-Edita `src/data/custom_etl.py` para implementar tu lógica de extracción,
-transformación y carga de datos.
+Edit `src/data/custom_etl.py` to implement your extraction,
+transformation and data loading logic.
 
-### 4. Personalizar Feature Engineering (opcional)
+### 4. Customize Feature Engineering (optional)
 
-Edita la sección `feature_engineering` en `config/training.yaml` o crea
-`src/features/custom_selector.py` para implementar tu propio pipeline de
-características.
+Edit the `feature_engineering` section in `config/training.yaml` or create
+`src/features/custom_selector.py` to implement your own feature pipeline.
 
-### 5. Personalizar Modelo
+### 5. Customize Model
 
-Edita `src/models/custom_model.py` para implementar tu propio modelo
-de ML, heredando de `BaseModel`.
+Edit `src/models/custom_model.py` to implement your own ML model,
+inheriting from `BaseModel`.
 
-### 6. Agregar Utilidades
+### 6. Add Utilities
 
-Edita `src/utils/helpers.py` para agregar funciones utilitarias
-compartidas entre módulos.
+Edit `src/utils/helpers.py` to add utility functions
+shared between modules.
 
-## Documentación
+## Documentation
 
-Para más información sobre el framework Energizados, visita:
+For more information about the Energizados framework, visit:
 https://github.com/yourusername/energizados

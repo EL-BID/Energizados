@@ -31,7 +31,7 @@ def load_data(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
     elif file_path.suffix in ['.xlsx', '.xls']:
         return pd.read_excel(file_path, **kwargs)
     else:
-        raise ValueError(f"Formato no soportado: {file_path.suffix}")
+        raise ValueError(f"Unsupported format: {file_path.suffix}")
 
 
 def save_data(df: pd.DataFrame, file_path: Union[str, Path], **kwargs) -> None:
@@ -53,7 +53,7 @@ def save_data(df: pd.DataFrame, file_path: Union[str, Path], **kwargs) -> None:
     elif file_path.suffix in ['.xlsx', '.xls']:
         df.to_excel(file_path, index=False, **kwargs)
     else:
-        raise ValueError(f"Formato no soportado: {file_path.suffix}")
+        raise ValueError(f"Unsupported format: {file_path.suffix}")
 
 
 def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:

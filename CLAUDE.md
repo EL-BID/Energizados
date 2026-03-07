@@ -404,7 +404,7 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 
 ### Language Context
 
-The project documentation and comments are in Spanish. The codebase uses Spanish variable names for features (e.g., `actividad`, `tipo_tarifa`, `zona`) but English for class/method names.
+The project documentation and comments are in English. The codebase uses Spanish variable names for features (e.g., `actividad`, `tipo_tarifa`, `zona`) but English for class/method names.
 
 ### AGENTS.md compatibility
 

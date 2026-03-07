@@ -1,26 +1,26 @@
 # Inference Configuration for {{project_name}}
 #
-# Este archivo configura la inferencia y predicción
-# utilizando modelos entrenados.
+# This file configures inference and prediction
+# using trained models.
 
 inference:
-  enabled: false  # Cambiar a true para habilitar
+  enabled: false  # Change to true to enable
 
-  # Rutas de entrada/salida
+  # Input/output paths
   input_path: "data/processed/feature_pipeline.parquet"
   output_path: "output/predictions.csv"
 
-  # Apuntar al último run de entrenamiento:
+  # Point to the latest training run:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
   # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
 
-  # Umbral para predicciones binarias
+  # Threshold for binary predictions
   threshold: 0.5
 
-  # Tipo de inferencia
+  # Inference type
   type: "default"
 
-  # O usa tu propia implementación de inferencia:
+  # Or use your own inference implementation:
   # custom_class: "inference.custom_inference.CustomInference"
   # params:
   #   threshold: 0.5

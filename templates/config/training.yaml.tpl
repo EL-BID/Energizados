@@ -1,41 +1,41 @@
 # Training Configuration for .sample
 #
-# Este archivo configura el flujo completo de entrenamiento:
-# 1. Split: División de datos en train/val/test
-# 2. Feature Engineering: Preprocessing y Feature Selection
-# 3. Model: Entrenamiento del modelo
-# 4. Evaluation: Evaluación del modelo entrenado
+# This file configures the full training workflow:
+# 1. Split: Split data into train/val/test
+# 2. Feature Engineering: Preprocessing and Feature Selection
+# 3. Model: Model training
+# 4. Evaluation: Evaluation of the trained model
 
 training:
   enabled: true
 
-  # Input desde ETL
+  # Input from ETL
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
   periods_suffix: &period_suffix "_anterior"
 
-  # Output: cada ejecución genera output/train-YYYYMMDD_HHMM/
-  # con subdirectorios models/, reports/evaluation/ y config/.
-  # output_base_dir: "output"  # override opcional
+  # Output: each run generates output/train-YYYYMMDD_HHMM/
+  # with subdirectories models/, reports/evaluation/ and config/.
+  # output_base_dir: "output"  # optional override
 
   # ============================================
   # Split Configuration
   # ============================================
   split:
-    method: "time_series"  # Opciones: stratified, random, time_series
+    method: "time_series"  # Options: stratified, random, time_series
 
-    # Para métodos stratified/random:
+    # For stratified/random methods:
     # test_size: 0.2
     # val_size: 0.1
     # random_state: 42
 
-    # Para método time_series:
+    # For time_series method:
     date_column: "fecha_inspeccion"
-    train_period: ["2010-01-01", "2017-08-01"]  # [start, end] o solo [start]
+    train_period: ["2010-01-01", "2017-08-01"]  # [start, end] or just [start]
     val_period: ["2017-09-01", "2017-12-31"]
     test_period: ["2018-01-01"]
 
-    # Guardar splits para reproducibilidad
+    # Save splits for reproducibility
     save_splits: true
     splits_dir: "data/splits/"
 
@@ -50,11 +50,11 @@ training:
       enabled: true
       output_parquet: "data/processed/preprocessing.parquet"
 
-      drop_columns: [index, fecha_inspeccion]  # columnas a excluir del modelo
+      drop_columns: [index, fecha_inspeccion]  # columns to exclude from model
 
-      # Opción 1: Usar configuración por columna con transformers built-in
+      # Option 1: Use per-column configuration with built-in transformers
       columns:
-        # Actividad: reducir cardinalidad + one-hot encoding
+        # Activity: reduce cardinality + one-hot encoding
         actividad:
           - cardinality_reducer:
               threshold: 0.001
@@ -62,7 +62,7 @@ training:
           #- cast_dtype:
           #    dtype: "category"
 
-        # Tipo Tarifa: reducir cardinalidad + target encoding
+        # Tariff type: reduce cardinality + target encoding
         tipo_tarifa:
           - cardinality_reducer:
               threshold: 0.001
@@ -71,26 +71,26 @@ training:
           #- cast_dtype:
           #    dtype: "category"
 
-        # Zona: encoding ordinal simple
+        # Zone: simple ordinal encoding
         zona:
           - ordinal_encoding: {}
           #- cast_dtype:
           #    dtype: "category"
 
-        # Nivel Tensión: encoding ordinal simple
+        # Voltage level: simple ordinal encoding
         nivel_tension:
           - ordinal_encoding: {}
           #- cast_dtype:
           #    dtype: "category"
 
-        # Material Instalación: target encoding directo
+        # Installation material: direct target encoding
         material_instalacion:
           - target_encoding:
               w: 10
           #- cast_dtype:
           #    dtype: "category"
 
-        # Opción 2: Mezclar built-in y custom en la misma columna
+        # Option 2: Mix built-in and custom transformers on the same column
         # otra_columna:
         #   - cardinality_reducer:
         #       threshold: 0.01
@@ -98,18 +98,18 @@ training:
         #     params:
         #       method: "frequency"
 
-      # Transformers globales
+      # Global transformers
       global_transformers:
-        # Extracción de features de series temporales con tsfel
+        # Time series feature extraction with tsfel
         - tsfel_vars:
             num_periodos: 12
-            features_names_path: null  # o path a JSON con configuración custom
+            features_names_path: null  # or path to JSON with custom configuration
             periods_suffix: *period_suffix
-            n_jobs: -1        # -1 = todos los cores, 1 = secuencial (default)
-            chunk_size: 500   # filas por chunk por worker
-            cache_dir: null   # ej: ".cache/tsfel" para cachear en disco
+            n_jobs: -1        # -1 = all cores, 1 = sequential (default)
+            chunk_size: 500   # rows per chunk per worker
+            cache_dir: null   # e.g.: ".cache/tsfel" to cache on disk
 
-        # Variables estadísticas para diferentes ventanas de tiempo
+        # Statistical features for different time windows
         - extra_vars:
             num_periodos: 3
             periods_suffix: *period_suffix
@@ -120,7 +120,7 @@ training:
             num_periodos: 12
             periods_suffix: *period_suffix
 
-      #   # Opción: Custom class para transformers globales
+      #   # Option: Custom class for global transformers
       #   - custom_class: "preprocessing.CustomGlobalTransformer"
       #     params:
       #       custom_param: value
@@ -129,7 +129,7 @@ training:
       enabled: true
       output_parquet: "data/processed/feature_selection.parquet"
 
-      # Lista de pasos secuenciales de selección
+      # List of sequential selection steps
       steps:
         - name: drop_constant
           method: constant          # constant | correlation | boruta | selection
@@ -152,18 +152,18 @@ training:
       #       max_iter: 100
       #     columns:
       #       - "*_anterior"          # Glob: 12_anterior, 11_anterior, ...
-      #       - "!12_anterior"        # Excluir una específica
+      #       - "!12_anterior"        # Exclude a specific one
 
       #   - name: corr_categoricas
       #     method: correlation
       #     params:
       #       threshold: 0.9
       #     columns:
-      #       - "actividad_*"         # Glob: todas las dummies de actividad
+      #       - "actividad_*"         # Glob: all actividad dummies
       #       - "tipo_tarifa"         # Literal
-      #       - "re:^zona.*"          # Regex con prefijo re:
-      #       - "@drop_constant"      # Referencia a resultado de paso anterior
-      #       - "!nivel_tension"      # Excluir
+      #       - "re:^zona.*"          # Regex with re: prefix
+      #       - "@drop_constant"      # Reference to previous step result
+      #       - "!nivel_tension"      # Exclude
 
         - name: final
           method: selection
@@ -181,21 +181,21 @@ training:
   # Model Configuration
   # ============================================
   model:
-    type: "lightgbm"  # Opciones: lightgbm, catboost, neural_network, lstm
+    type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm
 
-    # Balanceo de clases
+    # Class balancing
     sampling:
-      method: "under"  # Opciones: over, under, none
+      method: "under"  # Options: over, under, none
       threshold: 0.5
 
-    # Hiperparámetros
+    # Hyperparameters
     hyperparams:
       num_leaves: 31
       max_depth: -1
       learning_rate: 0.05
       n_estimators: 1000
 
-    # Búsqueda de hiperparámetros
+    # Hyperparameter search
     hyperparam_search:
       enabled: true
       n_iter: 60
@@ -206,8 +206,8 @@ training:
   # ============================================
   evaluation:
     enabled: true
-    # output_dir se gestiona automáticamente dentro del run directory
-    threshold: 0.5  # Ignorado si calibration.enabled=true
+    # output_dir is managed automatically within the run directory
+    threshold: 0.5  # Ignored if calibration.enabled=true
 
     metrics:
       - auc
@@ -221,16 +221,16 @@ training:
     generate_html_report: true
     generate_json_report: true
 
-    # Calibración automática del threshold usando validation set
-    # El threshold óptimo se busca en val y se aplica sobre test
+    # Automatic threshold calibration using validation set
+    # The optimal threshold is found on val and applied on test
     # calibration:
     #   enabled: true
-    #   method: "cost_benefit"   # Opciones: cost_benefit | operational | precision_recall
+    #   method: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
     #   params:
-    #     # Para cost_benefit (minimiza costo total FP/FN):
-    #     cost_fp: 1    # costo de inspeccionar un usuario legítimo
-    #     cost_fn: 10   # costo de no detectar un fraude
-    #     # Para operational (fija cantidad de alarmas):
-    #     # capacity: 200   # alarmas máximas por período
-    #     # Para precision_recall (recall mínimo garantizado):
+    #     # For cost_benefit (minimizes total FP/FN cost):
+    #     cost_fp: 1    # cost of inspecting a legitimate user
+    #     cost_fn: 10   # cost of missing a fraud
+    #     # For operational (fixes number of alerts):
+    #     # capacity: 200   # maximum alerts per period
+    #     # For precision_recall (guaranteed minimum recall):
     #     # min_recall: 0.80

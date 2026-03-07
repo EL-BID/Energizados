@@ -1,40 +1,40 @@
 # ETLs Configuration for {{project_name}}
 #
-# Este archivo define las transformaciones de datos (Extract, Transform, Load)
-# utilizando el sistema de múltiples ETLs con dependencias.
+# This file defines the data transformations (Extract, Transform, Load)
+# using the multiple ETLs with dependencies system.
 
 etls:
-  # ETL "sample" - Procesa el dataset de ejemplo incluido
+  # ETL "sample" - Processes the included example dataset
   sample:
     enabled: true
-    description: "Procesa dataset de ejemplo (elimina filas con NULL)"
+    description: "Processes example dataset (removes rows with NULL)"
     input: "data/raw/sample_dataset.parquet"
     output: "data/processed/sample_dataset.parquet"
     custom_class: "data.custom_etl.CustomETL"
     params:
-      mode: "concat"  # 'concat' (default) o 'merge'
+      mode: "concat"  # 'concat' (default) or 'merge'
     depends_on: []
 
   # ============================================
-  # EJEMPLOS ADICIONALES (comentados)
+  # ADDITIONAL EXAMPLES (commented out)
   # ============================================
-  # Descomenta y adapta según tus necesidades
+  # Uncomment and adapt as needed
   #
-  # # ETL 1: Consumos - No tiene dependencias
+  # # ETL 1: Consumos - No dependencies
   # consumos:
   #   enabled: false
-  #   description: "Procesa datos de consumo mensual"
+  #   description: "Processes monthly consumption data"
   #   input: "data/raw/consumos.csv"
   #   output: "data/processed/consumos.parquet"
   #   custom_class: "data.custom_etl.CustomETL"
   #   params:
-  #     mode: "concat"  # Concatena archivos (default)
+  #     mode: "concat"  # Concatenate files (default)
   #   depends_on: []
   #
-  # # ETL 2: Clientes - No tiene dependencias
+  # # ETL 2: Clientes - No dependencies
   # clientes:
   #   enabled: false
-  #   description: "Procesa datos de clientes"
+  #   description: "Processes customer data"
   #   input: "data/raw/clientes.csv"
   #   output: "data/processed/clientes.parquet"
   #   custom_class: "data.custom_etl.CustomETL"
@@ -42,11 +42,11 @@ etls:
   #     mode: "concat"
   #   depends_on: []
   #
-  # # ETL 3: Concatenar múltiples archivos
-  # # Útil cuando tienes varios archivos con el mismo esquema
+  # # ETL 3: Concatenate multiple files
+  # # Useful when you have several files with the same schema
   # concatenar_archivos:
   #   enabled: false
-  #   description: "Concatena múltiples CSV del mismo esquema"
+  #   description: "Concatenates multiple CSVs with the same schema"
   #   input:
   #     - "data/raw/consumos_2023.csv"
   #     - "data/raw/consumos_2024.csv"
@@ -54,36 +54,36 @@ etls:
   #   output: "data/processed/consumos_completo.parquet"
   #   custom_class: "data.custom_etl.CustomETL"
   #   params:
-  #     mode: "concat"  # Concatenar verticalmente
+  #     mode: "concat"  # Concatenate vertically
   #   depends_on: []
   #
-  # # ETL 4: Merge - Une archivos horizontalmente
-  # # Usa mode='merge' con merge_config obligatorio
+  # # ETL 4: Merge - Join files horizontally
+  # # Use mode='merge' with required merge_config
   # merge_dataset:
   #   enabled: false
-  #   description: "Combina consumos y clientes por id_cliente"
+  #   description: "Combines consumos and clientes by id_cliente"
   #   input:
   #     - "data/processed/consumos.parquet"
   #     - "data/processed/clientes.parquet"
   #   output: "data/processed/dataset_mergeado.parquet"
   #   custom_class: "data.custom_etl.CustomETL"
   #   params:
-  #     mode: "merge"  # Unir horizontalmente
+  #     mode: "merge"  # Join horizontally
   #     merge_config:
   #       how: "left"       # 'left', 'right', 'inner', 'outer'
-  #       on: "id_cliente"  # Columna para hacer el merge
-  #   # Dependencias de otras ETLs
+  #       on: "id_cliente"  # Column to merge on
+  #   # Dependencies on other ETLs
   #   depends_on:
   #     - "consumos"
   #     - "clientes"
   #
-  # # ETL 5: Ejemplo usando referencia a otra ETL
+  # # ETL 5: Example using reference to another ETL
   # enriquecido:
   #   enabled: false
-  #   description: "Dataset enriquecido con más datos"
-  #   # Usar referencia @etl_name en lugar de path hardcoded
+  #   description: "Enriched dataset with additional data"
+  #   # Use @etl_name reference instead of hardcoded path
   #   input:
-  #     - "@merge_dataset"  # Se resuelve al output de merge_dataset
+  #     - "@merge_dataset"  # Resolves to merge_dataset output
   #     - "data/raw/inspecciones.csv"
   #   output: "data/processed/dataset_final.parquet"
   #   custom_class: "data.custom_etl.CustomETL"

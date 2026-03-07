@@ -1,89 +1,89 @@
-# Documentación de {{project_name}}
+# Documentation for {{project_name}}
 
 ## Overview
 
-Describe brevemente el propósito y objetivos de este proyecto.
+Briefly describe the purpose and objectives of this project.
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 {{project_name}}/
-├── config/                 # Configuraciones del pipeline (3 archivos)
-│   ├── etls.yaml           # Configuración de ETLs
-│   ├── training.yaml       # Configuración de entrenamiento (incluye feature_engineering)
-│   └── inference.yaml      # Configuración de inferencia
+├── config/                 # Pipeline configurations (3 files)
+│   ├── etls.yaml           # ETL configuration
+│   ├── training.yaml       # Training configuration (includes feature_engineering)
+│   └── inference.yaml      # Inference configuration
 ├── data/
-│   ├── raw/               # Datos crudos (inmutables)
-│   ├── processed/         # Datos procesados
-│   └── splits/            # Splits de train/val/test
-├── docs/                   # Documentación del proyecto
+│   ├── raw/               # Raw data (immutable)
+│   ├── processed/         # Processed data
+│   └── splits/            # Train/val/test splits
+├── docs/                   # Project documentation
 ├── models/
-│   └── trained/           # Modelos entrenados (archivos)
-├── notebooks/              # Notebooks de experimentación
-├── reports/                # Reportes y resultados
+│   └── trained/           # Trained model files
+├── notebooks/              # Experimentation notebooks
+├── reports/                # Reports and results
 ├── src/
-│   ├── data/              # ETL y preprocessing
+│   ├── data/              # ETL and preprocessing
 │   │   ├── __init__.py
 │   │   └── custom_etl.py
 │   ├── features/          # Feature engineering
 │   │   ├── __init__.py
 │   │   └── custom_selector.py
-│   ├── models/            # Definiciones de modelos
+│   ├── models/            # Model definitions
 │   │   ├── __init__.py
 │   │   └── custom_model.py
-│   ├── inference/         # Inferencia
+│   ├── inference/         # Inference
 │   │   ├── __init__.py
 │   │   └── custom_inference.py
-│   ├── utils/             # Funciones auxiliares compartidas
+│   ├── utils/             # Shared helper functions
 │   │   ├── __init__.py
 │   │   └── helpers.py
-│   └── run/               # Scripts de ejecución
+│   └── run/               # Execution scripts
 │       ├── 01_etl.py
 │       ├── 02_training.py
 │       ├── 03_evaluation.py
 │       └── 04_inference.py
-├── tests/                  # Suite de tests
+├── tests/                  # Test suite
 │   ├── conftest.py
 │   ├── test_data.py
 │   ├── test_features.py
 │   └── test_models.py
-├── requirements.txt        # Dependencias
+├── requirements.txt        # Dependencies
 ├── .gitignore
 └── README.md
 ```
 
-## Instalación
+## Installation
 
 ```bash
-# Crear entorno virtual
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# Instalar dependencias
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Uso
+## Usage
 
-### Scripts de Ejecución
+### Execution Scripts
 
-El proyecto incluye scripts en `src/run/` para ejecutar cada etapa del pipeline:
+The project includes scripts in `src/run/` to run each pipeline stage:
 
 ```bash
-# Ejecutar ETLs
+# Run ETLs
 python src/run/01_etl.py
 
-# Ejecutar entrenamiento
+# Run training
 python src/run/02_training.py
 
-# Ejecutar evaluación
+# Run evaluation
 python src/run/03_evaluation.py
 
-# Ejecutar inferencia
+# Run inference
 python src/run/04_inference.py
 ```
 
-### Ejecutar el pipeline completo con CLI
+### Run the full pipeline with CLI
 
 ```bash
 energizados run \
@@ -91,36 +91,36 @@ energizados run \
   --config config/training.yaml
 ```
 
-### Ejecutar solo un paso específico
+### Run a specific step only
 
 ```bash
-# Ejecutar solo ETLs
+# Run ETLs only
 energizados run --config config/etls.yaml --step etl
 
-# Ejecutar solo Split
+# Run Split only
 energizados run --config config/training.yaml --step split
 
-# Ejecutar solo Training
+# Run Training only
 energizados run --config config/training.yaml --step training
 ```
 
-### Ejecutar una ETL específica
+### Run a specific ETL
 
 ```bash
-# Ejecutar una ETL y sus dependencias
+# Run an ETL and its dependencies
 energizados run --config config/etls.yaml --etl sample
 
-# Ver plan de ejecución sin ejecutar
+# View execution plan without running
 energizados run --config config/etls.yaml --dry-run
 ```
 
-### Validar configuración
+### Validate configuration
 
 ```bash
-# Validar un solo archivo
+# Validate a single file
 energizados validate --config config/etls.yaml
 
-# Validar múltiples archivos
+# Validate multiple files
 energizados validate \
   --config config/etls.yaml \
   --config config/training.yaml
@@ -129,59 +129,59 @@ energizados validate \
 ### Tests
 
 ```bash
-# Ejecutar todos los tests
+# Run all tests
 pytest tests/
 
-# Ejecutar con cobertura
+# Run with coverage
 pytest --cov=src tests/
 
-# Ejecutar tests específicos
+# Run specific tests
 pytest tests/test_data.py -v
 ```
 
-## Personalización
+## Customization
 
-### 1. Configurar ETLs
+### 1. Configure ETLs
 
-Edita `config/etls.yaml` para definir tus ETLs. Consulta la documentación de Energizados para ejemplos.
+Edit `config/etls.yaml` to define your ETLs. See the Energizados documentation for examples.
 
-### 2. Configurar Training
+### 2. Configure Training
 
-Edita `config/training.yaml` para:
-- Definir la estrategia de split de datos (stratified, random, time_series)
-- Configurar preprocessing (transformers por columna)
-- Configurar feature selection
-- Configurar el modelo y búsqueda de hiperparámetros
-- Configurar evaluación
+Edit `config/training.yaml` to:
+- Define the data split strategy (stratified, random, time_series)
+- Configure preprocessing (per-column transformers)
+- Configure feature selection
+- Configure the model and hyperparameter search
+- Configure evaluation
 
-### 3. Personalizar ETL
+### 3. Customize ETL
 
-Edita `src/data/custom_etl.py` para implementar tu lógica de extracción,
-transformación y carga de datos.
+Edit `src/data/custom_etl.py` to implement your extraction,
+transformation and data loading logic.
 
-### 4. Personalizar Feature Engineering
+### 4. Customize Feature Engineering
 
-Edita `src/features/custom_selector.py` para implementar tu propio pipeline
-de características.
+Edit `src/features/custom_selector.py` to implement your own
+feature pipeline.
 
-### 5. Personalizar Modelo
+### 5. Customize Model
 
-Edita `src/models/custom_model.py` para implementar tu propio modelo
-de ML, heredando de `BaseModel`.
+Edit `src/models/custom_model.py` to implement your own ML model,
+inheriting from `BaseModel`.
 
-### 6. Personalizar Inferencia
+### 6. Customize Inference
 
-Edita `src/inference/custom_inference.py` para implementar tu lógica
-de inferencia personalizada.
+Edit `src/inference/custom_inference.py` to implement your
+custom inference logic.
 
-## Resultados
+## Results
 
-Documenta aquí los resultados obtenidos:
-- Métricas de los modelos
-- Comparaciones entre enfoques
-- Insights del negocio
+Document results here:
+- Model metrics
+- Comparisons between approaches
+- Business insights
 
-## Referencias
+## References
 
-- Documentación de Energizados: https://github.com/yourusername/energizados
-- Notebook de ejemplo: `notebooks/example_notebook.ipynb`
+- Energizados documentation: https://github.com/yourusername/energizados
+- Example notebook: `notebooks/example_notebook.ipynb`
