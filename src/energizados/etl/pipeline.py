@@ -1,8 +1,7 @@
-"""
-Pipeline ETL Module for Multi-Source Data Processing.
+"""Pipeline ETL Module for Multi-Source Data Processing.
 
-This module provides classes to orchestrate multiple source ETLs
-and combine their outputs into a final dataset.
+This module provides the SourceETL class for processing one or multiple
+data sources, supporting both concatenation and merge operations.
 """
 
 import logging
@@ -18,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SourceETL(BaseETL):
-    """
-    ETL to process one or multiple data sources.
+    """ETL to process one or multiple data sources.
 
     This class processes data from one or several files and generates processed output.
     Supports two operating modes:
@@ -28,16 +26,16 @@ class SourceETL(BaseETL):
     - **merge**: Joins multiple dataframes horizontally using merge_config
 
     Args:
-        name: Name of the source (e.g.: 'consumos', 'inspecciones', 'clientes')
-        input_paths: List with paths to raw data files
-        output_path: Path to save processed data
-        mode: Processing mode ('concat' or 'merge'). Default: 'concat'
-        merge_config: Configuration for merge (required if mode='merge')
+        name: Name of the source (e.g.: 'consumos', 'inspecciones', 'clientes').
+        input_paths: List with paths to raw data files.
+        output_path: Path to save processed data.
+        mode: Processing mode ('concat' or 'merge'). Default: 'concat'.
+        merge_config: Configuration for merge (required if mode='merge').
             Ex: {'how': 'left', 'on': 'id_cliente'}
             Options: how ('left', 'right', 'inner', 'outer'), on (column),
-                      left_on, right_on, left_index, right_index
-        key_column: Key column used by default in merge_config
-        **kwargs: Additional parameters
+                      left_on, right_on, left_index, right_index.
+        key_column: Key column used by default in merge_config.
+        **kwargs: Additional parameters.
 
     Example:
         >>> etl = SourceETL(

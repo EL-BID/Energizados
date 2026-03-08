@@ -1,8 +1,7 @@
-"""
-Schema Validators for ETL.
+"""Schema Validators for ETL.
 
-Provides validators to verify that data complies
-with the expected schema after the ETL process.
+This module provides the SchemaValidator class to verify that data
+complies with the expected schema after the ETL process.
 """
 
 from typing import List, Optional
@@ -11,17 +10,16 @@ import pandas as pd
 
 
 class SchemaValidator:
-    """
-    Schema validator for DataFrames.
+    """Schema validator for DataFrames.
 
     Verifies that the DataFrame has the expected columns and
     correct data types.
 
     Args:
-        required_columns: List of required columns
-        categorical_columns: List of columns that should be categorical
-        numeric_columns: List of columns that should be numeric
-        allow_missing_columns: If True, allows missing columns
+        required_columns: List of required columns.
+        categorical_columns: List of columns that should be categorical.
+        numeric_columns: List of columns that should be numeric.
+        allow_missing_columns: If True, allows missing columns.
     """
 
     def __init__(

@@ -1,0 +1,736 @@
+"""
+Interactive Plots Module - Energizados EDA Framework.
+
+Generates interactive Plotly charts for the EDA HTML report.
+All methods return HTML strings (not file paths).
+"""
+
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# Track if plotlyjs CDN has already been included
+_PLOTLY_JS_INCLUDED = False
+
+
+def _get_plotly_js_args(first: bool = False) -> Dict:
+    """Return Plotly to_html arguments based on whether this is the first chart."""
+    if first:
+        return {"full_html": False, "include_plotlyjs": "cdn"}
+    return {"full_html": False, "include_plotlyjs": False}
+
+
+class EDAInteractivePlots:
+    """
+    Generates interactive Plotly charts for the EDA report.
+
+    All methods return HTML string of the chart (not file paths).
+    The first chart call should include the Plotly.js CDN; subsequent calls should not.
+
+    Args:
+        output_dir: Output directory (kept for API consistency, not used for HTML charts)
+        template: Plotly template name
+
+    Example:
+        >>> plotter = EDAInteractivePlots("output/eda/")
+        >>> html = plotter.class_balance_chart(class_counts, class_pcts)
+    """
+
+    def __init__(self, output_dir: str, template: str = "plotly_white"):
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.template = template
+        self._first_chart = True
+
+    def _to_html(self, fig) -> str:
+        """Convert figure to HTML, managing Plotly.js inclusion."""
+        args = _get_plotly_js_args(self._first_chart)
+        self._first_chart = False
+        try:
+            return fig.to_html(**args)
+        except Exception as e:
+            logger.warning("Error converting figure to HTML: %s", e)
+            return ""
+
+    def class_balance_chart(self, class_counts: Dict, class_pcts: Dict) -> str:
+        """
+        Bar chart showing class distribution.
+
+        Args:
+            class_counts: {label: count}
+            class_pcts: {label: percentage}
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            labels = list(class_counts.keys())
+            counts = [class_counts[label] for label in labels]
+            pcts = [class_pcts.get(label, 0) for label in labels]
+
+            colors = ["#2196F3", "#F44336", "#FF9800", "#4CAF50"]
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Bar(
+                    x=labels,
+                    y=counts,
+                    text=[f"{c:,}<br>({p:.1f}%)" for c, p in zip(counts, pcts)],
+                    textposition="outside",
+                    marker_color=colors[: len(labels)],
+                    name="Conteo",
+                )
+            )
+
+            fig.update_layout(
+                title="Distribución de Clases (Variable Target)",
+                xaxis_title="Clase",
+                yaxis_title="Cantidad de Registros",
+                template=self.template,
+                showlegend=False,
+                height=400,
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping class balance chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating class balance chart: %s", e)
+            return ""
+
+    def iv_ranking_chart(self, ranking_df: pd.DataFrame) -> str:
+        """
+        Horizontal bar chart of feature IV ranking with threshold lines.
+
+        Args:
+            ranking_df: DataFrame with columns [feature, iv, type]
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if ranking_df is None or "iv" not in ranking_df.columns or len(ranking_df) == 0:
+                return ""
+
+            top = ranking_df.dropna(subset=["iv"]).nlargest(30, "iv")
+
+            colors = {"numeric": "#2196F3", "categorical": "#FF9800"}
+            bar_colors = [colors.get(t, "#9C27B0") for t in top.get("type", ["numeric"] * len(top))]
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Bar(
+                    y=top["feature"],
+                    x=top["iv"],
+                    orientation="h",
+                    marker_color=bar_colors,
+                    text=[f"{v:.4f}" for v in top["iv"]],
+                    textposition="outside",
+                    name="IV",
+                )
+            )
+
+            # Threshold lines
+            iv_thresholds = {
+                "Sin poder (< 0.02)": 0.02,
+                "Débil (0.1)": 0.1,
+                "Moderado (0.3)": 0.3,
+                "Fuerte (0.5)": 0.5,
+            }
+            for label, val in iv_thresholds.items():
+                fig.add_vline(
+                    x=val,
+                    line_dash="dash",
+                    line_color="red",
+                    annotation_text=label,
+                    annotation_position="top",
+                    annotation_font_size=9,
+                )
+
+            fig.update_layout(
+                title="Ranking de Variables por Information Value (IV)",
+                xaxis_title="Information Value",
+                yaxis_title="Variable",
+                template=self.template,
+                height=max(400, len(top) * 22),
+                yaxis={"categoryorder": "total ascending"},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping IV ranking chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating IV ranking chart: %s", e)
+            return ""
+
+    def woe_chart(self, woe_table: pd.DataFrame, col: str) -> str:
+        """
+        Bar chart of WoE by bin.
+
+        Args:
+            woe_table: DataFrame with columns [bin, woe, event_rate]
+            col: Feature column name (for title)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            if woe_table is None or len(woe_table) == 0:
+                return ""
+
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+            colors = ["#2196F3" if w >= 0 else "#F44336" for w in woe_table["woe"]]
+
+            fig.add_trace(
+                go.Bar(
+                    x=woe_table["bin"].astype(str),
+                    y=woe_table["woe"],
+                    name="WoE",
+                    marker_color=colors,
+                ),
+                secondary_y=False,
+            )
+
+            if "event_rate" in woe_table.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=woe_table["bin"].astype(str),
+                        y=woe_table["event_rate"],
+                        name="Tasa de Eventos",
+                        mode="lines+markers",
+                        line={"color": "orange", "width": 2},
+                    ),
+                    secondary_y=True,
+                )
+
+            fig.update_layout(
+                title=f"Weight of Evidence (WoE): {col}",
+                xaxis_title="Bin",
+                template=self.template,
+                height=400,
+            )
+            fig.update_yaxes(title_text="WoE", secondary_y=False)
+            fig.update_yaxes(title_text="Tasa de Eventos", secondary_y=True)
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping WoE chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating WoE chart for '%s': %s", col, e)
+            return ""
+
+    def missing_funnel(self, nulls_by_col: List[Dict]) -> str:
+        """
+        Funnel chart showing data loss progression from 100% to complete cases.
+
+        Args:
+            nulls_by_col: List of dicts [{col, null_count, null_pct}]
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not nulls_by_col:
+                return ""
+
+            # Sort by null_pct descending (most missing first)
+            sorted_cols = sorted(nulls_by_col, key=lambda x: x.get("null_pct", 0), reverse=True)
+            top_cols = sorted_cols[:20]
+
+            labels = [d["col"] for d in top_cols]
+            values = [100.0 - d.get("null_pct", 0) for d in top_cols]
+
+            fig = go.Figure(
+                go.Funnel(
+                    y=labels,
+                    x=values,
+                    textinfo="label+value+percent initial",
+                    hovertemplate="<b>%{y}</b><br>Completo: %{x:.1f}%<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title="Embudo de Datos Completos por Columna",
+                template=self.template,
+                height=max(400, len(top_cols) * 30),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping missing funnel")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating missing funnel: %s", e)
+            return ""
+
+    def null_correlation_heatmap(self, corr_matrix: pd.DataFrame) -> str:
+        """
+        Interactive heatmap of null indicator correlations.
+
+        Args:
+            corr_matrix: Pre-computed correlation matrix of null indicators
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if corr_matrix is None or corr_matrix.empty:
+                return ""
+
+            fig = go.Figure(
+                go.Heatmap(
+                    z=corr_matrix.values,
+                    x=list(corr_matrix.columns),
+                    y=list(corr_matrix.index),
+                    colorscale="RdBu",
+                    zmid=0,
+                    zmin=-1,
+                    zmax=1,
+                    colorbar={"title": "Correlación"},
+                    hovertemplate="<b>%{x}</b> × <b>%{y}</b><br>Correlación: %{z:.3f}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title="Correlación entre Indicadores de Nulos",
+                template=self.template,
+                height=max(400, len(corr_matrix) * 30),
+                xaxis={"tickangle": -45},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping null correlation heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating null correlation heatmap: %s", e)
+            return ""
+
+    def consumption_heatmap(
+        self,
+        df: pd.DataFrame,
+        consumption_cols: List[str],
+        sample_n: int = 200,
+    ) -> str:
+        """
+        Heatmap of sampled consumption patterns across periods.
+
+        Args:
+            df: Input DataFrame
+            consumption_cols: Ordered list of consumption column names
+            sample_n: Number of rows to sample for display
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not consumption_cols:
+                return ""
+
+            sub = df[consumption_cols].dropna()
+            if len(sub) > sample_n:
+                sub = sub.sample(sample_n, random_state=42)
+
+            fig = go.Figure(
+                go.Heatmap(
+                    z=sub.values,
+                    x=consumption_cols,
+                    y=[f"Fila {i}" for i in range(len(sub))],
+                    colorscale="Blues",
+                    colorbar={"title": "Consumo"},
+                    hovertemplate="Período: <b>%{x}</b><br>Consumo: %{z:.2f}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=f"Mapa de Calor de Consumo ({len(sub)} clientes muestra)",
+                xaxis_title="Período",
+                yaxis_title="Cliente (muestra)",
+                template=self.template,
+                height=max(400, min(sample_n * 4, 800)),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping consumption heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating consumption heatmap: %s", e)
+            return ""
+
+    def temporal_line(self, temporal_data: List[Dict], title: str = "") -> str:
+        """
+        Line chart of temporal data (e.g., fraud rate over time).
+
+        Args:
+            temporal_data: List of dicts with keys: period, total, positive, rate
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            if not temporal_data:
+                return ""
+
+            periods = [d["period"] for d in temporal_data]
+            rates = [d.get("rate", 0) for d in temporal_data]
+            totals = [d.get("total", 0) for d in temporal_data]
+
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+            fig.add_trace(
+                go.Scatter(
+                    x=periods,
+                    y=rates,
+                    mode="lines+markers",
+                    name="Tasa de Fraude (%)",
+                    line={"color": "#F44336", "width": 2},
+                    marker={"size": 6},
+                ),
+                secondary_y=False,
+            )
+
+            fig.add_trace(
+                go.Bar(
+                    x=periods,
+                    y=totals,
+                    name="Total Registros",
+                    marker_color="rgba(33, 150, 243, 0.4)",
+                    opacity=0.6,
+                ),
+                secondary_y=True,
+            )
+
+            fig.update_layout(
+                title=title or "Evolución Temporal de la Tasa de Fraude",
+                template=self.template,
+                height=400,
+                xaxis={"tickangle": -45},
+            )
+            fig.update_yaxes(title_text="Tasa de Fraude (%)", secondary_y=False)
+            fig.update_yaxes(title_text="Total Registros", secondary_y=True)
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping temporal line chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating temporal line chart: %s", e)
+            return ""
+
+    def categorical_treemap(self, df: pd.DataFrame, col: str) -> str:
+        """
+        Treemap chart showing category distribution.
+
+        Args:
+            df: Input DataFrame
+            col: Categorical column name
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.express as px
+
+            series = df[col].dropna()
+            if len(series) == 0:
+                return ""
+
+            top_cats = series.value_counts().head(50)
+            cat_df = top_cats.reset_index()
+            cat_df.columns = ["categoria", "conteo"]
+            cat_df["pct"] = (cat_df["conteo"] / cat_df["conteo"].sum() * 100).round(2)
+
+            fig = px.treemap(
+                cat_df,
+                path=["categoria"],
+                values="conteo",
+                color="pct",
+                color_continuous_scale="Blues",
+                title=f"Distribución de Categorías: {col}",
+                hover_data={"pct": ":.2f"},
+                template=self.template,
+            )
+
+            fig.update_layout(height=500)
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping categorical treemap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating categorical treemap for '%s': %s", col, e)
+            return ""
+
+    def inspection_sunburst(self, hierarchy: Dict, title: str = "Jerarquía de Inspecciones") -> str:
+        """
+        Sunburst chart showing inspection process hierarchy.
+
+        Args:
+            hierarchy: Nested dict structure {tipo: {acao: {categories...}}}
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not hierarchy:
+                return ""
+
+            # Flatten hierarchy into sunburst format
+            labels = ["Total"]
+            parents = [""]
+            values = [
+                sum(
+                    sum(
+                        (
+                            sum(c.values())
+                            if isinstance(c, dict) and "categories" in c
+                            else (c.get("count", 0) if isinstance(c, dict) else 0)
+                        )
+                        for c in acao.values()
+                        if isinstance(acao, dict)
+                    )
+                    for acao in tipo.values()
+                )
+                for tipo in hierarchy.values()
+            ]
+
+            for tipo, acao_dict in hierarchy.items():
+                labels.append(str(tipo))
+                parents.append("Total")
+
+                tipo_count = 0
+                for acao, acao_data in acao_dict.items():
+                    if isinstance(acao_data, dict):
+                        count = acao_data.get("count", 0)
+                        categories = acao_data.get("categories", {})
+                        tipo_count += count
+
+                        labels.append(str(acao))
+                        parents.append(str(tipo))
+
+                        for cat, cat_count in categories.items():
+                            labels.append(str(cat))
+                            parents.append(str(acao))
+                            values.append(cat_count)
+
+                    if isinstance(acao_data, dict):
+                        values.append(acao_data.get("count", 0))
+
+            fig = go.Figure(
+                go.Sunburst(
+                    labels=labels,
+                    parents=parents,
+                    values=values,
+                    branchvalues="total",
+                    hovertemplate="<b>%{label}</b><br>Conteo: %{value}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=title,
+                template=self.template,
+                height=600,
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping inspection sunburst")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating inspection sunburst: %s", e)
+            return ""
+
+    def inspection_funnel(self, funnel_data: List[Dict], title: str = "Embudo de Inspecciones") -> str:
+        """
+        Funnel chart showing inspection process progression.
+
+        Args:
+            funnel_data: List of dicts [{stage, count, pct_of_total}]
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not funnel_data:
+                return ""
+
+            fig = go.Figure(
+                go.Funnel(
+                    y=[d.get("stage", "") for d in funnel_data],
+                    x=[d.get("count", 0) for d in funnel_data],
+                    textinfo="label+value+percent initial",
+                    hovertemplate="<b>%{y}</b><br>Conteo: %{x}<br>Porcentaje inicial: %{percentInitial:.1%}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=title,
+                template=self.template,
+                height=max(400, len(funnel_data) * 50),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping inspection funnel")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating inspection funnel: %s", e)
+            return ""
+
+    def scatter_mapbox(
+        self,
+        df: pd.DataFrame,
+        lat_col: str,
+        lon_col: str,
+        color_col: Optional[str] = None,
+        title: str = "Distribución Geográfica",
+    ) -> str:
+        """
+        Scatter mapbox chart of geographic data.
+
+        Args:
+            df: Input DataFrame
+            lat_col: Latitude column
+            lon_col: Longitude column
+            color_col: Column to use for color (optional, e.g., target or zone)
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.express as px
+
+            sub = df[[lat_col, lon_col]].copy()
+            if color_col and color_col in df.columns:
+                sub[color_col] = df[color_col]
+
+            sub = sub.dropna(subset=[lat_col, lon_col])
+            sub = sub[(sub[lat_col] != 0) & (sub[lon_col] != 0)]
+
+            if len(sub) == 0:
+                return ""
+
+            # Sample if too many points
+            if len(sub) > 5000:
+                sub = sub.sample(5000, random_state=42)
+
+            fig = px.scatter_mapbox(
+                sub,
+                lat=lat_col,
+                lon=lon_col,
+                color=color_col if color_col else None,
+                color_discrete_sequence=px.colors.qualitative.Bold,
+                mapbox_style="open-street-map",
+                title=title,
+                height=600,
+            )
+
+            fig.update_layout(
+                template=self.template,
+                margin={"r": 0, "t": 50, "l": 0, "b": 0},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping scatter mapbox")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating scatter mapbox: %s", e)
+            return ""
+
+    def segment_barplot(self, segment_stats: List[Dict], title: str = "Tasa de Fraude por Segmento") -> str:
+        """
+        Bar chart showing fraud rate by segment.
+
+        Args:
+            segment_stats: List of dicts [{segment, size, target_rate, z_score}]
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not segment_stats:
+                return ""
+
+            top_segments = sorted(segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True)[:20]
+
+            segments = [s["segment"] for s in top_segments]
+            rates = [s.get("target_rate", 0) * 100 for s in top_segments]
+            sizes = [s.get("size", 0) for s in top_segments]
+
+            fig = go.Figure()
+
+            fig.add_trace(
+                go.Bar(
+                    x=segments,
+                    y=rates,
+                    text=[f"{r:.1f}%<br>(n={s:,})" for r, s in zip(rates, sizes)],
+                    textposition="outside",
+                    marker_color=["#F44336" if r > 5 else "#2196F3" for r in rates],
+                )
+            )
+
+            fig.update_layout(
+                title=title,
+                xaxis_title="Segmento",
+                yaxis_title="Tasa de Fraude (%)",
+                template=self.template,
+                height=max(400, len(segments) * 25),
+                xaxis={"tickangle": -45},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping segment barplot")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating segment barplot: %s", e)
+            return ""

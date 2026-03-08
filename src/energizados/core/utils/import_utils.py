@@ -1,4 +1,9 @@
-"""Import utilities for dynamically importing classes from local projects."""
+"""Import utilities for dynamically importing classes from local projects.
+
+This module provides a secure way to dynamically import classes based on
+string references (e.g., from YAML configuration files). It uses an
+allowlist to prevent arbitrary code execution from untrusted configurations.
+"""
 
 import sys
 from pathlib import Path
@@ -16,6 +21,12 @@ ALLOWED_PREFIXES = [
     "etl.",
     "tests.",
 ]
+"""List[str]: Allowed module prefixes for dynamic class imports.
+
+This allowlist is used to prevent arbitrary code execution when importing
+classes dynamically from configuration files. Only classes from modules
+starting with these prefixes can be imported.
+"""
 
 
 def import_class(class_path: str) -> type:

@@ -20,14 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 class ETLOrchestrator:
-    """
-    Orchestrates the execution of multiple ETLs respecting dependencies.
+    """Orchestrates the execution of multiple ETLs respecting dependencies.
 
     Implements topological order to execute ETLs in the correct order
     based on their dependencies, creating a DAG (Directed Acyclic Graph).
 
     Args:
-        etl_configs: Dictionary with configuration for each ETL
+        etl_configs: Dictionary with configuration for each ETL.
             {
                 "etl_name": {
                     "enabled": bool,
@@ -41,10 +40,10 @@ class ETLOrchestrator:
             }
 
     Attributes:
-        etl_configs: Configuration of all ETLs
-        etl_instances: Created ETL instances
-        execution_order: Determined execution order
-        results: Results of each executed ETL
+        etl_configs: Configuration of all ETLs.
+        etl_instances: Created ETL instances.
+        execution_order: Determined execution order.
+        results: Results of each executed ETL.
 
     Example:
         >>> configs = {
@@ -56,6 +55,11 @@ class ETLOrchestrator:
     """
 
     def __init__(self, etl_configs: Dict[str, Dict]):
+        """Initialize the orchestrator.
+
+        Args:
+            etl_configs: Dictionary with configuration for each ETL.
+        """
         self.etl_configs = etl_configs
         self.etl_instances: Dict[str, object] = {}
         self.execution_order: List[str] = []

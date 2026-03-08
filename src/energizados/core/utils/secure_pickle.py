@@ -10,7 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 def _hash_file(path: Path) -> str:
-    """Compute SHA-256 hash of a file."""
+    """Compute SHA-256 hash of a file.
+
+    Args:
+        path: Path to the file to hash.
+
+    Returns:
+        str: Hexadecimal SHA-256 hash of the file.
+    """
     sha256 = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):

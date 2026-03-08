@@ -1,7 +1,6 @@
-"""
-ETL Base Module.
+"""ETL Base Module.
 
-Defines the abstract BaseETL class that users can inherit
+This module defines the abstract BaseETL class that users can inherit
 to implement their own custom ETL processes.
 """
 
@@ -11,8 +10,7 @@ import pandas as pd
 
 
 class BaseETL(ABC):
-    """
-    Base class for custom ETL.
+    """Base class for custom ETL.
 
     Users inherit and implement the abstract methods to define
     their own Extract, Transform, and Load process.
@@ -29,6 +27,9 @@ class BaseETL(ABC):
         ...     def load(self, df, path):
         ...         df.to_parquet(path)
     """
+
+    def __init__(self):
+        """Initialize the ETL instance."""
 
     @abstractmethod
     def extract(self) -> pd.DataFrame:

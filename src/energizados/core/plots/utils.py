@@ -10,14 +10,13 @@ from sklearn.metrics import roc_curve
 
 
 def plot_roc(name, labels, predictions, **kwargs):
-    """
-    Generate an ROC curve.
+    """Generate an ROC curve.
 
     Args:
-        name: Name of the curve (for legend)
-        labels: True labels (0 or 1)
-        predictions: Probability predictions
-        **kwargs: Additional arguments for plt.plot
+        name: Name of the curve (for legend).
+        labels: True labels (0 or 1).
+        predictions: Probability predictions.
+        **kwargs: Additional arguments for plt.plot.
 
     Example:
         >>> plot_roc("Model A", y_true, y_proba)

@@ -187,15 +187,17 @@ def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = F
 
 
 def _get_etl_with_dependencies(etl_configs: Dict[str, Dict], etl_name: str) -> Dict[str, Dict]:
-    """
-    Gets an ETL and all its dependencies recursively.
+    """Gets an ETL and all its dependencies recursively.
 
     Args:
-        etl_configs: Configuration of all ETLs
-        etl_name: Name of the target ETL
+        etl_configs: Configuration of all ETLs.
+        etl_name: Name of the target ETL.
 
     Returns:
-        Dict with the ETL and its dependencies
+        Dictionary containing the ETL and all its dependencies.
+
+    Raises:
+        PipelineError: If an ETL in the dependency chain is not found.
     """
     result = {}
     visited = set()
@@ -221,16 +223,15 @@ def _get_etl_with_dependencies(etl_configs: Dict[str, Dict], etl_name: str) -> D
 
 
 def show_etl_plan(config_paths: List[str]) -> str:
-    """
-    Shows the ETL execution plan without executing them.
+    """Shows the ETL execution plan without executing them.
 
     Args:
-        config_paths: List of paths to YAML configuration files
+        config_paths: List of paths to YAML configuration files.
 
     Returns:
-        str: Formatted execution plan
+        Formatted execution plan as a string.
 
     Raises:
-        ConfigurationError: If there are configuration errors
+        ConfigurationError: If there are configuration errors.
     """
     return execute_etl(config_paths, dry_run=True)

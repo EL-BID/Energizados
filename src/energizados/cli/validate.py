@@ -12,27 +12,61 @@ from energizados.core.exceptions import ConfigurationError
 
 
 class ValidationResult:
-    """Validation result with errors and warnings."""
+    """Container for configuration validation results.
 
-    def __init__(self):
+    This class stores errors, warnings, and informational messages
+    generated during configuration validation. It provides methods
+    to add messages and check if the configuration is valid.
+
+    Attributes:
+        errors: List of error messages that make the configuration invalid.
+        warnings: List of warning messages for potential issues.
+        info: List of informational messages about the configuration.
+
+    Example:
+        >>> result = ValidationResult()
+        >>> result.add_info("Project name: my_project")
+        >>> result.add_warning("Optional section not found")
+        >>> result.is_valid()
+        True
+    """
+
+    def __init__(self) -> None:
+        """Initializes an empty ValidationResult."""
         self.errors: List[str] = []
         self.warnings: List[str] = []
         self.info: List[str] = []
 
     def is_valid(self) -> bool:
-        """Returns True if there are no errors."""
+        """Checks if the configuration is valid.
+
+        Returns:
+            True if there are no errors, False otherwise.
+        """
         return len(self.errors) == 0
 
-    def add_error(self, message: str):
-        """Adds an error."""
+    def add_error(self, message: str) -> None:
+        """Adds an error message to the result.
+
+        Args:
+            message: The error message to add.
+        """
         self.errors.append(message)
 
-    def add_warning(self, message: str):
-        """Adds a warning."""
+    def add_warning(self, message: str) -> None:
+        """Adds a warning message to the result.
+
+        Args:
+            message: The warning message to add.
+        """
         self.warnings.append(message)
 
-    def add_info(self, message: str):
-        """Adds information."""
+    def add_info(self, message: str) -> None:
+        """Adds an informational message to the result.
+
+        Args:
+            message: The informational message to add.
+        """
         self.info.append(message)
 
 
@@ -89,8 +123,16 @@ def validate_config(config_paths: List[str], verbose: bool = False) -> Validatio
     return result
 
 
-def _validate_project_section(config: Dict[str, Any], result: ValidationResult):
-    """Validates the project section."""
+def _validate_project_section(config: Dict[str, Any], result: ValidationResult) -> None:
+    """Validates the project section of the configuration.
+
+    Checks for the optional 'project' section and validates its
+    'name' field if present.
+
+    Args:
+        config: The full configuration dictionary.
+        result: ValidationResult object to store validation messages.
+    """
     if "project" not in config:
         result.add_warning("'project' section not found (optional)")
         return
@@ -102,8 +144,19 @@ def _validate_project_section(config: Dict[str, Any], result: ValidationResult):
         result.add_info(f"Project: {project['name']}")
 
 
-def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
-    """Validates the etls section (multiple ETLs with dependencies)."""
+def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> None:
+    """Validates the etls section (multiple ETLs with dependencies).
+
+    Validates each ETL configuration including required fields:
+    - input: Input data source(s)
+    - output: Output path
+    - custom_class: Fully qualified class name for the ETL
+    - depends_on: Optional list of ETL dependencies
+
+    Args:
+        config: The full configuration dictionary.
+        result: ValidationResult object to store validation messages.
+    """
     if "etls" not in config:
         result.add_info("'etls' section not present in this config (skipping ETL validation)")
         return
@@ -143,8 +196,18 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult):
         result.add_info(f"ETL '{etl_name}': {'enabled' if enabled else 'disabled'}")
 
 
-def _validate_inference_section(config: Dict[str, Any], result: ValidationResult):
-    """Validates the inference section."""
+def _validate_inference_section(config: Dict[str, Any], result: ValidationResult) -> None:
+    """Validates the inference section of the configuration.
+
+    Checks for required fields when inference is enabled:
+    - input_path: Path to input data
+    - output_path: Path for output results
+    - custom_class: Optional custom inference class
+
+    Args:
+        config: The full configuration dictionary.
+        result: ValidationResult object to store validation messages.
+    """
     if "inference" not in config:
         result.add_warning("'inference' section not found (optional)")
         return
@@ -169,8 +232,16 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
         result.add_info("Inference: disabled")
 
 
-def _validate_training_section(config: Dict[str, Any], result: ValidationResult):
-    """Validates the training section."""
+def _validate_training_section(config: Dict[str, Any], result: ValidationResult) -> None:
+    """Validates the training section of the configuration.
+
+    Validates model type, custom classes, split parameters,
+    and sampling configuration.
+
+    Args:
+        config: The full configuration dictionary.
+        result: ValidationResult object to store validation messages.
+    """
     if "training" not in config:
         result.add_info("'training' section not present in this config (skipping training validation)")
         return
@@ -232,8 +303,15 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
                 result.add_warning(f"training.sampling.method invalid: {method}")
 
 
-def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResult):
-    """Validates the evaluation section."""
+def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResult) -> None:
+    """Validates the evaluation section of the configuration.
+
+    Checks for valid metric names and evaluation settings.
+
+    Args:
+        config: The full configuration dictionary.
+        result: ValidationResult object to store validation messages.
+    """
     if "evaluation" not in config:
         result.add_warning("'evaluation' section not found (optional)")
         return
@@ -296,8 +374,16 @@ def _validate_class_reference(class_path: str, result: ValidationResult):
         result.add_info(f"Class reference format valid: {class_path}")
 
 
-def _print_validation_results(result: ValidationResult, config: Dict[str, Any]):
-    """Prints the validation results."""
+def _print_validation_results(result: ValidationResult, config: Dict[str, Any]) -> None:
+    """Prints the validation results to stdout.
+
+    Displays information, warnings, and errors in a formatted
+    output with visual indicators.
+
+    Args:
+        result: ValidationResult object containing messages.
+        config: The configuration dictionary (for context).
+    """
     print("\n" + "=" * 60)
     print("VALIDATION RESULTS")
     print("=" * 60)

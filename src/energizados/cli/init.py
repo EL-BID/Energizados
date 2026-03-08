@@ -59,12 +59,26 @@ def _sanitize_package_name(name: str) -> str:
 
 
 def _get_template_path(template_name: str) -> Path:
-    """Returns the path to a template file."""
+    """Returns the path to a template file.
+
+    Args:
+        template_name: Name of the template file.
+
+    Returns:
+        Path to the template file in the templates directory.
+    """
     return Path(__file__).parent.parent.parent.parent / "templates" / template_name
 
 
 def _load_template(template_name: str) -> str:
-    """Loads the content of a template from the file."""
+    """Loads the content of a template from the file.
+
+    Args:
+        template_name: Name of the template file.
+
+    Returns:
+        The content of the template file as a string.
+    """
     template_path = _get_template_path(template_name)
     return template_path.read_text()
 
@@ -136,12 +150,33 @@ def create_project(
 
 
 def _is_new_structure(project_path: Path) -> bool:
-    """Detects if a project uses the new structure (with src/)."""
+    """Detects if a project uses the new structure (with src/).
+
+    Args:
+        project_path: Path to the project directory.
+
+    Returns:
+        True if the project has a src/ directory (new structure),
+        False otherwise.
+    """
     return (project_path / "src").exists()
 
 
-def _create_directory_structure(project_path: Path):
-    """Creates the directory structure of the project (2026 structure)."""
+def _create_directory_structure(project_path: Path) -> None:
+    """Creates the directory structure of the project (2026 structure).
+
+    Creates the following directory structure:
+    - src/: Source code (data/, features/, models/, inference/, utils/, run/)
+    - tests/: Test files
+    - docs/: Documentation
+    - config/: Configuration files
+    - data/: Raw, processed, and splits subdirectories
+    - output/: Training outputs
+    - notebooks/: Jupyter notebooks
+
+    Args:
+        project_path: Path where the project directory structure will be created.
+    """
     directories = [
         # Source code in src/
         project_path / "src" / "data",
@@ -468,7 +503,7 @@ def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name
     new_package = _sanitize_package_name(new_name)
 
     # List of configuration files to copy
-    config_files = ["etls.yaml", "training.yaml", "inference.yaml"]
+    config_files = ["etls.yaml", "training.yaml", "inference.yaml", "eda.yaml"]
 
     for config_file in config_files:
         # Determine path according to structure
@@ -680,6 +715,7 @@ def _create_run_scripts(project_path: Path, project_name: str):
     Note: These scripts use the Python API directly, without invoking the CLI.
     """
     scripts = {
+        "00_eda.py": "src/run/00_eda.py.tpl",
         "01_etl.py": "src/run/01_etl.py.tpl",
         "02_training.py": "src/run/02_training.py.tpl",
         "03_inference.py": "src/run/03_inference.py.tpl",
@@ -715,6 +751,7 @@ def _create_config_files(project_path: Path, project_name: str):
         "etls.yaml": "config/etls.yaml.tpl",
         "training.yaml": "config/training.yaml.tpl",
         "inference.yaml": "config/inference.yaml.tpl",
+        "eda.yaml": "config/eda.yaml.tpl",
     }
 
     for filename, template_path in config_templates.items():
