@@ -1,7 +1,9 @@
 """
-Energizados Source Module
+Energizados Source Module.
 
-Este módulo contiene todo el código fuente del framework Energizados.
+This module contains all source code for the Energizados framework,
+a machine learning system for detecting electricity theft (non-technical
+losses in energy distribution).
 """
 
 __all__ = [

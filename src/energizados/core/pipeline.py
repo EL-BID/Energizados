@@ -401,10 +401,27 @@ class ConfigPipelineBuilder:
                 self.orchestrator = orchestrator
 
             def validate_input(self, context: Dict[str, Any]) -> bool:
+                """Return True; ETLs read from disk and require no prior context.
+
+                Args:
+                    context: Pipeline context dict (unused).
+
+                Returns:
+                    bool: Always True.
+                """
                 # ETLs do not require previous input from context
                 return True
 
             def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+                """Run all ETLs via the orchestrator and populate context.
+
+                Args:
+                    context: Pipeline context dict.
+
+                Returns:
+                    Dict: Updated context with ``data`` (last ETL output) and
+                        ``etl_results`` (all ETL outputs).
+                """
                 # Execute all ETLs in topological order
                 results = self.orchestrator.run()
 
@@ -417,6 +434,11 @@ class ConfigPipelineBuilder:
                 return context
 
             def get_required_keys(self) -> List[str]:
+                """Return empty list; ETLStep has no required context keys.
+
+                Returns:
+                    List[str]: Empty list.
+                """
                 return []
 
         return ETLStep(orchestrator)
@@ -586,15 +608,35 @@ class ConfigPipelineBuilder:
             """Pipeline step for making predictions with trained models."""
 
             def __init__(self, inference_engine, config):
+                """Initialize with the inference engine and its configuration.
+
+                Args:
+                    inference_engine: Inference object with ``predict`` / ``predict_proba`` methods.
+                    config: Inference configuration dict from YAML.
+                """
                 self.inference = inference_engine
                 self.config = config
 
             def validate_input(self, context: Dict[str, Any]) -> bool:
-                """Validate that there is a model and data available."""
+                """Validate that a trained model is present in context.
+
+                Args:
+                    context: Pipeline context dict.
+
+                Returns:
+                    bool: True if ``model`` key is present and non-None.
+                """
                 return "model" in context and context["model"] is not None
 
             def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-                """Execute the inference."""
+                """Run inference and store predictions in context.
+
+                Args:
+                    context: Pipeline context dict with at minimum ``model``.
+
+                Returns:
+                    Dict: Updated context with ``predictions`` and ``prediction_probas``.
+                """
                 model = context.get("model")
 
                 # Get inference data
@@ -630,9 +672,19 @@ class ConfigPipelineBuilder:
                 return context
 
             def get_required_keys(self) -> List[str]:
+                """Return the required context keys for inference.
+
+                Returns:
+                    List[str]: ``["model"]``.
+                """
                 return ["model"]
 
             def get_output_keys(self) -> List[str]:
+                """Return the context keys produced by this step.
+
+                Returns:
+                    List[str]: ``["predictions", "prediction_probas"]``.
+                """
                 return ["predictions", "prediction_probas"]
 
         return InferenceStep(inference, inference_config)

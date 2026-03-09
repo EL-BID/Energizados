@@ -85,7 +85,26 @@ class DefaultEvaluator(PipelineStep):
         self.report_generator = ReportGenerator(str(self.output_dir))
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Executes complete evaluation."""
+        """Execute the complete evaluation pipeline.
+
+        Loads the model and optional feature engineering, applies them to the test
+        set, optionally calibrates the decision threshold, computes all configured
+        metrics, and generates plots and reports.
+
+        Args:
+            context: Pipeline context dict; may supply ``test_path``,
+                ``model_path``, ``feature_engineering_path``, and
+                ``val_predictions_path`` when those were not provided at
+                construction time.
+
+        Returns:
+            Dict: Updated context with keys ``metrics``, ``plots``, ``reports``,
+                and ``evaluation_dir``.
+
+        Raises:
+            ValueError: If no ``input_path`` or ``test_path`` can be resolved.
+            FileNotFoundError: If the resolved test dataset does not exist.
+        """
         logger.info("\n" + "=" * 50)
         logger.info("EVALUATION STEP")
         logger.info("=" * 50)

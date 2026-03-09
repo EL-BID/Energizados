@@ -39,6 +39,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_preprocesor(preprocesor):
+    """Build a sklearn ColumnTransformer based on a preprocessor number.
+
+    Args:
+        preprocesor: Integer selecting the preprocessing configuration.
+            Currently only 4 is supported.
+
+    Returns:
+        sklearn.compose.ColumnTransformer: Configured preprocessor.
+    """
     if preprocesor == 4:
         # Activity
         pipe_actividad = Pipeline([("cardinality_reducer", CardinalityReducer(threshold=0.001)), ("a_dummy", ToDummy(["actividad"]))])
@@ -62,6 +71,11 @@ def get_preprocesor(preprocesor):
 
 
 class LGBMModel:
+    """LightGBM classifier with imbalanced-learn sampling support.
+
+    Wraps LGBMClassifier in an imblearn pipeline with optional
+    RandomUnderSampler or RandomOverSampler and optional hyperparameter search.
+    """
 
     def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, sampling_method="under", n_iter=60, cv=3):
         """
@@ -85,6 +99,12 @@ class LGBMModel:
         self.cv = cv
 
     def build_pipeline_preproceso_model(self):
+        """Build an imblearn pipeline with LGBMClassifier and optional sampler.
+
+        Returns:
+            imblearn.pipeline.Pipeline: Pipeline with optional sampler followed by
+                LGBMClassifier.
+        """
         lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000, verbosity=-1)
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
@@ -96,6 +116,20 @@ class LGBMModel:
             return make_pipeline(lgbm_model_search)
 
     def train(self, df_train, y_train, df_val=None, y_val=None):
+        """Train the LightGBM pipeline.
+
+        If no validation set is provided, 10% of the training data is reserved
+        for early stopping. Optionally performs hyperparameter search first.
+
+        Args:
+            df_train: Training feature DataFrame.
+            y_train: Training target Series.
+            df_val: Validation feature DataFrame (optional).
+            y_val: Validation target Series (optional).
+
+        Returns:
+            imblearn.pipeline.Pipeline: Fitted pipeline with sampler and LGBMClassifier.
+        """
         if df_val is None:
             df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
 
@@ -126,6 +160,18 @@ class LGBMModel:
         return pipe_preproceso_model
 
     def find_hyp_lgbm_model(self, X_train, y_train, X_val, y_val, imba_pipeline):
+        """Run RandomizedSearchCV to find optimal LightGBM hyperparameters.
+
+        Args:
+            X_train: Training feature DataFrame.
+            y_train: Training target Series.
+            X_val: Validation feature DataFrame (not used in CV phase to avoid leakage).
+            y_val: Validation target Series (not used in CV phase to avoid leakage).
+            imba_pipeline: imblearn pipeline containing the LGBMClassifier.
+
+        Returns:
+            tuple: (best_score, best_params) from the randomized search.
+        """
         # Phase 1 (search): do NOT pass eval_set so early stopping does not use the
         # held-out validation set during CV — that would leak val into hyperparameter selection.
         # The final model is retrained with eval_set in train() (Phase 2).
@@ -170,9 +216,27 @@ class LGBMModel:
 
 
 class CATModel:
+    """CatBoost classifier with imbalanced-learn sampling support.
+
+    Wraps CatBoostClassifier in an imblearn pipeline with optional
+    RandomUnderSampler or RandomOverSampler and optional hyperparameter search.
+    """
+
     def __init__(
         self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under", n_iter=60, cv=3
     ):
+        """Initialize CATModel.
+
+        Args:
+            cols_for_model: List of feature column names to use.
+            hyperparams: CatBoost hyperparameter dict.
+            search_hip: If True, run hyperparameter search before training.
+            sampling_th: Sampling ratio for the sampler.
+            preprocesor_num: Unused legacy parameter.
+            sampling_method: Sampling strategy ('over', 'under', or other for no sampling).
+            n_iter: Number of iterations for RandomizedSearchCV.
+            cv: Number of cross-validation folds.
+        """
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
         self.preprocesor_num = preprocesor_num
@@ -183,6 +247,15 @@ class CATModel:
         self.cv = cv
 
     def build_pipeline_preproceso_model(self, cat_features):
+        """Build an imblearn pipeline with CatBoostClassifier and optional sampler.
+
+        Args:
+            cat_features: List of categorical feature column names.
+
+        Returns:
+            imblearn.pipeline.Pipeline: Pipeline with optional sampler followed by
+                CatBoostClassifier.
+        """
         cb_model_search = cb.CatBoostClassifier(
             iterations=1000, eval_metric="AUC", loss_function="Logloss", random_seed=42, cat_features=cat_features, logging_level="Silent"
         )
@@ -196,6 +269,20 @@ class CATModel:
             return make_pipeline(cb_model_search)
 
     def train(self, df_train, y_train, df_val=None, y_val=None):
+        """Train the CatBoost pipeline.
+
+        If no validation set is provided, 10% of the training data is reserved
+        for early stopping. Optionally performs hyperparameter search first.
+
+        Args:
+            df_train: Training feature DataFrame.
+            y_train: Training target Series.
+            df_val: Validation feature DataFrame (optional).
+            y_val: Validation target Series (optional).
+
+        Returns:
+            imblearn.pipeline.Pipeline: Fitted pipeline with sampler and CatBoostClassifier.
+        """
         if df_val is None:
             df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
 
@@ -215,6 +302,18 @@ class CATModel:
         return pipe_preproceso_model
 
     def find_hyp_catboost_model(self, X_train, y_train, X_val, y_val, imba_catboost):
+        """Run RandomizedSearchCV to find optimal CatBoost hyperparameters.
+
+        Args:
+            X_train: Training feature DataFrame.
+            y_train: Training target Series.
+            X_val: Validation feature DataFrame (not used in CV phase to avoid leakage).
+            y_val: Validation target Series (not used in CV phase to avoid leakage).
+            imba_catboost: imblearn pipeline containing the CatBoostClassifier.
+
+        Returns:
+            tuple: (best_score, best_params) from the randomized search.
+        """
         # Phase 1 (search): do NOT pass eval_set so early stopping does not use the
         # held-out validation set during CV — that would leak val into hyperparameter selection.
         # The final model is retrained with eval_set in train() (Phase 2).
@@ -247,6 +346,11 @@ class CATModel:
 
 
 class NNModel:
+    """Feedforward neural network model for binary classification.
+
+    Builds a Dense network that concatenates scaled categorical features with
+    row-wise Min-Max scaled consumption sequences. Uses TensorFlow/Keras.
+    """
 
     def __init__(self, features_names, spents_names, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
         """
@@ -272,6 +376,14 @@ class NNModel:
         self.BATCH_SIZE = 2048
 
     def build_pipeline_preproceso(self):
+        """Build pipelines for feature scaling and optional resampling.
+
+        Returns:
+            tuple: (pipe_features, pipe_spent, random_sampler) where pipe_features
+                applies MinMaxScaler to categorical features, pipe_spent applies
+                MinMaxScalerRow to consumption sequences, and random_sampler is an
+                imblearn sampler or None if no sampling is requested.
+        """
         # Data arriving here is already preprocessed by the framework's DefaultFeatureEngineering
         pipe_features = Pipeline([("scaler", MinMaxScaler())])
 
@@ -287,6 +399,20 @@ class NNModel:
         return pipe_features, pipe_spent, ramdom_s
 
     def train(self, df_train, y_train, df_val=None, y_val=None):
+        """Train the feedforward neural network.
+
+        Scales features and consumption, optionally resamples for class balance,
+        then trains with early stopping on validation precision-recall AUC.
+
+        Args:
+            df_train: Training feature DataFrame.
+            y_train: Training target Series.
+            df_val: Validation feature DataFrame (optional).
+            y_val: Validation target Series (optional).
+
+        Returns:
+            tuple: (keras_model, pipe_features, pipe_spent)
+        """
         if df_val is None:
             df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
 
@@ -310,6 +436,21 @@ class NNModel:
         return rnn_final_model, pipe_features, pipe_spent
 
     def train_rnn_model(self, X_train, y_train, X_val, y_val, output_bias=None):
+        """Build and train the Keras feedforward neural network.
+
+        Architecture: Dense(512) → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid).
+        Early stopping on val_prc with patience=50.
+
+        Args:
+            X_train: Preprocessed training feature matrix.
+            y_train: Training target array.
+            X_val: Preprocessed validation feature matrix.
+            y_val: Validation target array.
+            output_bias: Optional initial bias for the output layer.
+
+        Returns:
+            tf.keras.Model: Trained Keras model.
+        """
         import tensorflow as tf  # Lazy import - only load when training NN
 
         y_train = np.asarray(y_train)
@@ -369,6 +510,12 @@ class NNModel:
 
 
 class LSTMNNModel:
+    """LSTM neural network model for binary classification with sequential consumption data.
+
+    Combines an LSTM branch processing row-wise scaled consumption sequences with a Dense
+    branch processing categorical features. Uses TensorFlow/Keras with early stopping on
+    validation precision-recall AUC.
+    """
 
     def __init__(self, features_names, spents_names, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
         """
@@ -394,6 +541,13 @@ class LSTMNNModel:
         self.BATCH_SIZE = 2048
 
     def build_pipeline_preproceso(self):
+        """Build pipelines for feature scaling and optional resampling.
+
+        Returns:
+            tuple: (pipe_features, pipe_spent, random_sampler) where pipe_features applies
+                MinMaxScaler to categorical features, pipe_spent applies MinMaxScalerRow to
+                consumption sequences, and random_sampler is an imblearn sampler or None.
+        """
         # Data arriving here is already preprocessed by the framework's DefaultFeatureEngineering
         pipe_features = Pipeline([("scaler", MinMaxScaler())])
 
@@ -409,6 +563,21 @@ class LSTMNNModel:
         return pipe_features, pipe_spent, ramdom_s
 
     def train(self, df_train, y_train, df_val=None, y_val=None):
+        """Train the LSTM neural network.
+
+        Scales features and consumption, optionally resamples for class balance, reshapes
+        consumption sequences to (samples, periodo, 1) for LSTM input, then trains with
+        early stopping on validation precision-recall AUC.
+
+        Args:
+            df_train: Training feature DataFrame.
+            y_train: Training target Series.
+            df_val: Validation feature DataFrame (optional).
+            y_val: Validation target Series (optional).
+
+        Returns:
+            tuple: (keras_model, pipe_features, pipe_spent)
+        """
         if df_val is None:
             df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
 
@@ -437,6 +606,24 @@ class LSTMNNModel:
         return lstm_rnn_final_model, pipe_features, pipe_spent
 
     def train_lstm_rnn_model(self, X_train_spents, X_train_features, y_train, X_val_spents, X_val_features, y_val, output_bias=None):
+        """Build and train the Keras LSTM model.
+
+        Architecture: LSTM(128) on consumption → Concatenate with features → Dense(64) →
+        Dropout(0.5) → Dense(32) → Dropout(0.5) → Dense(16) → Dropout(0.5) → Dense(1, sigmoid).
+        Early stopping on val_prc with patience=50.
+
+        Args:
+            X_train_spents: Consumption sequences shaped (samples, periodo, 1).
+            X_train_features: Preprocessed training feature matrix.
+            y_train: Training target array.
+            X_val_spents: Validation consumption sequences shaped (samples, periodo, 1).
+            X_val_features: Preprocessed validation feature matrix.
+            y_val: Validation target array.
+            output_bias: Optional initial bias for the output layer.
+
+        Returns:
+            tf.keras.Model: Trained Keras model with two inputs (spents, features).
+        """
         import tensorflow as tf  # Lazy import - only load when training LSTM
 
         y_train = np.asarray(y_train)

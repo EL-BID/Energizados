@@ -708,15 +708,16 @@ def _create_run_scripts(project_path: Path, project_name: str):
     Creates Python scripts to execute each stage of the pipeline.
 
     Scripts created in src/run/:
-    - 01_etl.py - Executes ETLs
+    - 00_etl.py - Executes ETLs
+    - 01_eda.py - Executes EDA
     - 02_training.py - Executes training (includes feature engineering + evaluation)
     - 03_inference.py - Executes inference (requires --run-dir argument)
 
     Note: These scripts use the Python API directly, without invoking the CLI.
     """
     scripts = {
-        "00_eda.py": "src/run/00_eda.py.tpl",
-        "01_etl.py": "src/run/01_etl.py.tpl",
+        "00_etl.py": "src/run/00_etl.py.tpl",
+        "01_eda.py": "src/run/01_eda.py.tpl",
         "02_training.py": "src/run/02_training.py.tpl",
         "03_inference.py": "src/run/03_inference.py.tpl",
     }

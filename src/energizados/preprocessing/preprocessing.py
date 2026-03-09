@@ -51,6 +51,15 @@ class ToDummy(BaseEstimator, TransformerMixin):
         self.sparse = sparse
 
     def fit(self, X, y=None):
+        """Learn the categories for each column.
+
+        Args:
+            X: Input DataFrame with columns to transform.
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: The fitted transformer.
+        """
         # X is a DataFrame with only the columns to transform
         if self.cols is None:
             self.cols = X.columns.tolist()
@@ -73,6 +82,15 @@ class ToDummy(BaseEstimator, TransformerMixin):
         return names
 
     def transform(self, X, y=None):
+        """Apply one-hot encoding to the columns.
+
+        Args:
+            X: Input DataFrame with columns to encode.
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            numpy.ndarray or scipy.sparse matrix: Encoded dummy columns.
+        """
         # X is a DataFrame with only the columns to transform
         X_transformed = pd.DataFrame(index=X.index)
 
@@ -128,6 +146,15 @@ class TeEncoder(BaseEstimator, TransformerMixin):
         return "_".join(self.cols) + "_prob"
 
     def fit(self, X, y=None):
+        """Compute target encoding mapping from training data.
+
+        Args:
+            X: Input DataFrame with columns to encode.
+            y: Target Series with binary labels (required for target encoding).
+
+        Returns:
+            self: The fitted transformer.
+        """
         # X is a DataFrame with only the columns to encode
         if self.cols is None:
             self.cols = X.columns.tolist()
@@ -149,6 +176,15 @@ class TeEncoder(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
+        """Apply target encoding using the fitted mapping.
+
+        Args:
+            X: Input DataFrame with columns to encode.
+
+        Returns:
+            numpy.ndarray: 2D array with the encoded column values. Unseen
+                categories are filled with the global target mean.
+        """
         # X is a DataFrame with only the columns to encode
         X_copy = X.copy()
 
@@ -183,11 +219,29 @@ class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         self.threshold = threshold
 
     def find_top_categories(self, feature):
+        """Return categories whose frequency proportion meets the threshold.
+
+        Args:
+            feature: pandas Series with categorical values.
+
+        Returns:
+            numpy.ndarray: Array of category values that appear with frequency
+                >= self.threshold.
+        """
         proportions = feature.value_counts(normalize=True)
         categories = proportions[proportions >= self.threshold].index.values
         return categories
 
     def fit(self, X, y=None):
+        """Learn the frequent categories for each column.
+
+        Args:
+            X: Input DataFrame with categorical columns.
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: The fitted transformer.
+        """
         # Store column names for set_output support
         if hasattr(X, "columns"):
             self.feature_names_in_ = np.array(X.columns.tolist())
@@ -201,6 +255,14 @@ class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
+        """Replace infrequent categories with 'otros'.
+
+        Args:
+            X: Input DataFrame with categorical columns.
+
+        Returns:
+            pd.DataFrame: DataFrame with infrequent categories replaced by 'otros'.
+        """
         X = X.copy()
         for feature in self.columns:
             X[feature] = np.where(X[feature].isin(self.categories[feature]), X[feature], "otros")
@@ -231,11 +293,29 @@ class CastDtype(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         self.dtype = dtype
 
     def fit(self, X, y=None):
+        """Record input feature names. No computation is performed.
+
+        Args:
+            X: Input DataFrame or array.
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: The fitted transformer.
+        """
         if hasattr(X, "columns"):
             self.feature_names_in_ = np.array(X.columns.tolist())
         return self
 
     def transform(self, X, y=None):
+        """Cast all columns to the target dtype.
+
+        Args:
+            X: Input DataFrame.
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            pd.DataFrame: DataFrame with columns cast to self.dtype.
+        """
         return X.astype(self.dtype)
 
 
@@ -253,6 +333,15 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         self.feature_range = feature_range
 
     def fit(self, X, y=None):
+        """Record input feature names. No computation is performed.
+
+        Args:
+            X: Input DataFrame or array.
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: The fitted transformer.
+        """
         # Store column names for set_output support
         if hasattr(X, "columns"):
             self.feature_names_in_ = np.array(X.columns.tolist())
@@ -261,6 +350,17 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
+        """Apply row-wise Min-Max scaling.
+
+        Each row is independently scaled so that the minimum value in the row
+        maps to feature_range[0] and the maximum to feature_range[1].
+
+        Args:
+            X: Input DataFrame or array.
+
+        Returns:
+            pd.DataFrame or numpy.ndarray: Row-scaled data with the same shape as X.
+        """
         scaler = MinMaxScaler(feature_range=self.feature_range)
         X_scaled = scaler.fit_transform(X.T).T
 
@@ -342,6 +442,14 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         self.cache_dir = cache_dir
 
     def obtener_cols_anterior(self, num_cols=12):
+        """Build consumption column names in chronological order.
+
+        Args:
+            num_cols: Number of periods to include.
+
+        Returns:
+            list: Column names like ['12_anterior', '11_anterior', ..., '1_anterior'].
+        """
         return [f"{i}{self.periods_suffix}" for i in range(num_cols, 0, -1)]
 
     def _run_parallel(self, df, cols, cfg, desc="tsfel"):
@@ -407,16 +515,46 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         return self._run_parallel(df_temp, cols, cfg, desc=desc)
 
     def extra_cols(self, df, domain, cols, window=12):
+        """Extract tsfel features for a given domain.
+
+        Args:
+            df: Input DataFrame containing consumption columns.
+            domain: tsfel domain name ('statistical', 'temporal', or 'spectral').
+            cols: List of consumption column names to process.
+            window: Number of periods (unused, kept for API compatibility).
+
+        Returns:
+            pd.DataFrame: Features extracted for the domain plus an 'index' column.
+        """
         tsfel = _get_tsfel()
         cfg = tsfel.get_features_by_domain(domain)
         return self._run_parallel(df, cols, cfg, desc=domain)
 
     def compute_by_json(self, df, cols, window=12):
+        """Extract tsfel features using a custom JSON configuration.
+
+        Args:
+            df: Input DataFrame containing consumption columns.
+            cols: List of consumption column names to process.
+            window: Number of periods (unused, kept for API compatibility).
+
+        Returns:
+            pd.DataFrame: Features extracted from the JSON config plus an 'index' column.
+        """
         tsfel = _get_tsfel()
         cfg = tsfel.get_features_by_domain(json_path=self.features_names_path)
         return self._run_parallel(df, cols, cfg, desc="tsfel_json")
 
     def crear_all_tsfel(self, df):
+        """Extract statistical and temporal tsfel features for all periods.
+
+        Args:
+            df: Input DataFrame with consumption columns.
+
+        Returns:
+            tuple: (df_result_stat, df_result_temporal) — two DataFrames with
+                statistical and temporal features respectively.
+        """
         cols_anterior = self.obtener_cols_anterior(self.num_periodos)
         df_result_stat = self.extra_cols(df, "statistical", cols_anterior, window=self.num_periodos)
         df_result_temporal = self.extra_cols(df, "temporal", cols_anterior, window=self.num_periodos)
@@ -427,9 +565,26 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         return df_result_stat, df_result_temporal  # , df_result_spectral
 
     def fit(self, X, y=None):
+        """No-op fit. TsfelVars is stateless and does not learn from training data.
+
+        Args:
+            X: Input DataFrame (not used).
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: Returns the transformer unchanged.
+        """
         return self
 
     def transform(self, X):
+        """Extract time series features and append them to the DataFrame.
+
+        Args:
+            X: Input DataFrame with consumption columns (e.g., '12_anterior', ..., '1_anterior').
+
+        Returns:
+            pd.DataFrame: Original DataFrame with new tsfel-derived feature columns appended.
+        """
         cached_compute = self._get_cached_transform()
         cols_anterior = self.obtener_cols_anterior(self.num_periodos)
 
@@ -491,18 +646,59 @@ class ExtraVars(BaseEstimator, TransformerMixin):
         self.periods_suffix = periods_suffix
 
     def fit(self, X, y=None):
+        """No-op fit. ExtraVars is stateless and does not learn from training data.
+
+        Args:
+            X: Input DataFrame (not used).
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: Returns the transformer unchanged.
+        """
         return self
 
     def obtener_cols_anterior(self, num_cols=12):
+        """Build consumption column names in chronological order.
+
+        Args:
+            num_cols: Number of periods to include.
+
+        Returns:
+            list: Column names like ['12_anterior', '11_anterior', ..., '1_anterior'].
+        """
         return [f"{i}{self.periods_suffix}" for i in range(num_cols, 0, -1)]
 
     def transform(self, X):
+        """Compute and append statistical features to the DataFrame.
+
+        Args:
+            X: Input DataFrame with consumption columns.
+
+        Returns:
+            pd.DataFrame: Original DataFrame with new feature columns appended.
+        """
         return self.create_vbles(X.copy())
 
     def count_cero(self, x):
+        """Count how many values in the Series are zero.
+
+        Args:
+            x: pandas Series of numeric consumption values.
+
+        Returns:
+            int: Number of zero values.
+        """
         return (x == 0.0).sum()
 
     def count_cero_seguidos(self, x):
+        """Find the maximum run length of consecutive zeros.
+
+        Args:
+            x: pandas Series of numeric consumption values.
+
+        Returns:
+            int: Length of the longest consecutive zero run, or 0 if none.
+        """
         ceros_seguidos = 2
         consumo = x.values
         g = [[k, len(list(v))] for k, v in groupby(consumo)]
@@ -513,11 +709,30 @@ class ExtraVars(BaseEstimator, TransformerMixin):
             return 0
 
     def calc_slope(self, x):
+        """Compute the linear regression slope of a consumption series.
+
+        Args:
+            x: pandas Series of numeric consumption values.
+
+        Returns:
+            float: Slope of the best-fit line.
+        """
         consumo = list(x.values)
         slope = np.polyfit(range(len(consumo)), consumo, 1)[0]
         return slope
 
     def create_vbles(self, df_total_super):
+        """Compute and append all statistical features to the DataFrame.
+
+        Adds mean, zero counts, consecutive zero runs, slope, min, max, std,
+        variance, skewness, and (if num_periodos > 3) kurtosis.
+
+        Args:
+            df_total_super: Input DataFrame with consumption columns.
+
+        Returns:
+            pd.DataFrame: DataFrame with new feature columns appended in place.
+        """
         # generate list of cols from back to front i.e: ['3_anterior', '2_anterior', '1_anterior'], etc.
         cols_3_anterior = self.obtener_cols_anterior(num_cols=self.num_periodos)
         num_periodos_str = str(self.num_periodos)
@@ -544,6 +759,19 @@ class ExtraVars(BaseEstimator, TransformerMixin):
 
 
 def fill_empty_values_cycle(df, cant_ciclos_validos, suffix: str = "_anterior"):
+    """Fill missing values in consumption columns using forward and backward fill.
+
+    Fills nulls row-wise: first forward-fill across periods (left to right),
+    then backward-fill so that leading nulls are also covered.
+
+    Args:
+        df: Input DataFrame with consumption columns.
+        cant_ciclos_validos: Number of consumption periods to process.
+        suffix: Suffix identifying consumption columns (default "_anterior").
+
+    Returns:
+        pd.DataFrame: DataFrame with null values in consumption columns filled.
+    """
     cols_consumo = [f"{i}{suffix}" for i in range(cant_ciclos_validos, 0, -1)]
 
     df.loc[:, cols_consumo] = df.loc[:, cols_consumo].ffill(axis=1)
@@ -552,12 +780,32 @@ def fill_empty_values_cycle(df, cant_ciclos_validos, suffix: str = "_anterior"):
 
 
 def fill_empty_values_str(df, cols, str_value):
+    """Fill missing values in string columns with a fixed string.
+
+    Args:
+        df: Input DataFrame.
+        cols: List of column names to fill.
+        str_value: String value to use as fill.
+
+    Returns:
+        pd.DataFrame: DataFrame with nulls in the specified columns replaced by str_value.
+    """
     for x in cols:
         df.loc[:, x] = df[x].fillna(str_value)
     return df
 
 
 def fill_empty_values_numeric(df, cols, numeric_value):
+    """Fill missing values in numeric columns with a fixed number.
+
+    Args:
+        df: Input DataFrame.
+        cols: List of column names to fill.
+        numeric_value: Numeric value to use as fill.
+
+    Returns:
+        pd.DataFrame: DataFrame with nulls in the specified columns replaced by numeric_value.
+    """
     for x in cols:
         df.loc[:, x] = df[x].fillna(numeric_value)
     return df

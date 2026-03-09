@@ -79,7 +79,24 @@ class SplitStep(PipelineStep):
         self.save_splits = save_splits
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the split and save the datasets."""
+        """Execute the split and save train/val/test datasets to disk.
+
+        Loads the dataset from ``input_path`` (or the last ETL result in context),
+        splits it using the configured method, and saves the resulting parquet files
+        along with a JSON metadata file.
+
+        Args:
+            context: Pipeline context dict; used to resolve ``input_path`` when not
+                set at construction time (falls back to ``etl_results``).
+
+        Returns:
+            Dict: Updated context with keys ``train_path``, ``val_path``,
+                ``test_path``, and ``splits_dir``.
+
+        Raises:
+            ValueError: If the target column is missing or if ``time_series`` split
+                is requested without a ``date_column``.
+        """
         # Create directory
         self.splits_dir.mkdir(parents=True, exist_ok=True)
 
@@ -236,19 +253,36 @@ class SplitStep(PipelineStep):
         }
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
-        """Validate that the input exists."""
+        """Validate that the input dataset file exists.
+
+        Args:
+            context: Pipeline context dict.
+
+        Returns:
+            bool: True if ``input_path`` exists on disk or ``etl_results`` is
+                present in context.
+        """
         if self.input_path:
             return Path(self.input_path).exists()
         return "etl_results" in context
 
     def get_required_keys(self) -> list:
-        """Return the required context keys."""
+        """Return the required context keys.
+
+        Returns:
+            List[str]: ``["etl_results"]`` when no ``input_path`` is set;
+                empty list otherwise.
+        """
         if self.input_path:
             return []
         return ["etl_results"]
 
     def get_output_keys(self) -> list:
-        """Return the keys added to the context."""
+        """Return the context keys produced by this step.
+
+        Returns:
+            List[str]: Keys added to the pipeline context after splitting.
+        """
         return ["train_path", "val_path", "test_path", "splits_dir"]
 
     def _filter_by_period(self, df: pd.DataFrame, period: Optional[list]) -> pd.Series:

@@ -64,7 +64,24 @@ class TrainingStep(PipelineStep):
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the full training."""
+        """Execute the full training pipeline.
+
+        Loads train/val/test splits from disk, fits DefaultFeatureEngineering on
+        training data, transforms all splits, fits the model, and saves artifacts.
+        A quick validation AUC/F1 is logged after training.
+
+        Args:
+            context: Pipeline context dict; may contain ``train_path``, ``val_path``,
+                and ``test_path`` when paths were not provided at construction time.
+
+        Returns:
+            Dict: Updated context with keys: ``model_path``, ``feature_engineering_path``,
+                ``val_predictions_path``, ``val_auc``, ``val_f1``, ``model``,
+                ``feature_engineering``.
+
+        Raises:
+            ValueError: If ``train_path`` or ``val_path`` cannot be resolved.
+        """
         # Use paths from context if not provided
         if context:
             self.train_path = self.train_path or context.get("train_path")
@@ -237,7 +254,14 @@ class TrainingStep(PipelineStep):
         }
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
-        """Validate that required paths exist."""
+        """Validate that both train and validation parquet files exist.
+
+        Args:
+            context: Pipeline context dict.
+
+        Returns:
+            bool: True if both paths resolve and the files exist on disk.
+        """
         # Check that paths were provided or exist in context
         train_path = self.train_path or context.get("train_path")
         val_path = self.val_path or context.get("val_path")
@@ -248,14 +272,23 @@ class TrainingStep(PipelineStep):
         return Path(train_path).exists() and Path(val_path).exists()
 
     def get_required_keys(self) -> list:
-        """Return the required context keys."""
+        """Return the required context keys.
+
+        Returns:
+            List[str]: ``["train_path", "val_path"]`` when paths were not provided
+                at construction time; empty list otherwise.
+        """
         # If paths not provided, they are required from context
         if not self.train_path or not self.val_path:
             return ["train_path", "val_path"]
         return []
 
     def get_output_keys(self) -> list:
-        """Return the keys added to the context."""
+        """Return the context keys produced by this step.
+
+        Returns:
+            List[str]: Keys added to the pipeline context after training.
+        """
         return ["model_path", "feature_engineering_path", "val_predictions_path", "val_auc", "val_f1", "model", "feature_engineering"]
 
     def _prepare_model_params(self, model_type: str, X_train: pd.DataFrame) -> Dict:

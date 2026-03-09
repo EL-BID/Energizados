@@ -97,6 +97,7 @@ class ETLOrchestrator:
         color = {etl: WHITE for etl in self.etl_configs}
 
         def dfs(node: str) -> bool:
+            """Perform DFS from node; return True if a back-edge (cycle) is found."""
             color[node] = GRAY
             for neighbor in self.etl_configs.get(node, {}).get("depends_on", []):
                 if color[neighbor] == GRAY:
