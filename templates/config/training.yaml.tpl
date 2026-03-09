@@ -46,12 +46,6 @@ training:
     enabled: true
     output_pkl: "data/processed/feature_engineering.pkl"
 
-    # WARNING: Set include_target=true only for exploratory analysis (e.g. correlation checks).
-    # The target column will be included in the preprocessing/feature_selection outputs.
-    # IMPORTANT: Remove the target before using these outputs for model training or inference,
-    # otherwise you will introduce data leakage.
-    include_target: false
-
     preprocessing:
       enabled: true
       output_parquet: "data/processed/preprocessing.parquet"
