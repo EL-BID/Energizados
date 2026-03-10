@@ -12,26 +12,9 @@ eda:
   data_sources:
     primary:
       path: "data/processed/sample_dataset.parquet"
-      target_col: "target"
-
-    # Uncomment to enable multi-source analysis
-    # master:
-    #   path: "data/raw/Datos_maestro.csv"
-    #   id_col: "CLIENTE"
-    #   encoding: "utf-8-sig"   # Windows BOM
-    #   decimal: ","             # CELESC uses comma as decimal separator
-    # consumption_long:
-    #   path: "data/raw/Historial_consumo.csv"
-    #   id_col: "CLIENTE"
-    #   date_col: "PERIODO"
-    #   value_col: "CONSUMO"
-    # inspections:
-    #   path: "data/raw/inspecoes.csv"
-    #   id_col: "CLIENTE"
-    #   date_col: "DAT_OCORRENCIA"
-    #   tipo_col: "TIPO_SERVICO"
-    #   acao_col: "ACAO"
-    #   categoria_col: "CATEGORIA_NOTA"
+      target_col: null          # Set to column name (e.g. "target") for supervised EDA.
+                                # If null: phases 3 (target analysis), 7 (feature importance),
+                                # and 8 (segmentation) are skipped automatically.
 
   # ============================================
   # Key Columns
@@ -69,7 +52,7 @@ eda:
       check_by_id: true
       check_by_id_date: true
     target_analysis:
-      enabled: true
+      enabled: true           # Skipped automatically if target_col is null
     categorical:
       enabled: true
       iv_woe_calculation: true
@@ -91,19 +74,15 @@ eda:
         method: "kmeans"        # kmeans | dbscan
         n_clusters: 10
       country_bounds: [[-34.8, -74], [5.3, -28]]  # Brazil
-    joins:
-      enabled: false            # Enable if multiple data sources are configured
-      profile_excluded: true
-      max_acceptable_loss: 0.30
     feature_importance:
-      enabled: true
+      enabled: true             # Skipped automatically if target_col is null
       methods: ["iv", "ks_chi2", "cramers_v", "correlation"]
       lgbm_quick:
         enabled: false          # Enable for LightGBM-based feature importance
         n_estimators: 50
         max_depth: 5
     segmentation:
-      enabled: false            # Enable and configure segment_cols to use
+      enabled: false            # Requires target_col to be set
       segment_cols: []          # e.g. ["TIPO_CLIENTE", "TIPO_TARIFA", "ZONA"]
       min_segment_size: 100
 

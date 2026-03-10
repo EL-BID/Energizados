@@ -65,6 +65,8 @@ class SourceETL(BaseETL):
         mode: str = "concat",
         merge_config: Optional[Dict[str, Any]] = None,
         key_column: Optional[str] = None,
+        input_params: Optional[Dict[str, Any]] = None,
+        output_params: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         self.name = name
@@ -73,6 +75,8 @@ class SourceETL(BaseETL):
         self.mode = mode.lower() if mode else "concat"
         self.merge_config = merge_config
         self.key_column = key_column or "id_cliente"
+        self.input_params = input_params or {}
+        self.output_params = output_params or {}
         self.kwargs = kwargs
 
         # Validate mode
@@ -113,7 +117,7 @@ class SourceETL(BaseETL):
 
             try:
                 if source_file.suffix == ".csv":
-                    df = pd.read_csv(path)
+                    df = pd.read_csv(path, **self.input_params)
                 elif source_file.suffix in [".parquet", ".pq"]:
                     df = pd.read_parquet(path)
                 elif source_file.suffix in [".xlsx", ".xls"]:
@@ -229,7 +233,7 @@ class SourceETL(BaseETL):
             if output_path.suffix == ".parquet" or output_path.suffix == ".pq":
                 df.to_parquet(path, index=False)
             elif output_path.suffix == ".csv":
-                df.to_csv(path, index=False)
+                df.to_csv(path, index=False, **self.output_params)
             else:
                 df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 

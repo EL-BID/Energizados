@@ -14,7 +14,6 @@ from energizados.eda.column_explorer import ColumnExplorer
 from energizados.eda.feature_importance import FeatureImportanceAnalyzer
 from energizados.eda.geo_analyzer import GeospatialAnalyzer
 from energizados.eda.inspection_analyzer import InspectionAnalyzer
-from energizados.eda.join_analyzer import JoinAnalyzer
 from energizados.eda.loading_validator import LoadingValidator
 from energizados.eda.plots import EDAStaticPlots
 from energizados.eda.plots_interactive import EDAInteractivePlots
@@ -163,6 +162,18 @@ class DatasetExplorer:
             len(col_types["consumption"]),
         )
 
+        # --- Alert when no target column ---
+        if not self.target_column or self.target_column not in df.columns:
+            missing_reason = "not configured" if not self.target_column else f"'{self.target_column}' not found in dataset"
+            self._add_alert(
+                code="NO_TARGET_COLUMN",
+                message=(
+                    f"Target column {missing_reason}. Running unsupervised EDA. "
+                    "Phases skipped: 3 (target analysis), 7 (feature importance), 8 (segmentation)."
+                ),
+                severity="INFO",
+            )
+
         # --- Phase 0: Loading validator ---
         logger.info("Fase 0: Validación de carga...")
         loading_results = self._run_loading_validator(df)
@@ -201,13 +212,6 @@ class DatasetExplorer:
             logger.info("Fase 5: Análisis geoespacial...")
             geo_results = self._run_geo_analyzer(df)
 
-        # --- Phase 6: Join analyzer (optional) ---
-        join_results = {}
-        join_cfg = self.sections.get("joins", {})
-        if join_cfg.get("enabled", False):
-            logger.info("Fase 6: Análisis de joins multi-fuente...")
-            join_results = self._run_join_analyzer(df)
-
         # --- Phase 8: Segmentation analyzer (optional) ---
         segmentation_results = {}
         seg_cfg = self.sections.get("segmentation", {})
@@ -229,7 +233,6 @@ class DatasetExplorer:
             "importance": importance_results,
             "inspections": inspections_results,
             "geo": geo_results,
-            "joins": join_results,
             "segmentation": segmentation_results,
             "col_types": col_types,
             "alerts": self._all_alerts,
@@ -591,42 +594,6 @@ class DatasetExplorer:
             lat_col=self.lat_column,
             lon_col=self.lon_column,
             zone_col=self.zone_column,
-        )
-        self._all_alerts.extend(analyzer.get_alerts())
-        return results
-
-    def _run_join_analyzer(self, df: pd.DataFrame) -> Dict:
-        """Phase 6: Run join analyzer."""
-        cfg = self.sections.get("joins", {})
-        join_thresholds = {
-            "max_acceptable_loss": cfg.get("max_acceptable_loss", 0.3),
-            "profile_columns": cfg.get("profile_columns", []),
-        }
-
-        # Build source indicators from config
-        source_indicators = cfg.get("source_indicators", {})
-        if not source_indicators:
-            # Try to auto-detect from data_sources config
-            data_sources = self._full_config.get("data_sources", {})
-            for source_name, source_cfg in data_sources.items():
-                if source_name == "primary":
-                    continue
-                # Look for indicator columns like {source}_present or similar
-                for col in df.columns:
-                    if f"{source_name}_present" in col.lower() or f"{source_name}_not_null" in col.lower():
-                        source_indicators[source_name] = col
-                        break
-
-        if not source_indicators:
-            logger.debug("No source indicators found for join analysis")
-            return {}
-
-        analyzer = JoinAnalyzer(config=join_thresholds)
-        results = analyzer.analyze(
-            df,
-            target_col=self.target_column,
-            id_col=self.id_column,
-            source_indicators=source_indicators,
         )
         self._all_alerts.extend(analyzer.get_alerts())
         return results

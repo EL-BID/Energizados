@@ -31,6 +31,26 @@ etls:
   #     mode: "concat"  # Concatenate files (default)
   #   depends_on: []
   #
+  # # ETL 1b: Consumos with CSV options
+  # # Use input_params / output_params for CSV-specific settings.
+  # # Keys map directly to pd.read_csv() / df.to_csv() parameters.
+  # consumos_csv:
+  #   enabled: false
+  #   description: "Processes semicolon-delimited CSV with custom options"
+  #   input: "data/raw/consumos.csv"
+  #   output: "data/processed/consumos.parquet"
+  #   custom_class: "data.custom_etl.CustomETL"
+  #   params:
+  #     mode: "concat"
+  #     input_params:
+  #       sep: ";"              # Field separator (default: ",")
+  #       engine: "python"      # CSV engine: "c" (fast), "python", "pyarrow"
+  #       on_bad_lines: "skip"  # Skip malformed lines (pandas >= 1.3)
+  #     # output_params applies when output is also a CSV file:
+  #     # output_params:
+  #     #   sep: ";"
+  #   depends_on: []
+  #
   # # ETL 2: Clientes - No dependencies
   # clientes:
   #   enabled: false
@@ -55,6 +75,9 @@ etls:
   #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"  # Concatenate vertically
+  #     # input_params applies to all files in the list equally:
+  #     # input_params:
+  #     #   sep: ";"
   #   depends_on: []
   #
   # # ETL 4: Merge - Join files horizontally

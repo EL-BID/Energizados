@@ -132,7 +132,6 @@ class EDAReportGenerator:
         importance = results.get("importance", {})
         inspections = results.get("inspections", {})
         geo = results.get("geo", {})
-        joins = results.get("joins", {})
         segmentation = results.get("segmentation", {})
         charts = results.get("charts", {})
 
@@ -149,7 +148,7 @@ class EDAReportGenerator:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Build sidebar links
-        sidebar_links = self._build_sidebar(inspections, geo, joins, segmentation)
+        sidebar_links = self._build_sidebar(inspections, geo, segmentation)
 
         return f"""<!DOCTYPE html>
 <html lang="es">
@@ -202,9 +201,6 @@ class EDAReportGenerator:
         <!-- Fase 5: Geoespacial -->
         {self._build_geo_section(geo, charts)}
 
-        <!-- Fase 6: Joins multi-fuente -->
-        {self._build_joins_section(joins)}
-
         <!-- Fase 7: Importancia de variables -->
         {self._build_importance_section(importance, charts)}
 
@@ -219,7 +215,7 @@ class EDAReportGenerator:
 </body>
 </html>"""
 
-    def _build_sidebar(self, inspections: Dict, geo: Dict, joins: Dict, segmentation: Dict) -> str:
+    def _build_sidebar(self, inspections: Dict, geo: Dict, segmentation: Dict) -> str:
         sections = [
             ("resumen", "Resumen Ejecutivo"),
             ("alertas", "Alertas"),
@@ -234,8 +230,6 @@ class EDAReportGenerator:
             sections.append(("inspecciones", "Fase 4: Inspecciones"))
         if geo:
             sections.append(("geo", "Fase 5: Geoespacial"))
-        if joins:
-            sections.append(("joins", "Fase 6: Joins Multi-fuente"))
         sections.append(("importancia", "Fase 7: Importancia de Variables"))
         if segmentation:
             sections.append(("segmentacion", "Fase 8: Segmentación"))
@@ -939,55 +933,6 @@ class EDAReportGenerator:
         <tbody>{zone_rows}</tbody>
     </table>
     ''' if zone_rows else ''}
-</div>
-"""
-
-    def _build_joins_section(self, joins: Dict) -> str:
-        """Build Phase 6: Joins section."""
-        if not joins:
-            return ""
-
-        coverage = joins.get("coverage", {})
-        funnel = joins.get("funnel", [])
-        excluded_profile = joins.get("excluded_profile", {})
-
-        coverage_rows = "".join(
-            f'<tr><td>{source}</td><td>{cov.get("present_count", 0):,}</td><td>{cov.get("present_pct", 0):.1f}%</td></tr>'
-            for source, cov in coverage.items()
-        )
-
-        funnel_rows = "".join(
-            f'<tr><td>{f.get("stage", "")}</td><td>{f.get("count", 0):,}</td><td>{f.get("pct_of_total", 0):.1f}%</td></tr>' for f in funnel
-        )
-
-        excluded_rows = ""
-        if excluded_profile:
-            target_inc = excluded_profile.get("target_rate_included")
-            target_exc = excluded_profile.get("target_rate_excluded")
-            if target_inc is not None and target_exc is not None:
-                excluded_rows = f"""
-    <h3>Perfil de Excluidos vs Incluidos</h3>
-    <p>Tasa de fraude en incluidos: {target_inc:.1%}</p>
-    <p>Tasa de fraude en excluidos: {target_exc:.1%}</p>
-    """
-
-        return f"""
-<div class="section" id="joins">
-    <h2>Fase 6: Análisis de Joins Multi-fuente</h2>
-
-    <h3>Cobertura por Fuente</h3>
-    <table class="data-table">
-        <thead><tr><th>Fuente</th><th>Presentes</th><th>%</th></tr></thead>
-        <tbody>{coverage_rows}</tbody>
-    </table>
-
-    <h3>Embudo de Join</h3>
-    <table class="data-table">
-        <thead><tr><th>Etapa</th><th>Conteo</th><th>% del Total</th></tr></thead>
-        <tbody>{funnel_rows}</tbody>
-    </table>
-
-    {excluded_rows}
 </div>
 """
 
