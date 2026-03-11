@@ -90,8 +90,8 @@ class ColumnExplorer(BaseExplorer):
                     self._add_alert(
                         code="LOW_CARDINALITY_NUMERIC",
                         message=(
-                            f"La columna numérica '{col}' tiene solo {analysis['unique_count']} "
-                            "valores únicos. Considere tratarla como categórica."
+                            f"Numeric column '{col}' has only {analysis['unique_count']} "
+                            "unique values. Consider treating it as categorical."
                         ),
                         severity="INFO",
                         details={"col": col, "unique_count": analysis["unique_count"]},
@@ -111,9 +111,9 @@ class ColumnExplorer(BaseExplorer):
                     self._add_alert(
                         code="HIGH_CARDINALITY",
                         message=(
-                            f"La columna categórica '{col}' tiene {analysis['unique_count']} "
-                            f"categorías únicas (umbral: {cardinality_high}). "
-                            "Considere reducción de cardinalidad."
+                            f"Categorical column '{col}' has {analysis['unique_count']} "
+                            f"unique categories (threshold: {cardinality_high}). "
+                            "Consider cardinality reduction."
                         ),
                         severity="WARNING",
                         details={"col": col, "unique_count": analysis["unique_count"]},
@@ -163,8 +163,8 @@ class ColumnExplorer(BaseExplorer):
                     self._add_alert(
                         code="HIGHLY_CORRELATED",
                         message=(
-                            f"Se encontraron {len(highly_corr)} par(es) de variables numéricas "
-                            f"con correlación > {correlation_threshold}. "
+                            f"Found {len(highly_corr)} pair(s) of numeric variables "
+                            f"with correlation > {correlation_threshold}. "
                             "Considere eliminar redundancias."
                         ),
                         severity="WARNING",
@@ -395,7 +395,7 @@ class ColumnExplorer(BaseExplorer):
         dist_by_month = non_null.dt.month.value_counts().sort_index().to_dict()
         dist_by_month = {int(k): int(v) for k, v in dist_by_month.items()}
 
-        weekday_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         dist_by_weekday_num = non_null.dt.dayofweek.value_counts().sort_index().to_dict()
         dist_by_weekday = {weekday_names[k]: int(v) for k, v in dist_by_weekday_num.items() if 0 <= k <= 6}
 

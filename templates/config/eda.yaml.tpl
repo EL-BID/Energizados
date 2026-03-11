@@ -12,7 +12,7 @@ eda:
   data_sources:
     primary:
       path: "data/processed/sample_dataset.parquet"
-      target_col: null          # Set to column name (e.g. "target") for supervised EDA.
+      target_col: "target"      # Set to column name (e.g. "target") for supervised EDA.
                                 # If null: phases 3 (target analysis), 7 (feature importance),
                                 # and 8 (segmentation) are skipped automatically.
 
@@ -57,17 +57,24 @@ eda:
       enabled: true
       iv_woe_calculation: true
       cramers_v: true
+      detailed_charts: true        # Per-column collapsible detail charts
     numeric:
       enabled: true
       ks_test: true
       iv_woe_binned: true
       outliers_by_iqr: true
+      detailed_charts: true        # Per-column collapsible detail charts
     consumption:
       enabled: true
       anomaly_detection: true
-    inspections:
-      enabled: false            # Enable if inspections data is available
-      hierarchy_sunburst: true
+    related_columns:
+      enabled: false
+      hierarchies: []
+      # hierarchies:
+      #   - name: "Proceso de inspección"
+      #     columns: ["TIPO_SERVICO", "ACAO", "CATEGORIA_NOTA"]
+      #   - name: "Ubicación × Tarifa"
+      #     columns: ["ZONA", "TIPO_TARIFA"]
     geospatial:
       enabled: false            # Enable if lat_col / lon_col are set
       clustering:
@@ -82,8 +89,8 @@ eda:
         n_estimators: 50
         max_depth: 5
     segmentation:
-      enabled: false            # Requires target_col to be set
-      segment_cols: []          # e.g. ["TIPO_CLIENTE", "TIPO_TARIFA", "ZONA"]
+      enabled: true            # Requires target_col to be set
+      segment_cols: ["zona", "actividad", "tipo_tarifa"]  # e.g. ["TIPO_CLIENTE", "TIPO_TARIFA", "ZONA"]
       min_segment_size: 100
 
   # ============================================

@@ -83,7 +83,7 @@ class LoadingValidator(BaseExplorer):
             self._add_alert(
                 code="BOM_DETECTED",
                 message=(
-                    f"Se detectó Byte Order Mark (BOM) en {len(bom_cols)} nombre(s) de columna. "
+                    f"Byte Order Mark (BOM) detected in {len(bom_cols)} column name(s). "
                     "Esto ocurre cuando el archivo CSV fue guardado con encoding utf-8-sig (Windows). "
                     "Use encoding='utf-8-sig' al cargar el archivo."
                 ),
@@ -99,8 +99,8 @@ class LoadingValidator(BaseExplorer):
                 self._add_alert(
                     code="BAD_ENCODING",
                     message=(
-                        f"El archivo puede tener un encoding no estándar: '{detected_encoding}'. "
-                        "Considere usar encoding='utf-8-sig' o 'latin-1' según corresponda."
+                        f"File may have non-standard encoding: '{detected_encoding}'. "
+                        "Consider using encoding='utf-8-sig' or 'latin-1' as appropriate."
                     ),
                     severity="WARNING",
                     details={"detected_encoding": detected_encoding, "raw_path": raw_path},
@@ -138,7 +138,7 @@ class LoadingValidator(BaseExplorer):
             self._add_alert(
                 code="NUMERIC_AS_STRING",
                 message=(
-                    f"{len(numeric_as_string)} columna(s) parecen ser numéricas pero están almacenadas como "
+                    f"{len(numeric_as_string)} column(s) appear numeric but are stored as "
                     f"texto con separador decimal de coma: {cols_list}. "
                     "Use decimal=',' al cargar el CSV o convierta manualmente."
                 ),

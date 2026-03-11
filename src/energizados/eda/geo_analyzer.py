@@ -121,7 +121,7 @@ class GeospatialAnalyzer(BaseExplorer):
                 self._add_alert(
                     code="GEO_DATA_INVALID",
                     message=(
-                        f"Alta proporción de coordenadas inválidas o nulas: {total_invalid_pct:.1f}. "
+                        f"High proportion of invalid or missing coordinates: {total_invalid_pct:.1f}. "
                         "Verifique el proceso de carga de datos geoespaciales."
                     ),
                     severity="ERROR",
@@ -158,7 +158,7 @@ class GeospatialAnalyzer(BaseExplorer):
                     if cv > 0.5:  # High variation across zones
                         self._add_alert(
                             code="GEO_BIAS",
-                            message=(f"Alta variación en la tasa de fraude por zona " f"(CV={cv:.2f}). Verifique si hay sesgo geográfico."),
+                            message=(f"High variation in fraud rate by zone " f"(CV={cv:.2f}). Check for geographic bias."),
                             severity="WARNING",
                             details={"cv": cv, "min_rate": min(rates), "max_rate": max(rates)},
                         )

@@ -13,10 +13,10 @@ import pandas as pd
 from energizados.eda.column_explorer import ColumnExplorer
 from energizados.eda.feature_importance import FeatureImportanceAnalyzer
 from energizados.eda.geo_analyzer import GeospatialAnalyzer
-from energizados.eda.inspection_analyzer import InspectionAnalyzer
 from energizados.eda.loading_validator import LoadingValidator
 from energizados.eda.plots import EDAStaticPlots
 from energizados.eda.plots_interactive import EDAInteractivePlots
+from energizados.eda.related_columns_analyzer import RelatedColumnsAnalyzer
 from energizados.eda.report import EDAReportGenerator
 from energizados.eda.segmentation_analyzer import SegmentationAnalyzer
 from energizados.eda.target_explorer import TargetExplorer
@@ -134,16 +134,16 @@ class DatasetExplorer:
                 - report_path: Path to generated HTML report
         """
         logger.info("=" * 60)
-        logger.info("INICIO - Análisis Exploratorio de Datos (EDA)")
+        logger.info("START - Exploratory Data Analysis (EDA)")
         logger.info("=" * 60)
-        logger.info("Archivo: %s", self.input_path)
+        logger.info("File: %s", self.input_path)
 
         # --- Load dataset ---
         df = self._load_dataset()
         if df is None:
             raise RuntimeError(f"No se pudo cargar el dataset: {self.input_path}")
 
-        logger.info("Dataset cargado: %d filas × %d columnas", len(df), len(df.columns))
+        logger.info("Dataset loaded: %d rows × %d columns", len(df), len(df.columns))
 
         # --- Classify columns ---
         col_types = classify_columns(
@@ -155,7 +155,7 @@ class DatasetExplorer:
             id_col=self.id_column,
         )
         logger.info(
-            "Tipos detectados: %d numérico, %d categórico, %d temporal, %d consumo",
+            "Types detected: %d numeric, %d categorical, %d temporal, %d consumption",
             len(col_types["numeric"]),
             len(col_types["categorical"]),
             len(col_types["temporal"]),
@@ -175,65 +175,67 @@ class DatasetExplorer:
             )
 
         # --- Phase 0: Loading validator ---
-        logger.info("Fase 0: Validación de carga...")
+        logger.info("Phase 0: Loading validation...")
         loading_results = self._run_loading_validator(df)
 
         # --- Phase 1: Global dataset stats ---
-        logger.info("Fase 1: Estadísticas globales...")
+        logger.info("Phase 1: Global statistics...")
         global_stats = self._compute_global_stats(df)
 
         # --- Phase 2: Column explorer ---
-        logger.info("Fase 2: Análisis de columnas...")
+        logger.info("Phase 2: Column analysis...")
         columns_results = self._run_column_explorer(df, col_types)
 
         # --- Phase 3: Target explorer ---
         target_results = {}
         if self.target_column and self.target_column in df.columns:
-            logger.info("Fase 3: Análisis de variable objetivo '%s'...", self.target_column)
+            logger.info("Phase 3: Target variable analysis '%s'...", self.target_column)
             target_results = self._run_target_explorer(df)
 
-        # --- Phase 7: Feature importance ---
-        importance_results = {}
-        if self.target_column and self.target_column in df.columns:
-            logger.info("Fase 7: Análisis de importancia de variables...")
-            importance_results = self._run_feature_importance(df, col_types)
-
-        # --- Phase 4: Inspections analyzer (optional) ---
-        inspections_results = {}
-        inspections_cfg = self.sections.get("inspections", {})
-        if inspections_cfg.get("enabled", False):
-            logger.info("Fase 4: Análisis de inspecciones...")
-            inspections_results = self._run_inspections_analyzer(df)
-
-        # --- Phase 5: Geospatial analyzer (optional) ---
+        # --- Phase 4: Geospatial analyzer (optional) ---
         geo_results = {}
         geo_cfg = self.sections.get("geospatial", {})
         if geo_cfg.get("enabled", False) and (self.lat_column or self.lon_column or self.zone_column):
-            logger.info("Fase 5: Análisis geoespacial...")
+            logger.info("Phase 4: Geospatial analysis...")
             geo_results = self._run_geo_analyzer(df)
 
-        # --- Phase 8: Segmentation analyzer (optional) ---
+        # --- Phase 5: Feature importance ---
+        importance_results = {}
+        if self.target_column and self.target_column in df.columns:
+            logger.info("Phase 5: Feature importance analysis...")
+            importance_results = self._run_feature_importance(df, col_types)
+
+        # --- Phase 6: Segmentation analyzer (optional) ---
         segmentation_results = {}
         seg_cfg = self.sections.get("segmentation", {})
         if seg_cfg.get("enabled", False) and self.target_column and self.target_column in df.columns:
-            logger.info("Fase 8: Análisis de segmentación...")
+            logger.info("Phase 6: Segmentation analysis...")
             segmentation_results = self._run_segmentation_analyzer(df)
 
+        # --- Phase 7: Related columns analyzer (optional) ---
+        related_columns_results = {}
+        rc_cfg = self.sections.get("related_columns", {})
+        if rc_cfg.get("enabled", False):
+            hierarchies = rc_cfg.get("hierarchies", [])
+            if hierarchies:
+                logger.info("Phase 7: Related columns analysis (%d hierarchies)...", len(hierarchies))
+                related_columns_results = self._run_related_columns_analyzer(df, hierarchies)
+
         # --- Generate charts ---
-        logger.info("Generando gráficos...")
-        charts = self._generate_charts(df, col_types, target_results, importance_results, global_stats)
+        logger.info("Generating charts...")
+        charts = self._generate_charts(df, col_types, target_results, importance_results, global_stats, related_columns_results)
 
         # --- Generate report ---
-        logger.info("Generando reporte HTML...")
+        logger.info("Generating HTML report...")
         results = {
             "loading": loading_results,
             "global_stats": global_stats,
             "columns": columns_results,
             "target": target_results,
             "importance": importance_results,
-            "inspections": inspections_results,
             "geo": geo_results,
             "segmentation": segmentation_results,
+            "related_columns": related_columns_results,
             "col_types": col_types,
             "alerts": self._all_alerts,
             "charts": charts,
@@ -243,8 +245,8 @@ class DatasetExplorer:
         results["report_path"] = report_path
 
         logger.info("=" * 60)
-        logger.info("EDA completado. Reporte: %s", report_path)
-        logger.info("Total alertas: %d", len(self._all_alerts))
+        logger.info("EDA completed. Report: %s", report_path)
+        logger.info("Total alerts: %d", len(self._all_alerts))
         logger.info("=" * 60)
 
         return results
@@ -263,10 +265,10 @@ class DatasetExplorer:
 
         try:
             if path.suffix.lower() == ".parquet":
-                logger.info("Cargando parquet...")
+                logger.info("Loading parquet...")
                 return pd.read_parquet(str(path))
             elif path.suffix.lower() in (".csv", ".tsv"):
-                logger.info("Cargando CSV con encoding='%s', decimal='%s'...", encoding, decimal)
+                logger.info("Loading CSV with encoding='%s', decimal='%s'...", encoding, decimal)
                 sep = "\t" if path.suffix.lower() == ".tsv" else ","
                 return pd.read_csv(
                     str(path),
@@ -282,10 +284,10 @@ class DatasetExplorer:
                 except Exception:
                     return pd.read_csv(str(path), encoding=encoding, decimal=decimal)
         except FileNotFoundError:
-            logger.error("Archivo no encontrado: %s", self.input_path)
+            logger.error("File not found: %s", self.input_path)
             return None
         except Exception as e:
-            logger.error("Error cargando dataset: %s", e)
+            logger.error("Error loading dataset: %s", e)
             return None
 
     def _run_loading_validator(self, df: pd.DataFrame) -> Dict:
@@ -369,7 +371,7 @@ class DatasetExplorer:
             if d["null_pct"] / 100 > missing_threshold:
                 self._add_alert(
                     code="HIGH_MISSING",
-                    message=f"La columna '{d['col']}' tiene {d['null_pct']:.1f}% de valores nulos (umbral: {missing_threshold*100:.0f}%).",
+                    message=f"Column '{d['col']}' has {d['null_pct']:.1f}% missing values (threshold: {missing_threshold*100:.0f}%).",
                     severity="WARNING",
                     details={"col": d["col"], "null_pct": d["null_pct"]},
                 )
@@ -377,7 +379,7 @@ class DatasetExplorer:
         for col in fully_null_cols:
             self._add_alert(
                 code="ALL_MISSING",
-                message=f"La columna '{col}' está completamente vacía (100% nulos). Considere eliminarla.",
+                message=f"Column '{col}' is completely empty (100% missing). Consider removing it.",
                 severity="ERROR",
                 details={"col": col},
             )
@@ -385,7 +387,7 @@ class DatasetExplorer:
         for col in constant_cols:
             self._add_alert(
                 code="CONSTANT",
-                message=f"La columna '{col}' tiene un único valor (varianza = 0). No aporta información predictiva.",
+                message=f"Column '{col}' has a single value (variance = 0). Does not provide predictive information.",
                 severity="WARNING",
                 details={"col": col},
             )
@@ -393,7 +395,7 @@ class DatasetExplorer:
         if duplicate_rows_pct > 1:
             self._add_alert(
                 code="DUPLICATED_ROWS",
-                message=f"Se encontraron {duplicate_rows:,} filas duplicadas ({duplicate_rows_pct:.2f}%). Verifique si es esperado.",
+                message=f"Found {duplicate_rows:,} duplicate rows ({duplicate_rows_pct:.2f}%). Verify if this is expected.",
                 severity="WARNING",
                 details={"duplicate_rows": duplicate_rows, "duplicate_rows_pct": duplicate_rows_pct},
             )
@@ -415,7 +417,7 @@ class DatasetExplorer:
         return results
 
     def _run_feature_importance(self, df: pd.DataFrame, col_types: Dict) -> Dict:
-        """Phase 7: Run feature importance analyzer."""
+        """Phase 5: Run feature importance analyzer."""
         methods_cfg = self._full_config.get("sections", {}).get("feature_importance", {})
         methods = methods_cfg.get("methods", ["iv", "ks_chi2", "cramers_v", "correlation"])
 
@@ -431,6 +433,7 @@ class DatasetExplorer:
         target_results: Dict,
         importance_results: Dict,
         global_stats: Dict,
+        related_columns_results: Optional[Dict] = None,
     ) -> Dict:
         """Generate all charts (static and interactive)."""
         plots_dir = str(self.output_dir_path / "plots")
@@ -447,24 +450,24 @@ class DatasetExplorer:
                     target_results.get("class_pcts", {}),
                 )
             except Exception as e:
-                logger.warning("Error generando gráfico de balance de clases: %s", e)
+                logger.warning("Error generating class balance chart: %s", e)
 
         # Temporal rate (interactive)
         if target_results and target_results.get("temporal_rate"):
             try:
                 charts["temporal_rate"] = interactive_plotter.temporal_line(
                     target_results["temporal_rate"],
-                    title="Evolución Temporal de la Tasa de Fraude",
+                    title="Temporal Evolution of Fraud Rate",
                 )
             except Exception as e:
-                logger.warning("Error generando gráfico temporal: %s", e)
+                logger.warning("Error generating temporal chart: %s", e)
 
         # IV ranking (interactive)
         if importance_results and isinstance(importance_results.get("ranking"), pd.DataFrame):
             try:
                 charts["iv_ranking"] = interactive_plotter.iv_ranking_chart(importance_results["ranking"])
             except Exception as e:
-                logger.warning("Error generando gráfico IV ranking: %s", e)
+                logger.warning("Error generating IV ranking chart: %s", e)
 
         # Missing funnel (interactive)
         nulls_by_col = global_stats.get("nulls_by_col", [])
@@ -472,7 +475,7 @@ class DatasetExplorer:
             try:
                 charts["missing_heatmap_interactive"] = interactive_plotter.missing_funnel(nulls_by_col)
             except Exception as e:
-                logger.warning("Error generando funnel de nulos: %s", e)
+                logger.warning("Error generating missing values funnel: %s", e)
 
         # Null correlation heatmap (interactive)
         null_corr = global_stats.get("null_correlation")
@@ -480,7 +483,7 @@ class DatasetExplorer:
             try:
                 charts["null_correlation"] = interactive_plotter.null_correlation_heatmap(null_corr)
             except Exception as e:
-                logger.warning("Error generando correlación de nulos: %s", e)
+                logger.warning("Error generating null correlation heatmap: %s", e)
 
         # Consumption charts
         consumption_cols = col_types.get("consumption", [])
@@ -491,19 +494,19 @@ class DatasetExplorer:
                         {"period": s["period"], "total": 1, "positive": 0, "rate": s.get("mean", 0) or 0}
                         for s in (self._get_consumption_stats(df, consumption_cols))
                     ],
-                    title="Tendencia de Consumo Promedio por Período",
+                    title="Average Consumption Trend by Period",
                 )
             except Exception as e:
-                logger.warning("Error generando tendencia de consumo (fallback a static): %s", e)
+                logger.warning("Error generating consumption trend (fallback to static): %s", e)
                 try:
                     charts["consumption_trend"] = static_plotter.consumption_trend(df, consumption_cols, target_col=self.target_column)
                 except Exception as e2:
-                    logger.warning("Error generando gráfico estático de consumo: %s", e2)
+                    logger.warning("Error generating static consumption chart: %s", e2)
 
             try:
                 charts["consumption_heatmap"] = interactive_plotter.consumption_heatmap(df, consumption_cols)
             except Exception as e:
-                logger.warning("Error generando heatmap de consumo: %s", e)
+                logger.warning("Error generating consumption heatmap: %s", e)
 
         # Correlation heatmap (interactive from null correlation, static from numeric)
         numeric_cols = [c for c in col_types.get("numeric", []) if c != self.target_column and c in df.columns]
@@ -514,6 +517,90 @@ class DatasetExplorer:
                 charts["correlation_heatmap"] = interactive_plotter.null_correlation_heatmap(corr_matrix)
             except Exception as e:
                 logger.warning("Error generando heatmap de correlación: %s", e)
+
+        # --- Column detail charts ---
+        max_detail = self._full_config.get("visualization", {}).get("max_detail_columns", 30)
+        target_series = df[self.target_column] if self.target_column and self.target_column in df.columns else None
+        column_details: Dict[str, Dict[str, str]] = {}
+
+        # Numeric column details
+        num_cfg = self.sections.get("numeric", {})
+        if num_cfg.get("detailed_charts", False):
+            for col in numeric_cols[:max_detail]:
+                col_charts: Dict[str, str] = {}
+                try:
+                    col_charts["histogram"] = interactive_plotter.histogram_interactive(df[col], col, target_series=target_series)
+                except Exception as e:
+                    logger.debug("Error generating histogram for '%s': %s", col, e)
+                try:
+                    col_charts["boxplot"] = interactive_plotter.boxplot_interactive(df[col], col, target_series=target_series)
+                except Exception as e:
+                    logger.debug("Error generating boxplot for '%s': %s", col, e)
+                if col_charts:
+                    column_details[col] = col_charts
+
+        # Categorical column details
+        cat_cfg = self.sections.get("categorical", {})
+        cat_cols = [c for c in col_types.get("categorical", []) if c != self.target_column and c in df.columns]
+        if cat_cfg.get("detailed_charts", False):
+            for col in cat_cols[:max_detail]:
+                col_charts = {}
+                try:
+                    vc = df[col].value_counts()
+                    if len(vc) > 30:
+                        col_charts["treemap"] = interactive_plotter.categorical_treemap(df, col)
+                    col_charts["bar"] = interactive_plotter.categorical_bar_chart(vc, col)
+                except Exception as e:
+                    logger.debug("Error generating categorical charts for '%s': %s", col, e)
+                if target_series is not None:
+                    try:
+                        col_charts["target_rate"] = interactive_plotter.target_rate_by_category(df, col, self.target_column)
+                    except Exception as e:
+                        logger.debug("Error generating target rate chart for '%s': %s", col, e)
+                if col_charts:
+                    column_details[col] = col_charts
+
+        # Temporal column details
+        temporal_cols = [c for c in col_types.get("temporal", []) if c in df.columns]
+        for col in temporal_cols[:max_detail]:
+            col_charts = {}
+            try:
+                col_charts["temporal_dist"] = interactive_plotter.temporal_distribution_chart(df[col], col)
+            except Exception as e:
+                logger.debug("Error generating temporal chart for '%s': %s", col, e)
+            if col_charts:
+                column_details[col] = col_charts
+
+        charts["column_details"] = column_details
+
+        # --- Hierarchy charts ---
+        hierarchy_charts: Dict[str, Dict[str, str]] = {}
+        if related_columns_results:
+            for h_name, h_data in related_columns_results.items():
+                h_charts: Dict[str, str] = {}
+                columns = h_data.get("columns", [])
+                if not columns:
+                    continue
+                try:
+                    h_charts["sunburst"] = interactive_plotter.sunburst_hierarchy(df, columns, title=f"Sunburst: {h_name}")
+                except Exception as e:
+                    logger.debug("Error generating sunburst for '%s': %s", h_name, e)
+                try:
+                    h_charts["sankey"] = interactive_plotter.sankey_hierarchy(df, columns, title=f"Flujo: {h_name}")
+                except Exception as e:
+                    logger.debug("Error generating sankey for '%s': %s", h_name, e)
+
+                target_heatmap = h_data.get("target_heatmap")
+                if target_heatmap is not None:
+                    try:
+                        h_charts["target_heatmap"] = interactive_plotter.hierarchy_target_heatmap(
+                            target_heatmap, title=f"Tasa Target: {h_name}"
+                        )
+                    except Exception as e:
+                        logger.debug("Error generating target heatmap for '%s': %s", h_name, e)
+
+                hierarchy_charts[h_name] = h_charts
+        charts["hierarchies"] = hierarchy_charts
 
         return charts
 
@@ -534,53 +621,8 @@ class DatasetExplorer:
         """Add an alert to the global list."""
         self._all_alerts.append({"code": code, "message": message, "severity": severity, "details": details or {}})
 
-    def _run_inspections_analyzer(self, df: pd.DataFrame) -> Dict:
-        """Phase 4: Run inspections analyzer."""
-        cfg = self.sections.get("inspections", {})
-        data_sources = self._full_config.get("data_sources", {})
-        inspections_cfg = data_sources.get("inspections", {})
-
-        # Try to load inspections data if path is provided
-        inspections_path = inspections_cfg.get("path")
-        if inspections_path and Path(inspections_path).exists():
-            try:
-                insp_df = pd.read_csv(inspections_path)
-                analyzer = InspectionAnalyzer(config=self._thresholds)
-                results = analyzer.analyze(
-                    insp_df,
-                    tipo_col=inspections_cfg.get("tipo_col"),
-                    acao_col=inspections_cfg.get("acao_col"),
-                    categoria_col=inspections_cfg.get("categoria_col"),
-                    date_col=inspections_cfg.get("date_col"),
-                    id_col=inspections_cfg.get("id_col"),
-                )
-                self._all_alerts.extend(analyzer.get_alerts())
-                return results
-            except Exception as e:
-                logger.warning("Error loading/analyzing inspections data: %s", e)
-
-        # Otherwise, look for inspection columns in main dataset
-        tipo_col = cfg.get("tipo_col")
-        acao_col = cfg.get("acao_col")
-        categoria_col = cfg.get("categoria_col")
-
-        if any([tipo_col and tipo_col in df.columns, acao_col and acao_col in df.columns, categoria_col and categoria_col in df.columns]):
-            analyzer = InspectionAnalyzer(config=self._thresholds)
-            results = analyzer.analyze(
-                df,
-                tipo_col=tipo_col,
-                acao_col=acao_col,
-                categoria_col=categoria_col,
-                date_col=self.date_column,
-                id_col=self.id_column,
-            )
-            self._all_alerts.extend(analyzer.get_alerts())
-            return results
-
-        return {}
-
     def _run_geo_analyzer(self, df: pd.DataFrame) -> Dict:
-        """Phase 5: Run geospatial analyzer."""
+        """Phase 4: Run geospatial analyzer."""
         cfg = self.sections.get("geospatial", {})
         geo_thresholds = {
             "invalid_coord_threshold": cfg.get("invalid_coord_threshold", 0.2),
@@ -598,8 +640,25 @@ class DatasetExplorer:
         self._all_alerts.extend(analyzer.get_alerts())
         return results
 
+    def _run_related_columns_analyzer(self, df: pd.DataFrame, hierarchies: List[Dict]) -> Dict:
+        """Phase 7: Run related columns analyzer."""
+        rc_cfg = self.sections.get("related_columns", {})
+        rc_thresholds = {
+            "sparse_combination_threshold": rc_cfg.get("sparse_combination_threshold", 10),
+            "dominant_path_threshold": rc_cfg.get("dominant_path_threshold", 0.8),
+            "target_disparity_zscore": rc_cfg.get("target_disparity_zscore", 2.0),
+        }
+        analyzer = RelatedColumnsAnalyzer(config=rc_thresholds)
+        results = analyzer.analyze(
+            df,
+            target_col=self.target_column,
+            hierarchies=hierarchies,
+        )
+        self._all_alerts.extend(analyzer.get_alerts())
+        return results
+
     def _run_segmentation_analyzer(self, df: pd.DataFrame) -> Dict:
-        """Phase 8: Run segmentation analyzer."""
+        """Phase 6: Run segmentation analyzer."""
         cfg = self.sections.get("segmentation", {})
         seg_thresholds = {
             "min_segment_size": cfg.get("min_segment_size", 100),

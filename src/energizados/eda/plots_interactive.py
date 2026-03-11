@@ -89,7 +89,7 @@ class EDAInteractivePlots:
             )
 
             fig.update_layout(
-                title="Distribución de Clases (Variable Target)",
+                title="Class Distribution (Target Variable)",
                 xaxis_title="Clase",
                 yaxis_title="Cantidad de Registros",
                 template=self.template,
@@ -143,7 +143,7 @@ class EDAInteractivePlots:
             # Threshold lines
             iv_thresholds = {
                 "Sin poder (< 0.02)": 0.02,
-                "Débil (0.1)": 0.1,
+                "Weak (0.1)": 0.1,
                 "Moderado (0.3)": 0.3,
                 "Fuerte (0.5)": 0.5,
             }
@@ -309,13 +309,13 @@ class EDAInteractivePlots:
                     zmid=0,
                     zmin=-1,
                     zmax=1,
-                    colorbar={"title": "Correlación"},
-                    hovertemplate="<b>%{x}</b> × <b>%{y}</b><br>Correlación: %{z:.3f}<extra></extra>",
+                    colorbar={"title": "Correlation"},
+                    hovertemplate="<b>%{x}</b> × <b>%{y}</b><br>Correlation: %{z:.3f}<extra></extra>",
                 )
             )
 
             fig.update_layout(
-                title="Correlación entre Indicadores de Nulos",
+                title="Correlation between Missing Indicators",
                 template=self.template,
                 height=max(400, len(corr_matrix) * 30),
                 xaxis={"tickangle": -45},
@@ -364,13 +364,13 @@ class EDAInteractivePlots:
                     y=[f"Fila {i}" for i in range(len(sub))],
                     colorscale="Blues",
                     colorbar={"title": "Consumo"},
-                    hovertemplate="Período: <b>%{x}</b><br>Consumo: %{z:.2f}<extra></extra>",
+                    hovertemplate="Period: <b>%{x}</b><br>Consumption: %{z:.2f}<extra></extra>",
                 )
             )
 
             fig.update_layout(
                 title=f"Mapa de Calor de Consumo ({len(sub)} clientes muestra)",
-                xaxis_title="Período",
+                xaxis_title="Period",
                 yaxis_title="Cliente (muestra)",
                 template=self.template,
                 height=max(400, min(sample_n * 4, 800)),
@@ -433,7 +433,7 @@ class EDAInteractivePlots:
             )
 
             fig.update_layout(
-                title=title or "Evolución Temporal de la Tasa de Fraude",
+                title=title or "Temporal Evolution of Fraud Rate",
                 template=self.template,
                 height=400,
                 xaxis={"tickangle": -45},
@@ -479,7 +479,7 @@ class EDAInteractivePlots:
                 values="conteo",
                 color="pct",
                 color_continuous_scale="Blues",
-                title=f"Distribución de Categorías: {col}",
+                title=f"Category Distribution: {col}",
                 hover_data={"pct": ":.2f"},
                 template=self.template,
             )
@@ -495,7 +495,7 @@ class EDAInteractivePlots:
             logger.warning("Error generating categorical treemap for '%s': %s", col, e)
             return ""
 
-    def inspection_sunburst(self, hierarchy: Dict, title: str = "Jerarquía de Inspecciones") -> str:
+    def inspection_sunburst(self, hierarchy: Dict, title: str = "Inspection Hierarchy") -> str:
         """
         Sunburst chart showing inspection process hierarchy.
 
@@ -625,7 +625,7 @@ class EDAInteractivePlots:
         lat_col: str,
         lon_col: str,
         color_col: Optional[str] = None,
-        title: str = "Distribución Geográfica",
+        title: str = "Geographic Distribution",
     ) -> str:
         """
         Scatter mapbox chart of geographic data.
@@ -680,6 +680,353 @@ class EDAInteractivePlots:
             return ""
         except Exception as e:
             logger.warning("Error generating scatter mapbox: %s", e)
+            return ""
+
+    # ------------------------------------------------------------------
+    # Column detail charts
+    # ------------------------------------------------------------------
+
+    def histogram_interactive(
+        self,
+        series: pd.Series,
+        col_name: str,
+        target_series: Optional[pd.Series] = None,
+    ) -> str:
+        """Histogram with optional KDE and split by binary target."""
+        try:
+            import plotly.figure_factory as ff
+
+            data = series.dropna()
+            if len(data) == 0:
+                return ""
+
+            if target_series is not None:
+                mask = target_series.reindex(data.index).dropna()
+                common = data.index.intersection(mask.index)
+                groups = [data.loc[common[mask.loc[common] == v]].values for v in sorted(mask.unique())]
+                labels = [f"Clase {int(v)}" for v in sorted(mask.unique())]
+                groups = [g for g, _ in zip(groups, labels) if len(g) > 0]
+                labels = [l for g, l in zip(groups, labels) if len(g) > 0]
+                if not groups:
+                    groups = [data.values]
+                    labels = [col_name]
+            else:
+                groups = [data.values]
+                labels = [col_name]
+
+            fig = ff.create_distplot(groups, labels, show_hist=True, show_rug=False, bin_size=None)
+            fig.update_layout(
+                title=f"Distribution: {col_name}",
+                template=self.template,
+                height=400,
+                xaxis_title=col_name,
+                yaxis_title="Densidad",
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating histogram for '%s': %s", col_name, e)
+            return ""
+
+    def boxplot_interactive(
+        self,
+        series: pd.Series,
+        col_name: str,
+        target_series: Optional[pd.Series] = None,
+    ) -> str:
+        """Boxplot, optionally split by binary target class."""
+        try:
+            import plotly.graph_objects as go
+
+            data = series.dropna()
+            if len(data) == 0:
+                return ""
+
+            fig = go.Figure()
+            if target_series is not None:
+                mask = target_series.reindex(data.index).dropna()
+                common = data.index.intersection(mask.index)
+                for v in sorted(mask.unique()):
+                    subset = data.loc[common[mask.loc[common] == v]]
+                    fig.add_trace(go.Box(y=subset, name=f"Clase {int(v)}"))
+            else:
+                fig.add_trace(go.Box(y=data, name=col_name))
+
+            fig.update_layout(
+                title=f"Boxplot: {col_name}",
+                template=self.template,
+                height=400,
+                yaxis_title=col_name,
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating boxplot for '%s': %s", col_name, e)
+            return ""
+
+    def categorical_bar_chart(self, value_counts: pd.Series, col_name: str, top_n: int = 30) -> str:
+        """Horizontal bar chart of top N category frequencies."""
+        try:
+            import plotly.graph_objects as go
+
+            if value_counts is None or len(value_counts) == 0:
+                return ""
+
+            top = value_counts.head(top_n)
+            total = value_counts.sum()
+            pcts = (top / total * 100).round(2)
+
+            fig = go.Figure(
+                go.Bar(
+                    y=top.index.astype(str),
+                    x=top.values,
+                    orientation="h",
+                    text=[f"{v:,} ({p:.1f}%)" for v, p in zip(top.values, pcts.values)],
+                    textposition="outside",
+                    marker_color="#2196F3",
+                )
+            )
+            fig.update_layout(
+                title=f"Frecuencias: {col_name} (top {min(top_n, len(top))})",
+                template=self.template,
+                height=max(350, len(top) * 22),
+                yaxis={"categoryorder": "total ascending"},
+                xaxis_title="Conteo",
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating bar chart for '%s': %s", col_name, e)
+            return ""
+
+    def target_rate_by_category(
+        self,
+        df: pd.DataFrame,
+        col: str,
+        target_col: str,
+        top_n: int = 30,
+    ) -> str:
+        """Bar chart of target rate per category value."""
+        try:
+            import plotly.graph_objects as go
+
+            if col not in df.columns or target_col not in df.columns:
+                return ""
+
+            sub = df[[col, target_col]].dropna()
+            if len(sub) == 0:
+                return ""
+
+            grouped = sub.groupby(col)[target_col].agg(["mean", "count"])
+            grouped = grouped.sort_values("mean", ascending=False).head(top_n)
+            rates = (grouped["mean"] * 100).round(2)
+
+            fig = go.Figure(
+                go.Bar(
+                    x=grouped.index.astype(str),
+                    y=rates.values,
+                    text=[f"{r:.1f}%<br>(n={c:,})" for r, c in zip(rates.values, grouped["count"].values)],
+                    textposition="outside",
+                    marker_color=["#F44336" if r > rates.median() else "#2196F3" for r in rates.values],
+                )
+            )
+            fig.update_layout(
+                title=f"Tasa de Target por: {col}",
+                template=self.template,
+                height=400,
+                xaxis_title=col,
+                yaxis_title="Tasa de Target (%)",
+                xaxis={"tickangle": -45},
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating target rate chart for '%s': %s", col, e)
+            return ""
+
+    def woe_by_bins_chart(self, woe_table: pd.DataFrame, col: str) -> str:
+        """WoE chart for numeric column bins (delegates to existing woe_chart)."""
+        return self.woe_chart(woe_table, col)
+
+    def temporal_distribution_chart(self, series: pd.Series, col_name: str) -> str:
+        """Line chart showing distribution of records over time."""
+        try:
+            import plotly.graph_objects as go
+
+            data = pd.to_datetime(series, errors="coerce").dropna()
+            if len(data) == 0:
+                return ""
+
+            counts = data.dt.to_period("M").value_counts().sort_index()
+            periods = [str(p) for p in counts.index]
+
+            fig = go.Figure(
+                go.Scatter(
+                    x=periods,
+                    y=counts.values,
+                    mode="lines+markers",
+                    line={"color": "#1a237e", "width": 2},
+                    marker={"size": 5},
+                )
+            )
+            fig.update_layout(
+                title=f"Temporal Distribution: {col_name}",
+                template=self.template,
+                height=400,
+                xaxis_title="Period",
+                yaxis_title="Registros",
+                xaxis={"tickangle": -45},
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating temporal distribution for '%s': %s", col_name, e)
+            return ""
+
+    # ------------------------------------------------------------------
+    # Hierarchy / Related columns charts
+    # ------------------------------------------------------------------
+
+    def sunburst_hierarchy(
+        self,
+        df: pd.DataFrame,
+        columns: List[str],
+        title: str = "Hierarchy",
+    ) -> str:
+        """Generic sunburst chart from a DataFrame and ordered list of hierarchy columns."""
+        try:
+            import plotly.express as px
+
+            sub = df[columns].dropna().copy()
+            if len(sub) == 0:
+                return ""
+
+            # Add prefixes to avoid label collision between levels
+            renamed_cols = []
+            for i, col in enumerate(columns):
+                new_col = f"_lvl{i}_{col}"
+                sub[new_col] = sub[col].astype(str)
+                renamed_cols.append(new_col)
+
+            sub["_count"] = 1
+            grouped = sub.groupby(renamed_cols, as_index=False)["_count"].sum()
+
+            fig = px.sunburst(
+                grouped,
+                path=renamed_cols,
+                values="_count",
+                title=title,
+                template=self.template,
+            )
+            # Clean labels: remove prefix
+            fig.update_traces(
+                textinfo="label+percent parent",
+                hovertemplate="<b>%{label}</b><br>Conteo: %{value}<br>% del padre: %{percentParent:.1%}<extra></extra>",
+            )
+            fig.update_layout(height=600)
+            # Remove prefixes from displayed labels
+            fig.for_each_trace(
+                lambda t: t.update(
+                    labels=[lbl.split("_", 2)[-1] if lbl.startswith("_lvl") else lbl for lbl in (t.labels if t.labels is not None else [])]
+                )
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating sunburst: %s", e)
+            return ""
+
+    def sankey_hierarchy(
+        self,
+        df: pd.DataFrame,
+        columns: List[str],
+        title: str = "Flujo entre Niveles",
+    ) -> str:
+        """Sankey diagram showing flow between adjacent hierarchy levels."""
+        try:
+            import plotly.graph_objects as go
+
+            if len(columns) < 2:
+                return ""
+
+            sub = df[columns].dropna().copy()
+            if len(sub) == 0:
+                return ""
+
+            # Build per-adjacent-pair flows, aggregate small categories as "Otros"
+            all_labels: List[str] = []
+            sources: List[int] = []
+            targets: List[int] = []
+            values: List[int] = []
+            label_index: Dict[str, int] = {}
+
+            def _get_idx(label: str) -> int:
+                if label not in label_index:
+                    label_index[label] = len(all_labels)
+                    all_labels.append(label)
+                return label_index[label]
+
+            for i in range(len(columns) - 1):
+                src_col, tgt_col = columns[i], columns[i + 1]
+                pair = sub.groupby([src_col, tgt_col]).size().reset_index(name="count")
+                total = pair["count"].sum()
+
+                # Aggregate categories < 1% into "Otros"
+                threshold = total * 0.01
+                for col_name in [src_col, tgt_col]:
+                    col_totals = pair.groupby(col_name)["count"].sum()
+                    small = col_totals[col_totals < threshold].index
+                    if len(small) > 0:
+                        pair[col_name] = pair[col_name].apply(lambda x, s=small, cn=col_name: f"Otros ({cn})" if x in s else x)
+                        pair = pair.groupby([src_col, tgt_col], as_index=False)["count"].sum()
+
+                for _, row in pair.iterrows():
+                    src_label = f"{src_col}: {row[src_col]}"
+                    tgt_label = f"{tgt_col}: {row[tgt_col]}"
+                    sources.append(_get_idx(src_label))
+                    targets.append(_get_idx(tgt_label))
+                    values.append(int(row["count"]))
+
+            if not values:
+                return ""
+
+            fig = go.Figure(
+                go.Sankey(
+                    node={"label": all_labels, "pad": 15, "thickness": 20},
+                    link={"source": sources, "target": targets, "value": values},
+                )
+            )
+            fig.update_layout(title=title, template=self.template, height=max(500, len(all_labels) * 20))
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating sankey: %s", e)
+            return ""
+
+    def hierarchy_target_heatmap(
+        self,
+        cross_target: pd.DataFrame,
+        title: str = "Target Rate by Combination",
+    ) -> str:
+        """Heatmap of target rate by hierarchy combination (2D crosstab)."""
+        try:
+            import plotly.graph_objects as go
+
+            if cross_target is None or cross_target.empty:
+                return ""
+
+            fig = go.Figure(
+                go.Heatmap(
+                    z=cross_target.values,
+                    x=[str(c) for c in cross_target.columns],
+                    y=[str(i) for i in cross_target.index],
+                    colorscale="RdYlGn_r",
+                    colorbar={"title": "Tasa Target"},
+                    hovertemplate="<b>%{y}</b> × <b>%{x}</b><br>Tasa: %{z:.2%}<extra></extra>",
+                )
+            )
+            fig.update_layout(
+                title=title,
+                template=self.template,
+                height=max(400, len(cross_target) * 25),
+                xaxis={"tickangle": -45},
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating hierarchy target heatmap: %s", e)
             return ""
 
     def segment_barplot(self, segment_stats: List[Dict], title: str = "Tasa de Fraude por Segmento") -> str:

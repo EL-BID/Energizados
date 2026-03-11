@@ -95,6 +95,19 @@ src/energizados/
 │   ├── init.py        # Project initialization
 │   ├── run.py         # Pipeline execution
 │   └── validate.py    # Configuration validation
+├── eda/               # Exploratory Data Analysis module
+│   ├── base.py        # BaseExplorer abstract class
+│   ├── dataset_explorer.py   # Main orchestrator (DatasetExplorer)
+│   ├── column_explorer.py    # Phase 2: Per-column analysis
+│   ├── target_explorer.py    # Phase 3: Target variable analysis
+│   ├── geo_analyzer.py       # Phase 4: Geospatial analysis (optional)
+│   ├── feature_importance.py # Phase 5: IV/KS/Cramér's V ranking
+│   ├── segmentation_analyzer.py # Phase 6: Segment drift analysis
+│   ├── related_columns_analyzer.py # Phase 7: Hierarchical column relationships
+│   ├── plots.py              # Static Matplotlib/Plotly charts
+│   ├── plots_interactive.py  # Interactive Plotly charts (HTML strings)
+│   ├── report.py             # HTML report generator
+│   └── utils.py              # Column classification, IV/WoE, KS, Cramér's V
 └── etl/               # ETL framework components
     ├── base.py        # BaseETL abstract class
     ├── pipeline.py    # SourceETL implementation
@@ -355,6 +368,42 @@ Additional ETL examples are provided (commented out) in the template:
 - `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Uses deprecated pandas API; not recommended for use.
 
 **IMPORTANT:** Each ETL must specify `custom_class`. The `DefaultETL` class has been removed.
+
+### EDA Module
+
+The EDA module generates an interactive HTML report from raw datasets. Configured via `config/eda.yaml`.
+
+**Phases:**
+- Phase 0: Loading validation (BOM, encoding, numeric-as-string)
+- Phase 1: Global stats (nulls, duplicates, constants)
+- Phase 2: Column analysis (numeric/categorical/temporal/consumption) with optional per-column detail charts
+- Phase 3: Target variable (class balance, temporal rate)
+- Phase 4: Geospatial (optional)
+- Phase 5: Feature importance (IV, KS, Cramér's V)
+- Phase 6: Segmentation (optional)
+- Phase 7: Related columns (optional, configurable hierarchies)
+
+**Per-column detail charts** (Phase 2): When `detailed_charts: true` is set under `sections.numeric` or `sections.categorical`, collapsible `<details>` blocks are generated per column with histograms, boxplots, treemaps, and target rate charts.
+
+**Related columns** (Phase 7): Generic `RelatedColumnsAnalyzer` for configurable column hierarchies. Produces tree breakdowns, cross-tabulations, sunburst/sankey charts, and target rate heatmaps.
+
+```yaml
+# config/eda.yaml - related_columns section
+sections:
+  related_columns:
+    enabled: true
+    hierarchies:
+      - name: "Proceso de inspección"
+        columns: ["TIPO_SERVICO", "ACAO", "CATEGORIA_NOTA"]
+      - name: "Ubicación × Tarifa"
+        columns: ["ZONA", "TIPO_TARIFA"]
+```
+
+**Key EDA Classes:**
+- `DatasetExplorer`: Main orchestrator that runs all phases and generates the HTML report
+- `RelatedColumnsAnalyzer`: Generic analyzer for hierarchical column relationships (replaces the removed `InspectionAnalyzer`)
+- `EDAInteractivePlots`: Generates interactive Plotly charts as HTML strings
+- `EDAReportGenerator`: Produces the self-contained HTML report
 
 ### Key Modules
 

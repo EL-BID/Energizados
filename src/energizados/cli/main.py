@@ -337,12 +337,6 @@ def validate(ctx, config_paths, verbose):
     help="Output directory for EDA report and plots.",
 )
 @click.option(
-    "--inspections-path",
-    "inspections_path",
-    default=None,
-    help="Path to inspections CSV file (enables Phase 4 analysis).",
-)
-@click.option(
     "--lat-col",
     "lat_col",
     default=None,
@@ -374,7 +368,7 @@ def validate(ctx, config_paths, verbose):
     help="Show configuration that would be used without running the analysis.",
 )
 @click.pass_context
-def eda(ctx, input_path, target_column, config_path, output_dir, inspections_path, lat_col, lon_col, etl_name, skip_sections, dry_run):
+def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_col, etl_name, skip_sections, dry_run):
     """
     Run Exploratory Data Analysis (EDA) on a dataset.
 
@@ -390,8 +384,6 @@ def eda(ctx, input_path, target_column, config_path, output_dir, inspections_pat
         energizados eda --config config/eda.yaml --etl sample
 
         energizados eda --config config/eda.yaml --lat-col LATITUDE --lon-col LONGITUDE
-
-        energizados eda --config config/eda.yaml --inspections-path data/raw/inspecoes.csv
 
         energizados eda --config config/eda.yaml --skip-sections "geo,join"
 
@@ -428,11 +420,6 @@ def eda(ctx, input_path, target_column, config_path, output_dir, inspections_pat
             col_det["lon_col"] = lon_col
         # Auto-enable geospatial section when coordinates are provided via CLI
         eda_cfg.setdefault("sections", {}).setdefault("geospatial", {}).setdefault("enabled", True)
-
-    # Apply inspections_path CLI override
-    if inspections_path:
-        eda_cfg.setdefault("data_sources", {}).setdefault("inspections", {})["path"] = inspections_path
-        eda_cfg.setdefault("sections", {}).setdefault("inspections", {}).setdefault("enabled", True)
 
     # Resolve input path: --etl takes precedence, then --input, then config
     resolved_input = input_path
@@ -474,8 +461,6 @@ def eda(ctx, input_path, target_column, config_path, output_dir, inspections_pat
         click.echo(f"  Salida:   {resolved_output}")
         if etl_name:
             click.echo(f"  ETL:      {etl_name}")
-        if inspections_path:
-            click.echo(f"  Inspecciones: {inspections_path}")
         if lat_col or lon_col:
             click.echo(f"  Coordenadas: lat={lat_col}, lon={lon_col}")
         if skip_sections:

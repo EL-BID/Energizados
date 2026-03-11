@@ -98,7 +98,7 @@ class SegmentationAnalyzer(BaseExplorer):
                         code="SEGMENT_IMBALANCE",
                         message=(
                             f"El segmento '{col}={segment_value}' tiene solo {segment_size} registros "
-                            f"(umbral: {min_size}). Considere agrupar categorías raras."
+                            f"(threshold: {min_size}). Consider grouping rare categories."
                         ),
                         severity="INFO",
                         details={"column": col, "segment": str(segment_value), "size": segment_size},

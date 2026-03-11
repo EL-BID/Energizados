@@ -363,6 +363,12 @@ class ConfigPipelineBuilder:
             if inference_step is not None:
                 pipeline.add_step(inference_step)
 
+        # Step EDA: Exploratory Data Analysis
+        if self.config.get("eda", {}).get("enabled", False):
+            eda_step = self._build_eda_step()
+            if eda_step is not None:
+                pipeline.add_step(eda_step)
+
         return pipeline
 
     def _build_etl_step(self) -> Optional[PipelineStep]:
@@ -688,6 +694,57 @@ class ConfigPipelineBuilder:
                 return ["predictions", "prediction_probas"]
 
         return InferenceStep(inference, inference_config)
+
+    def _build_eda_step(self) -> Optional[PipelineStep]:
+        """
+        Build the EDA step from the configuration.
+
+        Returns:
+            PipelineStep: EDA step or None if not configured
+        """
+        from energizados.core.base import PipelineStep
+
+        eda_config = self.config.get("eda", {})
+        if not eda_config:
+            return None
+
+        full_config = self.config
+
+        class EDAStep(PipelineStep):
+            """Pipeline step that runs Exploratory Data Analysis."""
+
+            def validate_input(self, context: Dict[str, Any]) -> bool:
+                return True
+
+            def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+                from energizados.eda.dataset_explorer import DatasetExplorer
+
+                col_detection = eda_config.get("column_detection", {})
+                data_sources = eda_config.get("data_sources", {})
+                primary = data_sources.get("primary", {})
+                output_cfg = eda_config.get("output", {})
+
+                explorer = DatasetExplorer(
+                    input_path=primary.get("path", ""),
+                    target_column=primary.get("target_col"),
+                    id_column=col_detection.get("id_col"),
+                    date_column=col_detection.get("date_col"),
+                    lat_column=col_detection.get("lat_col"),
+                    lon_column=col_detection.get("lon_col"),
+                    zone_column=col_detection.get("zone_col"),
+                    periods_suffix=col_detection.get("periods_suffix", "_anterior"),
+                    output_dir=output_cfg.get("output_dir", "output/eda/"),
+                    sections=eda_config.get("sections"),
+                    config=full_config,
+                )
+                results = explorer.run()
+                context["eda_results"] = results
+                return context
+
+            def get_required_keys(self) -> List[str]:
+                return []
+
+        return EDAStep()
 
     @classmethod
     def register_model(cls, name: str, model_class: type):

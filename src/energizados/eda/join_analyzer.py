@@ -137,7 +137,7 @@ class JoinAnalyzer(BaseExplorer):
             self._add_alert(
                 code="HIGH_JOIN_LOSS",
                 message=(
-                    f"Pérdida alta de registros en joins: {total_loss_pct:.1f}% "
+                    f"High record loss in joins: {total_loss_pct:.1f}% "
                     f"({total_loss:,} de {total_records:,} registros perdidos). "
                     "Verifique que esto no introduce sesgo."
                 ),

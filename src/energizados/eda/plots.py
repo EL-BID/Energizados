@@ -72,7 +72,7 @@ class EDAStaticPlots:
                 yticklabels=False,
                 cmap="Blues",
             )
-            ax.set_title("Patrón de Valores Faltantes", fontsize=14, fontweight="bold")
+            ax.set_title("Missing Values Pattern", fontsize=14, fontweight="bold")
             ax.set_xlabel("Columnas")
             ax.set_ylabel("Filas (muestra)")
             plt.xticks(rotation=45, ha="right", fontsize=8)
@@ -135,7 +135,7 @@ class EDAStaticPlots:
                 # Violin by class
                 sub[target_col] = sub[target_col].astype(str)
                 sns.violinplot(data=sub, x=target_col, y=col, ax=axes[1], palette="muted")
-                axes[1].set_title(f"Distribución por clase: {col}")
+                axes[1].set_title(f"Distribution by class: {col}")
             else:
                 fig, ax = plt.subplots(figsize=(10, 5))
                 sample = sub[col] if len(sub) <= 5000 else sub[col].sample(5000, random_state=42)
@@ -209,13 +209,13 @@ class EDAStaticPlots:
                 ax2 = ax.twinx()
                 ax2.plot(range(len(top_cats)), fraud_rate.values, "ro-", markersize=6, label="Tasa fraude")
                 ax2.set_ylabel("Tasa de Fraude", color="red")
-                ax.set_title(f"Distribución categórica: {col} (con tasa de fraude)")
+                ax.set_title(f"Categorical distribution: {col} (with fraud rate)")
                 lines2, labels2 = ax2.get_legend_handles_labels()
                 lines, labels = ax.get_legend_handles_labels()
                 ax.legend(lines + lines2, labels + labels2, loc="upper right")
             else:
                 ax.bar(range(len(top_cats)), top_cats.values, color="steelblue", alpha=0.8)
-                ax.set_title(f"Distribución categórica: {col}")
+                ax.set_title(f"Categorical distribution: {col}")
 
             ax.set_xticks(range(len(top_cats)))
             ax.set_xticklabels([str(c) for c in top_cats.index], rotation=45, ha="right", fontsize=9)
@@ -285,8 +285,8 @@ class EDAStaticPlots:
 
             ax.set_xticks(list(x))
             ax.set_xticklabels(consumption_cols, rotation=45, ha="right", fontsize=8)
-            ax.set_title("Tendencia de Consumo por Período", fontsize=14, fontweight="bold")
-            ax.set_xlabel("Período")
+            ax.set_title("Consumption Trend by Period", fontsize=14, fontweight="bold")
+            ax.set_xlabel("Period")
             ax.set_ylabel("Consumo (media)")
             ax.legend()
             plt.tight_layout()
@@ -345,7 +345,7 @@ class EDAStaticPlots:
                 square=True,
                 linewidths=0.5,
             )
-            ax.set_title("Matriz de Correlación", fontsize=14, fontweight="bold")
+            ax.set_title("Correlation Matrix", fontsize=14, fontweight="bold")
             plt.tight_layout()
 
             path = str(self.output_dir / "correlation_heatmap.png")

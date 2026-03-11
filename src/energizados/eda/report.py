@@ -2,7 +2,7 @@
 EDA Report Generator - Energizados EDA Framework.
 
 Generates a comprehensive self-contained HTML report for EDA results.
-All text is in Spanish (latinoamericano).
+All text is in English.
 """
 
 import json
@@ -68,6 +68,19 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 @media (max-width: 1200px) { .two-col { grid-template-columns: 1fr; } }
 .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #e8eaf6; color: #1a237e; margin: 2px; }
 .consumption-bar { height: 8px; background: linear-gradient(90deg, #1a237e, #90caf9); border-radius: 4px; }
+details.col-detail { margin: 8px 0; border: 1px solid #e8eaf6; border-radius: 6px; overflow: hidden; }
+details.col-detail summary {
+    padding: 10px 15px; background: #f5f5f5; cursor: pointer; font-size: 13px; font-weight: 600; color: #1a237e;
+    list-style: none; display: flex; align-items: center; gap: 8px;
+}
+details.col-detail summary::-webkit-details-marker { display: none; }
+details.col-detail summary::before { content: "\25B6"; font-size: 10px; transition: transform 0.2s; }
+details.col-detail[open] summary::before { transform: rotate(90deg); }
+details.col-detail .detail-body { padding: 15px; }
+.tree-list { list-style: none; padding-left: 0; font-size: 13px; }
+.tree-list ul { list-style: none; padding-left: 20px; border-left: 2px solid #e8eaf6; margin: 4px 0; }
+.tree-list li { padding: 3px 0; }
+.tree-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 11px; background: #e8eaf6; color: #1a237e; margin-left: 4px; }
 .footer { text-align: center; padding: 20px; color: #999; font-size: 12px; margin-top: 20px; }
 """
 
@@ -76,7 +89,7 @@ class EDAReportGenerator:
     """
     Generates a comprehensive self-contained HTML EDA report.
 
-    The report is in Spanish (latinoamericano) and includes:
+    The report is in English and includes:
     - Sidebar navigation
     - Executive summary with data quality score
     - Alerts table with severity coloring
@@ -130,9 +143,9 @@ class EDAReportGenerator:
         columns = results.get("columns", {})
         target = results.get("target", {})
         importance = results.get("importance", {})
-        inspections = results.get("inspections", {})
         geo = results.get("geo", {})
         segmentation = results.get("segmentation", {})
+        related_columns = results.get("related_columns", {})
         charts = results.get("charts", {})
 
         # Quality score
@@ -148,7 +161,7 @@ class EDAReportGenerator:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Build sidebar links
-        sidebar_links = self._build_sidebar(inspections, geo, segmentation)
+        sidebar_links = self._build_sidebar(geo, segmentation, related_columns)
 
         return f"""<!DOCTYPE html>
 <html lang="es">
@@ -172,67 +185,84 @@ class EDAReportGenerator:
     <main class="main">
         <!-- Header -->
         <div class="page-header">
-            <h1>Reporte de Análisis Exploratorio de Datos</h1>
-            <p>Generado: {now}</p>
-            <p>Forma del dataset: {global_stats.get('shape', (0,0))[0]:,} filas × {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,} columnas &nbsp;|&nbsp; Memoria: {global_stats.get('memory_mb', 0):.2f} MB</p>  # noqa: E501
+            <h1>Exploratory Data Analysis Report</h1>
+            <p>Generated: {now}</p>
+            <p>Dataset shape: {global_stats.get('shape', (0,0))[0]:,} rows × {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,} columns &nbsp;|&nbsp; Memory: {global_stats.get('memory_mb', 0):.2f} MB</p>  # noqa: E501
         </div>
 
-        <!-- Resumen ejecutivo -->
+        <!-- Executive summary -->
         {self._build_executive_summary(quality_score, quality_class, error_count, warning_count, info_count, global_stats)}
 
-        <!-- Alertas -->
+        <!-- Alerts -->
         {self._build_alerts_section(alerts)}
 
-        <!-- Fase 0: Validación de carga -->
+        <!-- Phase 0: Loading validation -->
         {self._build_loading_section(loading)}
 
-        <!-- Fase 1: Estadísticas globales -->
+        <!-- Phase 1: Global statistics -->
         {self._build_global_stats_section(global_stats, charts)}
 
-        <!-- Fase 2: Análisis de columnas -->
+        <!-- Phase 2: Column analysis -->
         {self._build_columns_section(columns, charts)}
 
-        <!-- Fase 3: Variable objetivo -->
+        <!-- Phase 3: Target variable -->
         {self._build_target_section(target, charts)}
 
-        <!-- Fase 4: Inspecciones -->
-        {self._build_inspections_section(inspections, charts)}
-
-        <!-- Fase 5: Geoespacial -->
+        <!-- Phase 4: Geospatial -->
         {self._build_geo_section(geo, charts)}
 
-        <!-- Fase 7: Importancia de variables -->
+        <!-- Phase 5: Feature importance -->
         {self._build_importance_section(importance, charts)}
 
-        <!-- Fase 8: Segmentación -->
+        <!-- Phase 6: Segmentation -->
         {self._build_segmentation_section(segmentation, charts)}
 
+        <!-- Phase 7: Related columns -->
+        {self._build_related_columns_section(related_columns, charts)}
+
         <div class="footer">
-            <p>Generado por Energizados Framework &nbsp;|&nbsp; {now}</p>
+            <p>Generated by Energizados Framework &nbsp;|&nbsp; {now}</p>
         </div>
     </main>
 </div>
+<script>
+/* Resize Plotly charts inside <details> when they are opened.
+   Plotly renders at zero size when the container is hidden (collapsed);
+   dispatching a resize event after the element opens forces a re-render. */
+document.querySelectorAll('details.col-detail').forEach(function(el) {{
+    el.addEventListener('toggle', function() {{
+        if (el.open && window.Plotly) {{
+            el.querySelectorAll('.plotly-graph-div').forEach(function(div) {{
+                Plotly.Plots.resize(div);
+            }});
+        }}
+    }});
+}});
+</script>
 </body>
 </html>"""
 
-    def _build_sidebar(self, inspections: Dict, geo: Dict, segmentation: Dict) -> str:
+    def _build_sidebar(self, geo: Dict, segmentation: Dict, related_columns: Optional[Dict] = None) -> str:
         sections = [
-            ("resumen", "Resumen Ejecutivo"),
-            ("alertas", "Alertas"),
-            ("carga", "Fase 0: Validación de Carga"),
-            ("global", "Fase 1: Estadísticas Globales"),
-            ("columnas", "Fase 2: Análisis de Columnas"),
-            ("target", "Fase 3: Variable Objetivo"),
+            ("resumen", "Executive Summary"),
+            ("alertas", "Alerts"),
+            ("carga", "Phase 0: Loading Validation"),
+            ("global", "Phase 1: Global Statistics"),
+            ("columnas", "Phase 2: Column Analysis"),
+            ("target", "Phase 3: Target Variable"),
         ]
 
         # Add optional sections
-        if inspections:
-            sections.append(("inspecciones", "Fase 4: Inspecciones"))
         if geo:
-            sections.append(("geo", "Fase 5: Geoespacial"))
-        sections.append(("importancia", "Fase 7: Importancia de Variables"))
+            sections.append(("geo", "Phase 4: Geospatial"))
+        sections.append(("importancia", "Phase 5: Feature Importance"))
         if segmentation:
-            sections.append(("segmentacion", "Fase 8: Segmentación"))
+            sections.append(("segmentacion", "Phase 6: Segmentation"))
+        if related_columns:
+            sections.append(("relacionadas", "Phase 7: Related Columns"))
+            for h_name in related_columns:
+                safe_id = h_name.replace(" ", "_").lower()
+                sections.append((f"hier_{safe_id}", f"  → {h_name}"))
 
         items = "".join(f'<li><a href="#{sid}">{label}</a></li>' for sid, label in sections)
         return f"<ul>{items}</ul>"
@@ -256,27 +286,27 @@ class EDAReportGenerator:
 
         return f"""
 <div class="section" id="resumen">
-    <h2>Resumen Ejecutivo</h2>
+    <h2>Executive Summary</h2>
     <div class="two-col">
         <div>
-            <h3>Calidad del Dataset</h3>
+            <h3>Dataset Quality</h3>
             <div class="quality-score {quality_class}">{quality_score:.1f}%</div>
-            <p style="text-align:center;color:#666;font-size:13px;">Celdas completas (sin nulos)</p>
+            <p style="text-align:center;color:#666;font-size:13px;">Complete cells (no nulls)</p>
         </div>
         <div>
-            <h3>Alertas por Severidad</h3>
+            <h3>Alerts by Severity</h3>
             <div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-top:10px;">
                 <div class="stat-card" style="background:#ffebee;">
                     <div class="value" style="color:#f44336;">{error_count}</div>
-                    <div class="label">Errores</div>
+                    <div class="label">Errors</div>
                 </div>
                 <div class="stat-card" style="background:#fff3e0;">
                     <div class="value" style="color:#ff9800;">{warning_count}</div>
-                    <div class="label">Advertencias</div>
+                    <div class="label">Warnings</div>
                 </div>
                 <div class="stat-card" style="background:#e3f2fd;">
                     <div class="value" style="color:#2196f3;">{info_count}</div>
-                    <div class="label">Informativas</div>
+                    <div class="label">Info</div>
                 </div>
             </div>
         </div>
@@ -284,23 +314,23 @@ class EDAReportGenerator:
     <div class="stats-grid" style="margin-top:20px;">
         <div class="stat-card">
             <div class="value">{rows:,}</div>
-            <div class="label">Filas</div>
+            <div class="label">Rows</div>
         </div>
         <div class="stat-card">
             <div class="value">{cols:,}</div>
-            <div class="label">Columnas</div>
+            <div class="label">Columns</div>
         </div>
         <div class="stat-card">
             <div class="value">{dup_rows:,}</div>
-            <div class="label">Filas Duplicadas ({dup_pct:.1f}%)</div>
+            <div class="label">Duplicate Rows ({dup_pct:.1f}%)</div>
         </div>
         <div class="stat-card">
             <div class="value">{len(const_cols)}</div>
-            <div class="label">Columnas Constantes</div>
+            <div class="label">Constant Columns</div>
         </div>
         <div class="stat-card">
             <div class="value">{len(fully_null)}</div>
-            <div class="label">Columnas Todo Nulo</div>
+            <div class="label">All-Null Columns</div>
         </div>
     </div>
 </div>
@@ -310,8 +340,8 @@ class EDAReportGenerator:
         if not alerts:
             return """
 <div class="section" id="alertas">
-    <h2>Alertas</h2>
-    <p style="color:#4caf50;">&#10003; No se detectaron alertas.</p>
+    <h2>Alerts</h2>
+    <p style="color:#4caf50;">&#10003; No alerts detected.</p>
 </div>
 """
         rows_html = ""
@@ -336,13 +366,13 @@ class EDAReportGenerator:
 
         return f"""
 <div class="section" id="alertas">
-    <h2>Alertas ({len(alerts)} total)</h2>
+    <h2>Alerts ({len(alerts)} total)</h2>
     <table class="alert-table">
         <thead>
             <tr>
-                <th>Severidad</th>
-                <th>Código</th>
-                <th>Mensaje</th>
+                <th>Severity</th>
+                <th>Code</th>
+                <th>Message</th>
             </tr>
         </thead>
         <tbody>
@@ -357,7 +387,7 @@ class EDAReportGenerator:
             return ""
 
         bom = loading.get("bom_detected", False)
-        bom_badge = '<span class="badge badge-WARNING">SÍ</span>' if bom else '<span class="badge badge-success">NO</span>'
+        bom_badge = '<span class="badge badge-WARNING">YES</span>' if bom else '<span class="badge badge-success">NO</span>'
         numeric_as_str = loading.get("numeric_as_string", [])
         whitespace_cols = loading.get("whitespace_columns", [])
 
@@ -367,8 +397,8 @@ class EDAReportGenerator:
                 f'<tr><td>{d["col"]}</td><td>{d["parseable_count"]:,}</td><td>{d["parseable_pct"]:.1f}%</td></tr>' for d in numeric_as_str
             )
             num_str_table = f"""
-<h3>Columnas Numéricas como Texto ({len(numeric_as_str)})</h3>
-<table class="data-table"><thead><tr><th>Columna</th><th>Valores parseables</th><th>%</th></tr></thead>
+<h3>Numeric Columns as Text ({len(numeric_as_str)})</h3>
+<table class="data-table"><thead><tr><th>Column</th><th>Parseable Values</th><th>%</th></tr></thead>
 <tbody>{rows}</tbody></table>"""
 
         ws_table = ""
@@ -379,29 +409,29 @@ class EDAReportGenerator:
                 for d in whitespace_cols
             )
             ws_table = f"""
-<h3>Columnas con Espacios en Blanco ({len(whitespace_cols)})</h3>
-<table class="data-table"><thead><tr><th>Columna</th><th>Afectados</th><th>%</th><th>Ejemplo</th></tr></thead>
+<h3>Columns with Whitespace ({len(whitespace_cols)})</h3>
+<table class="data-table"><thead><tr><th>Column</th><th>Affected</th><th>%</th><th>Example</th></tr></thead>
 <tbody>{rows}</tbody></table>"""
 
         return f"""
 <div class="section" id="carga">
-    <h2>Fase 0: Validación de Carga</h2>
+    <h2>Phase 0: Loading Validation</h2>
     <div class="stats-grid">
         <div class="stat-card">
             <div class="value">{loading.get('rows_loaded', 0):,}</div>
-            <div class="label">Filas Cargadas</div>
+            <div class="label">Rows Loaded</div>
         </div>
         <div class="stat-card">
             <div class="value">{loading.get('encoding_used', 'N/A')}</div>
-            <div class="label">Encoding Detectado</div>
+            <div class="label">Detected Encoding</div>
         </div>
         <div class="stat-card">
             <div class="value">{loading.get('decimal_separator', '.')}</div>
-            <div class="label">Separador Decimal</div>
+            <div class="label">Decimal Separator</div>
         </div>
         <div class="stat-card">
             <div class="value">{bom_badge}</div>
-            <div class="label">BOM Detectado</div>
+            <div class="label">BOM Detected</div>
         </div>
     </div>
     {num_str_table}
@@ -428,10 +458,10 @@ class EDAReportGenerator:
         dtype_html = " ".join(f'<span class="pill">{dtype}: {count}</span>' for dtype, count in dtype_counts.items())
 
         const_cols = global_stats.get("constant_cols", [])
-        const_html = " ".join(f'<span class="pill">{c}</span>' for c in const_cols[:20]) if const_cols else "<em>Ninguna</em>"
+        const_html = " ".join(f'<span class="pill">{c}</span>' for c in const_cols[:20]) if const_cols else "<em>None</em>"
 
         fully_null = global_stats.get("fully_null_cols", [])
-        fully_null_html = " ".join(f'<span class="pill">{c}</span>' for c in fully_null[:20]) if fully_null else "<em>Ninguna</em>"
+        fully_null_html = " ".join(f'<span class="pill">{c}</span>' for c in fully_null[:20]) if fully_null else "<em>None</em>"
 
         # Missing heatmap chart
         missing_heatmap_html = charts.get("missing_heatmap_interactive", "")
@@ -439,12 +469,12 @@ class EDAReportGenerator:
 
         return f"""
 <div class="section" id="global">
-    <h2>Fase 1: Estadísticas Globales del Dataset</h2>
+    <h2>Phase 1: Global Dataset Statistics</h2>
 
     <div class="stats-grid">
         <div class="stat-card">
             <div class="value">{global_stats.get('total_nulls', 0):,}</div>
-            <div class="label">Total Nulos</div>
+            <div class="label">Total Missing</div>
         </div>
         <div class="stat-card">
             <div class="value">{global_stats.get('total_null_pct', 0):.2f}%</div>
@@ -469,7 +499,7 @@ class EDAReportGenerator:
     <h3>Columnas Completamente Nulas</h3>
     <p>{fully_null_html}</p>
 
-    <h3>Top 20 Columnas con Más Nulos</h3>
+    <h3>Top 20 Columns with Most Missing Values</h3>
     <table class="data-table">
         <thead><tr><th>Columna</th><th>Nulos</th><th>%</th><th>Barra</th></tr></thead>
         <tbody>{nulls_rows}</tbody>
@@ -500,28 +530,37 @@ class EDAReportGenerator:
 
         corr_chart = charts.get("correlation_heatmap", "")
 
+        # Column detail charts (collapsible)
+        column_details = charts.get("column_details", {})
+        numeric_details = self._build_column_details([d.get("col", "") for d in numeric], column_details, "Numeric")
+        categorical_details = self._build_column_details([d.get("col", "") for d in categorical], column_details, "Categorical")
+        temporal_details = self._build_column_details([d.get("col", "") for d in temporal], column_details, "Temporales")
+
         return f"""
 <div class="section" id="columnas">
-    <h2>Fase 2: Análisis de Columnas</h2>
+    <h2>Phase 2: Column Analysis</h2>
 
-    <h3>Variables Numéricas ({len(numeric)})</h3>
+    <h3>Numeric Variables ({len(numeric)})</h3>
     {numeric_html}
+    {numeric_details}
 
-    <h3>Variables Categóricas ({len(categorical)})</h3>
+    <h3>Categorical Variables ({len(categorical)})</h3>
     {categorical_html}
+    {categorical_details}
 
     <h3>Variables Temporales ({len(temporal)})</h3>
     {temporal_html}
+    {temporal_details}
 
     {consumption_html}
 
-    {f'<h3>Matriz de Correlación</h3><div class="chart-container">{corr_chart}</div>' if corr_chart else ''}
+    {f'<h3>Correlation Matrix</h3><div class="chart-container">{corr_chart}</div>' if corr_chart else ''}
 </div>
 """
 
     def _build_numeric_table(self, numeric: List[Dict]) -> str:
         if not numeric:
-            return "<p><em>No se encontraron columnas numéricas.</em></p>"
+            return "<p><em>No numeric columns found.</em></p>"
 
         has_iv = any("iv" in d for d in numeric)
         header_extra = "<th>IV</th><th>KS</th>" if has_iv else ""
@@ -555,8 +594,8 @@ class EDAReportGenerator:
 <table class="data-table">
 <thead><tr>
     <th>Columna</th><th>Conteo</th><th>% Nulos</th>
-    <th>Media</th><th>Std</th><th>Mín</th><th>Máx</th><th>Mediana</th>
-    <th>% Outliers</th><th>Asimetría</th>{header_extra}
+    <th>Mean</th><th>Std</th><th>Min</th><th>Max</th><th>Median</th>
+    <th>% Outliers</th><th>Skewness</th>{header_extra}
 </tr></thead>
 <tbody>{rows}</tbody>
 </table>
@@ -564,7 +603,7 @@ class EDAReportGenerator:
 
     def _build_categorical_table(self, categorical: List[Dict]) -> str:
         if not categorical:
-            return "<p><em>No se encontraron columnas categóricas.</em></p>"
+            return "<p><em>No categorical columns found.</em></p>"
 
         has_iv = any("iv" in d for d in categorical)
         header_extra = "<th>IV</th><th>Cramér's V</th>" if has_iv else ""
@@ -597,7 +636,7 @@ class EDAReportGenerator:
 <table class="data-table">
 <thead><tr>
     <th>Columna</th><th>Conteo</th><th>% Nulos</th>
-    <th>Únicos</th><th>Top Categorías</th><th>% Raras</th><th>Entropía</th>{header_extra}
+    <th>Unique</th><th>Top Categories</th><th>% Rare</th><th>Entropy</th>{header_extra}
 </tr></thead>
 <tbody>{rows}</tbody>
 </table>
@@ -625,7 +664,7 @@ class EDAReportGenerator:
 <table class="data-table">
 <thead><tr>
     <th>Columna</th><th>Conteo</th><th>% Nulos</th>
-    <th>Fecha Mín</th><th>Fecha Máx</th><th>Días span</th><th>Granularidad</th>
+    <th>Min Date</th><th>Max Date</th><th>Days Span</th><th>Granularity</th>
 </tr></thead>
 <tbody>{rows}</tbody>
 </table>
@@ -659,7 +698,7 @@ class EDAReportGenerator:
 <div class="stats-grid">
     <div class="stat-card">
         <div class="value">{consumption.get('pct_rows_with_any_zero', 0):.1f}%</div>
-        <div class="label">Filas con Algún Cero</div>
+        <div class="label">Rows with Any Zero</div>
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('pct_rows_all_zero', 0):.1f}%</div>
@@ -675,7 +714,7 @@ class EDAReportGenerator:
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('pct_abrupt_drop', 0):.1f}%</div>
-        <div class="label">Caídas Abruptas (&gt;50%)</div>
+        <div class="label">Abrupt Drops (&gt;50%)</div>
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('trend_slope', 0):.4f}</div>
@@ -684,7 +723,7 @@ class EDAReportGenerator:
 </div>
 <div style="overflow-x:auto;">
 <table class="data-table">
-<thead><tr><th>Período</th><th>Media</th><th>Std</th><th>Mín</th><th>Máx</th><th>% Ceros</th><th>% Nulos</th></tr></thead>
+<thead><tr><th>Period</th><th>Mean</th><th>Std</th><th>Min</th><th>Max</th><th>% Zeros</th><th>% Missing</th></tr></thead>
 <tbody>{stats_rows}</tbody>
 </table>
 </div>
@@ -697,7 +736,7 @@ class EDAReportGenerator:
             return """
 <div class="section" id="target">
     <h2>Fase 3: Variable Objetivo</h2>
-    <p><em>No se especificó variable objetivo.</em></p>
+    <p><em>No target variable specified.</em></p>
 </div>
 """
         class_counts = target.get("class_counts", {})
@@ -744,7 +783,7 @@ class EDAReportGenerator:
             <tbody>{class_rows}</tbody>
             </table>
             <p style="margin-top:15px;"><strong>Ratio de desbalance:</strong> {imbalance:.1f}:1</p>
-            <p><strong>Recomendación:</strong> {rec_html}</p>
+            <p><strong>Recommendation:</strong> {rec_html}</p>
         </div>
         <div>
             {f'<div class="chart-container">{class_balance_chart}</div>' if class_balance_chart else ''}
@@ -759,8 +798,8 @@ class EDAReportGenerator:
         if not importance:
             return """
 <div class="section" id="importancia">
-    <h2>Fase 7: Importancia de Variables</h2>
-    <p><em>No se especificó variable objetivo. Análisis de importancia omitido.</em></p>
+    <h2>Fase 5: Importancia de Variables</h2>
+    <p><em>No target variable specified. Feature importance analysis skipped.</em></p>
 </div>
 """
         ranking_df = importance.get("ranking")
@@ -809,11 +848,11 @@ class EDAReportGenerator:
 
         return f"""
 <div class="section" id="importancia">
-    <h2>Fase 7: Importancia de Variables</h2>
+    <h2>Fase 5: Importancia de Variables</h2>
 
     {f'<div class="chart-container">{iv_chart}</div>' if iv_chart else ''}
 
-    <h3>Top 20 Variables (por puntuación combinada)</h3>
+    <h3>Top 20 Variables (by combined score)</h3>
     <p>{" ".join(f'<span class="pill"><strong>{i+1}.</strong> {c}</span>' for i, c in enumerate(top_features))}</p>
 
     <h3>Variables con Bajo Poder Predictivo (IV &lt; umbral)</h3>
@@ -827,58 +866,8 @@ class EDAReportGenerator:
 </div>
 """
 
-    def _build_inspections_section(self, inspections: Dict, charts: Dict) -> str:
-        """Build Phase 4: Inspections section."""
-        if not inspections:
-            return ""
-
-        tipo_dist = inspections.get("tipo_distribution", {})
-        detection_rate = inspections.get("detection_rate", 0)
-        temporal = inspections.get("temporal_distribution", [])
-
-        tipo_rows = "".join(f"<tr><td>{tipo}</td><td>{count:,}</td></tr>" for tipo, count in tipo_dist.items())
-
-        temporal_rows = "".join(f'<tr><td>{d["period"]}</td><td>{d["count"]:,}</td></tr>' for d in temporal[:12])
-
-        sunburst_chart = charts.get("inspection_sunburst", "")
-        funnel_chart = charts.get("inspection_funnel", "")
-
-        return f"""
-<div class="section" id="inspecciones">
-    <h2>Fase 4: Análisis de Inspecciones</h2>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="value">{detection_rate:.1%}</div>
-            <div class="label">Tasa de Detección</div>
-        </div>
-        <div class="stat-card">
-            <div class="value">{len(tipo_dist)}</div>
-            <div class="label">Tipos de Servicio</div>
-        </div>
-    </div>
-
-    {f'<div class="chart-container">{sunburst_chart}</div>' if sunburst_chart else ''}
-    {f'<div class="chart-container">{funnel_chart}</div>' if funnel_chart else ''}
-
-    <h3>Distribución por Tipo de Servicio</h3>
-    <table class="data-table">
-        <thead><tr><th>Tipo</th><th>Conteo</th></tr></thead>
-        <tbody>{tipo_rows}</tbody>
-    </table>
-
-    {f'''
-    <h3>Distribución Temporal</h3>
-    <table class="data-table">
-        <thead><tr><th>Período</th><th>Conteo</th></tr></thead>
-        <tbody>{temporal_rows}</tbody>
-    </table>
-    ''' if temporal_rows else ''}
-</div>
-"""
-
     def _build_geo_section(self, geo: Dict, charts: Dict) -> str:
-        """Build Phase 5: Geospatial section."""
+        """Build Phase 4: Geospatial section."""
         if not geo:
             return ""
 
@@ -891,7 +880,7 @@ class EDAReportGenerator:
         quality_rows = "".join(
             f"<tr><td>{k}</td><td>{v}</td></tr>"
             for k, v in {
-                "Registros válidos": f"{coord_quality.get('valid_coords_count', 0):,}",
+                "Valid Records": f"{coord_quality.get('valid_coords_count', 0):,}",
                 "% Nulos": f"{coord_quality.get('null_pct', 0):.1f}%",
                 "% Coordenadas (0,0)": f"{coord_quality.get('zero_coord_pct', 0):.1f}%",
                 "Duplicados exactos": f"{coord_quality.get('duplicate_coords_pct', 0):.1f}%",
@@ -908,19 +897,19 @@ class EDAReportGenerator:
         clustering_info = ""
         if clustering.get("cluster_stats"):
             clustering_info = f"""
-    <h3>Clustering Geográfico</h3>
-    <p>Método: {clustering.get("method", "N/A")}, Clusters: {clustering.get("n_clusters", 0)}</p>
+    <h3>Geographic Clustering</h3>
+    <p>Method: {clustering.get("method", "N/A")}, Clusters: {clustering.get("n_clusters", 0)}</p>
     """
 
         return f"""
 <div class="section" id="geo">
-    <h2>Fase 5: Análisis Geoespacial</h2>
+    <h2>Phase 4: Geospatial Analysis</h2>
 
     {f'<div class="chart-container">{mapbox_chart}</div>' if mapbox_chart else ''}
 
     <h3>Calidad de Coordenadas</h3>
     <table class="data-table">
-        <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
         <tbody>{quality_rows}</tbody>
     </table>
 
@@ -937,7 +926,7 @@ class EDAReportGenerator:
 """
 
     def _build_segmentation_section(self, segmentation: Dict, charts: Dict) -> str:
-        """Build Phase 8: Segmentation section."""
+        """Build Phase 6: Segmentation section."""
         if not segmentation:
             return ""
 
@@ -956,14 +945,136 @@ class EDAReportGenerator:
 
         return f"""
 <div class="section" id="segmentacion">
-    <h2>Fase 8: Análisis de Segmentación</h2>
+    <h2>Phase 6: Segmentation Analysis</h2>
 
     {f'<div class="chart-container">{segment_chart}</div>' if segment_chart else ''}
 
     <h3>Segmentos con Mayor Diferencia de Tasa de Fraude</h3>
     <table class="data-table">
-        <thead><tr><th>Segmento</th><th>Tamaño</th><th>%</th><th>Tasa</th><th>Z-Score</th></tr></thead>
+        <thead><tr><th>Segment</th><th>Size</th><th>%</th><th>Rate</th><th>Z-Score</th></tr></thead>
         <tbody>{segment_rows}</tbody>
     </table>
 </div>
 """
+
+    # ------------------------------------------------------------------
+    # Column detail collapsible blocks
+    # ------------------------------------------------------------------
+
+    def _build_column_details(self, col_names: List[str], column_details: Dict, type_label: str) -> str:
+        """Build collapsible <details> blocks for per-column charts."""
+        blocks = []
+        for col in col_names:
+            col_charts = column_details.get(col, {})
+            if not col_charts:
+                continue
+            charts_html = "".join(f'<div class="chart-container">{html}</div>' for html in col_charts.values() if html)
+            if not charts_html:
+                continue
+            blocks.append(
+                f'<details class="col-detail">' f"<summary>{col}</summary>" f'<div class="detail-body">{charts_html}</div>' f"</details>"
+            )
+
+        if not blocks:
+            return ""
+        return f'<h3>Detalle por Columna ({type_label})</h3>{"".join(blocks)}'
+
+    # ------------------------------------------------------------------
+    # Related columns section
+    # ------------------------------------------------------------------
+
+    def _build_related_columns_section(self, related_columns: Dict, charts: Dict) -> str:
+        """Build Phase 7: Related Columns section."""
+        if not related_columns:
+            return ""
+
+        hierarchy_charts = charts.get("hierarchies", {})
+        sections_html = ""
+
+        for h_name, h_data in related_columns.items():
+            safe_id = h_name.replace(" ", "_").lower()
+            columns = h_data.get("columns", [])
+            h_charts = hierarchy_charts.get(h_name, {})
+
+            # Tree breakdown HTML
+            tree = h_data.get("tree_breakdown", [])
+            tree_html = self._build_tree_html(tree) if tree else "<em>Sin datos</em>"
+
+            # Cross tabulation table
+            cross = h_data.get("cross_tabulation", [])
+            cross_html = self._build_cross_table(cross, columns)
+
+            # Charts
+            sunburst_html = h_charts.get("sunburst", "")
+            sankey_html = h_charts.get("sankey", "")
+            heatmap_html = h_charts.get("target_heatmap", "")
+
+            sections_html += f"""
+<div id="hier_{safe_id}" style="margin-top:20px;">
+    <h3>{h_name}</h3>
+    <p><strong>Columnas:</strong> {" → ".join(columns)}</p>
+
+    <h4>Hierarchical Breakdown</h4>
+    <ul class="tree-list">{tree_html}</ul>
+
+    {f'<div class="chart-container">{sunburst_html}</div>' if sunburst_html else ''}
+    {f'<div class="chart-container">{sankey_html}</div>' if sankey_html else ''}
+    {f'<div class="chart-container">{heatmap_html}</div>' if heatmap_html else ''}
+
+    {cross_html}
+</div>"""
+
+        return f"""
+<div class="section" id="relacionadas">
+    <h2>Fase 7: Columnas Relacionadas</h2>
+    {sections_html}
+</div>
+"""
+
+    def _build_tree_html(self, tree: List[Dict], max_depth: int = 4) -> str:
+        """Recursively render tree breakdown as nested <ul>/<li> HTML."""
+        if not tree or max_depth <= 0:
+            return ""
+
+        items = ""
+        for node in tree[:30]:  # limit nodes per level
+            value = node.get("value", "")
+            count = node.get("count", 0)
+            pct_parent = node.get("pct_of_parent", 0)
+            pct_total = node.get("pct_of_total", 0)
+            col = node.get("column", "")
+
+            items += (
+                f"<li><strong>{col}:</strong> {value}"
+                f' <span class="tree-badge">{count:,} — {pct_parent:.1f}% del padre</span>'
+                f' <span class="tree-badge" style="background:#fff3e0;color:#e65100;">{pct_total:.1f}% del total</span>'
+            )
+
+            children = node.get("children", [])
+            if children:
+                items += f"<ul>{self._build_tree_html(children, max_depth - 1)}</ul>"
+
+            items += "</li>"
+
+        return items
+
+    def _build_cross_table(self, cross: List[Dict], columns: List[str]) -> str:
+        """Build HTML table from cross tabulation records."""
+        if not cross:
+            return ""
+
+        header = "".join(f"<th>{c}</th>" for c in columns)
+        rows = ""
+        for record in cross[:50]:
+            cells = "".join(f"<td>{record.get(c, '')}</td>" for c in columns)
+            cells += f"<td>{record.get('count', 0):,}</td>"
+            rows += f"<tr>{cells}</tr>"
+
+        return f"""
+<h4>Cross Tabulation (top 50)</h4>
+<div style="overflow-x:auto;">
+<table class="data-table">
+<thead><tr>{header}<th>Conteo</th></tr></thead>
+<tbody>{rows}</tbody>
+</table>
+</div>"""

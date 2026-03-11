@@ -91,7 +91,7 @@ class TargetExplorer(BaseExplorer):
                 message=(
                     f"Desbalance de clases detectado: ratio {imbalance_ratio:.1f}:1 "
                     f"(clase minoritaria: {minority_pct:.2f}% de los datos). "
-                    f"Se recomienda técnica de remuestreo: '{recommendation}'."
+                    f"Recommended resampling technique: '{recommendation}'."
                 ),
                 severity="WARNING",
                 details={
