@@ -84,14 +84,14 @@ class EDAInteractivePlots:
                     text=[f"{c:,}<br>({p:.1f}%)" for c, p in zip(counts, pcts)],
                     textposition="outside",
                     marker_color=colors[: len(labels)],
-                    name="Conteo",
+                    name="Count",
                 )
             )
 
             fig.update_layout(
                 title="Class Distribution (Target Variable)",
-                xaxis_title="Clase",
-                yaxis_title="Cantidad de Registros",
+                xaxis_title="Class",
+                yaxis_title="Number of Records",
                 template=self.template,
                 showlegend=False,
                 height=400,
@@ -212,7 +212,7 @@ class EDAInteractivePlots:
                     go.Scatter(
                         x=woe_table["bin"].astype(str),
                         y=woe_table["event_rate"],
-                        name="Tasa de Eventos",
+                        name="Event Rate",
                         mode="lines+markers",
                         line={"color": "orange", "width": 2},
                     ),
@@ -226,7 +226,7 @@ class EDAInteractivePlots:
                 height=400,
             )
             fig.update_yaxes(title_text="WoE", secondary_y=False)
-            fig.update_yaxes(title_text="Tasa de Eventos", secondary_y=True)
+            fig.update_yaxes(title_text="Event Rate", secondary_y=True)
 
             return self._to_html(fig)
 
@@ -369,9 +369,9 @@ class EDAInteractivePlots:
             )
 
             fig.update_layout(
-                title=f"Mapa de Calor de Consumo ({len(sub)} clientes muestra)",
+                title=f"Consumption Heatmap ({len(sub)} customer sample)",
                 xaxis_title="Period",
-                yaxis_title="Cliente (muestra)",
+                yaxis_title="Customer (sample)",
                 template=self.template,
                 height=max(400, min(sample_n * 4, 800)),
             )
@@ -414,7 +414,7 @@ class EDAInteractivePlots:
                     x=periods,
                     y=rates,
                     mode="lines+markers",
-                    name="Tasa de Fraude (%)",
+                    name="Fraud Rate (%)",
                     line={"color": "#F44336", "width": 2},
                     marker={"size": 6},
                 ),
@@ -425,7 +425,7 @@ class EDAInteractivePlots:
                 go.Bar(
                     x=periods,
                     y=totals,
-                    name="Total Registros",
+                    name="Total Records",
                     marker_color="rgba(33, 150, 243, 0.4)",
                     opacity=0.6,
                 ),
@@ -438,8 +438,8 @@ class EDAInteractivePlots:
                 height=400,
                 xaxis={"tickangle": -45},
             )
-            fig.update_yaxes(title_text="Tasa de Fraude (%)", secondary_y=False)
-            fig.update_yaxes(title_text="Total Registros", secondary_y=True)
+            fig.update_yaxes(title_text="Fraud Rate (%)", secondary_y=False)
+            fig.update_yaxes(title_text="Total Records", secondary_y=True)
 
             return self._to_html(fig)
 
@@ -470,13 +470,13 @@ class EDAInteractivePlots:
 
             top_cats = series.value_counts().head(50)
             cat_df = top_cats.reset_index()
-            cat_df.columns = ["categoria", "conteo"]
-            cat_df["pct"] = (cat_df["conteo"] / cat_df["conteo"].sum() * 100).round(2)
+            cat_df.columns = ["category", "count"]
+            cat_df["pct"] = (cat_df["count"] / cat_df["count"].sum() * 100).round(2)
 
             fig = px.treemap(
                 cat_df,
-                path=["categoria"],
-                values="conteo",
+                path=["category"],
+                values="count",
                 color="pct",
                 color_continuous_scale="Blues",
                 title=f"Category Distribution: {col}",
@@ -559,7 +559,7 @@ class EDAInteractivePlots:
                     parents=parents,
                     values=values,
                     branchvalues="total",
-                    hovertemplate="<b>%{label}</b><br>Conteo: %{value}<extra></extra>",
+                    hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
                 )
             )
 
@@ -578,7 +578,7 @@ class EDAInteractivePlots:
             logger.warning("Error generating inspection sunburst: %s", e)
             return ""
 
-    def inspection_funnel(self, funnel_data: List[Dict], title: str = "Embudo de Inspecciones") -> str:
+    def inspection_funnel(self, funnel_data: List[Dict], title: str = "Inspection Funnel") -> str:
         """
         Funnel chart showing inspection process progression.
 
@@ -600,7 +600,7 @@ class EDAInteractivePlots:
                     y=[d.get("stage", "") for d in funnel_data],
                     x=[d.get("count", 0) for d in funnel_data],
                     textinfo="label+value+percent initial",
-                    hovertemplate="<b>%{y}</b><br>Conteo: %{x}<br>Porcentaje inicial: %{percentInitial:.1%}<extra></extra>",
+                    hovertemplate="<b>%{y}</b><br>Count: %{x}<br>Initial percentage: %{percentInitial:.1%}<extra></extra>",
                 )
             )
 
@@ -785,11 +785,11 @@ class EDAInteractivePlots:
                 )
             )
             fig.update_layout(
-                title=f"Frecuencias: {col_name} (top {min(top_n, len(top))})",
+                title=f"Frequencies: {col_name} (top {min(top_n, len(top))})",
                 template=self.template,
                 height=max(350, len(top) * 22),
                 yaxis={"categoryorder": "total ascending"},
-                xaxis_title="Conteo",
+                xaxis_title="Count",
             )
             return self._to_html(fig)
         except Exception as e:
@@ -828,11 +828,11 @@ class EDAInteractivePlots:
                 )
             )
             fig.update_layout(
-                title=f"Tasa de Target por: {col}",
+                title=f"Target Rate by: {col}",
                 template=self.template,
                 height=400,
                 xaxis_title=col,
-                yaxis_title="Tasa de Target (%)",
+                yaxis_title="Target Rate (%)",
                 xaxis={"tickangle": -45},
             )
             return self._to_html(fig)
@@ -870,7 +870,7 @@ class EDAInteractivePlots:
                 template=self.template,
                 height=400,
                 xaxis_title="Period",
-                yaxis_title="Registros",
+                yaxis_title="Records",
                 xaxis={"tickangle": -45},
             )
             return self._to_html(fig)
@@ -916,7 +916,7 @@ class EDAInteractivePlots:
             # Clean labels: remove prefix
             fig.update_traces(
                 textinfo="label+percent parent",
-                hovertemplate="<b>%{label}</b><br>Conteo: %{value}<br>% del padre: %{percentParent:.1%}<extra></extra>",
+                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>% of parent: %{percentParent:.1%}<extra></extra>",
             )
             fig.update_layout(height=600)
             # Remove prefixes from displayed labels
@@ -934,7 +934,7 @@ class EDAInteractivePlots:
         self,
         df: pd.DataFrame,
         columns: List[str],
-        title: str = "Flujo entre Niveles",
+        title: str = "Flow between Levels",
     ) -> str:
         """Sankey diagram showing flow between adjacent hierarchy levels."""
         try:
@@ -971,7 +971,7 @@ class EDAInteractivePlots:
                     col_totals = pair.groupby(col_name)["count"].sum()
                     small = col_totals[col_totals < threshold].index
                     if len(small) > 0:
-                        pair[col_name] = pair[col_name].apply(lambda x, s=small, cn=col_name: f"Otros ({cn})" if x in s else x)
+                        pair[col_name] = pair[col_name].apply(lambda x, s=small, cn=col_name: f"Others ({cn})" if x in s else x)
                         pair = pair.groupby([src_col, tgt_col], as_index=False)["count"].sum()
 
                 for _, row in pair.iterrows():
@@ -1014,8 +1014,8 @@ class EDAInteractivePlots:
                     x=[str(c) for c in cross_target.columns],
                     y=[str(i) for i in cross_target.index],
                     colorscale="RdYlGn_r",
-                    colorbar={"title": "Tasa Target"},
-                    hovertemplate="<b>%{y}</b> × <b>%{x}</b><br>Tasa: %{z:.2%}<extra></extra>",
+                    colorbar={"title": "Target Rate"},
+                    hovertemplate="<b>%{y}</b> × <b>%{x}</b><br>Rate: %{z:.2%}<extra></extra>",
                 )
             )
             fig.update_layout(
@@ -1029,7 +1029,7 @@ class EDAInteractivePlots:
             logger.warning("Error generating hierarchy target heatmap: %s", e)
             return ""
 
-    def segment_barplot(self, segment_stats: List[Dict], title: str = "Tasa de Fraude por Segmento") -> str:
+    def segment_barplot(self, segment_stats: List[Dict], title: str = "Fraud Rate by Segment") -> str:
         """
         Bar chart showing fraud rate by segment.
 
@@ -1066,8 +1066,8 @@ class EDAInteractivePlots:
 
             fig.update_layout(
                 title=title,
-                xaxis_title="Segmento",
-                yaxis_title="Tasa de Fraude (%)",
+                xaxis_title="Segment",
+                yaxis_title="Fraud Rate (%)",
                 template=self.template,
                 height=max(400, len(segments) * 25),
                 xaxis={"tickangle": -45},

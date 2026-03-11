@@ -133,7 +133,7 @@ class EDAReportGenerator:
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
 
-        logger.info("Reporte EDA guardado en: %s", path)
+        logger.info("EDA report saved to: %s", path)
         return path
 
     def _build_html(self, results: Dict, alerts: List[Dict]) -> str:
@@ -164,11 +164,11 @@ class EDAReportGenerator:
         sidebar_links = self._build_sidebar(geo, segmentation, related_columns)
 
         return f"""<!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte EDA - Energizados</title>
+    <title>EDA Report - Energizados</title>
     <style>
 {_EDA_CSS}
     </style>
@@ -478,30 +478,30 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         </div>
         <div class="stat-card">
             <div class="value">{global_stats.get('total_null_pct', 0):.2f}%</div>
-            <div class="label">% Celdas Nulas</div>
+            <div class="label">% Null Cells</div>
         </div>
         <div class="stat-card">
             <div class="value">{global_stats.get('duplicate_rows', 0):,}</div>
-            <div class="label">Filas Duplicadas</div>
+            <div class="label">Duplicate Rows</div>
         </div>
         <div class="stat-card">
             <div class="value">{global_stats.get('memory_mb', 0):.1f} MB</div>
-            <div class="label">Memoria</div>
+            <div class="label">Memory</div>
         </div>
     </div>
 
-    <h3>Tipos de Datos</h3>
+    <h3>Data Types</h3>
     <p>{dtype_html}</p>
 
-    <h3>Columnas Constantes (varianza = 0)</h3>
+    <h3>Constant Columns (variance = 0)</h3>
     <p>{const_html}</p>
 
-    <h3>Columnas Completamente Nulas</h3>
+    <h3>Completely Null Columns</h3>
     <p>{fully_null_html}</p>
 
     <h3>Top 20 Columns with Most Missing Values</h3>
     <table class="data-table">
-        <thead><tr><th>Columna</th><th>Nulos</th><th>%</th><th>Barra</th></tr></thead>
+        <thead><tr><th>Column</th><th>Missing</th><th>%</th><th>Bar</th></tr></thead>
         <tbody>{nulls_rows}</tbody>
     </table>
 
@@ -534,7 +534,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         column_details = charts.get("column_details", {})
         numeric_details = self._build_column_details([d.get("col", "") for d in numeric], column_details, "Numeric")
         categorical_details = self._build_column_details([d.get("col", "") for d in categorical], column_details, "Categorical")
-        temporal_details = self._build_column_details([d.get("col", "") for d in temporal], column_details, "Temporales")
+        temporal_details = self._build_column_details([d.get("col", "") for d in temporal], column_details, "Temporal")
 
         return f"""
 <div class="section" id="columnas">
@@ -548,7 +548,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     {categorical_html}
     {categorical_details}
 
-    <h3>Variables Temporales ({len(temporal)})</h3>
+    <h3>Temporal Variables ({len(temporal)})</h3>
     {temporal_html}
     {temporal_details}
 
@@ -593,7 +593,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div style="overflow-x:auto;">
 <table class="data-table">
 <thead><tr>
-    <th>Columna</th><th>Conteo</th><th>% Nulos</th>
+    <th>Column</th><th>Count</th><th>% Missing</th>
     <th>Mean</th><th>Std</th><th>Min</th><th>Max</th><th>Median</th>
     <th>% Outliers</th><th>Skewness</th>{header_extra}
 </tr></thead>
@@ -635,7 +635,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div style="overflow-x:auto;">
 <table class="data-table">
 <thead><tr>
-    <th>Columna</th><th>Conteo</th><th>% Nulos</th>
+    <th>Column</th><th>Count</th><th>% Missing</th>
     <th>Unique</th><th>Top Categories</th><th>% Rare</th><th>Entropy</th>{header_extra}
 </tr></thead>
 <tbody>{rows}</tbody>
@@ -644,7 +644,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
     def _build_temporal_table(self, temporal: List[Dict]) -> str:
         if not temporal:
-            return "<p><em>No se encontraron columnas temporales.</em></p>"
+            return "<p><em>No temporal columns found.</em></p>"
 
         rows = ""
         for d in temporal:
@@ -663,7 +663,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div style="overflow-x:auto;">
 <table class="data-table">
 <thead><tr>
-    <th>Columna</th><th>Conteo</th><th>% Nulos</th>
+    <th>Column</th><th>Count</th><th>% Missing</th>
     <th>Min Date</th><th>Max Date</th><th>Days Span</th><th>Granularity</th>
 </tr></thead>
 <tbody>{rows}</tbody>
@@ -694,7 +694,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         consumption_heatmap = charts.get("consumption_heatmap", "")
 
         return f"""
-<h3>Columnas de Consumo ({len(periods)} períodos)</h3>
+<h3>Consumption Columns ({len(periods)} periods)</h3>
 <div class="stats-grid">
     <div class="stat-card">
         <div class="value">{consumption.get('pct_rows_with_any_zero', 0):.1f}%</div>
@@ -702,15 +702,15 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('pct_rows_all_zero', 0):.1f}%</div>
-        <div class="label">Filas Todo Cero</div>
+        <div class="label">Rows All Zero</div>
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('pct_negative', 0):.1f}%</div>
-        <div class="label">% Consumo Negativo</div>
+        <div class="label">% Negative Consumption</div>
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('pct_constant', 0):.1f}%</div>
-        <div class="label">Filas Constantes</div>
+        <div class="label">Constant Rows</div>
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('pct_abrupt_drop', 0):.1f}%</div>
@@ -718,7 +718,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     </div>
     <div class="stat-card">
         <div class="value">{consumption.get('trend_slope', 0):.4f}</div>
-        <div class="label">Pendiente de Tendencia</div>
+        <div class="label">Trend Slope</div>
     </div>
 </div>
 <div style="overflow-x:auto;">
@@ -735,7 +735,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         if not target:
             return """
 <div class="section" id="target">
-    <h2>Fase 3: Variable Objetivo</h2>
+    <h2>Phase 3: Target Variable</h2>
     <p><em>No target variable specified.</em></p>
 </div>
 """
@@ -757,10 +757,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 for d in temporal_rate[:24]
             )
             temporal_table = f"""
-<h3>Evolución Temporal de la Tasa de Fraude</h3>
+<h3>Temporal Evolution of Fraud Rate</h3>
 <div style="overflow-x:auto;">
 <table class="data-table">
-<thead><tr><th>Período</th><th>Total</th><th>Positivos</th><th>Tasa</th></tr></thead>
+<thead><tr><th>Period</th><th>Total</th><th>Positives</th><th>Rate</th></tr></thead>
 <tbody>{temporal_rows}</tbody>
 </table>
 </div>"""
@@ -770,19 +770,19 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         class_balance_chart = charts.get("class_balance", "")
         temporal_chart = charts.get("temporal_rate", "")
 
-        rec_labels = {"over": "Sobremuestreo (over-sampling)", "under": "Submuestreo (under-sampling)", "none": "Sin remuestreo necesario"}
+        rec_labels = {"over": "Oversampling (over-sampling)", "under": "Undersampling (under-sampling)", "none": "No resampling needed"}
         rec_html = rec_labels.get(recommendation, recommendation)
 
         return f"""
 <div class="section" id="target">
-    <h2>Fase 3: Variable Objetivo</h2>
+    <h2>Phase 3: Target Variable</h2>
     <div class="two-col">
         <div>
             <table class="data-table">
-            <thead><tr><th>Clase</th><th>Conteo</th><th>%</th></tr></thead>
+            <thead><tr><th>Class</th><th>Count</th><th>%</th></tr></thead>
             <tbody>{class_rows}</tbody>
             </table>
-            <p style="margin-top:15px;"><strong>Ratio de desbalance:</strong> {imbalance:.1f}:1</p>
+            <p style="margin-top:15px;"><strong>Imbalance Ratio:</strong> {imbalance:.1f}:1</p>
             <p><strong>Recommendation:</strong> {rec_html}</p>
         </div>
         <div>
@@ -798,7 +798,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         if not importance:
             return """
 <div class="section" id="importancia">
-    <h2>Fase 5: Importancia de Variables</h2>
+    <h2>Phase 5: Feature Importance</h2>
     <p><em>No target variable specified. Feature importance analysis skipped.</em></p>
 </div>
 """
@@ -839,26 +839,26 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 </table>
 </div>"""
 
-        weak_html = " ".join(f'<span class="pill">{c}</span>' for c in weak_features[:20]) if weak_features else "<em>Ninguna</em>"
+        weak_html = " ".join(f'<span class="pill">{c}</span>' for c in weak_features[:20]) if weak_features else "<em>None</em>"
         leakage_html = (
             " ".join(f'<span class="pill" style="background:#ffcdd2;color:#c62828;">{c}</span>' for c in leakage_candidates)
             if leakage_candidates
-            else "<em>Ninguna</em>"
+            else "<em>None</em>"
         )
 
         return f"""
 <div class="section" id="importancia">
-    <h2>Fase 5: Importancia de Variables</h2>
+    <h2>Phase 5: Feature Importance</h2>
 
     {f'<div class="chart-container">{iv_chart}</div>' if iv_chart else ''}
 
-    <h3>Top 20 Variables (by combined score)</h3>
+    <h3>Top 20 Features (by combined score)</h3>
     <p>{" ".join(f'<span class="pill"><strong>{i+1}.</strong> {c}</span>' for i, c in enumerate(top_features))}</p>
 
-    <h3>Variables con Bajo Poder Predictivo (IV &lt; umbral)</h3>
+    <h3>Low Predictive Power Features (IV &lt; threshold)</h3>
     <p>{weak_html}</p>
 
-    <h3>Candidatos a Data Leakage (IV muy alto)</h3>
+    <h3>Data Leakage Candidates (very high IV)</h3>
     <p>{leakage_html}</p>
 
     <h3>Ranking Completo (Top 30)</h3>
@@ -881,9 +881,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             f"<tr><td>{k}</td><td>{v}</td></tr>"
             for k, v in {
                 "Valid Records": f"{coord_quality.get('valid_coords_count', 0):,}",
-                "% Nulos": f"{coord_quality.get('null_pct', 0):.1f}%",
-                "% Coordenadas (0,0)": f"{coord_quality.get('zero_coord_pct', 0):.1f}%",
-                "Duplicados exactos": f"{coord_quality.get('duplicate_coords_pct', 0):.1f}%",
+                "% Missing": f"{coord_quality.get('null_pct', 0):.1f}%",
+                "% Coordinates (0,0)": f"{coord_quality.get('zero_coord_pct', 0):.1f}%",
+                "Exact Duplicates": f"{coord_quality.get('duplicate_coords_pct', 0):.1f}%",
             }.items()
         )
 
@@ -907,7 +907,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
     {f'<div class="chart-container">{mapbox_chart}</div>' if mapbox_chart else ''}
 
-    <h3>Calidad de Coordenadas</h3>
+    <h3>Coordinate Quality</h3>
     <table class="data-table">
         <thead><tr><th>Metric</th><th>Value</th></tr></thead>
         <tbody>{quality_rows}</tbody>
@@ -916,9 +916,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     {clustering_info}
 
     {f'''
-    <h3>Tasa de Fraude por Zona</h3>
+    <h3>Fraud Rate by Zone</h3>
     <table class="data-table">
-        <thead><tr><th>Zona</th><th>Tasa</th></tr></thead>
+        <thead><tr><th>Zone</th><th>Rate</th></tr></thead>
         <tbody>{zone_rows}</tbody>
     </table>
     ''' if zone_rows else ''}
@@ -949,7 +949,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
     {f'<div class="chart-container">{segment_chart}</div>' if segment_chart else ''}
 
-    <h3>Segmentos con Mayor Diferencia de Tasa de Fraude</h3>
+    <h3>Segments with Greatest Fraud Rate Difference</h3>
     <table class="data-table">
         <thead><tr><th>Segment</th><th>Size</th><th>%</th><th>Rate</th><th>Z-Score</th></tr></thead>
         <tbody>{segment_rows}</tbody>
@@ -977,7 +977,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         if not blocks:
             return ""
-        return f'<h3>Detalle por Columna ({type_label})</h3>{"".join(blocks)}'
+        return f'<h3>Column Detail ({type_label})</h3>{"".join(blocks)}'
 
     # ------------------------------------------------------------------
     # Related columns section
@@ -998,7 +998,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
             # Tree breakdown HTML
             tree = h_data.get("tree_breakdown", [])
-            tree_html = self._build_tree_html(tree) if tree else "<em>Sin datos</em>"
+            tree_html = self._build_tree_html(tree) if tree else "<em>No data</em>"
 
             # Cross tabulation table
             cross = h_data.get("cross_tabulation", [])
@@ -1012,7 +1012,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             sections_html += f"""
 <div id="hier_{safe_id}" style="margin-top:20px;">
     <h3>{h_name}</h3>
-    <p><strong>Columnas:</strong> {" → ".join(columns)}</p>
+    <p><strong>Columns:</strong> {" → ".join(columns)}</p>
 
     <h4>Hierarchical Breakdown</h4>
     <ul class="tree-list">{tree_html}</ul>
@@ -1026,7 +1026,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         return f"""
 <div class="section" id="relacionadas">
-    <h2>Fase 7: Columnas Relacionadas</h2>
+    <h2>Phase 7: Related Columns</h2>
     {sections_html}
 </div>
 """
@@ -1074,7 +1074,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <h4>Cross Tabulation (top 50)</h4>
 <div style="overflow-x:auto;">
 <table class="data-table">
-<thead><tr>{header}<th>Conteo</th></tr></thead>
+<thead><tr>{header}<th>Count</th></tr></thead>
 <tbody>{rows}</tbody>
 </table>
 </div>"""

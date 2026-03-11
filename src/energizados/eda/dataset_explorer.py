@@ -548,10 +548,16 @@ class DatasetExplorer:
                 try:
                     vc = df[col].value_counts()
                     if len(vc) > 30:
-                        col_charts["treemap"] = interactive_plotter.categorical_treemap(df, col)
-                    col_charts["bar"] = interactive_plotter.categorical_bar_chart(vc, col)
+                        try:
+                            col_charts["treemap"] = interactive_plotter.categorical_treemap(df, col)
+                        except Exception as e:
+                            logger.debug("Error generating treemap for '%s': %s", col, e)
+                    try:
+                        col_charts["bar"] = interactive_plotter.categorical_bar_chart(vc, col)
+                    except Exception as e:
+                        logger.debug("Error generating bar chart for '%s': %s", col, e)
                 except Exception as e:
-                    logger.debug("Error generating categorical charts for '%s': %s", col, e)
+                    logger.debug("Error computing value_counts for '%s': %s", col, e)
                 if target_series is not None:
                     try:
                         col_charts["target_rate"] = interactive_plotter.target_rate_by_category(df, col, self.target_column)

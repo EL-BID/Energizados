@@ -1,4 +1,10 @@
 Adicionalmente siempre se debe:
+* Nunca cargar en el contexto los directorios y sus archivos
+  - node_modules/
+  - htmlcov/
+  - .proyects/
+  - .plans/
+  - notebooks/
 * Actualizar CLAUDE.md y toda la documentación si fuera necesario.
 * Comprobar y arreglar los tests.
 * Comprobar las reglas pre-commit y asgurarse de que pasen los controles.

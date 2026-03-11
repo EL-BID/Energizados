@@ -139,9 +139,9 @@ models/artifacts
 */outputs/
 *.mp4
 
-# Refactors and aditional documents
-.plans/
-
 # TODO: Quitar del ignore cuando se termine
 docs/
-.sample*/
+.plans/
+.proyects/
+node_modules/
+
