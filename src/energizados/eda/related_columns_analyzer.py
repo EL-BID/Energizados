@@ -73,7 +73,7 @@ class RelatedColumnsAnalyzer(BaseExplorer):
 
         results = {}
         for hierarchy in hierarchies:
-            name = hierarchy.get("name", "Sin nombre")
+            name = hierarchy.get("name", "Unnamed")
             columns = hierarchy.get("columns", [])
 
             if not columns:

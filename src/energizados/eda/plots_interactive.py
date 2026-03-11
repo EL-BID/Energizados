@@ -451,46 +451,13 @@ class EDAInteractivePlots:
             return ""
 
     def categorical_treemap(self, df: pd.DataFrame, col: str) -> str:
-        """
-        Treemap chart showing category distribution.
-
-        Args:
-            df: Input DataFrame
-            col: Categorical column name
-
-        Returns:
-            str: HTML string of the Plotly chart
-        """
+        """Horizontal bar chart showing top 50 category distribution (replaces treemap)."""
         try:
-            import plotly.express as px
-
             series = df[col].dropna()
             if len(series) == 0:
                 return ""
-
-            top_cats = series.value_counts().head(50)
-            cat_df = top_cats.reset_index()
-            cat_df.columns = ["category", "count"]
-            cat_df["pct"] = (cat_df["count"] / cat_df["count"].sum() * 100).round(2)
-
-            fig = px.treemap(
-                cat_df,
-                path=["category"],
-                values="count",
-                color="pct",
-                color_continuous_scale="Blues",
-                title=f"Category Distribution: {col}",
-                hover_data={"pct": ":.2f"},
-                template=self.template,
-            )
-
-            fig.update_layout(height=500)
-
-            return self._to_html(fig)
-
-        except ImportError:
-            logger.warning("plotly not available, skipping categorical treemap")
-            return ""
+            vc = series.value_counts().head(50)
+            return self.categorical_bar_chart(vc, col, top_n=50)
         except Exception as e:
             logger.warning("Error generating categorical treemap for '%s': %s", col, e)
             return ""
@@ -683,8 +650,24 @@ class EDAInteractivePlots:
             return ""
 
     # ------------------------------------------------------------------
-    # Column detail charts
+    # Column detail charts (matplotlib/seaborn — embedded as base64 PNG)
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fig_to_html(fig, alt: str = "") -> str:
+        """Convert a matplotlib Figure to an <img> HTML tag with base64 PNG."""
+        import base64
+        import io
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode("utf-8")
+        buf.close()
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+        return f'<img src="data:image/png;base64,{b64}" alt="{alt}" style="max-width:100%;height:auto;"/>'
 
     def histogram_interactive(
         self,
@@ -692,37 +675,38 @@ class EDAInteractivePlots:
         col_name: str,
         target_series: Optional[pd.Series] = None,
     ) -> str:
-        """Histogram with optional KDE and split by binary target."""
+        """Histogram with KDE, split by binary target when available."""
         try:
-            import plotly.figure_factory as ff
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
 
             data = series.dropna()
             if len(data) == 0:
                 return ""
 
+            fig, ax = plt.subplots(figsize=(7, 4))
+            colors = ["#2196F3", "#F44336"]
+
             if target_series is not None:
                 mask = target_series.reindex(data.index).dropna()
                 common = data.index.intersection(mask.index)
-                groups = [data.loc[common[mask.loc[common] == v]].values for v in sorted(mask.unique())]
-                labels = [f"Clase {int(v)}" for v in sorted(mask.unique())]
-                groups = [g for g, _ in zip(groups, labels) if len(g) > 0]
-                labels = [l for g, l in zip(groups, labels) if len(g) > 0]
-                if not groups:
-                    groups = [data.values]
-                    labels = [col_name]
+                for i, v in enumerate(sorted(mask.unique())):
+                    subset = data.loc[common[mask.loc[common] == v]]
+                    if len(subset) > 0:
+                        ax.hist(subset, bins=30, alpha=0.5, color=colors[i % len(colors)], label=f"Class {int(v)}", density=True)
+                ax.legend()
             else:
-                groups = [data.values]
-                labels = [col_name]
+                ax.hist(data, bins=30, color="#2196F3", alpha=0.7, density=True)
 
-            fig = ff.create_distplot(groups, labels, show_hist=True, show_rug=False, bin_size=None)
-            fig.update_layout(
-                title=f"Distribution: {col_name}",
-                template=self.template,
-                height=400,
-                xaxis_title=col_name,
-                yaxis_title="Densidad",
-            )
-            return self._to_html(fig)
+            ax.set_title(f"Distribution: {col_name}", fontsize=12)
+            ax.set_xlabel(col_name)
+            ax.set_ylabel("Density")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"histogram {col_name}")
         except Exception as e:
             logger.warning("Error generating histogram for '%s': %s", col_name, e)
             return ""
@@ -733,31 +717,35 @@ class EDAInteractivePlots:
         col_name: str,
         target_series: Optional[pd.Series] = None,
     ) -> str:
-        """Boxplot, optionally split by binary target class."""
+        """Boxplot split by binary target when available."""
         try:
-            import plotly.graph_objects as go
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
 
             data = series.dropna()
             if len(data) == 0:
                 return ""
 
-            fig = go.Figure()
+            fig, ax = plt.subplots(figsize=(5, 4))
+
             if target_series is not None:
                 mask = target_series.reindex(data.index).dropna()
                 common = data.index.intersection(mask.index)
-                for v in sorted(mask.unique()):
-                    subset = data.loc[common[mask.loc[common] == v]]
-                    fig.add_trace(go.Box(y=subset, name=f"Clase {int(v)}"))
+                groups = [data.loc[common[mask.loc[common] == v]].values for v in sorted(mask.unique())]
+                labels = [f"Class {int(v)}" for v in sorted(mask.unique())]
+                groups = [g for g in groups if len(g) > 0]
+                ax.boxplot(groups, labels=labels[: len(groups)], patch_artist=True, boxprops={"facecolor": "#bbdefb"})
             else:
-                fig.add_trace(go.Box(y=data, name=col_name))
+                ax.boxplot(data.values, labels=[col_name], patch_artist=True, boxprops={"facecolor": "#bbdefb"})
 
-            fig.update_layout(
-                title=f"Boxplot: {col_name}",
-                template=self.template,
-                height=400,
-                yaxis_title=col_name,
-            )
-            return self._to_html(fig)
+            ax.set_title(f"Boxplot: {col_name}", fontsize=12)
+            ax.set_ylabel(col_name)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"boxplot {col_name}")
         except Exception as e:
             logger.warning("Error generating boxplot for '%s': %s", col_name, e)
             return ""
@@ -765,33 +753,32 @@ class EDAInteractivePlots:
     def categorical_bar_chart(self, value_counts: pd.Series, col_name: str, top_n: int = 30) -> str:
         """Horizontal bar chart of top N category frequencies."""
         try:
-            import plotly.graph_objects as go
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
 
             if value_counts is None or len(value_counts) == 0:
                 return ""
 
             top = value_counts.head(top_n)
             total = value_counts.sum()
-            pcts = (top / total * 100).round(2)
+            pcts = (top / total * 100).round(1)
 
-            fig = go.Figure(
-                go.Bar(
-                    y=top.index.astype(str),
-                    x=top.values,
-                    orientation="h",
-                    text=[f"{v:,} ({p:.1f}%)" for v, p in zip(top.values, pcts.values)],
-                    textposition="outside",
-                    marker_color="#2196F3",
-                )
-            )
-            fig.update_layout(
-                title=f"Frequencies: {col_name} (top {min(top_n, len(top))})",
-                template=self.template,
-                height=max(350, len(top) * 22),
-                yaxis={"categoryorder": "total ascending"},
-                xaxis_title="Count",
-            )
-            return self._to_html(fig)
+            height = max(4, len(top) * 0.35)
+            fig, ax = plt.subplots(figsize=(8, height))
+            y_pos = range(len(top))
+            bars = ax.barh(list(y_pos), top.values, color="#2196F3", alpha=0.8)
+            ax.set_yticks(list(y_pos))
+            ax.set_yticklabels([str(v)[:40] for v in top.index], fontsize=9)
+            for bar, pct in zip(bars, pcts):
+                ax.text(bar.get_width() * 1.01, bar.get_y() + bar.get_height() / 2, f"{pct:.1f}%", va="center", fontsize=8)
+            ax.set_title(f"Frequencies: {col_name} (top {len(top)})", fontsize=12)
+            ax.set_xlabel("Count")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"bar chart {col_name}")
         except Exception as e:
             logger.warning("Error generating bar chart for '%s': %s", col_name, e)
             return ""
@@ -805,7 +792,10 @@ class EDAInteractivePlots:
     ) -> str:
         """Bar chart of target rate per category value."""
         try:
-            import plotly.graph_objects as go
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
 
             if col not in df.columns or target_col not in df.columns:
                 return ""
@@ -817,25 +807,19 @@ class EDAInteractivePlots:
             grouped = sub.groupby(col)[target_col].agg(["mean", "count"])
             grouped = grouped.sort_values("mean", ascending=False).head(top_n)
             rates = (grouped["mean"] * 100).round(2)
+            median_rate = float(rates.median())
+            colors = ["#F44336" if r > median_rate else "#2196F3" for r in rates.values]
 
-            fig = go.Figure(
-                go.Bar(
-                    x=grouped.index.astype(str),
-                    y=rates.values,
-                    text=[f"{r:.1f}%<br>(n={c:,})" for r, c in zip(rates.values, grouped["count"].values)],
-                    textposition="outside",
-                    marker_color=["#F44336" if r > rates.median() else "#2196F3" for r in rates.values],
-                )
-            )
-            fig.update_layout(
-                title=f"Target Rate by: {col}",
-                template=self.template,
-                height=400,
-                xaxis_title=col,
-                yaxis_title="Target Rate (%)",
-                xaxis={"tickangle": -45},
-            )
-            return self._to_html(fig)
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.bar(range(len(rates)), rates.values, color=colors, alpha=0.85)
+            ax.set_xticks(range(len(rates)))
+            ax.set_xticklabels([str(v)[:20] for v in grouped.index], rotation=45, ha="right", fontsize=8)
+            ax.set_title(f"Target Rate by: {col}", fontsize=12)
+            ax.set_ylabel("Target Rate (%)")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"target rate {col}")
         except Exception as e:
             logger.warning("Error generating target rate chart for '%s': %s", col, e)
             return ""
@@ -845,35 +829,32 @@ class EDAInteractivePlots:
         return self.woe_chart(woe_table, col)
 
     def temporal_distribution_chart(self, series: pd.Series, col_name: str) -> str:
-        """Line chart showing distribution of records over time."""
+        """Line chart showing record count over time (monthly)."""
         try:
-            import plotly.graph_objects as go
+            import matplotlib
 
-            data = pd.to_datetime(series, errors="coerce").dropna()
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            data = pd.to_datetime(series, errors="coerce", format="mixed", dayfirst=True).dropna()
             if len(data) == 0:
                 return ""
 
             counts = data.dt.to_period("M").value_counts().sort_index()
             periods = [str(p) for p in counts.index]
 
-            fig = go.Figure(
-                go.Scatter(
-                    x=periods,
-                    y=counts.values,
-                    mode="lines+markers",
-                    line={"color": "#1a237e", "width": 2},
-                    marker={"size": 5},
-                )
-            )
-            fig.update_layout(
-                title=f"Temporal Distribution: {col_name}",
-                template=self.template,
-                height=400,
-                xaxis_title="Period",
-                yaxis_title="Records",
-                xaxis={"tickangle": -45},
-            )
-            return self._to_html(fig)
+            fig, ax = plt.subplots(figsize=(9, 4))
+            ax.plot(range(len(periods)), counts.values, color="#1a237e", linewidth=2, marker="o", markersize=4)
+            step = max(1, len(periods) // 12)
+            ax.set_xticks(range(0, len(periods), step))
+            ax.set_xticklabels(periods[::step], rotation=45, ha="right", fontsize=8)
+            ax.set_title(f"Temporal Distribution: {col_name}", fontsize=12)
+            ax.set_xlabel("Period")
+            ax.set_ylabel("Records")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"temporal {col_name}")
         except Exception as e:
             logger.warning("Error generating temporal distribution for '%s': %s", col_name, e)
             return ""

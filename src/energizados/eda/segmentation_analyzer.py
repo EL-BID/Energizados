@@ -187,8 +187,8 @@ class SegmentationAnalyzer(BaseExplorer):
                 self._add_alert(
                     code="POTENTIAL_MODEL_SEPARATION",
                     message=(
-                        f"Algunos segmentos tienen comportamiento muy diferente (max z={max_z_score:.1f}). "
-                        "Considere modelos separados o tratamiento especial para estos segmentos."
+                        f"Some segments show very different behavior (max z={max_z_score:.1f}). "
+                        "Consider separate models or special treatment for these segments."
                     ),
                     severity="INFO",
                     details={"top_segments": top_segments, "max_z_score": max_z_score},

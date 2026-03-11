@@ -122,7 +122,7 @@ class GeospatialAnalyzer(BaseExplorer):
                     code="GEO_DATA_INVALID",
                     message=(
                         f"High proportion of invalid or missing coordinates: {total_invalid_pct:.1f}. "
-                        "Verifique el proceso de carga de datos geoespaciales."
+                        "Verify the geospatial data loading process."
                     ),
                     severity="ERROR",
                     details={"invalid_pct": total_invalid_pct, "threshold": invalid_threshold},

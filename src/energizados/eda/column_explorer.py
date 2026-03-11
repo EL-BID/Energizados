@@ -140,7 +140,7 @@ class ColumnExplorer(BaseExplorer):
                 if neg_pct > 0:
                     self._add_alert(
                         code="NEGATIVE_CONSUMPTION",
-                        message=f"Se detectaron valores negativos de consumo en {neg_pct:.1f}% de las filas. Verifique el proceso de ETL.",
+                        message=f"Negative consumption values detected in {neg_pct:.1f}% of rows. Verify the ETL process.",
                         severity="WARNING",
                         details={"pct_negative": neg_pct},
                     )
@@ -165,7 +165,7 @@ class ColumnExplorer(BaseExplorer):
                         message=(
                             f"Found {len(highly_corr)} pair(s) of numeric variables "
                             f"with correlation > {correlation_threshold}. "
-                            "Considere eliminar redundancias."
+                            "Consider removing redundant features."
                         ),
                         severity="WARNING",
                         details={"pairs": highly_corr[:10]},
@@ -358,7 +358,7 @@ class ColumnExplorer(BaseExplorer):
         # Try to convert to datetime if not already
         try:
             if not pd.api.types.is_datetime64_any_dtype(series):
-                series = pd.to_datetime(series, errors="coerce")
+                series = pd.to_datetime(series, errors="coerce", format="mixed", dayfirst=True)
                 null_count = int(series.isna().sum())
                 count = total - null_count
         except Exception:  # nosec B110

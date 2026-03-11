@@ -187,7 +187,9 @@ class EDAReportGenerator:
         <div class="page-header">
             <h1>Exploratory Data Analysis Report</h1>
             <p>Generated: {now}</p>
-            <p>Dataset shape: {global_stats.get('shape', (0,0))[0]:,} rows × {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,} columns &nbsp;|&nbsp; Memory: {global_stats.get('memory_mb', 0):.2f} MB</p>  # noqa: E501
+            <p>Dataset shape: {global_stats.get('shape', (0,0))[0]:,}
+            rows × {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,}
+            columns &nbsp;|&nbsp; Memory: {global_stats.get('memory_mb', 0):.2f} MB</p>
         </div>
 
         <!-- Executive summary -->
@@ -1046,8 +1048,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
             items += (
                 f"<li><strong>{col}:</strong> {value}"
-                f' <span class="tree-badge">{count:,} — {pct_parent:.1f}% del padre</span>'
-                f' <span class="tree-badge" style="background:#fff3e0;color:#e65100;">{pct_total:.1f}% del total</span>'
+                f' <span class="tree-badge">{count:,} — {pct_parent:.1f}% of parent</span>'
+                f' <span class="tree-badge" style="background:#fff3e0;color:#e65100;">{pct_total:.1f}% of total</span>'
             )
 
             children = node.get("children", [])

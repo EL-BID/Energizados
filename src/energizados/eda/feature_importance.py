@@ -168,7 +168,7 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         score_cols = []
         for metric_col in ["iv", "ks_stat", "cramers_v", "correlation"]:
             if metric_col in ranking_df.columns:
-                series = ranking_df[metric_col].fillna(0)
+                series = ranking_df[metric_col].fillna(0).infer_objects(copy=False)
                 max_val = series.max()
                 if max_val > 0:
                     ranking_df[f"_norm_{metric_col}"] = series / max_val
@@ -203,9 +203,9 @@ class FeatureImportanceAnalyzer(BaseExplorer):
             self._add_alert(
                 code="WEAK_PREDICTORS",
                 message=(
-                    f"{len(weak_features)} variable(s) tienen IV < {iv_threshold_weak} "
-                    f"(poder predictivo muy bajo): {weak_features[:10]}. "
-                    "Considere eliminarlas para simplificar el modelo."
+                    f"{len(weak_features)} variable(s) have IV < {iv_threshold_weak} "
+                    f"(very low predictive power): {weak_features[:10]}. "
+                    "Consider removing them to simplify the model."
                 ),
                 severity="INFO",
                 details={"weak_features": weak_features, "threshold": iv_threshold_weak},
@@ -215,9 +215,9 @@ class FeatureImportanceAnalyzer(BaseExplorer):
             self._add_alert(
                 code="POTENTIAL_LEAKAGE",
                 message=(
-                    f"{len(leakage_candidates)} variable(s) tienen IV > {iv_threshold_leakage} "
-                    f"(posible data leakage): {leakage_candidates}. "
-                    "Verifique que estas variables no contengan información del futuro."
+                    f"{len(leakage_candidates)} variable(s) have IV > {iv_threshold_leakage} "
+                    f"(possible data leakage): {leakage_candidates}. "
+                    "Verify that these variables do not contain information from the future."
                 ),
                 severity="ERROR",
                 details={"leakage_candidates": leakage_candidates, "threshold": iv_threshold_leakage},

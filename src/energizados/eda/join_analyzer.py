@@ -138,8 +138,8 @@ class JoinAnalyzer(BaseExplorer):
                 code="HIGH_JOIN_LOSS",
                 message=(
                     f"High record loss in joins: {total_loss_pct:.1f}% "
-                    f"({total_loss:,} de {total_records:,} registros perdidos). "
-                    "Verifique que esto no introduce sesgo."
+                    f"({total_loss:,} of {total_records:,} records lost). "
+                    "Verify that this does not introduce bias."
                 ),
                 severity="WARNING",
                 details={"loss_pct": total_loss_pct, "loss_count": total_loss},

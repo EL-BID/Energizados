@@ -84,8 +84,8 @@ class LoadingValidator(BaseExplorer):
                 code="BOM_DETECTED",
                 message=(
                     f"Byte Order Mark (BOM) detected in {len(bom_cols)} column name(s). "
-                    "Esto ocurre cuando el archivo CSV fue guardado con encoding utf-8-sig (Windows). "
-                    "Use encoding='utf-8-sig' al cargar el archivo."
+                    "This happens when the CSV file was saved with utf-8-sig encoding (Windows). "
+                    "Use encoding='utf-8-sig' when loading the file."
                 ),
                 severity="WARNING",
                 details={"bom_columns": bom_cols},
@@ -139,8 +139,8 @@ class LoadingValidator(BaseExplorer):
                 code="NUMERIC_AS_STRING",
                 message=(
                     f"{len(numeric_as_string)} column(s) appear numeric but are stored as "
-                    f"texto con separador decimal de coma: {cols_list}. "
-                    "Use decimal=',' al cargar el CSV o convierta manualmente."
+                    f"string with comma decimal separator: {cols_list}. "
+                    "Use decimal=',' when loading the CSV or convert them manually."
                 ),
                 severity="WARNING",
                 details={"columns": numeric_as_string},
