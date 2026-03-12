@@ -1044,10 +1044,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             count = node.get("count", 0)
             pct_parent = node.get("pct_of_parent", 0)
             pct_total = node.get("pct_of_total", 0)
-            col = node.get("column", "")
 
             items += (
-                f"<li><strong>{col}:</strong> {value}"
+                f"<li><strong>{value}</strong>"
                 f' <span class="tree-badge">{count:,} — {pct_parent:.1f}% of parent</span>'
                 f' <span class="tree-badge" style="background:#fff3e0;color:#e65100;">{pct_total:.1f}% of total</span>'
             )
