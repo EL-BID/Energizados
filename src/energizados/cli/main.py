@@ -52,6 +52,7 @@ def cli(ctx, verbose):
     - run: Execute a pipeline from configuration
     - validate: Validate configuration file
     - eda: Run Exploratory Data Analysis on a dataset
+    - doctor: Check system information and validate environment
 
     Verbosity options:
         -v: INFO (shows informative messages)
@@ -114,6 +115,7 @@ def init(ctx, project_name, template, path, copy_from, force):
         energizados init my_project --force      # Replace if exists
     """
     from energizados.cli.init import create_project
+    from energizados.cli.ui import console, print_error, print_info, print_success
 
     project_path = Path(path) / project_name
 
@@ -121,11 +123,11 @@ def init(ctx, project_name, template, path, copy_from, force):
         if copy_from:
             source_path = Path(path) / copy_from
             if not source_path.exists():
-                click.echo(f"\n✗ Source project '{copy_from}' does not exist at: {source_path}", err=True)
+                print_error(f"Source project '{copy_from}' does not exist at: {source_path}")
                 raise click.Abort()
-            click.echo(f"📋 Copying project from '{copy_from}'...")
+            print_info(f"Copying project from '{copy_from}'...")
         else:
-            click.echo(f"🚀 Creating project '{project_name}'...")
+            print_info(f"Creating project '{project_name}'...")
 
         create_project(
             project_name=project_name,
@@ -134,21 +136,21 @@ def init(ctx, project_name, template, path, copy_from, force):
             copy_from=copy_from,
             force=force,
         )
-        click.echo(f"\n✓ Project created successfully at: {project_path}")
-        click.echo("\n📝 Next steps:")
-        click.echo(f"  1. cd {project_name}")
-        click.echo("  2. Edit the configuration files in config/:")
-        click.echo("     - etls.yaml")
-        click.echo("     - training.yaml")
-        click.echo("     - inference.yaml")
-        click.echo("     - eda.yaml")
-        click.echo("  3. (Optional) Customize src/data/custom_etl.py")
-        click.echo("  4. energizados eda --config config/eda.yaml")
-        click.echo("  5. energizados run --config config/etls.yaml --config config/training.yaml")
+        print_success(f"Project created successfully at: {project_path}")
+        console.print("\n[bold]Next steps:[/]")
+        console.print(f"  [cyan]1.[/] cd {project_name}")
+        console.print("  [cyan]2.[/] Edit the configuration files in config/:")
+        console.print("     - etls.yaml")
+        console.print("     - training.yaml")
+        console.print("     - inference.yaml")
+        console.print("     - eda.yaml")
+        console.print("  [cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
+        console.print("  [cyan]4.[/] energizados eda --config config/eda.yaml")
+        console.print("  [cyan]5.[/] energizados run --config config/etls.yaml --config config/training.yaml")
     except FileExistsError as e:
         # Ask if they want to delete and recreate
         if click.confirm(f"\n{e}\nDo you want to delete the existing directory and recreate it?", default=False):
-            click.echo("🗑️  Removing existing directory...")
+            print_info("Removing existing directory...")
             create_project(
                 project_name=project_name,
                 project_path=project_path,
@@ -156,20 +158,20 @@ def init(ctx, project_name, template, path, copy_from, force):
                 copy_from=copy_from,
                 force=True,
             )
-            click.echo(f"\n✓ Project created successfully at: {project_path}")
-            click.echo("\n📝 Next steps:")
-            click.echo(f"  1. cd {project_name}")
-            click.echo("  2. Edit the configuration files in config/:")
-            click.echo("     - etls.yaml")
-            click.echo("     - training.yaml")
-            click.echo("     - inference.yaml")
-            click.echo("  3. (Optional) Customize src/data/custom_etl.py")
-            click.echo("  4. energizados run --config config/etls.yaml --config config/training.yaml")
+            print_success(f"Project created successfully at: {project_path}")
+            console.print("\n[bold]Next steps:[/]")
+            console.print(f"  [cyan]1.[/] cd {project_name}")
+            console.print("  [cyan]2.[/] Edit the configuration files in config/:")
+            console.print("     - etls.yaml")
+            console.print("     - training.yaml")
+            console.print("     - inference.yaml")
+            console.print("  [cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
+            console.print("  [cyan]4.[/] energizados run --config config/etls.yaml --config config/training.yaml")
         else:
-            click.echo("\n✗ Operation cancelled.", err=True)
+            print_error("Operation cancelled.")
             raise click.Abort()
     except Exception as e:
-        click.echo(f"\n✗ Error creating project: {e}", err=True)
+        print_error(f"Error creating project: {e}")
         raise click.Abort()
 
 
@@ -221,35 +223,36 @@ def run(ctx, config_paths, step, etl, dry_run):
         execute_pipeline,
         execute_step,
     )
+    from energizados.cli.ui import print_error, print_info, print_success
 
     try:
         # If --etl is specified, execute specific ETLs
         if etl:
-            click.echo(f"⚡ Executing ETL '{etl}' (and its dependencies)...")
+            print_info(f"Executing ETL '{etl}' (and its dependencies)...")
             execute_etl(list(config_paths), etl_name=etl, dry_run=dry_run)
             if not dry_run:
-                click.echo("\n✓ ETLs completed successfully")
+                print_success("ETLs completed successfully")
             return
 
         # If --step is specified, execute only that step
         if step:
             if dry_run:
-                click.echo(f"🔍 Dry-run mode for step '{step}'...")
+                print_info(f"Dry-run mode for step '{step}'...")
                 from energizados.cli.validate import validate_config
 
                 validate_config(list(config_paths), verbose=True)
                 return
 
-            click.echo(f"⚡ Executing step '{step}' of the pipeline...")
+            print_info(f"Executing step '{step}' of the pipeline...")
             execute_step(list(config_paths), step)
-            click.echo("\n✓ Step completed successfully")
+            print_success("Step completed successfully")
             return
 
         # If dry-run without step or etl, show ETLs plan if it exists
         if dry_run:
             from energizados.cli.run import show_etl_plan
 
-            click.echo("🔍 Dry-run mode - showing execution plan...")
+            print_info("Dry-run mode - showing execution plan...")
             try:
                 plan = show_etl_plan(list(config_paths))
                 click.echo(plan)
@@ -261,12 +264,12 @@ def run(ctx, config_paths, step, etl, dry_run):
             return
 
         # Execute complete pipeline
-        click.echo("⚡ Executing complete pipeline...")
+        print_info("Executing complete pipeline...")
         execute_pipeline(list(config_paths))
-        click.echo("\n✓ Pipeline completed successfully")
+        print_success("Pipeline completed successfully")
 
     except Exception as e:
-        click.echo(f"\n✗ Error executing pipeline: {e}", err=True)
+        print_error(f"Error executing pipeline: {e}")
         raise click.Abort()
 
 
@@ -294,15 +297,16 @@ def validate(ctx, config_paths, verbose):
     This command verifies that the configuration file(s) are valid
     and that all references to classes and parameters are correct.
     """
+    from energizados.cli.ui import print_error, print_info, print_success
     from energizados.cli.validate import validate_config
 
     try:
         for config_path in config_paths:
-            click.echo(f"🔍 Validating configuration: {config_path}")
+            print_info(f"Validating: {config_path}")
         validate_config(list(config_paths), verbose=verbose)
-        click.echo("\n✓ Configuration is valid")
+        print_success("Configuration is valid")
     except Exception as e:
-        click.echo(f"\n✗ Validation failed: {e}", err=True)
+        print_error(f"Validation failed: {e}")
         raise click.Abort()
 
 
@@ -398,7 +402,9 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
             with open(config_path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f) or {}
         except Exception as e:
-            click.echo(f"\n✗ Error leyendo configuración: {e}", err=True)
+            from energizados.cli.ui import print_error
+
+            print_error(f"Error leyendo configuración: {e}")
             raise click.Abort()
 
     # CLI args override config
@@ -429,9 +435,12 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
         etl_entry = etls_cfg.get(etl_name, {})
         resolved_input = etl_entry.get("output")
         if not resolved_input:
-            click.echo(f"\n✗ ETL '{etl_name}' no encontrado o sin 'output' definido en la configuración.", err=True)
+            from energizados.cli.ui import print_error, print_step
+
+            print_error(f"ETL '{etl_name}' no encontrado o sin 'output' definido en la configuración.")
             raise click.Abort()
-        click.echo(f"  Usando output del ETL '{etl_name}': {resolved_input}")
+
+        print_step(f"Usando output del ETL '{etl_name}': {resolved_input}")
 
     if not resolved_input:
         data_sources = eda_cfg.get("data_sources", {})
@@ -439,7 +448,9 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
         resolved_input = primary.get("path")
 
     if not resolved_input:
-        click.echo("\n✗ Se requiere --input, --etl, o config/eda.yaml con data_sources.primary.path", err=True)
+        from energizados.cli.ui import print_error
+
+        print_error("Se requiere --input, --etl, o config/eda.yaml con data_sources.primary.path")
         raise click.Abort()
 
     # Resolve output dir
@@ -455,16 +466,18 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
         resolved_target = data_sources.get("primary", {}).get("target_col")
 
     if dry_run:
-        click.echo("Modo dry-run - configuración que se usaría:")
-        click.echo(f"  Entrada:  {resolved_input}")
-        click.echo(f"  Target:   {resolved_target or '(no especificado)'}")
-        click.echo(f"  Salida:   {resolved_output}")
+        from energizados.cli.ui import console
+
+        console.print("[dim]Modo dry-run - configuración que se usaría:[/]")
+        console.print(f"[dim]  Entrada:  {resolved_input}[/]")
+        console.print(f"[dim]  Target:   {resolved_target or '(no especificado)'}[/]")
+        console.print(f"[dim]  Salida:   {resolved_output}[/]")
         if etl_name:
-            click.echo(f"  ETL:      {etl_name}")
+            console.print(f"[dim]  ETL:      {etl_name}[/]")
         if lat_col or lon_col:
-            click.echo(f"  Coordenadas: lat={lat_col}, lon={lon_col}")
+            console.print(f"[dim]  Coordenadas: lat={lat_col}, lon={lon_col}[/]")
         if skip_sections:
-            click.echo(f"  Secciones omitidas: {skip_sections}")
+            console.print(f"[dim]  Secciones omitidas: {skip_sections}[/]")
         return
 
     try:
@@ -492,15 +505,74 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
         error_count = sum(1 for a in results.get("alerts", []) if a.get("severity") == "ERROR")
         warning_count = sum(1 for a in results.get("alerts", []) if a.get("severity") == "WARNING")
 
-        click.echo("\n✓ EDA completado exitosamente")
-        click.echo(f"  Reporte: {report_path}")
-        click.echo(f"  Alertas: {alert_count} total ({error_count} errores, {warning_count} advertencias)")
+        from energizados.cli.ui import console, print_error, print_success
+
+        print_success("EDA completado exitosamente")
+        console.print(f"  Reporte: {report_path}")
+        console.print(f"  Alertas: {alert_count} total ({error_count} errores, {warning_count} advertencias)")
 
     except FileNotFoundError as e:
-        click.echo(f"\n✗ Archivo no encontrado: {e}", err=True)
+        from energizados.cli.ui import print_error
+
+        print_error(f"Archivo no encontrado: {e}")
         raise click.Abort()
     except Exception as e:
-        click.echo(f"\n✗ Error ejecutando EDA: {e}", err=True)
+        from energizados.cli.ui import print_error
+
+        print_error(f"Error ejecutando EDA: {e}")
+        raise click.Abort()
+
+
+@cli.command()
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed system information",
+)
+@click.option(
+    "--optional",
+    "-o",
+    is_flag=True,
+    help="Include optional visualization packages (matplotlib, seaborn)",
+)
+@click.pass_context
+def doctor(ctx, verbose, optional):
+    """
+    Check system information and validate environment.
+
+    This command displays system information and validates that
+    the Python version and required packages meet the minimum
+    requirements for Energizados.
+
+    Examples:
+        energizados doctor
+        energizados doctor --verbose
+        energizados doctor --optional
+    """
+    from energizados.cli.doctor import format_report, run_checks
+    from energizados.cli.ui import print_error, print_info
+
+    try:
+        print_info("Running environment diagnostics...")
+
+        report = run_checks(include_optional=optional)
+        output = format_report(report, verbose=verbose)
+
+        click.echo(output)
+
+        if not report.is_healthy():
+            # Exit with error code but don't print extra message
+            raise SystemExit(1)
+
+    except click.Abort:
+        # User aborted or intentional exit
+        raise
+    except SystemExit:
+        # Forward the exit code
+        raise
+    except Exception as e:
+        print_error(f"Error running diagnostics: {e}")
         raise click.Abort()
 
 

@@ -173,15 +173,52 @@ def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = F
     else:
         orchestrator = ETLOrchestrator(etl_configs)
 
-    # Show execution plan
-    print(orchestrator.get_execution_plan())
-
     if dry_run:
+        print(orchestrator.get_execution_plan())
         print("\n--dry-run: ETLs were not executed --")
         return {}
 
-    # Execute ETLs
-    results = orchestrator.run()
+    # Execute ETLs with Rich progress display
+    from rich.console import Console
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
+    results = {}
+    completed_etls = []
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold cyan]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=Console(),
+    ) as progress:
+        total_etls = len(orchestrator.etl_configs)
+        main_task = progress.add_task("ETL Pipeline", total=total_etls)
+
+        def on_etl_start(name, idx, total):
+            progress.update(main_task, description=f"ETL Pipeline — [yellow]{name}[/]")
+
+        def on_etl_complete(name, rows):
+            completed_etls.append((name, rows))
+            progress.advance(main_task)
+            progress.update(main_task, description=f"ETL Pipeline — [green]✓ {name}[/] ({rows:,} rows)")
+
+        def on_etl_error(name, err):
+            progress.update(main_task, description=f"ETL Pipeline — [red]✗ {name}[/]")
+
+        orchestrator.on_etl_start = on_etl_start
+        orchestrator.on_etl_complete = on_etl_complete
+        orchestrator.on_etl_error = on_etl_error
+
+        results = orchestrator.run()
 
     return results
 

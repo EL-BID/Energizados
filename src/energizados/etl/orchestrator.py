@@ -54,7 +54,7 @@ class ETLOrchestrator:
         >>> results = orchestrator.run()
     """
 
-    def __init__(self, etl_configs: Dict[str, Dict]):
+    def __init__(self, etl_configs: Dict[str, Dict], on_etl_start=None, on_etl_complete=None, on_etl_error=None):
         """Initialize the orchestrator.
 
         Args:
@@ -64,6 +64,9 @@ class ETLOrchestrator:
         self.etl_instances: Dict[str, object] = {}
         self.execution_order: List[str] = []
         self.results: Dict[str, pd.DataFrame] = {}
+        self.on_etl_start = on_etl_start
+        self.on_etl_complete = on_etl_complete
+        self.on_etl_error = on_etl_error
 
     def validate_dependencies(self) -> None:
         """
@@ -284,12 +287,18 @@ class ETLOrchestrator:
             # Execute ETL
             etl = self.etl_instances.get(etl_name)
             if etl:
+                if self.on_etl_start:
+                    self.on_etl_start(etl_name, i, len(self.execution_order))
                 try:
                     result = etl.run(output_path=etl_config["output"])
                     self.results[etl_name] = result
                     logger.info(f"✓ {etl_name} completed ({len(result)} rows)")
+                    if self.on_etl_complete:
+                        self.on_etl_complete(etl_name, len(result))
                 except Exception as e:
                     logger.error(f"✗ {etl_name} failed: {e}")
+                    if self.on_etl_error:
+                        self.on_etl_error(etl_name, e)
                     raise ETLError(f"Error executing ETL '{etl_name}': {e}")
 
         logger.info(f"\n{'=' * 60}")

@@ -47,7 +47,7 @@ class TestInitCommand:
             assert (project_path / "src" / "run").exists()
 
             # Verify execution scripts
-            assert (project_path / "src" / "run" / "01_etl.py").exists()
+            assert (project_path / "src" / "run" / "00_etl.py").exists()
             assert (project_path / "src" / "run" / "02_training.py").exists()
             assert (project_path / "src" / "run" / "03_inference.py").exists()
 
