@@ -3,6 +3,7 @@ Training Run Index Generator for Energizados Framework.
 
 Generates an HTML index of all training runs in the output directory,
 showing metrics and links to individual evaluation reports.
+Phase 4: Search/filter, Accuracy/Threshold columns, delta comparison, mini bar charts.
 """
 
 import json
@@ -11,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from energizados.evaluation._html_templates import INDEX_CSS
+from energizados.evaluation._html_templates import DARK_TOGGLE_JS, INDEX_CSS
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class RunIndexGenerator:
 
     Scans output/train-*/ directories, reads evaluation JSON reports,
     and generates a summary table with metrics and links to reports.
-    Supports side-by-side run comparison via checkboxes (MEJORAS P4-14).
+    Supports side-by-side run comparison via checkboxes.
 
     Example:
         >>> generator = RunIndexGenerator()
@@ -122,6 +123,10 @@ class RunIndexGenerator:
         table_rows = self._build_table_rows(runs)
         run_count = len(runs)
 
+        # Collect unique model types for dropdown filter
+        model_types = sorted({r["model_type"] for r in runs if r.get("model_type") and r["model_type"] != "—"})
+        model_type_options = "".join(f'<option value="{m}">{m}</option>' for m in model_types)
+
         return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,6 +139,7 @@ class RunIndexGenerator:
 </head>
 <body>
     <div class="header">
+        <button class="dark-toggle" id="dark-toggle-btn">☾ Dark</button>
         <h1>Training Runs Index</h1>
         <p>Generated on {generated_at} &nbsp;·&nbsp; {run_count} run(s) found in <code>{output_dir.resolve().name}/</code></p>
     </div>
@@ -145,6 +151,8 @@ class RunIndexGenerator:
         </div>
         {self._build_best_metric_card(runs, "auc", "Best AUC")}
         {self._build_best_metric_card(runs, "f1", "Best F1")}
+        {self._build_best_metric_card(runs, "precision", "Best Precision")}
+        {self._build_best_metric_card(runs, "recall", "Best Recall")}
     </div>
 
     <div id="comparison-panel">
@@ -159,6 +167,13 @@ class RunIndexGenerator:
         <div class="section-header">
             <h2>All Training Runs</h2>
         </div>
+        <div class="search-row">
+            <input type="text" class="search-bar" id="search-input" placeholder="Search by run name, model…" oninput="filterTable()">
+            <select class="filter-dropdown" id="model-filter" onchange="filterTable()">
+                <option value="">All models</option>
+                {model_type_options}
+            </select>
+        </div>
         {self._build_table(table_rows, run_count)}
     </div>
 
@@ -172,6 +187,7 @@ class RunIndexGenerator:
         <button class="btn-clear-compare" onclick="clearComparison()">Clear</button>
     </div>
 
+    {DARK_TOGGLE_JS}
     <script>
         // ----------------------------------------------------------------
         // Column sorting
@@ -201,7 +217,23 @@ class RunIndexGenerator:
         }});
 
         // ----------------------------------------------------------------
-        // Run comparison (MEJORAS P4-14)
+        // Search & filter
+        // ----------------------------------------------------------------
+        function filterTable() {{
+            var query = document.getElementById('search-input').value.toLowerCase();
+            var modelFilter = document.getElementById('model-filter').value.toLowerCase();
+            document.querySelectorAll('tbody tr').forEach(function(row) {{
+                var text = row.textContent.toLowerCase();
+                var modelCell = row.querySelectorAll('td')[3];
+                var modelText = modelCell ? modelCell.textContent.toLowerCase() : '';
+                var matchSearch = !query || text.includes(query);
+                var matchModel = !modelFilter || modelText.includes(modelFilter);
+                row.classList.toggle('hidden', !(matchSearch && matchModel));
+            }});
+        }}
+
+        // ----------------------------------------------------------------
+        // Run comparison
         // ----------------------------------------------------------------
         var selectedRuns = {{}};
 
@@ -221,7 +253,8 @@ class RunIndexGenerator:
             cb.addEventListener('change', function() {{
                 var row = cb.closest('tr');
                 var cells = row.querySelectorAll('td');
-                // col 0 = checkbox, col 1 = run name, col 2 = timestamp, etc.
+                // col 0=checkbox, 1=run, 2=timestamp, 3=model,
+                // 4=AUC, 5=F1, 6=Precision, 7=Recall, 8=Accuracy, 9=Threshold, 10=Report
                 var runName = cells[1].textContent.trim();
                 if (cb.checked) {{
                     row.classList.add('selected');
@@ -232,7 +265,9 @@ class RunIndexGenerator:
                         auc: cells[4].getAttribute('data-val') || cells[4].textContent.trim(),
                         f1: cells[5].getAttribute('data-val') || cells[5].textContent.trim(),
                         precision: cells[6].getAttribute('data-val') || cells[6].textContent.trim(),
-                        recall: cells[7].getAttribute('data-val') || cells[7].textContent.trim()
+                        recall: cells[7].getAttribute('data-val') || cells[7].textContent.trim(),
+                        accuracy: cells[8].getAttribute('data-val') || cells[8].textContent.trim(),
+                        threshold: cells[9].getAttribute('data-val') || cells[9].textContent.trim()
                     }};
                 }} else {{
                     row.classList.remove('selected');
@@ -245,10 +280,12 @@ class RunIndexGenerator:
         function showComparison() {{
             var panel = document.getElementById('comparison-panel');
             var runs = Object.values(selectedRuns);
+            var isTwo = runs.length === 2;
 
             var headers = '<th></th>' + runs.map(function(r) {{
-                return '<th style="color:#667eea">' + r.run + '</th>';
+                return '<th style="color:var(--primary)">' + r.run + '</th>';
             }}).join('');
+            if (isTwo) headers += '<th>Delta</th>';
 
             var metricRows = [
                 ['Timestamp', runs.map(function(r) {{ return {{ val: r.timestamp, numeric: false }}; }})],
@@ -256,7 +293,9 @@ class RunIndexGenerator:
                 ['AUC', runs.map(function(r) {{ return {{ val: r.auc, numeric: true }}; }})],
                 ['F1', runs.map(function(r) {{ return {{ val: r.f1, numeric: true }}; }})],
                 ['Precision', runs.map(function(r) {{ return {{ val: r.precision, numeric: true }}; }})],
-                ['Recall', runs.map(function(r) {{ return {{ val: r.recall, numeric: true }}; }})]
+                ['Recall', runs.map(function(r) {{ return {{ val: r.recall, numeric: true }}; }})],
+                ['Accuracy', runs.map(function(r) {{ return {{ val: r.accuracy, numeric: true }}; }})],
+                ['Threshold', runs.map(function(r) {{ return {{ val: r.threshold, numeric: true }}; }})]
             ];
 
             var rowsHtml = metricRows.map(function(row) {{
@@ -269,10 +308,30 @@ class RunIndexGenerator:
                 }}
                 var cellsHtml = cells.map(function(c) {{
                     var highlight = (best !== null && parseFloat(c.val) === best) ?
-                        ' style="color:#28a745;font-weight:700"' : '';
-                    return '<td' + highlight + '>' + c.val + '</td>';
+                        ' style="color:var(--positive);font-weight:700"' : '';
+                    // Mini bar (only for numeric metrics 0..1)
+                    var barHtml = '';
+                    if (cells[0].numeric && parseFloat(c.val) <= 1 && parseFloat(c.val) >= 0) {{
+                        var pct = (parseFloat(c.val) * 100).toFixed(1);
+                        barHtml = '<div class="mini-bar-wrap"><div class="mini-bar" style="width:' + pct + 'px"></div></div>';
+                    }}
+                    return '<td' + highlight + '>' + c.val + barHtml + '</td>';
                 }}).join('');
-                return '<tr><td>' + label + '</td>' + cellsHtml + '</tr>';
+
+                // Delta column for exactly 2 runs
+                var deltaHtml = '';
+                if (isTwo && cells[0].numeric) {{
+                    var v0 = parseFloat(cells[0].val), v1 = parseFloat(cells[1].val);
+                    if (!isNaN(v0) && !isNaN(v1)) {{
+                        var delta = (v1 - v0).toFixed(4);
+                        var cls = v1 > v0 ? 'delta-positive' : (v1 < v0 ? 'delta-negative' : '');
+                        deltaHtml = '<td class="' + cls + '">' + (v1 > v0 ? '+' : '') + delta + '</td>';
+                    }} else {{
+                        deltaHtml = '<td>—</td>';
+                    }}
+                }}
+
+                return '<tr><td>' + label + '</td>' + cellsHtml + deltaHtml + '</tr>';
             }}).join('');
 
             document.getElementById('comparison-body').innerHTML =
@@ -336,9 +395,11 @@ class RunIndexGenerator:
             f1_cls = self._metric_class(run.get("f1"), "f1")
             prec_cls = self._metric_class(run.get("precision"), "precision")
             rec_cls = self._metric_class(run.get("recall"), "recall")
+            acc_cls = self._metric_class(run.get("accuracy"), "accuracy")
 
             # col 0: checkbox  col 1: run  col 2: timestamp  col 3: model
-            # col 4: AUC  col 5: F1  col 6: Precision  col 7: Recall  col 8: Report
+            # col 4: AUC  col 5: F1  col 6: Precision  col 7: Recall
+            # col 8: Accuracy  col 9: Threshold  col 10: Report
             rows.append(f"""
             <tr>
                 <td style="width:30px;text-align:center"><input type="checkbox" class="row-select"></td>
@@ -349,6 +410,8 @@ class RunIndexGenerator:
                 <td class="metric {f1_cls}" data-val="{run.get('f1', '')}">{self._fmt(run.get('f1'))}</td>
                 <td class="metric {prec_cls}" data-val="{run.get('precision', '')}">{self._fmt(run.get('precision'))}</td>
                 <td class="metric {rec_cls}" data-val="{run.get('recall', '')}">{self._fmt(run.get('recall'))}</td>
+                <td class="metric {acc_cls}" data-val="{run.get('accuracy', '')}">{self._fmt(run.get('accuracy'))}</td>
+                <td class="metric" data-val="{run.get('threshold', '')}">{self._fmt(run.get('threshold'))}</td>
                 <td>{link_html}</td>
             </tr>""")
         return rows
@@ -359,7 +422,8 @@ class RunIndexGenerator:
             return '<div class="no-runs">No training runs found yet. Run a training to see results here.</div>'
 
         rows_html = "".join(rows)
-        # data-col values offset by 1 due to checkbox column at position 0
+        # data-col values: 0=checkbox, 1=run, 2=timestamp, 3=model, 4=AUC, 5=F1,
+        # 6=Precision, 7=Recall, 8=Accuracy, 9=Threshold
         return f"""
         <table>
             <thead>
@@ -372,6 +436,8 @@ class RunIndexGenerator:
                     <th data-col="5">F1</th>
                     <th data-col="6">Precision</th>
                     <th data-col="7">Recall</th>
+                    <th data-col="8">Accuracy</th>
+                    <th data-col="9">Threshold</th>
                     <th class="no-sort">Report</th>
                 </tr>
             </thead>

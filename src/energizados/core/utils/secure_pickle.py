@@ -3,7 +3,6 @@
 import hashlib
 import logging
 import pickle  # nosec B403
-import warnings
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -77,11 +76,7 @@ def secure_load(path: str, trust_pickle: bool = False):
                 )
             logger.debug(f"Integrity verified for: {path}")
         else:
-            warnings.warn(
-                f"Loading '{path}' without integrity verification " "(no .sig file found). Only load pickle files from trusted sources.",
-                UserWarning,
-                stacklevel=2,
-            )
+            logger.debug(f"Loading '{path}' without .sig file (integrity check skipped)")
 
     with open(path, "rb") as f:
         return pickle.load(f)  # nosec B301
