@@ -13,75 +13,138 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+from energizados.evaluation._html_templates import DARK_TOGGLE_JS, SHARED_CSS
+
 logger = logging.getLogger(__name__)
 
-_EDA_CSS = """
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; }
+_EDA_CSS = SHARED_CSS + """
+/* ── Base ─────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background-color: var(--bg);
+    margin: 0;
+    padding: 0;
+}
+/* ── Layout: sidebar + main ───────────────────────────────────────────── */
 .layout { display: flex; min-height: 100vh; }
 .sidebar {
-    width: 260px; min-width: 260px; background: #1a237e; color: #fff;
-    padding: 20px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    width: 240px; min-width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    flex-shrink: 0;
+    box-shadow: 2px 0 4px var(--shadow-sm);
 }
-.sidebar h2 { padding: 0 20px 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #90caf9; border-bottom: 1px solid #283593; }
-.sidebar ul { list-style: none; padding: 10px 0; }
-.sidebar ul li a {
-    display: block; padding: 10px 20px; color: #e3f2fd; text-decoration: none;
-    font-size: 13px; transition: background 0.2s;
+.sidebar-title {
+    font-size: 0.7em; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-faint);
+    padding: 0 16px 8px 16px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
 }
-.sidebar ul li a:hover { background: #283593; }  # noqa: E501
-.sidebar ul li a.active { background: #1565c0; border-left: 3px solid #90caf9; }
-.sidebar .section-group { margin-bottom: 5px; }
-.sidebar .section-group .group-title { padding: 8px 20px 4px; font-size: 11px; text-transform: uppercase; color: #7986cb; letter-spacing: 0.5px; }  # noqa: E501
-.main { flex: 1; padding: 30px; max-width: calc(100vw - 260px); }
-.page-header { background: linear-gradient(135deg, #1a237e, #283593); color: #fff; padding: 30px; border-radius: 12px; margin-bottom: 30px; }  # noqa: E501
-.page-header h1 { font-size: 26px; margin-bottom: 8px; }
-.page-header p { color: #90caf9; font-size: 14px; }
-.section { background: #fff; border-radius: 10px; padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.section h2 { font-size: 18px; color: #1a237e; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e8eaf6; }
-.section h3 { font-size: 15px; color: #283593; margin: 15px 0 10px; }
+.sidebar ul { list-style: none; padding: 0; margin: 0; }
+.sidebar a, .sidebar ul li a {
+    display: block; padding: 8px 16px;
+    color: var(--text-muted); text-decoration: none;
+    font-size: 0.88em; border-left: 3px solid transparent;
+    transition: all 0.15s;
+}
+.sidebar a:hover, .sidebar ul li a:hover {
+    color: var(--primary); background: var(--surface-alt);
+    border-left-color: var(--primary);
+}
+.main { flex: 1; padding: 24px; min-width: 0; }
+@media (max-width: 900px) { .sidebar { display: none; } .main { padding: 16px; } }
+/* ── Header ───────────────────────────────────────────────────────────── */
+.header {
+    background: var(--header-gradient); color: white;
+    padding: 30px; border-radius: 10px; margin-bottom: 30px;
+    box-shadow: 0 4px 6px var(--shadow); position: relative;
+}
+.header h1 { margin: 0; font-size: 2.2em; }
+.header p { margin: 6px 0 0 0; opacity: 0.9; }
+/* ── Sections ─────────────────────────────────────────────────────────── */
+.section {
+    background: var(--surface); padding: 25px; margin-bottom: 20px;
+    border-radius: 10px; box-shadow: 0 2px 4px var(--shadow);
+}
+.section h2 { color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-top: 0; }
+.section h3 { color: var(--primary); font-size: 1em; margin: 20px 0 10px; font-weight: 600; }
+.section h4 { color: var(--text-muted); font-size: 0.9em; margin: 12px 0 8px; }
+/* ── Stats grid ───────────────────────────────────────────────────────── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px; }
-.stat-card { background: #e8eaf6; border-radius: 8px; padding: 15px; text-align: center; }
-.stat-card .value { font-size: 24px; font-weight: bold; color: #1a237e; }
-.stat-card .label { font-size: 12px; color: #666; margin-top: 5px; }
+.stat-card {
+    background: var(--surface-alt); border-radius: 8px; padding: 15px;
+    text-align: center; border-left: 4px solid var(--primary);
+}
+.stat-card .value { font-size: 1.8em; font-weight: bold; color: var(--primary); }
+.stat-card .label { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+/* ── Alert table ──────────────────────────────────────────────────────── */
 .alert-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.alert-table th { background: #e8eaf6; padding: 10px; text-align: left; font-size: 13px; }
-.alert-table td { padding: 10px; border-bottom: 1px solid #f0f2f5; font-size: 13px; vertical-align: top; }
-.severity-ERROR { background: #ffebee; border-left: 4px solid #f44336; }
-.severity-WARNING { background: #fff3e0; border-left: 4px solid #ff9800; }
-.severity-INFO { background: #e3f2fd; border-left: 4px solid #2196f3; }
+.alert-table th {
+    background: var(--surface-alt); padding: 10px; text-align: left;
+    font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border);
+}
+.alert-table td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; color: var(--text); }
+.severity-ERROR { background: rgba(244,67,54,0.08); border-left: 4px solid #f44336; }
+.severity-WARNING { background: rgba(255,152,0,0.08); border-left: 4px solid #ff9800; }
+.severity-INFO { background: rgba(33,150,243,0.08); border-left: 4px solid #2196f3; }
+/* ── Badges ───────────────────────────────────────────────────────────── */
 .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
 .badge-ERROR { background: #f44336; color: #fff; }
 .badge-WARNING { background: #ff9800; color: #fff; }
 .badge-INFO { background: #2196f3; color: #fff; }
-.badge-success { background: #4caf50; color: #fff; }
+.badge-success { background: var(--positive); color: #fff; }
+/* ── Quality score ────────────────────────────────────────────────────── */
 .quality-score { font-size: 48px; font-weight: bold; text-align: center; padding: 20px; }
-.quality-score.high { color: #4caf50; }
-.quality-score.medium { color: #ff9800; }
-.quality-score.low { color: #f44336; }
+.quality-score.high { color: var(--positive); }
+.quality-score.medium { color: var(--warning); }
+.quality-score.low { color: var(--negative); }
+/* ── Data table ───────────────────────────────────────────────────────── */
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; overflow-x: auto; display: block; }
-.data-table th { background: #1a237e; color: #fff; padding: 8px 12px; text-align: left; white-space: nowrap; }
-.data-table td { padding: 8px 12px; border-bottom: 1px solid #e8eaf6; white-space: nowrap; }
-.data-table tr:hover { background: #f5f5f5; }
+.data-table th {
+    background: var(--surface-alt); color: var(--text-muted); padding: 9px 12px;
+    text-align: left; white-space: nowrap; font-weight: 600; font-size: 0.8em;
+    text-transform: uppercase; border-bottom: 1px solid var(--border);
+}
+.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; color: var(--text); }
+.data-table tr:hover { background: var(--surface-alt); }
+/* ── Chart container ──────────────────────────────────────────────────── */
 .chart-container { margin: 15px 0; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 1200px) { .two-col { grid-template-columns: 1fr; } }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #e8eaf6; color: #1a237e; margin: 2px; }
-.consumption-bar { height: 8px; background: linear-gradient(90deg, #1a237e, #90caf9); border-radius: 4px; }
-details.col-detail { margin: 8px 0; border: 1px solid #e8eaf6; border-radius: 6px; overflow: hidden; }
+/* ── Pills ────────────────────────────────────────────────────────────── */
+.pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px;
+    background: var(--surface-alt); color: var(--primary); border: 1px solid var(--border);
+    margin: 2px;
+}
+/* ── Consumption bar ──────────────────────────────────────────────────── */
+.consumption-bar { height: 8px; background: var(--header-gradient); border-radius: 4px; }
+/* ── Column detail (collapsible) ──────────────────────────────────────── */
+details.col-detail { margin: 8px 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 details.col-detail summary {
-    padding: 10px 15px; background: #f5f5f5; cursor: pointer; font-size: 13px; font-weight: 600; color: #1a237e;
+    padding: 10px 15px; background: var(--surface-alt); cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--primary);
     list-style: none; display: flex; align-items: center; gap: 8px;
 }
 details.col-detail summary::-webkit-details-marker { display: none; }
-details.col-detail summary::before { content: "\25B6"; font-size: 10px; transition: transform 0.2s; }
+details.col-detail summary::before { content: "\\25B6"; font-size: 10px; transition: transform 0.2s; }
 details.col-detail[open] summary::before { transform: rotate(90deg); }
 details.col-detail .detail-body { padding: 15px; }
-.tree-list { list-style: none; padding-left: 0; font-size: 13px; }
-.tree-list ul { list-style: none; padding-left: 20px; border-left: 2px solid #e8eaf6; margin: 4px 0; }
+/* ── Tree list ────────────────────────────────────────────────────────── */
+.tree-list { list-style: none; padding-left: 0; font-size: 13px; color: var(--text); }
+.tree-list ul { list-style: none; padding-left: 20px; border-left: 2px solid var(--border); margin: 4px 0; }
 .tree-list li { padding: 3px 0; }
-.tree-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 11px; background: #e8eaf6; color: #1a237e; margin-left: 4px; }
-.footer { text-align: center; padding: 20px; color: #999; font-size: 12px; margin-top: 20px; }
+.tree-badge {
+    display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 11px;
+    background: var(--surface-alt); color: var(--primary); margin-left: 4px;
+}
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.footer { text-align: center; padding: 20px; color: var(--text-faint); font-size: 0.9em; }
 """
 
 
@@ -177,18 +240,19 @@ class EDAReportGenerator:
 <div class="layout">
     <!-- Sidebar -->
     <nav class="sidebar">
-        <h2>Energizados EDA</h2>
+        <div class="sidebar-title">Energizados EDA</div>
         {sidebar_links}
     </nav>
 
     <!-- Main content -->
     <main class="main">
         <!-- Header -->
-        <div class="page-header">
+        <div class="header">
+            <button id="dark-toggle-btn" class="dark-toggle">&#9790; Dark</button>
             <h1>Exploratory Data Analysis Report</h1>
             <p>Generated: {now}</p>
             <p>Dataset shape: {global_stats.get('shape', (0,0))[0]:,}
-            rows × {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,}
+            rows &times; {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,}
             columns &nbsp;|&nbsp; Memory: {global_stats.get('memory_mb', 0):.2f} MB</p>
         </div>
 
@@ -227,6 +291,7 @@ class EDAReportGenerator:
         </div>
     </main>
 </div>
+{DARK_TOGGLE_JS}
 <script>
 /* Resize Plotly charts inside <details> when they are opened.
    Plotly renders at zero size when the container is hidden (collapsed);
@@ -266,8 +331,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 safe_id = h_name.replace(" ", "_").lower()
                 sections.append((f"hier_{safe_id}", f"  → {h_name}"))
 
-        items = "".join(f'<li><a href="#{sid}">{label}</a></li>' for sid, label in sections)
-        return f"<ul>{items}</ul>"
+        return "".join(f'<a href="#{sid}">{label}</a>' for sid, label in sections)
 
     def _build_executive_summary(
         self,

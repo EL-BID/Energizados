@@ -51,7 +51,7 @@ class EvalInteractivePlots:
     def _to_html(self, fig) -> str:
         """Convert figure to HTML, including Plotly.js CDN every time."""
         try:
-            return fig.to_html(full_html=False, include_plotlyjs="cdn")
+            return fig.to_html(full_html=False, include_plotlyjs="cdn", config={"responsive": True})
         except Exception as e:
             logger.warning("Error converting figure to HTML: %s", e)
             return ""
@@ -94,12 +94,10 @@ class EvalInteractivePlots:
             )
             fig.update_layout(
                 title=f"ROC Curve (AUC = {auc_score:.4f})",
-                xaxis_title="False Positive Rate",
-                yaxis_title="True Positive Rate",
                 template=self.template,
                 height=420,
-                xaxis={"range": [0, 1]},
-                yaxis={"range": [0, 1.05]},
+                xaxis={"title": "False Positive Rate", "range": [0, 1]},
+                yaxis={"title": "True Positive Rate", "range": [0, 1.05]},
                 legend={"x": 0.6, "y": 0.1},
             )
             return self._to_html(fig)
@@ -139,12 +137,10 @@ class EvalInteractivePlots:
             )
             fig.update_layout(
                 title=f"Precision-Recall Curve (AP = {ap_score:.4f})",
-                xaxis_title="Recall",
-                yaxis_title="Precision",
                 template=self.template,
                 height=420,
-                xaxis={"range": [0, 1]},
-                yaxis={"range": [0, 1.05]},
+                xaxis={"title": "Recall", "range": [0, 1]},
+                yaxis={"title": "Precision", "range": [0, 1.05]},
             )
             return self._to_html(fig)
 
@@ -242,12 +238,10 @@ class EvalInteractivePlots:
             )
             fig.update_layout(
                 title="Cumulative Gains Curve",
-                xaxis_title="Cumulative Population",
-                yaxis_title="Cumulative Gain",
                 template=self.template,
                 height=420,
-                xaxis={"tickformat": ".0%"},
-                yaxis={"tickformat": ".0%"},
+                xaxis={"title": "Cumulative Population", "tickformat": ".0%", "range": [0, 1]},
+                yaxis={"title": "Cumulative Gain", "tickformat": ".0%", "range": [0, 1.05]},
             )
             return self._to_html(fig)
 
@@ -290,11 +284,10 @@ class EvalInteractivePlots:
             fig.add_hline(y=1.0, line_dash="dash", line_color=THEME_COLORS["neutral"], annotation_text="Random (lift=1)")
             fig.update_layout(
                 title="Lift Chart",
-                xaxis_title="Cumulative Population",
-                yaxis_title="Lift",
                 template=self.template,
                 height=420,
-                xaxis={"tickformat": ".0%"},
+                xaxis={"title": "Cumulative Population", "tickformat": ".0%", "range": [0, 1]},
+                yaxis={"title": "Lift"},
             )
             return self._to_html(fig)
 
@@ -529,12 +522,10 @@ class EvalInteractivePlots:
             )
             fig.update_layout(
                 title="Metrics vs Classification Threshold",
-                xaxis_title="Threshold",
-                yaxis_title="Score",
                 template=self.template,
                 height=420,
-                xaxis={"range": [0, 1]},
-                yaxis={"range": [0, 1.05]},
+                xaxis={"title": "Threshold", "range": [0, 1]},
+                yaxis={"title": "Score", "range": [0, 1.05]},
             )
             return self._to_html(fig)
 
@@ -581,12 +572,10 @@ class EvalInteractivePlots:
             )
             fig.update_layout(
                 title=f"{metric.upper()} by Segment",
-                xaxis_title="Segment",
-                yaxis_title=metric.upper(),
                 template=self.template,
                 height=max(380, len(segments) * 25),
-                xaxis={"tickangle": -35},
-                yaxis={"range": [0, 1.1]},
+                xaxis={"title": "Segment", "tickangle": -35},
+                yaxis={"title": metric.upper(), "range": [0, 1.1]},
             )
             return self._to_html(fig)
 

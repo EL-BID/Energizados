@@ -256,7 +256,7 @@ body {
     height: 100%;
     background: rgba(0,0,0,0.85);
     z-index: 9999;
-    padding: 40px;
+    padding: 20px;
     box-sizing: border-box;
 }
 .plot-modal.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -264,10 +264,12 @@ body {
     background: var(--surface);
     border-radius: 12px;
     padding: 20px;
-    max-width: 95vw;
-    max-height: 90vh;
-    overflow: auto;
+    width: min(92vw, 1200px);
+    height: 88vh;
+    overflow: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 .plot-modal-close {
     position: absolute;
@@ -283,13 +285,14 @@ body {
 }
 .plot-modal-close:hover { color: var(--negative); }
 .plot-modal-title {
-    margin: 0 0 15px 0;
+    margin: 0 0 12px 0;
     color: var(--primary);
     font-size: 1.3em;
     padding-right: 40px;
+    flex-shrink: 0;
 }
-.plot-modal-body { min-height: 400px; }
-.plot-modal-body .js-plotly-plot { width: 100% !important; height: 500px !important; }
+.plot-modal-body { flex: 1; min-height: 0; overflow: auto; }
+.plot-modal-body .js-plotly-plot { width: 100% !important; height: 100% !important; min-height: 400px; }
 /* ── Confusion matrix ─────────────────────────────────────────────────── */
 .confusion-matrix {
     display: grid;

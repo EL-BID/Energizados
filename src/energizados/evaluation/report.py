@@ -260,43 +260,57 @@ class ReportGenerator:
         var modalBody = document.getElementById('plot-modal-body');
         var modalTitle = document.getElementById('plot-modal-title');
         var closeBtn = document.getElementById('plot-modal-close');
+        var _activePlotDiv = null;
+        var _originalParent = null;
+
+        function closeModal() {{
+            modal.classList.remove('active');
+            // Move the Plotly div back to its original container
+            if (_activePlotDiv && _originalParent) {{
+                _originalParent.appendChild(_activePlotDiv);
+                var div = _activePlotDiv;
+                setTimeout(function() {{
+                    if (window.Plotly) Plotly.Plots.resize(div);
+                }}, 50);
+                _activePlotDiv = null;
+                _originalParent = null;
+            }}
+            modalBody.innerHTML = '';
+        }}
 
         document.querySelectorAll('.plot-maximize-btn').forEach(function(btn) {{
             btn.addEventListener('click', function() {{
                 var container = this.closest('.plot-container');
-                var content = container.querySelector('.plot-content').innerHTML;
+                var plotContent = container.querySelector('.plot-content');
+                var plotDiv = plotContent.querySelector('.js-plotly-plot');
                 var title = container.querySelector('h3').textContent;
 
-                modalBody.innerHTML = content;
                 modalTitle.textContent = title;
-                modal.classList.add('active');
+                modalBody.innerHTML = '';
 
-                // Resize Plotly chart after a short delay
-                setTimeout(function() {{
-                    modalBody.querySelectorAll('.js-plotly-plot').forEach(function(el) {{
-                        if (window.Plotly) window.Plotly.Plots.resize(el);
-                    }});
-                }}, 100);
+                if (plotDiv && window.Plotly) {{
+                    // Move the actual Plotly element — scripts won't re-run on innerHTML clone
+                    _activePlotDiv = plotDiv;
+                    _originalParent = plotContent;
+                    modalBody.appendChild(plotDiv);
+                    modal.classList.add('active');
+                    setTimeout(function() {{
+                        Plotly.Plots.resize(plotDiv);
+                    }}, 50);
+                }} else {{
+                    // Static content (images)
+                    modalBody.innerHTML = plotContent.innerHTML;
+                    modal.classList.add('active');
+                }}
             }});
         }});
 
-        closeBtn.addEventListener('click', function() {{
-            modal.classList.remove('active');
-            modalBody.innerHTML = '';
-        }});
-
+        closeBtn.addEventListener('click', closeModal);
         modal.addEventListener('click', function(e) {{
-            if (e.target === modal) {{
-                modal.classList.remove('active');
-                modalBody.innerHTML = '';
-            }}
+            if (e.target === modal) closeModal();
         }});
-
         document.addEventListener('keydown', function(e) {{
-            if (e.key === 'Escape' && modal.classList.contains('active')) {{
-                modal.classList.remove('active');
-                modalBody.innerHTML = '';
-            }}
+            if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
         }});
     }})();
     </script>
