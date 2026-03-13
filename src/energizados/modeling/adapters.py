@@ -159,6 +159,7 @@ class CATModelAdapter(BaseModel):
             n_iter=n_iter,
             cv=cv,
         )
+        self._trained_pipeline = None
 
     def fit(
         self,

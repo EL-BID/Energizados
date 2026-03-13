@@ -287,6 +287,13 @@ class CATModel:
             df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
 
         cat_features = df_train[self.cols_for_model].select_dtypes(include=["object", "category"]).columns.tolist()
+
+        if self.sampling_method not in ["over", "under"]:
+            logger.warning(
+                "sampling_method '%s' is not one of ['over', 'under']. No resampling will be applied.",
+                self.sampling_method,
+            )
+
         pipe_preproceso_model = self.build_pipeline_preproceso_model(cat_features)
 
         if self.search_hip:
@@ -294,7 +301,10 @@ class CATModel:
                 df_train[self.cols_for_model], y_train, df_val[self.cols_for_model], y_val, pipe_preproceso_model
             )
 
-        params = self.hyperparams
+        params = {
+            (key if key.startswith("catboostclassifier__") else "catboostclassifier__" + key): value
+            for key, value in self.hyperparams.items()
+        }
         fit_params = {"eval_set": [(df_val[self.cols_for_model], y_val)], "early_stopping_rounds": 30}
         new_fit_params = {"catboostclassifier__" + key: fit_params[key] for key in fit_params}
         pipe_preproceso_model.set_params(**params)
@@ -334,7 +344,7 @@ class CATModel:
             param_distributions=new_params,
             cv=self.cv,
             scoring="roc_auc",
-            n_jobs=5,
+            n_jobs=-1,
             n_iter=self.n_iter,
             refit=True,
             random_state=314,
