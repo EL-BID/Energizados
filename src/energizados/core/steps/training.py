@@ -8,7 +8,7 @@ and model training to prevent data leakage.
 import logging
 import pickle  # nosec B403: ML model serialization (local files only)
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -26,21 +26,27 @@ class TrainingStep(PipelineStep):
     Combines feature engineering and model training in a single step,
     ensuring no data leakage (fit only on train).
 
+    Accepts a ``models_configs`` list (one entry per model). When the list
+    contains a single model, behaviour is identical to the old single-model
+    path. When multiple models are provided an ``EnsembleModel`` is built
+    and saved as ``ensemble.pkl``; each base model is also saved under its
+    own sub-directory for inspection.
+
     Args:
-        train_path: Path to training dataset
-        val_path: Path to validation dataset
-        test_path: Path to test dataset
-        target_column: Name of target column
-        feature_engineering_config: Feature engineering configuration
-        model_config: Model configuration
-        output_dir: Output directory
+        train_path: Path to training dataset.
+        val_path: Path to validation dataset.
+        test_path: Path to test dataset.
+        target_column: Name of target column.
+        feature_engineering_config: Feature engineering configuration.
+        models_configs: List of model configuration dicts (required).
+        ensemble_config: Ensemble configuration dict (required when len > 1).
+        output_dir: Output directory.
 
     Example:
-        >>> training_step = TrainingStep(
-        ...     feature_engineering_config={...},
-        ...     model_config={...}
+        >>> step = TrainingStep(
+        ...     models_configs=[{"type": "lightgbm", "hyperparams": {...}}],
         ... )
-        >>> result = training_step.run(context)
+        >>> result = step.run(context)
     """
 
     def __init__(
@@ -50,7 +56,8 @@ class TrainingStep(PipelineStep):
         test_path: Optional[str] = None,
         target_column: str = "target",
         feature_engineering_config: Optional[Dict] = None,
-        model_config: Optional[Dict] = None,
+        models_configs: Optional[List[Dict]] = None,
+        ensemble_config: Optional[Dict] = None,
         output_dir: str = "output/models/",
         **kwargs,
     ):
@@ -59,15 +66,20 @@ class TrainingStep(PipelineStep):
         self.test_path = test_path
         self.target_column = target_column
         self.feature_engineering_config = feature_engineering_config or {}
-        self.model_config = model_config or {}
+        self.models_configs = models_configs or []
+        self.ensemble_config = ensemble_config
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Main execute
+    # ------------------------------------------------------------------
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the full training pipeline.
 
         Loads train/val/test splits from disk, fits DefaultFeatureEngineering on
-        training data, transforms all splits, fits the model, and saves artifacts.
+        training data, transforms all splits, fits the model(s), and saves artifacts.
         A quick validation AUC/F1 is logged after training.
 
         Args:
@@ -91,7 +103,7 @@ class TrainingStep(PipelineStep):
         if not self.train_path or not self.val_path:
             raise ValueError("train_path and val_path are required")
 
-        # 1. Load data
+        # Phase A: Load data
         logger.info("\n" + "=" * 50)
         logger.info("TRAINING STEP")
         logger.info("=" * 50)
@@ -105,19 +117,18 @@ class TrainingStep(PipelineStep):
         if test_df is not None:
             logger.info(f"Test shape: {test_df.shape}")
 
-        # Separate features and target
         X_train = train_df.drop(columns=[self.target_column])
         y_train = train_df[self.target_column]
         X_val = val_df.drop(columns=[self.target_column])
         y_val = val_df[self.target_column]
 
         X_test = None
-        y_test = None
+        y_test = None  # noqa: F841
         if test_df is not None:
             X_test = test_df.drop(columns=[self.target_column])
-            y_test = test_df[self.target_column]  # noqa: F841 - stored for later use
+            y_test = test_df[self.target_column]  # noqa: F841
 
-        # 2. Feature Engineering: FIT ONLY ON TRAIN
+        # Phase B: Feature Engineering — fit ONCE on train
         logger.info("\n" + "=" * 50)
         logger.info("FEATURE ENGINEERING")
         logger.info("=" * 50)
@@ -136,10 +147,8 @@ class TrainingStep(PipelineStep):
             feature_selection_config=fs_config,
         )
 
-        # FIT only on train
         feature_engineering.fit(X_train, y_train)
 
-        # TRANSFORM on train, val, test
         logger.info("Transforming train, val, test...")
         X_train_transformed = feature_engineering.transform(X_train)
         X_val_transformed = feature_engineering.transform(X_val)
@@ -150,7 +159,7 @@ class TrainingStep(PipelineStep):
         if X_test_transformed is not None:
             logger.info(f"Test transformed shape: {X_test_transformed.shape}")
 
-        # Diagnostic: NaN counts in transformed data
+        # Diagnostic: NaN counts
         train_nan = X_train_transformed.isnull().sum().sum()
         val_nan = X_val_transformed.isnull().sum().sum()
         if train_nan > 0 or val_nan > 0:
@@ -176,7 +185,7 @@ class TrainingStep(PipelineStep):
             X_train_transformed.to_parquet(fs_path, index=False)
             logger.info(f"Feature selection output saved to: {fs_path}")
 
-        # Save feature engineering (use output_pkl from config if specified)
+        # Save feature engineering
         output_pkl = self.feature_engineering_config.get("output_pkl")
         fe_path = Path(output_pkl) if output_pkl else self.output_dir / "feature_engineering.pkl"
         fe_path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,32 +193,33 @@ class TrainingStep(PipelineStep):
             pickle.dump(feature_engineering, f)
         logger.info(f"Feature Engineering saved to: {fe_path}")
 
-        # 3. Model Training
+        # Phase C: Build and train model(s)
         logger.info("\n" + "=" * 50)
         logger.info("MODEL TRAINING")
         logger.info("=" * 50)
 
-        model_type = self.model_config.get("type", "lightgbm")
-        logger.info(f"Model type: {model_type}")
+        names = self._resolve_model_names(self.models_configs)
 
-        # Create model using registry
-        model_class = ModelRegistry.get(model_type)
+        if len(self.models_configs) == 1:
+            model, model_path = self._train_single_model(
+                cfg=self.models_configs[0],
+                name=names[0],
+                X_train=X_train_transformed,
+                y_train=y_train,
+                X_val=X_val_transformed,
+                y_val=y_val,
+                save_path=self.output_dir / "model.pkl",
+            )
+        else:
+            model, model_path = self._train_ensemble(
+                names=names,
+                X_train=X_train_transformed,
+                y_train=y_train,
+                X_val=X_val_transformed,
+                y_val=y_val,
+            )
 
-        # Prepare config for the model
-        model_params = self._prepare_model_params(model_type, X_train_transformed)
-
-        model = model_class(**model_params)
-
-        # Fit the model
-        model.fit(X_train_transformed, y_train, X_val=X_val_transformed, y_val=y_val)
-
-        # Save model
-        model_path = self.output_dir / "model.pkl"
-        with open(model_path, "wb") as f:
-            pickle.dump(model, f)
-        logger.info(f"Model saved to: {model_path}")
-
-        # 4. Quick evaluation on val (for logs)
+        # Phase D: Quick val metrics
         val_proba = model.predict_proba(X_val_transformed)
         val_pred = (val_proba >= 0.5).astype(int)
 
@@ -221,7 +231,6 @@ class TrainingStep(PipelineStep):
         logger.info(f"\nValidation AUC: {val_auc:.4f}")
         logger.info(f"Validation F1:  {val_f1:.4f}")
 
-        # Diagnostic: probability distribution
         import numpy as np
 
         logger.info(
@@ -232,7 +241,7 @@ class TrainingStep(PipelineStep):
             f"pct>0.1={100*(val_proba >= 0.1).mean():.1f}%"
         )
 
-        # Save val predictions for threshold calibration
+        # Save val predictions
         val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/splits")
         val_pred_path = val_pred_dir / "val_predictions.parquet"
         val_predictions = pd.DataFrame(
@@ -253,58 +262,146 @@ class TrainingStep(PipelineStep):
             "feature_engineering": feature_engineering,
         }
 
-    def validate_input(self, context: Dict[str, Any]) -> bool:
-        """Validate that both train and validation parquet files exist.
+    # ------------------------------------------------------------------
+    # Single model helpers
+    # ------------------------------------------------------------------
+
+    def _train_single_model(
+        self,
+        cfg: Dict,
+        name: str,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        save_path: Path,
+    ):
+        """Train one model, save it, and return (model, path)."""
+        model_type = cfg.get("type", "lightgbm")
+        logger.info(f"Training model '{name}' (type: {model_type})")
+
+        model_class = ModelRegistry.get(model_type)
+        params = self._prepare_model_params(cfg, X_train)
+        model = model_class(**params)
+        model.fit(X_train, y_train, X_val=X_val, y_val=y_val)
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(save_path, "wb") as f:
+            pickle.dump(model, f)
+        logger.info(f"Model '{name}' saved to: {save_path}")
+
+        return model, save_path
+
+    # ------------------------------------------------------------------
+    # Ensemble helpers
+    # ------------------------------------------------------------------
+
+    def _train_ensemble(
+        self,
+        names: List[str],
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+    ):
+        """Train all base models, build and fit the ensemble, return (ensemble, path)."""
+        from energizados.modeling.ensemble import EnsembleModel
+
+        if not self.ensemble_config:
+            raise ValueError("ensemble_config is required when more than one model is specified.")
+
+        base_models = []
+        model_types = []
+
+        for cfg, name in zip(self.models_configs, names):
+            model_type = cfg.get("type", "lightgbm")
+            model_types.append(model_type)
+
+            save_path = self.output_dir / name / "model.pkl"
+            model, _ = self._train_single_model(
+                cfg=cfg,
+                name=name,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
+                save_path=save_path,
+            )
+            base_models.append(model)
+
+        ensemble = EnsembleModel(
+            base_models=base_models,
+            model_types=model_types,
+            model_names=names,
+            method=self.ensemble_config.get("method", "soft_voting"),
+            meta_learner_config=self.ensemble_config.get("meta_learner"),
+            weights=self.ensemble_config.get("weights"),
+            use_val_as_oof=self.ensemble_config.get("use_val_as_oof", True),
+            cv=self.ensemble_config.get("cv", 5),
+            skip_base_fit=True,  # base models already fitted above
+        )
+
+        logger.info(f"Building ensemble: method={self.ensemble_config.get('method', 'soft_voting')}")
+        ensemble.fit(X_train, y_train, X_val=X_val, y_val=y_val)
+
+        ensemble_path = self.output_dir / "ensemble.pkl"
+        with open(ensemble_path, "wb") as f:
+            pickle.dump(ensemble, f)
+        logger.info(f"Ensemble saved to: {ensemble_path}")
+
+        return ensemble, ensemble_path
+
+    # ------------------------------------------------------------------
+    # Name resolution
+    # ------------------------------------------------------------------
+
+    def _resolve_model_names(self, models_configs: List[Dict]) -> List[str]:
+        """
+        Resolve a unique name for each model config.
+
+        - If ``name`` key is present, use it.
+        - If the type appears only once, use the type string.
+        - If the type appears multiple times, use ``type_0``, ``type_1``, ...
+        """
+        type_counts: Dict[str, int] = {}
+        for cfg in models_configs:
+            t = cfg.get("type", "model")
+            type_counts[t] = type_counts.get(t, 0) + 1
+
+        type_indices: Dict[str, int] = {}
+        names = []
+        for cfg in models_configs:
+            if "name" in cfg:
+                names.append(cfg["name"])
+                continue
+            t = cfg.get("type", "model")
+            if type_counts[t] == 1:
+                names.append(t)
+            else:
+                idx = type_indices.get(t, 0)
+                names.append(f"{t}_{idx}")
+                type_indices[t] = idx + 1
+
+        return names
+
+    # ------------------------------------------------------------------
+    # Model param preparation
+    # ------------------------------------------------------------------
+
+    def _prepare_model_params(self, model_config: Dict, X_train: pd.DataFrame) -> Dict:
+        """
+        Prepare constructor parameters for a model based on its type.
 
         Args:
-            context: Pipeline context dict.
+            model_config: Single model config dict (with "type", "hyperparams", etc.).
+            X_train: Transformed training DataFrame (used to derive column lists).
 
         Returns:
-            bool: True if both paths resolve and the files exist on disk.
+            Dict: Parameters for the model constructor.
         """
-        # Check that paths were provided or exist in context
-        train_path = self.train_path or context.get("train_path")
-        val_path = self.val_path or context.get("val_path")
+        params = model_config.copy()
+        model_type = params.get("type", "lightgbm")
 
-        if not train_path or not val_path:
-            return False
-
-        return Path(train_path).exists() and Path(val_path).exists()
-
-    def get_required_keys(self) -> list:
-        """Return the required context keys.
-
-        Returns:
-            List[str]: ``["train_path", "val_path"]`` when paths were not provided
-                at construction time; empty list otherwise.
-        """
-        # If paths not provided, they are required from context
-        if not self.train_path or not self.val_path:
-            return ["train_path", "val_path"]
-        return []
-
-    def get_output_keys(self) -> list:
-        """Return the context keys produced by this step.
-
-        Returns:
-            List[str]: Keys added to the pipeline context after training.
-        """
-        return ["model_path", "feature_engineering_path", "val_predictions_path", "val_auc", "val_f1", "model", "feature_engineering"]
-
-    def _prepare_model_params(self, model_type: str, X_train: pd.DataFrame) -> Dict:
-        """
-        Prepare parameters for the model based on its type.
-
-        Args:
-            model_type: Model type
-            X_train: Training DataFrame
-
-        Returns:
-            Dict: Parameters for the model
-        """
-        params = self.model_config.copy()
-
-        # For models that need specific columns
         if model_type in ["lightgbm", "lgbm", "catboost", "cat"]:
             params["cols_for_model"] = X_train.columns.tolist()
             sampling_config = params.pop("sampling", {})
@@ -316,12 +413,9 @@ class TrainingStep(PipelineStep):
             params["n_iter"] = hyperparam_search.get("n_iter", 60)
             params["cv"] = hyperparam_search.get("cv", 3)
 
-        # For neural models
         elif model_type in ["neural_network", "nn", "lstm"]:
-            # Identify consumption columns (12_anterior ... 1_anterior)
             consumption_cols = [c for c in X_train.columns if "_anterior" in c]
             feature_cols = [c for c in X_train.columns if c not in consumption_cols]
-
             params["features_names"] = feature_cols
             params["spents_names"] = consumption_cols
             sampling_config = params.pop("sampling", {})
@@ -329,7 +423,41 @@ class TrainingStep(PipelineStep):
             params["sampling_th"] = sampling_config.get("threshold", 0.5)
             params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
 
-        # Remove 'type' key as it's used for model selection, not for the model constructor
+        # Store the type string in the config so evaluator can read it
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not model constructor arguments
         params.pop("type", None)
+        params.pop("name", None)
 
         return params
+
+    # ------------------------------------------------------------------
+    # PipelineStep interface
+    # ------------------------------------------------------------------
+
+    def validate_input(self, context: Dict[str, Any]) -> bool:
+        """Validate that both train and validation parquet files exist."""
+        train_path = self.train_path or context.get("train_path")
+        val_path = self.val_path or context.get("val_path")
+        if not train_path or not val_path:
+            return False
+        return Path(train_path).exists() and Path(val_path).exists()
+
+    def get_required_keys(self) -> list:
+        """Return required context keys."""
+        if not self.train_path or not self.val_path:
+            return ["train_path", "val_path"]
+        return []
+
+    def get_output_keys(self) -> list:
+        """Return context keys produced by this step."""
+        return [
+            "model_path",
+            "feature_engineering_path",
+            "val_predictions_path",
+            "val_auc",
+            "val_f1",
+            "model",
+            "feature_engineering",
+        ]

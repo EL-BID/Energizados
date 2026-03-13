@@ -359,6 +359,110 @@ evaluation:
             validate_config([str(config_file)])
 
 
+class TestTrainingConfigIntegration:
+    """Integration tests for the new models: list config schema."""
+
+    def test_pipeline_builds_with_single_model_list(self, tmp_path):
+        """ConfigPipelineBuilder accepts training.models list with one entry."""
+        from energizados.core.pipeline import ConfigPipelineBuilder, Pipeline
+
+        config_file = tmp_path / "training_single.yaml"
+        config_file.write_text("""
+training:
+  enabled: true
+  target_column: target
+  models:
+    - type: lightgbm
+      hyperparams: {}
+      hyperparam_search:
+        enabled: false
+  feature_engineering:
+    enabled: false
+""")
+        builder = ConfigPipelineBuilder(str(config_file))
+        pipeline = builder.build()
+        assert isinstance(pipeline, Pipeline)
+        # One training step
+        assert len(pipeline.steps) == 1
+
+    def test_pipeline_builds_with_ensemble_config(self, tmp_path):
+        """ConfigPipelineBuilder accepts training.models list with ensemble."""
+        from energizados.core.pipeline import ConfigPipelineBuilder, Pipeline
+
+        config_file = tmp_path / "training_ensemble.yaml"
+        config_file.write_text("""
+training:
+  enabled: true
+  target_column: target
+  models:
+    - name: lgbm
+      type: lightgbm
+      hyperparams: {}
+      hyperparam_search: {enabled: false}
+    - name: cat
+      type: catboost
+      hyperparams: {}
+      hyperparam_search: {enabled: false}
+  ensemble:
+    method: soft_voting
+    weights: [0.6, 0.4]
+  feature_engineering:
+    enabled: false
+""")
+        builder = ConfigPipelineBuilder(str(config_file))
+        pipeline = builder.build()
+        assert isinstance(pipeline, Pipeline)
+
+    def test_training_step_receives_models_configs(self, tmp_path):
+        """TrainingStep inside the pipeline has models_configs populated."""
+        from energizados.core.pipeline import ConfigPipelineBuilder
+        from energizados.core.steps.training import TrainingStep
+
+        config_file = tmp_path / "cfg.yaml"
+        config_file.write_text("""
+training:
+  enabled: true
+  models:
+    - type: lightgbm
+      hyperparams: {}
+  feature_engineering:
+    enabled: false
+""")
+        builder = ConfigPipelineBuilder(str(config_file))
+        pipeline = builder.build()
+
+        training_step = pipeline.steps[0]
+        assert isinstance(training_step, TrainingStep)
+        assert len(training_step.models_configs) == 1
+        assert training_step.models_configs[0]["type"] == "lightgbm"
+
+    def test_training_step_ensemble_config_propagated(self, tmp_path):
+        """ensemble_config is correctly propagated to TrainingStep."""
+        from energizados.core.pipeline import ConfigPipelineBuilder
+        from energizados.core.steps.training import TrainingStep
+
+        config_file = tmp_path / "cfg2.yaml"
+        config_file.write_text("""
+training:
+  enabled: true
+  models:
+    - type: lightgbm
+    - type: catboost
+  ensemble:
+    method: stacking
+    use_val_as_oof: true
+  feature_engineering:
+    enabled: false
+""")
+        builder = ConfigPipelineBuilder(str(config_file))
+        pipeline = builder.build()
+
+        training_step = pipeline.steps[0]
+        assert isinstance(training_step, TrainingStep)
+        assert training_step.ensemble_config is not None
+        assert training_step.ensemble_config["method"] == "stacking"
+
+
 @pytest.mark.slow
 class TestEndToEndScenarios:
     """End-to-end tests simulating real use cases."""

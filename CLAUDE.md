@@ -63,7 +63,8 @@ These scripts use `ConfigPipelineBuilder` API directly.
 src/energizados/
 ├── preprocessing/      # Data cleaning and feature engineering transformers
 ├── modeling/           # Model implementations (supervised and simple models)
-│   └── adapters.py    # LGBMModelAdapter, CATModelAdapter, NNModelAdapter, LSTMNNModelAdapter
+│   ├── adapters.py    # LGBMModelAdapter, CATModelAdapter, NNModelAdapter, LSTMNNModelAdapter
+│   └── ensemble.py    # EnsembleModel (soft voting and stacking)
 ├── feature_engineering/  # Combined preprocessing + feature selection
 │   ├── base.py        # BaseFeatureEngineering abstract class
 │   └── default.py     # DefaultFeatureEngineering implementation
@@ -130,7 +131,14 @@ mi_proyecto/
 ├── output/                # Training run outputs (auto-created per run)
 │   ├── index.html         # Summary table of all training runs with metrics
 │   └── train-YYYYMMDD_HHMM/  # One directory per training execution
-│       ├── models/        # model.pkl + feature_engineering.pkl
+│       ├── models/        # Feature engineering + model(s)
+│       │   ├── feature_engineering.pkl
+│       │   ├── model.pkl  # Single model (if len(models)==1)
+│       │   ├── lgbm/      # Base model sub-dirs (if ensemble)
+│       │   │   └── model.pkl
+│       │   ├── cat/
+│       │   │   └── model.pkl
+│       │   └── ensemble.pkl # Ensemble model (if len(models)>1)
 │       ├── reports/
 │       │   └── evaluation/  # HTML report, JSON report, plots
 │       └── config/        # Copy of YAML config files used for this run
@@ -205,11 +213,11 @@ etls:
 
 **Important:** When `mode="merge"`, `merge_config` is required. The `merge_config` accepts any parameter from `pd.merge()`: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
 
-### Feature Engineering
+### Feature Engineering and Model Training
 
 Feature engineering (preprocessing + feature selection) is now configured inside `config/training.yaml` under the `feature_engineering` key. There is no longer a separate `feature_pipeline.yaml`.
 
-The full `training.yaml` has four sections: `split`, `feature_engineering`, `model`, and `evaluation`.
+The full `training.yaml` has five sections: `split`, `feature_engineering`, `models` (list), `ensemble` (optional), and `evaluation`.
 
 ```yaml
 # config/training.yaml
@@ -269,19 +277,41 @@ training:
             n_estimators: 100
             max_iter: 100
 
-  model:
-    type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
-    sampling:
-      method: "under"  # over, under, none
-      threshold: 0.5
-    hyperparams:
-      num_leaves: 31
-      learning_rate: 0.05
-      n_estimators: 1000
-    hyperparam_search:
-      enabled: true
-      n_iter: 60
-      cv: 3
+  # Single model example
+  models:
+    - type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
+      sampling:
+        method: "under"  # over, under, none
+        threshold: 0.5
+      hyperparams:
+        num_leaves: 31
+        learning_rate: 0.05
+        n_estimators: 1000
+      hyperparam_search:
+        enabled: true
+        n_iter: 60
+        cv: 3
+
+  # For stacking ensemble (uncomment to use multiple base models)
+  # models:
+  #   - name: "lgbm"
+  #     type: "lightgbm"
+  #     sampling: { method: "under", threshold: 0.5 }
+  #     hyperparams: { num_leaves: 31, learning_rate: 0.05, n_estimators: 500 }
+  #     hyperparam_search: { enabled: false }
+  #   - name: "cat"
+  #     type: "catboost"
+  #     sampling: { method: "under", threshold: 0.5 }
+  #     hyperparams: { iterations: 300 }
+  #     hyperparam_search: { enabled: false }
+  #
+  # ensemble:
+  #   method: "stacking"          # "stacking" | "soft_voting"
+  #   meta_learner:
+  #     type: "logistic_regression"
+  #     params: { C: 1.0, max_iter: 1000 }
+  #   use_val_as_oof: true        # true=blending (fast); false=proper CV OOF
+  #   cv: 5
 
   evaluation:
     enabled: true
@@ -422,6 +452,13 @@ sections:
 - `NNModel`: Feedforward neural network (TensorFlow/Keras)
 - `LSTMNNModel`: LSTM + Dense neural network for sequential consumption data
 
+**`src/modeling/ensemble.py`** - Ensemble model combining multiple base models:
+- `EnsembleModel`: Combines N base models via soft voting or stacking with meta-learner
+  - `method`: `"soft_voting"` (weighted average) or `"stacking"` (meta-learner trained on base predictions)
+  - `use_val_as_oof`: True=blending (fast, uses val set); False=proper K-fold OOF (slower, no leakage)
+  - `skip_base_fit`: When True, assumes base models are pre-fitted; only trains meta-learner
+  - `ensemble_description` property: Human-readable format like `"Ensemble (lightgbm, catboost)"`
+
 **`src/modeling/simple_models.py`** - Rule-based baseline models:
 - `ChangeTrendPercentajeIdentifierWide`: Detects dramatic consumption drops
 - `ConstantConsumptionClassifierWide`: Identifies constant consumption patterns
@@ -458,6 +495,9 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 - `feature_engineering` is now a sub-section inside `training.yaml` (not a separate file or top-level section)
 - The CLI accepts multiple `--config` parameters which are merged ("last wins" for duplicates)
 - `preprocessing` and `feature_selection` are unified under `training.feature_engineering`
+- **Model configuration uses `models:` list (not singular `model:`)**: single model as list with one item, multiple models enable ensemble
+- **Ensemble configuration**: When `len(models) > 1`, `ensemble:` section is required; specifies `method` (`stacking` or `soft_voting`), `meta_learner` (for stacking), and `use_val_as_oof` (blending vs OOF)
+- **Output directory structure**: Single model saves to `models/model.pkl`; ensemble saves each base model to `models/{name}/model.pkl` and the ensemble to `models/ensemble.pkl`
 - All categorical preprocessing is defined in `get_preprocesor(preprocesor_num)` in `supervised_models.py`
 - Time series consumption data uses row-wise MinMax scaling (`MinMaxScalerRow`)
 - Neural models concatenate processed features with scaled consumption series

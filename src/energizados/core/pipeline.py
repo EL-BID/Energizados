@@ -524,10 +524,14 @@ class ConfigPipelineBuilder:
             output_dir = train_config.get("output_dir", "output/models/")
 
         # Use unified TrainingStep
+        models_configs = train_config.get("models", [])
+        ensemble_config = train_config.get("ensemble")
+
         return TrainingStep(
             target_column=train_config.get("target_column", "target"),
             feature_engineering_config=train_config.get("feature_engineering", {}),
-            model_config=train_config.get("model", {}),
+            models_configs=models_configs,
+            ensemble_config=ensemble_config,
             output_dir=output_dir,
         )
 

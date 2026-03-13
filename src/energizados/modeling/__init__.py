@@ -56,6 +56,13 @@ try:
 except ImportError:
     _adapters_available = False
 
+try:
+    from energizados.modeling.ensemble import EnsembleModel  # noqa: F401
+
+    _ensemble_available = True
+except ImportError:
+    _ensemble_available = False
+
 __all__ = [
     "ModelRegistry",
 ]
@@ -99,3 +106,6 @@ if _adapters_available:
             "SimpleConstantAdapter",
         ]
     )
+
+if _ensemble_available:
+    __all__.append("EnsembleModel")

@@ -117,6 +117,11 @@ def _register_default_models():
         ModelRegistry.register("simple_trend", SimpleTrendAdapter)
         ModelRegistry.register("simple_constant", SimpleConstantAdapter)
 
+        # Ensemble model
+        from energizados.modeling.ensemble import EnsembleModel
+
+        ModelRegistry.register("ensemble", EnsembleModel)
+
     except ImportError as e:
         # Models may not be available if dependencies are missing
         import warnings

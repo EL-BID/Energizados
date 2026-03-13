@@ -180,26 +180,61 @@ training:
   # ============================================
   # Model Configuration
   # ============================================
-  model:
-    type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm
+  # Single model: one item in the list — evaluated directly (no ensemble)
+  models:
+    - type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm
 
-    # Class balancing
-    sampling:
-      method: "under"  # Options: over, under, none
-      threshold: 0.5
+      # Class balancing
+      sampling:
+        method: "under"  # Options: over, under, none
+        threshold: 0.5
 
-    # Hyperparameters
-    hyperparams:
-      num_leaves: 31
-      max_depth: -1
-      learning_rate: 0.05
-      n_estimators: 1000
+      # Hyperparameters
+      hyperparams:
+        num_leaves: 31
+        max_depth: -1
+        learning_rate: 0.05
+        n_estimators: 1000
 
-    # Hyperparameter search
-    hyperparam_search:
-      enabled: true
-      n_iter: 60
-      cv: 3
+      # Hyperparameter search
+      hyperparam_search:
+        enabled: true
+        n_iter: 60
+        cv: 3
+
+  # ============================================
+  # Ensemble Configuration (requires len(models) > 1)
+  # ============================================
+  # Uncomment both `models` and `ensemble` blocks below to enable ensemble.
+  # When using ensemble, replace the `models` block above with the one below.
+
+  # models:
+  #   - name: "lgbm"
+  #     type: "lightgbm"
+  #     sampling: { method: "under", threshold: 0.5 }
+  #     hyperparams: { num_leaves: 31, learning_rate: 0.05, n_estimators: 500 }
+  #     hyperparam_search: { enabled: false }
+  #
+  #   - name: "cat"
+  #     type: "catboost"
+  #     sampling: { method: "under", threshold: 0.5 }
+  #     hyperparams: { iterations: 300 }
+  #     hyperparam_search: { enabled: false }
+  #
+  # ensemble:
+  #   method: "stacking"          # "stacking" | "soft_voting"
+  #   meta_learner:
+  #     type: "logistic_regression"   # default; could be "lightgbm", etc.
+  #     params:
+  #       C: 1.0
+  #       max_iter: 1000
+  #   use_val_as_oof: true        # true = blending (fast); false = proper CV OOF (expensive)
+  #   cv: 5                       # used only when use_val_as_oof: false
+
+  # Soft voting alternative:
+  # ensemble:
+  #   method: "soft_voting"
+  #   weights: [0.6, 0.4]        # optional; null = equal weights
 
   # ============================================
   # Evaluation Configuration

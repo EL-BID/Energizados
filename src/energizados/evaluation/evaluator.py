@@ -497,10 +497,33 @@ class DefaultEvaluator(PipelineStep):
 
     def _get_model_info(self, model) -> Dict:
         """Gets model information for the report (MEJORAS P2-9)."""
-        info = {"model_class": model.__class__.__name__}
+        # EnsembleModel: expose ensemble description and component info
+        if hasattr(model, "ensemble_description"):
+            info: Dict = {
+                "model_class": model.ensemble_description,
+                "method": model.method,
+                "base_models": model.model_types,
+            }
+            if model.method == "stacking" and model._meta_learner is not None:
+                info["meta_learner"] = model._meta_learner.__class__.__name__
+            if model.weights:
+                info["weights"] = model.weights
+            return info
 
-        if hasattr(model, "config"):
-            info["config"] = str(model.config)
+        # Single model: use type string from config when available
+        _type_map = {
+            "LGBMModelAdapter": "lightgbm",
+            "CATModelAdapter": "catboost",
+            "NNModelAdapter": "neural_network",
+            "LSTMNNModelAdapter": "lstm",
+        }
+        model_config = getattr(model, "config", {}) or {}
+        if "type" in model_config:
+            model_class_label = model_config["type"]
+        else:
+            model_class_label = _type_map.get(model.__class__.__name__, model.__class__.__name__)
+
+        info = {"model_class": model_class_label}
 
         inner = getattr(model, "_model", None)
         if inner is not None:
