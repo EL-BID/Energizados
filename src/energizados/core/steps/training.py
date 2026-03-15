@@ -167,7 +167,9 @@ class TrainingStep(PipelineStep):
             nan_per_col = X_train_transformed.isnull().sum()
             nan_cols = nan_per_col[nan_per_col > 0]
             if len(nan_cols) > 0:
-                logger.warning(f"Train NaN columns ({len(nan_cols)}): {nan_cols.nlargest(10).to_dict()}")
+                logger.warning(
+                    f"Train NaN columns ({len(nan_cols)}): {nan_cols.nlargest(10).to_dict()}"
+                )
 
         # Save intermediate parquets if configured
         preprocessing_parquet = fe_config.get("output_parquet")
@@ -236,9 +238,9 @@ class TrainingStep(PipelineStep):
         logger.info(
             f"Val proba stats: min={val_proba.min():.4f}, max={val_proba.max():.4f}, "
             f"mean={val_proba.mean():.4f}, median={np.median(val_proba):.4f}, "
-            f"pct>0.5={100*(val_proba >= 0.5).mean():.1f}%, "
-            f"pct>0.3={100*(val_proba >= 0.3).mean():.1f}%, "
-            f"pct>0.1={100*(val_proba >= 0.1).mean():.1f}%"
+            f"pct>0.5={100 * (val_proba >= 0.5).mean():.1f}%, "
+            f"pct>0.3={100 * (val_proba >= 0.3).mean():.1f}%, "
+            f"pct>0.1={100 * (val_proba >= 0.1).mean():.1f}%"
         )
 
         # Save val predictions
@@ -341,7 +343,9 @@ class TrainingStep(PipelineStep):
             skip_base_fit=True,  # base models already fitted above
         )
 
-        logger.info(f"Building ensemble: method={self.ensemble_config.get('method', 'soft_voting')}")
+        logger.info(
+            f"Building ensemble: method={self.ensemble_config.get('method', 'soft_voting')}"
+        )
         ensemble.fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
         ensemble_path = self.output_dir / "ensemble.pkl"
@@ -407,6 +411,9 @@ class TrainingStep(PipelineStep):
             sampling_config = params.pop("sampling", {})
             params["sampling_method"] = sampling_config.get("method", "under")
             params["sampling_th"] = sampling_config.get("threshold", 0.5)
+            class_weight = params.pop("class_weight", None)
+            if class_weight is not None:
+                params["class_weight"] = class_weight
             params["hyperparams"] = params.pop("hyperparams", {})
             hyperparam_search = params.pop("hyperparam_search", {})
             params["search_hip"] = hyperparam_search.get("enabled", False)
@@ -421,6 +428,9 @@ class TrainingStep(PipelineStep):
             sampling_config = params.pop("sampling", {})
             params["sampling_method"] = sampling_config.get("method", "under")
             params["sampling_th"] = sampling_config.get("threshold", 0.5)
+            class_weight = params.pop("class_weight", None)
+            if class_weight is not None:
+                params["class_weight"] = class_weight
             params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
 
         # Store the type string in the config so evaluator can read it

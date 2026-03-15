@@ -38,6 +38,7 @@ class LGBMModelAdapter(BaseModel):
         n_iter: int = 60,
         cv: int = 3,
         config: Optional[dict] = None,
+        class_weight: Optional[dict] = None,
     ):
         super().__init__(config)
         self.cols_for_model = cols_for_model
@@ -47,6 +48,7 @@ class LGBMModelAdapter(BaseModel):
         self.sampling_method = sampling_method
         self.n_iter = n_iter
         self.cv = cv
+        self.class_weight = class_weight
         self._trained_pipeline = None
 
         # Import the original model
@@ -60,6 +62,7 @@ class LGBMModelAdapter(BaseModel):
             sampling_method=sampling_method,
             n_iter=n_iter,
             cv=cv,
+            class_weight=class_weight,
         )
 
     def fit(
@@ -96,7 +99,9 @@ class LGBMModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
-        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
+        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(
+            int
+        )
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
@@ -126,6 +131,7 @@ class CATModelAdapter(BaseModel):
         n_iter: Number of iterations for RandomizedSearchCV.
         cv: Number of cross-validation folds for RandomizedSearchCV.
         config: Optional framework configuration dict.
+        class_weight: Class weights (dict or "balanced").
     """
 
     def __init__(
@@ -138,6 +144,7 @@ class CATModelAdapter(BaseModel):
         n_iter: int = 60,
         cv: int = 3,
         config: Optional[dict] = None,
+        class_weight: Optional[dict] = None,
     ):
         super().__init__(config)
         self.cols_for_model = cols_for_model
@@ -147,6 +154,7 @@ class CATModelAdapter(BaseModel):
         self.sampling_method = sampling_method
         self.n_iter = n_iter
         self.cv = cv
+        self.class_weight = class_weight
 
         from energizados.modeling.supervised_models import CATModel as OriginalCAT
 
@@ -158,6 +166,7 @@ class CATModelAdapter(BaseModel):
             sampling_method=sampling_method,
             n_iter=n_iter,
             cv=cv,
+            class_weight=class_weight,
         )
         self._trained_pipeline = None
 
@@ -193,7 +202,9 @@ class CATModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
-        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(int)
+        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(
+            int
+        )
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Make probability predictions.

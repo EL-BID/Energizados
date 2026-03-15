@@ -85,7 +85,10 @@ class SourceETL(BaseETL):
 
         # Validate merge_config if mode is merge
         if self.mode == "merge" and not self.merge_config:
-            raise ValueError(f"SourceETL '{self.name}': mode='merge' requires merge_config " "(e.g.: {'how': 'left', 'on': 'id_cliente'})")
+            raise ValueError(
+                f"SourceETL '{self.name}': mode='merge' requires merge_config "
+                "(e.g.: {'how': 'left', 'on': 'id_cliente'})"
+            )
 
     def extract(self) -> pd.DataFrame:
         """
@@ -129,7 +132,7 @@ class SourceETL(BaseETL):
                 logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
 
             except Exception as e:
-                raise ETLError(f"Error extracting from '{path}': {str(e)}")
+                raise ETLError(f"Error extracting from '{path}': {str(e)}") from e
 
         # Combine according to mode
         if self.mode == "concat":
@@ -182,11 +185,19 @@ class SourceETL(BaseETL):
         for i, df in enumerate(dataframes[1:], start=2):
             try:
                 result = pd.merge(
-                    result, df, how=how, on=on, left_on=left_on, right_on=right_on, left_index=left_index, right_index=right_index, **config
+                    result,
+                    df,
+                    how=how,
+                    on=on,
+                    left_on=left_on,
+                    right_on=right_on,
+                    left_index=left_index,
+                    right_index=right_index,
+                    **config,
                 )
-                logger.info(f"  • Merge step {i-1}→{i}: {len(result)} records")
+                logger.info(f"  • Merge step {i - 1}→{i}: {len(result)} records")
             except Exception as e:
-                raise ETLError(f"Error in merge step {i-1}→{i}: {str(e)}")
+                raise ETLError(f"Error in merge step {i - 1}→{i}: {str(e)}") from e
 
         return result
 

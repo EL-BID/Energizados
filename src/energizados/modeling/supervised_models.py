@@ -9,8 +9,8 @@ The implemented models are:
 
 Each model has methods for training and making predictions.
 
-Note: This module requires LightGBM and CatBoost libraries to be installed for gradient boosting models.
-TensorFlow is only required for neural network models (NNModel and LSTMNNModel).
+Note: This module requires LightGBM and CatBoost libraries to be installed for gradient boosting
+models. TensorFlow is only required for neural network models (NNModel and LSTMNNModel).
 
 """
 
@@ -50,17 +50,33 @@ def get_preprocesor(preprocesor):
     """
     if preprocesor == 4:
         # Activity
-        pipe_actividad = Pipeline([("cardinality_reducer", CardinalityReducer(threshold=0.001)), ("a_dummy", ToDummy(["actividad"]))])
+        pipe_actividad = Pipeline(
+            [
+                ("cardinality_reducer", CardinalityReducer(threshold=0.001)),
+                ("a_dummy", ToDummy(["actividad"])),
+            ]
+        )
 
         # Tariff Segment
         pipe_tarifa = Pipeline(
-            [("cardinality_reducer", CardinalityReducer(threshold=0.001)), ("tarifa_te", TeEncoder(["tipo_tarifa"], w=20))]
+            [
+                ("cardinality_reducer", CardinalityReducer(threshold=0.001)),
+                ("tarifa_te", TeEncoder(["tipo_tarifa"], w=20)),
+            ]
         )
 
         vars_enc = ["zona", "nivel_tension"]
         t_features = [
-            ("var_encoder", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1), vars_enc),
-            ("material_isntalacion_te", TeEncoder(["material_instalacion"], w=10), ["material_instalacion"]),
+            (
+                "var_encoder",
+                OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
+                vars_enc,
+            ),
+            (
+                "material_isntalacion_te",
+                TeEncoder(["material_instalacion"], w=10),
+                ["material_instalacion"],
+            ),
             ("actividad_cr_dummy", pipe_actividad, ["actividad"]),
             ("tarifa_cr_te", pipe_tarifa, ["tipo_tarifa"]),
         ]
@@ -77,7 +93,17 @@ class LGBMModel:
     RandomUnderSampler or RandomOverSampler and optional hyperparameter search.
     """
 
-    def __init__(self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, sampling_method="under", n_iter=60, cv=3):
+    def __init__(
+        self,
+        cols_for_model,
+        hyperparams,
+        search_hip=False,
+        sampling_th=0.5,
+        sampling_method="under",
+        n_iter=60,
+        cv=3,
+        class_weight=None,
+    ):
         """
         Initializes the LGBMModel.
 
@@ -97,6 +123,7 @@ class LGBMModel:
         self.hyperparams = hyperparams
         self.n_iter = n_iter
         self.cv = cv
+        self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self):
         """Build an imblearn pipeline with LGBMClassifier and optional sampler.
@@ -105,7 +132,15 @@ class LGBMModel:
             imblearn.pipeline.Pipeline: Pipeline with optional sampler followed by
                 LGBMClassifier.
         """
-        lgbm_model_search = LGBMClassifier(random_state=314, metric="None", n_estimators=1000, verbosity=-1)
+        lgbm_model_search = LGBMClassifier(
+            random_state=314,
+            metric="None",
+            n_estimators=1000,
+            verbosity=-1,
+            class_weight=self.class_weight,
+        )
+        if self.class_weight is not None:
+            return make_pipeline(lgbm_model_search)
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, lgbm_model_search)
@@ -131,7 +166,9 @@ class LGBMModel:
             imblearn.pipeline.Pipeline: Fitted pipeline with sampler and LGBMClassifier.
         """
         if df_val is None:
-            df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
+            df_train, df_val, y_train, y_val = train_test_split(
+                df_train, y_train, test_size=0.1, random_state=42
+            )
 
         pipe_preproceso_model = self.build_pipeline_preproceso_model()
 
@@ -149,7 +186,10 @@ class LGBMModel:
             "eval_metric": ["auc"],
             "eval_set": [(df_val, y_val)],
             "eval_names": ["valid"],
-            "callbacks": [early_stopping(stopping_rounds=30, first_metric_only=True), log_evaluation(0)],
+            "callbacks": [
+                early_stopping(stopping_rounds=30, first_metric_only=True),
+                log_evaluation(0),
+            ],
             "categorical_feature": "auto",
             "feature_name": "auto",
         }
@@ -197,7 +237,9 @@ class LGBMModel:
         }
 
         new_params = {"lgbmclassifier__" + key: param_test[key] for key in param_test}
-        new_fit_params = {"lgbmclassifier__" + key: search_fit_params[key] for key in search_fit_params}
+        new_fit_params = {
+            "lgbmclassifier__" + key: search_fit_params[key] for key in search_fit_params
+        }
 
         random_imba = RandomizedSearchCV(
             estimator=imba_pipeline,
@@ -211,7 +253,11 @@ class LGBMModel:
             random_state=314,
         )
         random_imba.fit(X_train, y_train, **new_fit_params)
-        logger.info("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
+        logger.info(
+            "\nBest score reached: {} with params: {} ".format(
+                random_imba.best_score_, random_imba.best_params_
+            )
+        )
         return random_imba.best_score_, random_imba.best_params_
 
 
@@ -223,7 +269,16 @@ class CATModel:
     """
 
     def __init__(
-        self, cols_for_model, hyperparams, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under", n_iter=60, cv=3
+        self,
+        cols_for_model,
+        hyperparams,
+        search_hip=False,
+        sampling_th=0.5,
+        preprocesor_num=3,
+        sampling_method="under",
+        n_iter=60,
+        cv=3,
+        class_weight=None,
     ):
         """Initialize CATModel.
 
@@ -236,6 +291,7 @@ class CATModel:
             sampling_method: Sampling strategy ('over', 'under', or other for no sampling).
             n_iter: Number of iterations for RandomizedSearchCV.
             cv: Number of cross-validation folds.
+            class_weight: Class weights for CatBoost (dict like {0: 1, 1: 10} or "balanced").
         """
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
@@ -245,6 +301,7 @@ class CATModel:
         self.hyperparams = hyperparams
         self.n_iter = n_iter
         self.cv = cv
+        self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self, cat_features):
         """Build an imblearn pipeline with CatBoostClassifier and optional sampler.
@@ -257,8 +314,16 @@ class CATModel:
                 CatBoostClassifier.
         """
         cb_model_search = cb.CatBoostClassifier(
-            iterations=1000, eval_metric="AUC", loss_function="Logloss", random_seed=42, cat_features=cat_features, logging_level="Silent"
+            iterations=1000,
+            eval_metric="AUC",
+            loss_function="Logloss",
+            random_seed=42,
+            cat_features=cat_features,
+            logging_level="Silent",
+            class_weights=self.class_weight,
         )
+        if self.class_weight is not None:
+            return make_pipeline(cb_model_search)
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, cb_model_search)
@@ -284,13 +349,20 @@ class CATModel:
             imblearn.pipeline.Pipeline: Fitted pipeline with sampler and CatBoostClassifier.
         """
         if df_val is None:
-            df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
+            df_train, df_val, y_train, y_val = train_test_split(
+                df_train, y_train, test_size=0.1, random_state=42
+            )
 
-        cat_features = df_train[self.cols_for_model].select_dtypes(include=["object", "category"]).columns.tolist()
+        cat_features = (
+            df_train[self.cols_for_model]
+            .select_dtypes(include=["object", "category"])
+            .columns.tolist()
+        )
 
         if self.sampling_method not in ["over", "under"]:
             logger.warning(
-                "sampling_method '%s' is not one of ['over', 'under']. No resampling will be applied.",
+                "sampling_method '%s' is not one of ['over', 'under']."
+                " No resampling will be applied.",
                 self.sampling_method,
             )
 
@@ -298,14 +370,21 @@ class CATModel:
 
         if self.search_hip:
             self.best_score_, self.hyperparams = self.find_hyp_catboost_model(
-                df_train[self.cols_for_model], y_train, df_val[self.cols_for_model], y_val, pipe_preproceso_model
+                df_train[self.cols_for_model],
+                y_train,
+                df_val[self.cols_for_model],
+                y_val,
+                pipe_preproceso_model,
             )
 
         params = {
             (key if key.startswith("catboostclassifier__") else "catboostclassifier__" + key): value
             for key, value in self.hyperparams.items()
         }
-        fit_params = {"eval_set": [(df_val[self.cols_for_model], y_val)], "early_stopping_rounds": 30}
+        fit_params = {
+            "eval_set": [(df_val[self.cols_for_model], y_val)],
+            "early_stopping_rounds": 30,
+        }
         new_fit_params = {"catboostclassifier__" + key: fit_params[key] for key in fit_params}
         pipe_preproceso_model.set_params(**params)
         pipe_preproceso_model.fit(df_train[self.cols_for_model], y_train, **new_fit_params)
@@ -351,7 +430,11 @@ class CATModel:
         )
 
         random_imba.fit(X_train, y_train)
-        logger.info("\nBest score reached: {} with params: {} ".format(random_imba.best_score_, random_imba.best_params_))
+        logger.info(
+            "\nBest score reached: {} with params: {} ".format(
+                random_imba.best_score_, random_imba.best_params_
+            )
+        )
         return random_imba.best_score_, random_imba.best_params_
 
 
@@ -362,7 +445,15 @@ class NNModel:
     row-wise Min-Max scaled consumption sequences. Uses TensorFlow/Keras.
     """
 
-    def __init__(self, features_names, spents_names, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
+    def __init__(
+        self,
+        features_names,
+        spents_names,
+        search_hip=False,
+        sampling_th=0.5,
+        preprocesor_num=3,
+        sampling_method="under",
+    ):
         """
         Class for a feedforward neural network model.
 
@@ -424,7 +515,9 @@ class NNModel:
             tuple: (keras_model, pipe_features, pipe_spent)
         """
         if df_val is None:
-            df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
+            df_train, df_val, y_train, y_val = train_test_split(
+                df_train, y_train, test_size=0.1, random_state=42
+            )
 
         pipe_features, pipe_spent, ramdom_s = self.build_pipeline_preproceso()
 
@@ -442,7 +535,9 @@ class NNModel:
         else:
             X_resample, y_resample = X_train_features, y_train
 
-        rnn_final_model = self.train_rnn_model(X_resample, y_resample, X_val_features, y_val, output_bias=None)
+        rnn_final_model = self.train_rnn_model(
+            X_resample, y_resample, X_val_features, y_val, output_bias=None
+        )
         return rnn_final_model, pipe_features, pipe_spent
 
     def train_rnn_model(self, X_train, y_train, X_val, y_val, output_bias=None):
@@ -469,7 +564,9 @@ class NNModel:
             tf.keras.metrics.AUC(name="auc"),
             tf.keras.metrics.AUC(name="prc", curve="PR"),
         ]
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_prc", verbose=1, patience=50, mode="max", restore_best_weights=True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(
+            monitor="val_prc", verbose=1, patience=50, mode="max", restore_best_weights=True
+        )
 
         if output_bias is not None:
             output_bias = tf.keras.initializers.Constant(output_bias)
@@ -505,7 +602,11 @@ class NNModel:
             ]
         )
 
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss=tf.keras.losses.BinaryCrossentropy(), metrics=METRICS)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+            loss=tf.keras.losses.BinaryCrossentropy(),
+            metrics=METRICS,
+        )
 
         _ = model.fit(
             X_train,
@@ -527,7 +628,15 @@ class LSTMNNModel:
     validation precision-recall AUC.
     """
 
-    def __init__(self, features_names, spents_names, search_hip=False, sampling_th=0.5, preprocesor_num=3, sampling_method="under"):
+    def __init__(
+        self,
+        features_names,
+        spents_names,
+        search_hip=False,
+        sampling_th=0.5,
+        preprocesor_num=3,
+        sampling_method="under",
+    ):
         """
         Class for an LSTM neural network model.
 
@@ -589,7 +698,9 @@ class LSTMNNModel:
             tuple: (keras_model, pipe_features, pipe_spent)
         """
         if df_val is None:
-            df_train, df_val, y_train, y_val = train_test_split(df_train, y_train, test_size=0.1, random_state=42)
+            df_train, df_val, y_train, y_val = train_test_split(
+                df_train, y_train, test_size=0.1, random_state=42
+            )
 
         pipe_features, pipe_spent, ramdom_s = self.build_pipeline_preproceso()
 
@@ -615,7 +726,16 @@ class LSTMNNModel:
         )
         return lstm_rnn_final_model, pipe_features, pipe_spent
 
-    def train_lstm_rnn_model(self, X_train_spents, X_train_features, y_train, X_val_spents, X_val_features, y_val, output_bias=None):
+    def train_lstm_rnn_model(
+        self,
+        X_train_spents,
+        X_train_features,
+        y_train,
+        X_val_spents,
+        X_val_features,
+        y_val,
+        output_bias=None,
+    ):
         """Build and train the Keras LSTM model.
 
         Architecture: LSTM(128) on consumption → Concatenate with features → Dense(64) →
@@ -642,7 +762,9 @@ class LSTMNNModel:
             tf.keras.metrics.AUC(name="auc"),
             tf.keras.metrics.AUC(name="prc", curve="PR"),
         ]
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_prc", verbose=1, patience=50, mode="max", restore_best_weights=True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(
+            monitor="val_prc", verbose=1, patience=50, mode="max", restore_best_weights=True
+        )
 
         if output_bias is not None:
             output_bias = tf.keras.initializers.Constant(output_bias)
@@ -662,7 +784,11 @@ class LSTMNNModel:
 
         model = tf.keras.models.Model([spents_inputs, features_inputs], outputs)
 
-        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3), loss=tf.keras.losses.BinaryCrossentropy(), metrics=METRICS)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+            loss=tf.keras.losses.BinaryCrossentropy(),
+            metrics=METRICS,
+        )
 
         _ = model.fit(
             [X_train_spents, X_train_features],

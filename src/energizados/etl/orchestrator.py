@@ -48,13 +48,21 @@ class ETLOrchestrator:
     Example:
         >>> configs = {
         ...     "extract": {"input": "data.csv", "output": "ext.parquet", "depends_on": []},
-        ...     "transform": {"input": "@extract", "output": "final.parquet", "depends_on": ["extract"]}
+        ...     "transform": {
+        ...         "input": "@extract", "output": "final.parquet", "depends_on": ["extract"]
+        ...     }
         ... }
         >>> orchestrator = ETLOrchestrator(configs)
         >>> results = orchestrator.run()
     """
 
-    def __init__(self, etl_configs: Dict[str, Dict], on_etl_start=None, on_etl_complete=None, on_etl_error=None):
+    def __init__(
+        self,
+        etl_configs: Dict[str, Dict],
+        on_etl_start=None,
+        on_etl_complete=None,
+        on_etl_error=None,
+    ):
         """Initialize the orchestrator.
 
         Args:
@@ -113,7 +121,9 @@ class ETLOrchestrator:
         for etl in self.etl_configs:
             if color[etl] == WHITE:
                 if dfs(etl):
-                    raise ETLDependencyError(f"Cycle detected in ETL dependencies involving '{etl}'")
+                    raise ETLDependencyError(
+                        f"Cycle detected in ETL dependencies involving '{etl}'"
+                    )
 
     def build_execution_order(self) -> List[str]:
         """
@@ -217,7 +227,10 @@ class ETLOrchestrator:
                 continue
 
             if "custom_class" not in config:
-                raise ETLError(f"ETL '{etl_name}': must specify 'custom_class'. " f"Example: SourceETL, MultiSourceETL, or a custom class.")
+                raise ETLError(
+                    f"ETL '{etl_name}': must specify 'custom_class'. "
+                    f"Example: SourceETL, MultiSourceETL, or a custom class."
+                )
 
             etl_class = import_class(config["custom_class"])
             params = config.get("params", {})
@@ -299,7 +312,7 @@ class ETLOrchestrator:
                     logger.error(f"✗ {etl_name} failed: {e}")
                     if self.on_etl_error:
                         self.on_etl_error(etl_name, e)
-                    raise ETLError(f"Error executing ETL '{etl_name}': {e}")
+                    raise ETLError(f"Error executing ETL '{etl_name}': {e}") from e
 
         logger.info(f"\n{'=' * 60}")
         logger.info("ALL ETLs COMPLETED")

@@ -12,7 +12,8 @@ Classes:
 - ExtraVars: Creates additional features based on previous values.
 
 Functions:
-- fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent values.
+- fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent
+  values.
 - fill_empty_values_str: Fills empty values in string columns with a specific value.
 - fill_empty_values_numeric: Fills empty values in numeric columns with a specific value.
 """
@@ -26,7 +27,7 @@ from sklearn.base import BaseEstimator, OneToOneFeatureMixin, TransformerMixin
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 # tsfel is imported lazily to avoid scipy compatibility issues
@@ -168,7 +169,9 @@ class TeEncoder(BaseEstimator, TransformerMixin):
 
         # Group and calculate target encoding with smoothing
         te = df.groupby(self.cols)["target"].agg(["mean", "count"]).reset_index()
-        te[self.te_var_name] = ((te["mean"] * te["count"]) + (self.mean_global * self.w)) / (te["count"] + self.w)
+        te[self.te_var_name] = ((te["mean"] * te["count"]) + (self.mean_global * self.w)) / (
+            te["count"] + self.w
+        )
 
         # Store only the necessary columns for merge
         self.te_mapping_ = te[self.cols + [self.te_var_name]]
@@ -278,7 +281,11 @@ class CardinalityReducer(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         if hasattr(self, "feature_names_in_"):
             return self.feature_names_in_
         # Fallback: generate generic names if none were stored
-        return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
+        return (
+            np.array([f"x{i}" for i in range(self.n_features_in_)])
+            if hasattr(self, "n_features_in_")
+            else np.array([])
+        )
 
 
 class CastDtype(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
@@ -382,7 +389,11 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         if hasattr(self, "feature_names_in_"):
             return self.feature_names_in_
         # Fallback: generate generic names if none were stored
-        return np.array([f"x{i}" for i in range(self.n_features_in_)]) if hasattr(self, "n_features_in_") else np.array([])
+        return (
+            np.array([f"x{i}" for i in range(self.n_features_in_)])
+            if hasattr(self, "n_features_in_")
+            else np.array([])
+        )
 
 
 def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
@@ -405,7 +416,10 @@ def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
         null_count = features.isnull().sum().sum()
         if null_count > 0:
             null_cols = features.columns[features.isnull().any()].tolist()
-            logger.warning(f"TsfelVars: index {idx} generated {null_count} nulls " f"(e.g., {null_cols[:3]}). values={values}")
+            logger.warning(
+                f"TsfelVars: index {idx} generated {null_count} nulls "
+                f"(e.g., {null_cols[:3]}). values={values}"
+            )
         features["index"] = idx
         results.append(features)
     return pd.concat(results, ignore_index=True)
@@ -472,12 +486,16 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         n = len(df)
 
         # Split into chunks
-        chunks = [(data[i : i + self.chunk_size], indices[i : i + self.chunk_size]) for i in range(0, n, self.chunk_size)]
+        chunks = [
+            (data[i : i + self.chunk_size], indices[i : i + self.chunk_size])
+            for i in range(0, n, self.chunk_size)
+        ]
 
         logger.info(f"TsfelVars [{desc}]: {n} rows in {len(chunks)} chunks, n_jobs={self.n_jobs}")
 
         results = Parallel(n_jobs=self.n_jobs)(
-            delayed(_tsfel_process_chunk)(chunk_values, chunk_indices, cfg) for chunk_values, chunk_indices in tqdm(chunks, desc=desc)
+            delayed(_tsfel_process_chunk)(chunk_values, chunk_indices, cfg)
+            for chunk_values, chunk_indices in tqdm(chunks, desc=desc)
         )
 
         return pd.concat(results, ignore_index=True)
@@ -557,8 +575,12 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         """
         cols_anterior = self.obtener_cols_anterior(self.num_periodos)
         df_result_stat = self.extra_cols(df, "statistical", cols_anterior, window=self.num_periodos)
-        df_result_temporal = self.extra_cols(df, "temporal", cols_anterior, window=self.num_periodos)
-        # df_result_spectral = self.extra_cols(df, "spectral", cols_anterior, window=self.num_periodos)
+        df_result_temporal = self.extra_cols(
+            df, "temporal", cols_anterior, window=self.num_periodos
+        )
+        # df_result_spectral = self.extra_cols(
+        #     df, "spectral", cols_anterior, window=self.num_periodos
+        # )
         self.temp_vars = [c for c in df_result_temporal.columns if c != "index"]
         self.stat_vars = [c for c in df_result_stat.columns if c != "index"]
         # self.spec_vars = [c for c in df_result_spectral.columns if c != "index"]
@@ -733,27 +755,45 @@ class ExtraVars(BaseEstimator, TransformerMixin):
         Returns:
             pd.DataFrame: DataFrame with new feature columns appended in place.
         """
-        # generate list of cols from back to front i.e: ['3_anterior', '2_anterior', '1_anterior'], etc.
+        # generate list of cols from back to front i.e: ['3_anterior', '2_anterior', '1_anterior']
         cols_3_anterior = self.obtener_cols_anterior(num_cols=self.num_periodos)
         num_periodos_str = str(self.num_periodos)
         # averages
-        df_total_super.loc[:, "mean_" + num_periodos_str] = df_total_super[cols_3_anterior].mean(axis=1)
-        # Zero count
-        df_total_super.loc[:, "cant_ceros_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(self.count_cero, axis=1)
-        df_total_super.loc[:, "max_cant_ceros_seg_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(
-            self.count_cero_seguidos, axis=1
+        df_total_super.loc[:, "mean_" + num_periodos_str] = df_total_super[cols_3_anterior].mean(
+            axis=1
         )
+        # Zero count
+        df_total_super.loc[:, "cant_ceros_" + num_periodos_str] = df_total_super[
+            cols_3_anterior
+        ].apply(self.count_cero, axis=1)
+        df_total_super.loc[:, "max_cant_ceros_seg_" + num_periodos_str] = df_total_super[
+            cols_3_anterior
+        ].apply(self.count_cero_seguidos, axis=1)
         # Slope
-        df_total_super.loc[:, "slope_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(self.calc_slope, axis=1)
+        df_total_super.loc[:, "slope_" + num_periodos_str] = df_total_super[cols_3_anterior].apply(
+            self.calc_slope, axis=1
+        )
         # Min, Max, STD, Variance for 3 periods
-        df_total_super.loc[:, "min_cons" + num_periodos_str] = df_total_super[cols_3_anterior].min(axis=1)
-        df_total_super.loc[:, "max_cons" + num_periodos_str] = df_total_super[cols_3_anterior].max(axis=1)
-        df_total_super.loc[:, "std_cons" + num_periodos_str] = df_total_super[cols_3_anterior].std(axis=1)
-        df_total_super.loc[:, "var_cons" + num_periodos_str] = df_total_super[cols_3_anterior].var(axis=1)
+        df_total_super.loc[:, "min_cons" + num_periodos_str] = df_total_super[cols_3_anterior].min(
+            axis=1
+        )
+        df_total_super.loc[:, "max_cons" + num_periodos_str] = df_total_super[cols_3_anterior].max(
+            axis=1
+        )
+        df_total_super.loc[:, "std_cons" + num_periodos_str] = df_total_super[cols_3_anterior].std(
+            axis=1
+        )
+        df_total_super.loc[:, "var_cons" + num_periodos_str] = df_total_super[cols_3_anterior].var(
+            axis=1
+        )
         # skewness and kurtosis for 3 periods
-        df_total_super.loc[:, "skew_cons" + num_periodos_str] = df_total_super[cols_3_anterior].skew(axis=1)
+        df_total_super.loc[:, "skew_cons" + num_periodos_str] = df_total_super[
+            cols_3_anterior
+        ].skew(axis=1)
         if self.num_periodos > 3:
-            df_total_super.loc[:, "kurt_cons" + num_periodos_str] = df_total_super[cols_3_anterior].kurt(axis=1)
+            df_total_super.loc[:, "kurt_cons" + num_periodos_str] = df_total_super[
+                cols_3_anterior
+            ].kurt(axis=1)
 
         return df_total_super
 

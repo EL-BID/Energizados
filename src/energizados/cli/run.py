@@ -46,7 +46,9 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
                 logger = __import__("logging").getLogger(__name__)
                 logger.debug(f"Configuration loaded from: {config_path}")
         except yaml.YAMLError as e:
-            raise ConfigurationError(f"Error parsing YAML in {config_path}: {e}", config_path)
+            raise ConfigurationError(
+                f"Error parsing YAML in {config_path}: {e}", config_path
+            ) from e
 
     return merged_config
 
@@ -130,7 +132,9 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     return result
 
 
-def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = False) -> Dict[str, Any]:
+def execute_etl(
+    config_paths: List[str], etl_name: str = None, dry_run: bool = False
+) -> Dict[str, Any]:
     """
     Executes ETLs from configuration.
 
@@ -160,12 +164,16 @@ def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = F
     etl_configs = merged_config.get("etls")
 
     if not etl_configs:
-        raise PipelineError("No ETLs configured. Use the 'etls:' section to configure multiple ETLs.")
+        raise PipelineError(
+            "No ETLs configured. Use the 'etls:' section to configure multiple ETLs."
+        )
 
     # If a specific ETL is requested, filter its dependencies
     if etl_name:
         if etl_name not in etl_configs:
-            raise PipelineError(f"ETL '{etl_name}' not found. Available ETLs: {list(etl_configs.keys())}")
+            raise PipelineError(
+                f"ETL '{etl_name}' not found. Available ETLs: {list(etl_configs.keys())}"
+            )
 
         # Filter only necessary ETLs (etl_name + dependencies)
         filtered_configs = _get_etl_with_dependencies(etl_configs, etl_name)
@@ -209,7 +217,9 @@ def execute_etl(config_paths: List[str], etl_name: str = None, dry_run: bool = F
         def on_etl_complete(name, rows):
             completed_etls.append((name, rows))
             progress.advance(main_task)
-            progress.update(main_task, description=f"ETL Pipeline — [green]✓ {name}[/] ({rows:,} rows)")
+            progress.update(
+                main_task, description=f"ETL Pipeline — [green]✓ {name}[/] ({rows:,} rows)"
+            )
 
         def on_etl_error(name, err):
             progress.update(main_task, description=f"ETL Pipeline — [red]✗ {name}[/]")

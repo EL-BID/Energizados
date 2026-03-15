@@ -1,0 +1,86 @@
+"""
+Split Step Builder.
+
+This module constructs data splitting pipeline steps from configuration.
+"""
+
+from typing import Any, Dict, Optional
+
+from energizados.core.base import PipelineStep
+from energizados.core.builders.base import StepBuilder
+from energizados.core.steps.split import SplitStep
+
+
+class SplitBuilder(StepBuilder):
+    """
+    Builder for Split pipeline steps.
+
+    Constructs a step that divides data into train/val/test sets
+    based on the 'split' section of the training configuration.
+    """
+
+    def __init__(self, config: Dict[str, Any], global_config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize the builder with configuration.
+
+        Args:
+            config: The split configuration (from training.split or split key)
+            global_config: The full configuration dict (needed for fallback logic)
+        """
+        super().__init__(config)
+        self.global_config = global_config or {}
+
+    def build(self) -> Optional[PipelineStep]:
+        """
+        Build the Split step from configuration.
+
+        Returns:
+            PipelineStep: The split step, or None if not configured
+        """
+        split_config = self.config
+
+        if not split_config:
+            return None
+
+        # Determine input_path
+        input_path = split_config.get("input_path")
+        if not input_path:
+            # Also look at training level (global)
+            input_path = self.global_config.get("training", {}).get("input_path")
+        if not input_path and "etls" in self.global_config:
+            # Use last ETL output if it exists
+            etl_configs = self.global_config.get("etls", {})
+            if etl_configs:
+                last_etl = list(etl_configs.keys())[-1]
+                # input_path will be @etl_name
+                input_path = f"@{last_etl}"
+
+        # Determine target_column - check multiple locations
+        target_column = (
+            split_config.get("target_column")
+            or self.global_config.get("training", {}).get("target_column")
+            or "target"
+        )
+
+        return SplitStep(
+            input_path=input_path,
+            target_column=target_column,
+            test_size=split_config.get("test_size", 0.2),
+            val_size=split_config.get("val_size", 0.1),
+            random_state=split_config.get("random_state", 42),
+            splits_dir=split_config.get("splits_dir", "data/splits/"),
+            method=split_config.get("method", "stratified"),
+            date_column=split_config.get("date_column"),
+            train_period=split_config.get("train_period"),
+            val_period=split_config.get("val_period"),
+            test_period=split_config.get("test_period"),
+            save_splits=split_config.get("save_splits", True),
+        )
+
+    def is_enabled(self) -> bool:
+        """Check if Split step is enabled.
+
+        Returns:
+            bool: True if split config exists
+        """
+        return bool(self.config)

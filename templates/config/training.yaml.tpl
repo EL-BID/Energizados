@@ -184,10 +184,15 @@ training:
   models:
     - type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm
 
-      # Class balancing
+      # Class balancing: choose ONE of sampling or class_weight
+      # Option 1: Sampling (resamples the data)
       sampling:
         method: "under"  # Options: over, under, none
         threshold: 0.5
+
+      # Option 2: Class weights (balances via internal model weights)
+      # Use "balanced" for auto-computed weights, or specify manually
+      # class_weight: "balanced"  # Options: "balanced", null, or dict like {0: 1, 1: 10}
 
       # Hyperparameters
       hyperparams:
