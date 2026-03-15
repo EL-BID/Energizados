@@ -89,8 +89,8 @@ class TargetExplorer(BaseExplorer):
             self._add_alert(
                 code="CLASS_IMBALANCE",
                 message=(
-                    f"Desbalance de clases detectado: ratio {imbalance_ratio:.1f}:1 "
-                    f"(clase minoritaria: {minority_pct:.2f}% de los datos). "
+                    f"Class imbalance detected: ratio {imbalance_ratio:.1f}:1 "
+                    f"(minority class: {minority_pct:.2f}% of records). "
                     f"Recommended resampling technique: '{recommendation}'."
                 ),
                 severity="WARNING",

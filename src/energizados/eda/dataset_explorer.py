@@ -141,7 +141,7 @@ class DatasetExplorer:
         # --- Load dataset ---
         df = self._load_dataset()
         if df is None:
-            raise RuntimeError(f"No se pudo cargar el dataset: {self.input_path}")
+            raise RuntimeError(f"Could not load dataset: {self.input_path}")
 
         logger.info("Dataset loaded: %d rows × %d columns", len(df), len(df.columns))
 
@@ -516,7 +516,7 @@ class DatasetExplorer:
                 corr_matrix = numeric_sample.corr(numeric_only=True)
                 charts["correlation_heatmap"] = interactive_plotter.null_correlation_heatmap(corr_matrix)
             except Exception as e:
-                logger.warning("Error generando heatmap de correlación: %s", e)
+                logger.warning("Error generating correlation heatmap: %s", e)
 
         # --- Column detail charts ---
         max_detail = self._full_config.get("visualization", {}).get("max_detail_columns", 30)
@@ -592,7 +592,7 @@ class DatasetExplorer:
                 except Exception as e:
                     logger.debug("Error generating sunburst for '%s': %s", h_name, e)
                 try:
-                    h_charts["sankey"] = interactive_plotter.sankey_hierarchy(df, columns, title=f"Flujo: {h_name}")
+                    h_charts["sankey"] = interactive_plotter.sankey_hierarchy(df, columns, title=f"Flow: {h_name}")
                 except Exception as e:
                     logger.debug("Error generating sankey for '%s': %s", h_name, e)
 
@@ -600,7 +600,7 @@ class DatasetExplorer:
                 if target_heatmap is not None:
                     try:
                         h_charts["target_heatmap"] = interactive_plotter.hierarchy_target_heatmap(
-                            target_heatmap, title=f"Tasa Target: {h_name}"
+                            target_heatmap, title=f"Target Rate: {h_name}"
                         )
                     except Exception as e:
                         logger.debug("Error generating target heatmap for '%s': %s", h_name, e)

@@ -97,7 +97,7 @@ class SegmentationAnalyzer(BaseExplorer):
                     self._add_alert(
                         code="SEGMENT_IMBALANCE",
                         message=(
-                            f"El segmento '{col}={segment_value}' tiene solo {segment_size} registros "
+                            f"Segment '{col}={segment_value}' has only {segment_size} records "
                             f"(threshold: {min_size}). Consider grouping rare categories."
                         ),
                         severity="INFO",
@@ -129,9 +129,9 @@ class SegmentationAnalyzer(BaseExplorer):
                     self._add_alert(
                         code="SEGMENT_DRIFT",
                         message=(
-                            f"El segmento '{col}={segment_value}' tiene una tasa de fraude muy diferente "
-                            f"({segment_rate:.1%}) vs el promedio global ({overall_rate:.1%}). "
-                            f"Diferencia: {z_score:.1f}σ"
+                            f"Segment '{col}={segment_value}' has a very different fraud rate "
+                            f"({segment_rate:.1%}) vs global average ({overall_rate:.1%}). "
+                            f"Difference: {z_score:.1f}σ"
                         ),
                         severity="INFO",
                         details={

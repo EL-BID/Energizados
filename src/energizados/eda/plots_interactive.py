@@ -142,10 +142,10 @@ class EDAInteractivePlots:
 
             # Threshold lines
             iv_thresholds = {
-                "Sin poder (< 0.02)": 0.02,
+                "No power (< 0.02)": 0.02,
                 "Weak (0.1)": 0.1,
-                "Moderado (0.3)": 0.3,
-                "Fuerte (0.5)": 0.5,
+                "Moderate (0.3)": 0.3,
+                "Strong (0.5)": 0.5,
             }
             for label, val in iv_thresholds.items():
                 fig.add_vline(
@@ -158,7 +158,7 @@ class EDAInteractivePlots:
                 )
 
             fig.update_layout(
-                title="Ranking de Variables por Information Value (IV)",
+                title="Variable Ranking by Information Value (IV)",
                 xaxis_title="Information Value",
                 yaxis_title="Variable",
                 template=self.template,
@@ -265,12 +265,12 @@ class EDAInteractivePlots:
                     y=labels,
                     x=values,
                     textinfo="label+value+percent initial",
-                    hovertemplate="<b>%{y}</b><br>Completo: %{x:.1f}%<extra></extra>",
+                    hovertemplate="<b>%{y}</b><br>Complete: %{x:.1f}%<extra></extra>",
                 )
             )
 
             fig.update_layout(
-                title="Embudo de Datos Completos por Columna",
+                title="Complete Data Funnel by Column",
                 template=self.template,
                 height=max(400, len(top_cols) * 30),
             )
@@ -361,9 +361,9 @@ class EDAInteractivePlots:
                 go.Heatmap(
                     z=sub.values,
                     x=consumption_cols,
-                    y=[f"Fila {i}" for i in range(len(sub))],
+                    y=[f"Row {i}" for i in range(len(sub))],
                     colorscale="Blues",
-                    colorbar={"title": "Consumo"},
+                    colorbar={"title": "Consumption"},
                     hovertemplate="Period: <b>%{x}</b><br>Consumption: %{z:.2f}<extra></extra>",
                 )
             )

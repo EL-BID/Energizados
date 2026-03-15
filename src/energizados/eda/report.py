@@ -927,7 +927,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     <h3>Data Leakage Candidates (very high IV)</h3>
     <p>{leakage_html}</p>
 
-    <h3>Ranking Completo (Top 30)</h3>
+    <h3>Full Ranking (Top 30)</h3>
     {table_html}
 </div>
 """

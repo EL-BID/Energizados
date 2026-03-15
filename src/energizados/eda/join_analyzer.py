@@ -178,9 +178,9 @@ class JoinAnalyzer(BaseExplorer):
                         self._add_alert(
                             code="UNBALANCED_EXCLUSION",
                             message=(
-                                f"Los registros excluidos tienen una tasa de fraude muy diferente "
-                                f"({target_excluded:.1%}) que los incluidos ({target_included:.1%}). "
-                                "El join puede estar introduciendo sesgo."
+                                f"Excluded records have a very different fraud rate "
+                                f"({target_excluded:.1%}) than included records ({target_included:.1%}). "
+                                "The join may be introducing bias."
                             ),
                             severity="WARNING",
                             details={

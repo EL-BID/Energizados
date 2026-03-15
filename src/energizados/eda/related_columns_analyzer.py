@@ -226,7 +226,7 @@ class RelatedColumnsAnalyzer(BaseExplorer):
                 code="HIERARCHY_DOMINANT_PATH",
                 message=(
                     f"Hierarchy '{name}': the most frequent combination concentrates "
-                    f"{top_pct:.1%} de los registros (umbral: {threshold:.0%})."
+                    f"{top_pct:.1%} of records (threshold: {threshold:.0%})."
                 ),
                 severity="WARNING",
                 details={"hierarchy": name, "dominant_pct": round(top_pct, 4)},
@@ -250,8 +250,8 @@ class RelatedColumnsAnalyzer(BaseExplorer):
             self._add_alert(
                 code="HIERARCHY_TARGET_DISPARITY",
                 message=(
-                    f"Hierarchy '{name}': {len(extreme)} combinations show disparity "
-                    f"significativa en la tasa de target (z-score > {zscore_threshold})."
+                    f"Hierarchy '{name}': {len(extreme)} combinations show significant "
+                    f"disparity in target rate (z-score > {zscore_threshold})."
                 ),
                 severity="INFO",
                 details={

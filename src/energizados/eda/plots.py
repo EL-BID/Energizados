@@ -73,8 +73,8 @@ class EDAStaticPlots:
                 cmap="Blues",
             )
             ax.set_title("Missing Values Pattern", fontsize=14, fontweight="bold")
-            ax.set_xlabel("Columnas")
-            ax.set_ylabel("Filas (muestra)")
+            ax.set_xlabel("Columns")
+            ax.set_ylabel("Rows (sample)")
             plt.xticks(rotation=45, ha="right", fontsize=8)
             plt.tight_layout()
 
@@ -126,9 +126,9 @@ class EDAStaticPlots:
                     subset = sub[sub[target_col] == val][col]
                     if len(subset) > 1000:
                         subset = subset.sample(1000, random_state=42)
-                    axes[0].hist(subset, bins=40, alpha=0.5, label=f"Clase {val}", density=True)
+                    axes[0].hist(subset, bins=40, alpha=0.5, label=f"Class {val}", density=True)
 
-                axes[0].set_title(f"Histograma: {col}")
+                axes[0].set_title(f"Histogram: {col}")
                 axes[0].set_xlabel(col)
                 axes[0].legend()
 
@@ -151,7 +151,7 @@ class EDAStaticPlots:
                     ax.legend()
                 except Exception:  # nosec B110
                     pass
-                ax.set_title(f"Histograma: {col}")
+                ax.set_title(f"Histogram: {col}")
                 ax.set_xlabel(col)
 
             plt.tight_layout()
@@ -205,10 +205,10 @@ class EDAStaticPlots:
                 sub = df[[col, target_col]].dropna()
                 # Compute fraud rate per category
                 fraud_rate = sub[sub[col].isin(top_cats.index)].groupby(col)[target_col].mean().reindex(top_cats.index).fillna(0)
-                ax.bar(range(len(top_cats)), top_cats.values, color="steelblue", alpha=0.7, label="Conteo")
+                ax.bar(range(len(top_cats)), top_cats.values, color="steelblue", alpha=0.7, label="Count")
                 ax2 = ax.twinx()
-                ax2.plot(range(len(top_cats)), fraud_rate.values, "ro-", markersize=6, label="Tasa fraude")
-                ax2.set_ylabel("Tasa de Fraude", color="red")
+                ax2.plot(range(len(top_cats)), fraud_rate.values, "ro-", markersize=6, label="Fraud Rate")
+                ax2.set_ylabel("Fraud Rate", color="red")
                 ax.set_title(f"Categorical distribution: {col} (with fraud rate)")
                 lines2, labels2 = ax2.get_legend_handles_labels()
                 lines, labels = ax.get_legend_handles_labels()
@@ -219,7 +219,7 @@ class EDAStaticPlots:
 
             ax.set_xticks(range(len(top_cats)))
             ax.set_xticklabels([str(c) for c in top_cats.index], rotation=45, ha="right", fontsize=9)
-            ax.set_ylabel("Conteo")
+            ax.set_ylabel("Count")
             ax.set_xlabel(col)
 
             plt.tight_layout()
@@ -267,7 +267,7 @@ class EDAStaticPlots:
             x = range(len(consumption_cols))
 
             if target_col and target_col in df.columns:
-                for class_val, label, color in [(0, "No Fraude", "steelblue"), (1, "Fraude", "red")]:
+                for class_val, label, color in [(0, "No Fraud", "steelblue"), (1, "Fraud", "red")]:
                     sub = df[df[target_col] == class_val][consumption_cols]
                     means = sub.mean().values
                     stds = sub.std().values
@@ -281,13 +281,13 @@ class EDAStaticPlots:
                     )
             else:
                 means = df[consumption_cols].mean().values
-                ax.plot(x, means, marker="o", color="steelblue", linewidth=2, label="Media")
+                ax.plot(x, means, marker="o", color="steelblue", linewidth=2, label="Mean")
 
             ax.set_xticks(list(x))
             ax.set_xticklabels(consumption_cols, rotation=45, ha="right", fontsize=8)
             ax.set_title("Consumption Trend by Period", fontsize=14, fontweight="bold")
             ax.set_xlabel("Period")
-            ax.set_ylabel("Consumo (media)")
+            ax.set_ylabel("Consumption (mean)")
             ax.legend()
             plt.tight_layout()
 

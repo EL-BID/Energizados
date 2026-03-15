@@ -181,8 +181,8 @@ class LoadingValidator(BaseExplorer):
             self._add_alert(
                 code="WHITESPACE_IN_VALUES",
                 message=(
-                    f"{len(whitespace_columns)} columna(s) tienen valores con espacios en blanco al inicio o final: "
-                    f"{cols_list}. Use str.strip() para limpiarlos."
+                    f"{len(whitespace_columns)} column(s) have values with leading or trailing whitespace: "
+                    f"{cols_list}. Use str.strip() to clean them."
                 ),
                 severity="INFO",
                 details={"columns": whitespace_columns},
