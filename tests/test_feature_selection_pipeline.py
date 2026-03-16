@@ -182,9 +182,24 @@ class TestFeatureSelectionPipeline:
     def test_selection_union(self, small_df, y):
         """Verify union selection operation."""
         cfg = [
-            {"name": "s1", "method": "constant", "params": {"threshold": 0.99}, "columns": ["*_anterior"]},
-            {"name": "s2", "method": "constant", "params": {"threshold": 0.99}, "columns": ["zona", "actividad"]},
-            {"name": "final", "method": "selection", "operation": "union", "columns": ["@s1", "@s2"]},
+            {
+                "name": "s1",
+                "method": "constant",
+                "params": {"threshold": 0.99},
+                "columns": ["*_anterior"],
+            },
+            {
+                "name": "s2",
+                "method": "constant",
+                "params": {"threshold": 0.99},
+                "columns": ["zona", "actividad"],
+            },
+            {
+                "name": "final",
+                "method": "selection",
+                "operation": "union",
+                "columns": ["@s1", "@s2"],
+            },
         ]
         p = FeatureSelectionPipeline(cfg)
         p.fit(small_df, y)
@@ -289,6 +304,14 @@ class TestFeatureSelectionPipeline:
         p = FeatureSelectionPipeline(cfg, method_map=custom_map)
         p.fit(small_df, y)
         assert p.selected_features_ is not None
+
+    def test_mutual_info_method_available(self, small_df, y):
+        """Verify mutual_info method is available in default map."""
+        cfg = [{"name": "mi", "method": "mutual_info", "params": {"k": 3}}]
+        p = FeatureSelectionPipeline(cfg)
+        p.fit(small_df, y)
+        assert p.selected_features_ is not None
+        assert len(p.selected_features_) == 3
 
 
 # ---------------------------------------------------------------------------

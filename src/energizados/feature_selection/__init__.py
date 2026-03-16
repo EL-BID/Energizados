@@ -11,6 +11,7 @@ from energizados.feature_selection.methods import (
     BorutaSelector,
     ConstantSelector,
     CorrelationSelector,
+    MutualInformationSelector,
     feature_selection_by_boruta,
     feature_selection_by_constant,
     feature_selection_by_correlation,
@@ -26,6 +27,7 @@ __all__ = [
     "ColumnResolver",
     "ConstantSelector",
     "CorrelationSelector",
+    "MutualInformationSelector",
     "FeatureSelectionPipeline",
     "SelectionStep",
     # Legacy functions for backward compatibility

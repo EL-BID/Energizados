@@ -25,12 +25,14 @@ def _get_default_method_map() -> Dict[str, type]:
             BorutaSelector,
             ConstantSelector,
             CorrelationSelector,
+            MutualInformationSelector,
         )
 
         _DEFAULT_METHOD_MAP = {
             "boruta": BorutaSelector,
             "correlation": CorrelationSelector,
             "constant": ConstantSelector,
+            "mutual_info": MutualInformationSelector,
         }
     return _DEFAULT_METHOD_MAP
 
@@ -55,7 +57,9 @@ class SelectionStep:
         self.patterns = patterns
         self.selected_features_: Optional[List[str]] = None
 
-    def fit_with_resolver(self, resolver: ColumnResolver, available_columns: List[str]) -> "SelectionStep":
+    def fit_with_resolver(
+        self, resolver: ColumnResolver, available_columns: List[str]
+    ) -> "SelectionStep":
         """
         Resolve patterns and compute the selected column set.
 
@@ -196,13 +200,18 @@ class FeatureSelectionPipeline:
                 self._step_results[name] = step.selected_features_
             else:
                 if method not in self.method_map:
-                    raise ValueError(f"Unknown feature selection method '{method}'. " f"Available: {list(self.method_map.keys())}")
+                    raise ValueError(
+                        f"Unknown feature selection method '{method}'. "
+                        f"Available: {list(self.method_map.keys())}"
+                    )
                 selector_cls = self.method_map[method]
                 selector = selector_cls(**params)
                 selector.fit(X[scoped_columns], y)
                 self._step_results[name] = selector.selected_features_
 
-            logger.info(f"Step '{name}' ({method}): selected " f"{len(self._step_results[name])} columns")
+            logger.info(
+                f"Step '{name}' ({method}): selected {len(self._step_results[name])} columns"
+            )
             last_name = name
 
         if last_name is not None:

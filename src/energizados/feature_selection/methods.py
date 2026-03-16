@@ -2,7 +2,7 @@
 Feature Selection Methods for Energizados Framework.
 
 Implementations of feature selection methods based on
-the existing project code.
+existing project code.
 """
 
 import logging
@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from boruta import BorutaPy
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 from tqdm import tqdm
 
 from energizados.feature_selection.base import BaseFeatureSelector
@@ -144,9 +145,13 @@ class ConstantSelector(BaseFeatureSelector):
         num_rows = X.shape[0]
         all_labels = X.columns.tolist()
 
-        constant_per_feature = {label: X[label].value_counts().iloc[0] / num_rows for label in all_labels}
+        constant_per_feature = {
+            label: X[label].value_counts().iloc[0] / num_rows for label in all_labels
+        }
 
-        self.vars_to_drop_ = [label for label in all_labels if constant_per_feature[label] > self.threshold]
+        self.vars_to_drop_ = [
+            label for label in all_labels if constant_per_feature[label] > self.threshold
+        ]
         self.selected_features_ = [x for x in all_labels if x not in self.vars_to_drop_]
 
         logger.info(f"Removing {len(self.vars_to_drop_)} Constant Variables")
@@ -259,7 +264,9 @@ class BorutaSelector(BaseFeatureSelector):
 
             feat_selector.fit(X_temp.values, y.values)
 
-            ranking = pd.DataFrame({"col": X_temp.columns, "ranking": feat_selector.ranking_}).sort_values("ranking")
+            ranking = pd.DataFrame(
+                {"col": X_temp.columns, "ranking": feat_selector.ranking_}
+            ).sort_values("ranking")
 
             # Variables up to the "random"
             random_idx = ranking[ranking.col == "random"].index
@@ -342,3 +349,106 @@ def feature_selection_by_boruta(X_train, y_train, N=10):
     selector = BorutaSelector(max_iter=N, n_runs_=N)
     selector.fit(X_train, y_train)
     return selector.get_selected_features()
+
+
+class MutualInformationSelector(BaseFeatureSelector):
+    """
+    Feature selector based on mutual information with the target.
+
+    Mutual information measures the dependency between variables.
+    Higher values indicate stronger predictive power.
+
+    Args:
+        k: Number of top features to select (default: 10).
+        random_state: Random seed for reproducibility (default: 42).
+        discrete_features: List of indices of discrete features.
+                       If 'auto', features are inferred from dtype.
+    """
+
+    def __init__(
+        self,
+        k: int = 10,
+        random_state: int = 42,
+        discrete_features: Union[str, list] = "auto",
+        config: Optional[dict] = None,
+    ):
+        super().__init__(config)
+        self.k = k
+        self.random_state = random_state
+        self.discrete_features = discrete_features
+        self.scores_ = None
+
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "MutualInformationSelector":
+        """
+        Learn which features to select using mutual information.
+
+        Args:
+            X: Training features.
+            y: Training target.
+
+        Returns:
+            self: The fitted instance.
+        """
+        # Convert numpy array to DataFrame if needed
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        # Filter out non-numeric columns (datetime, object, etc.)
+        X = X.select_dtypes(include=[np.number])
+        logger.info(f"Filtered to {X.shape[1]} numeric columns for mutual information")
+
+        X = X.copy()
+        y = y.copy()
+
+        # Determine target type
+        if y.nunique() <= 2:
+            # Binary or multi-class classification
+            logger.info("Computing mutual information (classification)")
+            scores = mutual_info_classif(
+                X,
+                y,
+                discrete_features=self.discrete_features,
+                random_state=self.random_state,
+            )
+        else:
+            # Regression
+            logger.info("Computing mutual information (regression)")
+            scores = mutual_info_regression(
+                X,
+                y,
+                discrete_features=self.discrete_features,
+                random_state=self.random_state,
+            )
+
+        self.scores_ = pd.Series(scores, index=X.columns)
+
+        # Get top k features
+        top_k = self.scores_.nlargest(self.k)
+        self.selected_features_ = top_k.index.tolist()
+
+        logger.info(
+            f"Selected {len(self.selected_features_)} features by mutual information (top {self.k})"
+        )
+        logger.info(f"Top 5 features: {self.selected_features_[:5]}")
+
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transform X keeping only the selected features.
+
+        Args:
+            X: DataFrame to transform.
+
+        Returns:
+            pd.DataFrame: DataFrame with selected features.
+
+        Raises:
+            ValueError: If fit() has not been called previously.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+
+        # Ensure all selected features exist
+        available_features = [f for f in self.selected_features_ if f in X.columns]
+        return X[available_features].copy()

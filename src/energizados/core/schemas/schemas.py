@@ -88,6 +88,8 @@ FEATURE_SELECTION_SCHEMA = {
                     "threshold": {"type": "number"},
                     "method": {"type": "string"},
                     "n_runs": {"type": "integer"},
+                    "k": {"type": "integer"},
+                    "random_state": {"type": "integer"},
                 },
             },
         },
