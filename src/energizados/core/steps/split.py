@@ -78,6 +78,14 @@ class SplitStep(PipelineStep):
         self.test_period = test_period
         self.save_splits = save_splits
 
+    def _validate_time_series_config(self) -> None:
+        """Validate time_series-specific config. Raises ValueError if invalid."""
+        if not self.date_column:
+            raise ValueError(
+                "SplitStep with method='time_series' requires 'date_column'. "
+                "Add date_column to your split configuration."
+            )
+
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the split and save train/val/test datasets to disk.
 
@@ -124,8 +132,8 @@ class SplitStep(PipelineStep):
 
         # Split by time periods
         if self.method == "time_series":
-            if not self.date_column:
-                raise ValueError("For method='time_series' must specify date_column")
+            # Validate time_series configuration
+            self._validate_time_series_config()
 
             # Convert date column to datetime if not already
             df[self.date_column] = pd.to_datetime(df[self.date_column])
@@ -139,6 +147,27 @@ class SplitStep(PipelineStep):
             val_df = df[val_mask].copy()
             test_df = df[test_mask].copy()
 
+            # Check for overlapping periods
+            for name_a, mask_a, name_b, mask_b in [
+                ("train", train_mask, "val", val_mask),
+                ("train", train_mask, "test", test_mask),
+                ("val", val_mask, "test", test_mask),
+            ]:
+                overlap = (mask_a & mask_b).sum()
+                if overlap > 0:
+                    logger.warning(
+                        "%s and %s periods overlap: %d rows in common", name_a, name_b, overlap
+                    )
+
+            # Check for empty splits
+            for name, split_df in [("train", train_df), ("val", val_df), ("test", test_df)]:
+                if len(split_df) == 0:
+                    logger.warning(
+                        "%s split is empty (0 rows). Check your %s_period configuration.",
+                        name,
+                        name,
+                    )
+
         # Random/stratified split
         else:
             # Separate X and y
@@ -151,14 +180,20 @@ class SplitStep(PipelineStep):
                     X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
                 )
             else:  # random
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=self.test_size, random_state=self.random_state)
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=self.test_size, random_state=self.random_state
+                )
 
             # Split: train → train + val
             val_size_adjusted = self.val_size / (1 - self.test_size)
 
             if self.method == "stratified":
                 X_train, X_val, y_train, y_val = train_test_split(
-                    X_train, y_train, test_size=val_size_adjusted, random_state=self.random_state, stratify=y_train
+                    X_train,
+                    y_train,
+                    test_size=val_size_adjusted,
+                    random_state=self.random_state,
+                    stratify=y_train,
                 )
             else:  # random
                 X_train, X_val, y_train, y_val = train_test_split(
@@ -215,13 +250,13 @@ class SplitStep(PipelineStep):
             with open(self.splits_dir / "split_metadata.json", "w") as f:
                 json.dump(metadata, f, indent=2, default=str)
 
-        logger.info(f"\n{'='*50}")
+        logger.info(f"\n{'=' * 50}")
         logger.info(f"DATA SPLIT ({self.method.upper()})")
-        logger.info(f"{'='*50}")
+        logger.info(f"{'=' * 50}")
         logger.info(f"Total:     {len(df):>6} samples")
-        logger.info(f"Train:     {len(train_df):>6} samples ({len(train_df)/len(df)*100:.1f}%)")
-        logger.info(f"Val:       {len(val_df):>6} samples ({len(val_df)/len(df)*100:.1f}%)")
-        logger.info(f"Test:      {len(test_df):>6} samples ({len(test_df)/len(df)*100:.1f}%)")
+        logger.info(f"Train:     {len(train_df):>6} samples ({len(train_df) / len(df) * 100:.1f}%)")
+        logger.info(f"Val:       {len(val_df):>6} samples ({len(val_df) / len(df) * 100:.1f}%)")
+        logger.info(f"Test:      {len(test_df):>6} samples ({len(test_df) / len(df) * 100:.1f}%)")
 
         # Show target distribution
         logger.info("\nTarget distribution:")
@@ -239,7 +274,7 @@ class SplitStep(PipelineStep):
             logger.info(f"Val:   {metadata['val_dates']}")
             logger.info(f"Test:  {metadata['test_dates']}")
 
-        logger.info(f"{'='*50}")
+        logger.info(f"{'=' * 50}")
         if self.save_splits:
             logger.info(f"Splits saved to: {self.splits_dir}")
 

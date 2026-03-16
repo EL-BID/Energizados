@@ -34,11 +34,15 @@ SPLIT_SCHEMA = {
         "val_size": {"type": "number", "minimum": 0, "maximum": 1},
         "random_state": {"type": "integer"},
         "splits_dir": {"type": "string"},
-        "method": {"type": "string", "enum": ["stratified", "random", "temporal", "group"]},
+        "method": {"type": "string", "enum": ["stratified", "random", "time_series"]},
         "date_column": {"type": "string"},
-        "train_period": {"type": "string"},
-        "val_period": {"type": "string"},
-        "test_period": {"type": "string"},
+        "train_period": {
+            "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]
+        },
+        "val_period": {"oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]},
+        "test_period": {
+            "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]
+        },
         "save_splits": {"type": "boolean"},
     },
 }
