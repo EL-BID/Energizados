@@ -122,7 +122,10 @@ MODEL_CONFIG_SCHEMA = {
             "type": "object",
             "properties": {
                 "enabled": {"type": "boolean"},
-                "method": {"type": "string", "enum": ["smote", "undersample", "oversample"]},
+                "method": {
+                    "type": "string",
+                    "enum": ["smote", "undersample", "oversample", "none"],
+                },
                 "strategy": {"type": "string"},
             },
         },
@@ -263,11 +266,11 @@ INFERENCE_SCHEMA = {
 EDA_COLUMN_DETECTION_SCHEMA = {
     "type": "object",
     "properties": {
-        "id_col": {"type": "string"},
-        "date_col": {"type": "string"},
-        "lat_col": {"type": "string"},
-        "lon_col": {"type": "string"},
-        "zone_col": {"type": "string"},
+        "id_col": {"type": ["string", "null"]},
+        "date_col": {"type": ["string", "null"]},
+        "lat_col": {"type": ["string", "null"]},
+        "lon_col": {"type": ["string", "null"]},
+        "zone_col": {"type": ["string", "null"]},
         "periods_suffix": {"type": "string"},
     },
 }
@@ -307,7 +310,7 @@ EDA_SCHEMA = {
         "enabled": {"type": "boolean"},
         "column_detection": EDA_COLUMN_DETECTION_SCHEMA,
         "data_sources": EDA_DATA_SOURCE_SCHEMA,
-        "sections": {"type": "array", "items": {"type": "integer", "minimum": 0, "maximum": 7}},
+        "sections": {"type": "object"},
         "output": EDA_OUTPUT_SCHEMA,
     },
 }

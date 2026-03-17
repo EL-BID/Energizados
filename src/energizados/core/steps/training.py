@@ -456,7 +456,7 @@ class TrainingStep(PipelineStep):
         if model_type in ["lightgbm", "lgbm", "catboost", "cat"]:
             params["cols_for_model"] = X_train.columns.tolist()
             sampling_config = params.pop("sampling", {})
-            params["sampling_method"] = sampling_config.get("method", "under")
+            params["sampling_method"] = sampling_config.get("method", "undersample")
             params["sampling_th"] = sampling_config.get("threshold", 0.5)
             class_weight = params.pop("class_weight", None)
             if class_weight is not None:
@@ -473,7 +473,7 @@ class TrainingStep(PipelineStep):
             params["features_names"] = feature_cols
             params["spents_names"] = consumption_cols
             sampling_config = params.pop("sampling", {})
-            params["sampling_method"] = sampling_config.get("method", "under")
+            params["sampling_method"] = sampling_config.get("method", "undersample")
             params["sampling_th"] = sampling_config.get("threshold", 0.5)
             class_weight = params.pop("class_weight", None)
             if class_weight is not None:

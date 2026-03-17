@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
+from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -343,7 +344,7 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
     if "sampling" in training:
         sampling = training["sampling"]
         if isinstance(sampling, dict):
-            valid_methods = ["over", "under", "none"]
+            valid_methods = ["oversample", "undersample", "none"]
             method = sampling.get("method")
             if method and method not in valid_methods:
                 result.add_warning(f"training.sampling.method invalid: {method}")
@@ -426,34 +427,49 @@ def _print_validation_results(result: ValidationResult, config: Dict[str, Any]) 
     """Prints the validation results to stdout.
 
     Displays information, warnings, and errors in a formatted
-    output with visual indicators.
+    output with visual indicators using Rich Table and Panel.
 
     Args:
         result: ValidationResult object containing messages.
         config: The configuration dictionary (for context).
     """
-    print("\n" + "=" * 60)
-    print("VALIDATION RESULTS")
-    print("=" * 60)
+    from rich.panel import Panel
+    from rich.table import Table
 
+    # Create the results table
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Status", style="", width=8)
+    table.add_column("Category", style="cyan", width=12)
+    table.add_column("Message", style="white")
+
+    # Add info messages
     if result.info:
-        print("\n📋 Information:")
         for info in result.info:
-            print(f"  • {info}")
+            table.add_row("[bold cyan]⚡[/]", "Info", info)
 
+    # Add warnings
     if result.warnings:
-        print(f"\n⚠️  Warnings ({len(result.warnings)}):")
         for warning in result.warnings:
-            print(f"  • {warning}")
+            table.add_row("[bold yellow]⚠[/]", "Warning", warning)
 
+    # Add errors
     if result.errors:
-        print(f"\n❌ Errors ({len(result.errors)}):")
         for error in result.errors:
-            print(f"  • {error}")
+            table.add_row("[bold red]✗[/]", "Error", error)
 
-    print("\n" + "=" * 60)
+    # Create the summary message
     if result.is_valid():
-        print("✓ VALID CONFIGURATION")
+        summary_message = "[bold green]✓ VALID CONFIGURATION[/]"
     else:
-        print("✗ INVALID CONFIGURATION")
-    print("=" * 60)
+        summary_message = "[bold red]✗ INVALID CONFIGURATION[/]"
+
+    # Wrap in a panel and print
+    panel = Panel(
+        table,
+        title="[bold]Validation Results[/]",
+        title_align="left",
+        border_style="cyan",
+    )
+    console.print("\n")
+    console.print(panel)
+    console.print(f"\n{summary_message}\n")

@@ -25,7 +25,7 @@ class LGBMModelAdapter(BaseModel):
         hyperparams: Model hyperparameters.
         search_hip: If True, performs hyperparameter search.
         sampling_th: Sampling threshold for imbalanced classes.
-        sampling_method: Sampling method ('over', 'under', 'none').
+        sampling_method: Sampling method ('over', 'undersample', 'none').
     """
 
     def __init__(
@@ -34,7 +34,7 @@ class LGBMModelAdapter(BaseModel):
         hyperparams: Optional[dict] = None,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        sampling_method: str = "under",
+        sampling_method: str = "undersample",
         n_iter: int = 60,
         cv: int = 3,
         config: Optional[dict] = None,
@@ -127,7 +127,7 @@ class CATModelAdapter(BaseModel):
         hyperparams: CatBoost hyperparameter dict.
         search_hip: If True, performs hyperparameter search before training.
         sampling_th: Sampling ratio for the imblearn sampler.
-        sampling_method: Sampling strategy ('over', 'under', or other for none).
+        sampling_method: Sampling strategy ('over', 'undersample', or other for none).
         n_iter: Number of iterations for RandomizedSearchCV.
         cv: Number of cross-validation folds for RandomizedSearchCV.
         config: Optional framework configuration dict.
@@ -140,7 +140,7 @@ class CATModelAdapter(BaseModel):
         hyperparams: Optional[dict] = None,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        sampling_method: str = "under",
+        sampling_method: str = "undersample",
         n_iter: int = 60,
         cv: int = 3,
         config: Optional[dict] = None,
@@ -230,7 +230,7 @@ class NNModelAdapter(BaseModel):
         spents_names: Consumption column names (ordered oldest to newest).
         search_hip: If True, performs hyperparameter search (not currently used by NNModel).
         sampling_th: Sampling ratio for the imblearn sampler.
-        sampling_method: Sampling strategy ('over', 'under', or other for none).
+        sampling_method: Sampling strategy ('over', 'undersample', or other for none).
         config: Optional framework configuration dict.
     """
 
@@ -240,7 +240,7 @@ class NNModelAdapter(BaseModel):
         spents_names: list,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        sampling_method: str = "under",
+        sampling_method: str = "undersample",
         config: Optional[dict] = None,
     ):
         super().__init__(config)
@@ -330,7 +330,7 @@ class LSTMNNModelAdapter(BaseModel):
         spents_names: Consumption column names (ordered oldest to newest).
         search_hip: If True, performs hyperparameter search (not currently used by LSTMNNModel).
         sampling_th: Sampling ratio for the imblearn sampler.
-        sampling_method: Sampling strategy ('over', 'under', or other for none).
+        sampling_method: Sampling strategy ('over', 'undersample', or other for none).
         config: Optional framework configuration dict.
     """
 
@@ -340,7 +340,7 @@ class LSTMNNModelAdapter(BaseModel):
         spents_names: list,
         search_hip: bool = False,
         sampling_th: float = 0.5,
-        sampling_method: str = "under",
+        sampling_method: str = "undersample",
         config: Optional[dict] = None,
     ):
         super().__init__(config)

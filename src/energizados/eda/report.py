@@ -253,9 +253,9 @@ class EDAReportGenerator:
             <button id="dark-toggle-btn" class="dark-toggle">&#9790; Dark</button>
             <h1>Exploratory Data Analysis Report</h1>
             <p>Generated: {now}</p>
-            <p>Dataset shape: {global_stats.get('shape', (0,0))[0]:,}
-            rows &times; {global_stats.get('shape', (0,0))[1] if len(global_stats.get('shape', (0,0))) > 1 else 0:,}
-            columns &nbsp;|&nbsp; Memory: {global_stats.get('memory_mb', 0):.2f} MB</p>
+            <p>Dataset shape: {global_stats.get("shape", (0, 0))[0]:,}
+            rows &times; {global_stats.get("shape", (0, 0))[1] if len(global_stats.get("shape", (0, 0))) > 1 else 0:,}
+            columns &nbsp;|&nbsp; Memory: {global_stats.get("memory_mb", 0):.2f} MB</p>
         </div>
 
         <!-- Executive summary -->
@@ -468,7 +468,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         num_str_table = ""
         if numeric_as_str:
             rows = "".join(
-                f'<tr><td>{d["col"]}</td><td>{d["parseable_count"]:,}</td><td>{d["parseable_pct"]:.1f}%</td></tr>'
+                f"<tr><td>{d['col']}</td><td>{d['parseable_count']:,}</td><td>{d['parseable_pct']:.1f}%</td></tr>"
                 for d in numeric_as_str
             )
             num_str_table = f"""
@@ -479,8 +479,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         ws_table = ""
         if whitespace_cols:
             rows = "".join(
-                f'<tr><td>{d["col"]}</td><td>{d["affected_count"]:,}</td>'
-                f'<td>{d["affected_pct"]:.1f}%</td><td><code>{d.get("example","")}</code></td></tr>'
+                f"<tr><td>{d['col']}</td><td>{d['affected_count']:,}</td>"
+                f"<td>{d['affected_pct']:.1f}%</td><td><code>{d.get('example', '')}</code></td></tr>"
                 for d in whitespace_cols
             )
             ws_table = f"""
@@ -493,15 +493,15 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     <h2>Phase 0: Loading Validation</h2>
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="value">{loading.get('rows_loaded', 0):,}</div>
+            <div class="value">{loading.get("rows_loaded", 0):,}</div>
             <div class="label">Rows Loaded</div>
         </div>
         <div class="stat-card">
-            <div class="value">{loading.get('encoding_used', 'N/A')}</div>
+            <div class="value">{loading.get("encoding_used", "N/A")}</div>
             <div class="label">Detected Encoding</div>
         </div>
         <div class="stat-card">
-            <div class="value">{loading.get('decimal_separator', '.')}</div>
+            <div class="value">{loading.get("decimal_separator", ".")}</div>
             <div class="label">Decimal Separator</div>
         </div>
         <div class="stat-card">
@@ -523,8 +523,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         top_nulls = sorted(nulls_by_col, key=lambda x: x.get("null_pct", 0), reverse=True)[:20]
 
         nulls_rows = "".join(
-            f'<tr><td>{d["col"]}</td><td>{d["null_count"]:,}</td><td>{d["null_pct"]:.2f}%</td>'
-            f'<td><div class="consumption-bar" style="width:{min(d["null_pct"],100):.0f}%;'
+            f"<tr><td>{d['col']}</td><td>{d['null_count']:,}</td><td>{d['null_pct']:.2f}%</td>"
+            f'<td><div class="consumption-bar" style="width:{min(d["null_pct"], 100):.0f}%;'
             f'background:linear-gradient(90deg,#f44336,#ffcdd2);"></div></td></tr>'
             for d in top_nulls
         )
@@ -558,19 +558,19 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="value">{global_stats.get('total_nulls', 0):,}</div>
+            <div class="value">{global_stats.get("total_nulls", 0):,}</div>
             <div class="label">Total Missing</div>
         </div>
         <div class="stat-card">
-            <div class="value">{global_stats.get('total_null_pct', 0):.2f}%</div>
+            <div class="value">{global_stats.get("total_null_pct", 0):.2f}%</div>
             <div class="label">% Null Cells</div>
         </div>
         <div class="stat-card">
-            <div class="value">{global_stats.get('duplicate_rows', 0):,}</div>
+            <div class="value">{global_stats.get("duplicate_rows", 0):,}</div>
             <div class="label">Duplicate Rows</div>
         </div>
         <div class="stat-card">
-            <div class="value">{global_stats.get('memory_mb', 0):.1f} MB</div>
+            <div class="value">{global_stats.get("memory_mb", 0):.1f} MB</div>
             <div class="label">Memory</div>
         </div>
     </div>
@@ -590,8 +590,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         <tbody>{nulls_rows}</tbody>
     </table>
 
-    {f'<div class="chart-container">{missing_heatmap_html}</div>' if missing_heatmap_html else ''}
-    {f'<div class="chart-container">{null_corr_html}</div>' if null_corr_html else ''}
+    {f'<div class="chart-container">{missing_heatmap_html}</div>' if missing_heatmap_html else ""}
+    {f'<div class="chart-container">{null_corr_html}</div>' if null_corr_html else ""}
 </div>
 """
 
@@ -645,7 +645,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
     {consumption_html}
 
-    {f'<h3>Correlation Matrix</h3><div class="chart-container">{corr_chart}</div>' if corr_chart else ''}
+    {f'<h3>Correlation Matrix</h3><div class="chart-container">{corr_chart}</div>' if corr_chart else ""}
 </div>
 """
 
@@ -659,24 +659,24 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         rows = ""
         for d in numeric:
             iv_td = (
-                f'<td>{d.get("iv", "—") if d.get("iv") is not None else "—"}</td>'
-                f'<td>{d.get("ks_stat", "—") if d.get("ks_stat") is not None else "—"}</td>'
+                f"<td>{d.get('iv', '—') if d.get('iv') is not None else '—'}</td>"
+                f"<td>{d.get('ks_stat', '—') if d.get('ks_stat') is not None else '—'}</td>"
                 if has_iv
                 else ""
             )
             null_color = "color:#f44336;" if (d.get("null_pct", 0) or 0) > 30 else ""
             rows += f"""
 <tr>
-    <td><strong>{d.get('col','')}</strong></td>
-    <td>{d.get('count', 0):,}</td>
-    <td style="{null_color}">{d.get('null_pct', 0):.1f}%</td>
-    <td>{d.get('mean', '—')}</td>
-    <td>{d.get('std', '—')}</td>
-    <td>{d.get('min', '—')}</td>
-    <td>{d.get('max', '—')}</td>
-    <td>{d.get('p50', '—')}</td>
-    <td>{d.get('outlier_pct', 0):.1f}%</td>
-    <td>{d.get('skewness', '—')}</td>
+    <td><strong>{d.get("col", "")}</strong></td>
+    <td>{d.get("count", 0):,}</td>
+    <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
+    <td>{d.get("mean", "—")}</td>
+    <td>{d.get("std", "—")}</td>
+    <td>{d.get("min", "—")}</td>
+    <td>{d.get("max", "—")}</td>
+    <td>{d.get("p50", "—")}</td>
+    <td>{d.get("outlier_pct", 0):.1f}%</td>
+    <td>{d.get("skewness", "—")}</td>
     {iv_td}
 </tr>"""
 
@@ -704,21 +704,21 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             top = d.get("top_categories", [])
             top_str = ", ".join(f"{c['value']} ({c['pct']:.1f}%)" for c in top[:3])
             iv_td = (
-                f'<td>{d.get("iv", "—") if d.get("iv") is not None else "—"}</td>'
-                f'<td>{d.get("cramers_v", "—") if d.get("cramers_v") is not None else "—"}</td>'
+                f"<td>{d.get('iv', '—') if d.get('iv') is not None else '—'}</td>"
+                f"<td>{d.get('cramers_v', '—') if d.get('cramers_v') is not None else '—'}</td>"
                 if has_iv
                 else ""
             )
             null_color = "color:#f44336;" if (d.get("null_pct", 0) or 0) > 30 else ""
             rows += f"""
 <tr>
-    <td><strong>{d.get('col','')}</strong></td>
-    <td>{d.get('count', 0):,}</td>
-    <td style="{null_color}">{d.get('null_pct', 0):.1f}%</td>
-    <td>{d.get('unique_count', 0)}</td>
+    <td><strong>{d.get("col", "")}</strong></td>
+    <td>{d.get("count", 0):,}</td>
+    <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
+    <td>{d.get("unique_count", 0)}</td>
     <td style="max-width:300px;white-space:normal;">{top_str}</td>
-    <td>{d.get('rare_pct', 0):.1f}%</td>
-    <td>{d.get('entropy', 0):.2f}</td>
+    <td>{d.get("rare_pct", 0):.1f}%</td>
+    <td>{d.get("entropy", 0):.2f}</td>
     {iv_td}
 </tr>"""
 
@@ -741,13 +741,13 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         for d in temporal:
             rows += f"""
 <tr>
-    <td><strong>{d.get('col','')}</strong></td>
-    <td>{d.get('count', 0):,}</td>
-    <td>{d.get('null_pct', 0):.1f}%</td>
-    <td>{d.get('min_date', '—')}</td>
-    <td>{d.get('max_date', '—')}</td>
-    <td>{d.get('span_days', '—')}</td>
-    <td>{d.get('granularity', '—')}</td>
+    <td><strong>{d.get("col", "")}</strong></td>
+    <td>{d.get("count", 0):,}</td>
+    <td>{d.get("null_pct", 0):.1f}%</td>
+    <td>{d.get("min_date", "—")}</td>
+    <td>{d.get("max_date", "—")}</td>
+    <td>{d.get("span_days", "—")}</td>
+    <td>{d.get("granularity", "—")}</td>
 </tr>"""
 
         return f"""
@@ -772,13 +772,13 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         for s in stats:
             stats_rows += f"""
 <tr>
-    <td>{s.get('period','')}</td>
-    <td>{s.get('mean', '—')}</td>
-    <td>{s.get('std', '—')}</td>
-    <td>{s.get('min', '—')}</td>
-    <td>{s.get('max', '—')}</td>
-    <td>{s.get('zeros_pct', 0):.1f}%</td>
-    <td>{s.get('nulls_pct', 0):.1f}%</td>
+    <td>{s.get("period", "")}</td>
+    <td>{s.get("mean", "—")}</td>
+    <td>{s.get("std", "—")}</td>
+    <td>{s.get("min", "—")}</td>
+    <td>{s.get("max", "—")}</td>
+    <td>{s.get("zeros_pct", 0):.1f}%</td>
+    <td>{s.get("nulls_pct", 0):.1f}%</td>
 </tr>"""
 
         consumption_chart = charts.get("consumption_trend", "")
@@ -788,27 +788,27 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <h3>Consumption Columns ({len(periods)} periods)</h3>
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="value">{consumption.get('pct_rows_with_any_zero', 0):.1f}%</div>
+        <div class="value">{consumption.get("pct_rows_with_any_zero", 0):.1f}%</div>
         <div class="label">Rows with Any Zero</div>
     </div>
     <div class="stat-card">
-        <div class="value">{consumption.get('pct_rows_all_zero', 0):.1f}%</div>
+        <div class="value">{consumption.get("pct_rows_all_zero", 0):.1f}%</div>
         <div class="label">Rows All Zero</div>
     </div>
     <div class="stat-card">
-        <div class="value">{consumption.get('pct_negative', 0):.1f}%</div>
+        <div class="value">{consumption.get("pct_negative", 0):.1f}%</div>
         <div class="label">% Negative Consumption</div>
     </div>
     <div class="stat-card">
-        <div class="value">{consumption.get('pct_constant', 0):.1f}%</div>
+        <div class="value">{consumption.get("pct_constant", 0):.1f}%</div>
         <div class="label">Constant Rows</div>
     </div>
     <div class="stat-card">
-        <div class="value">{consumption.get('pct_abrupt_drop', 0):.1f}%</div>
+        <div class="value">{consumption.get("pct_abrupt_drop", 0):.1f}%</div>
         <div class="label">Abrupt Drops (&gt;50%)</div>
     </div>
     <div class="stat-card">
-        <div class="value">{consumption.get('trend_slope', 0):.4f}</div>
+        <div class="value">{consumption.get("trend_slope", 0):.4f}</div>
         <div class="label">Trend Slope</div>
     </div>
 </div>
@@ -818,8 +818,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <tbody>{stats_rows}</tbody>
 </table>
 </div>
-{f'<div class="chart-container">{consumption_chart}</div>' if consumption_chart else ''}
-{f'<div class="chart-container">{consumption_heatmap}</div>' if consumption_heatmap else ''}
+{f'<div class="chart-container">{consumption_chart}</div>' if consumption_chart else ""}
+{f'<div class="chart-container">{consumption_heatmap}</div>' if consumption_heatmap else ""}
 """
 
     def _build_target_section(self, target: Dict, charts: Dict) -> str:
@@ -844,7 +844,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         temporal_rows = ""
         if temporal_rate:
             temporal_rows = "".join(
-                f'<tr><td>{d["period"]}</td><td>{d["total"]:,}</td><td>{d["positive"]:,}</td><td>{d["rate"]:.2f}%</td></tr>'
+                f"<tr><td>{d['period']}</td><td>{d['total']:,}</td><td>{d['positive']:,}</td><td>{d['rate']:.2f}%</td></tr>"
                 for d in temporal_rate[:24]
             )
             temporal_table = f"""
@@ -862,8 +862,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         temporal_chart = charts.get("temporal_rate", "")
 
         rec_labels = {
-            "over": "Oversampling (over-sampling)",
-            "under": "Undersampling (under-sampling)",
+            "oversample": "Oversampling (over-sampling)",
+            "undersample": "Undersampling (under-sampling)",
             "none": "No resampling needed",
         }
         rec_html = rec_labels.get(recommendation, recommendation)
@@ -881,11 +881,11 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             <p><strong>Recommendation:</strong> {rec_html}</p>
         </div>
         <div>
-            {f'<div class="chart-container">{class_balance_chart}</div>' if class_balance_chart else ''}
+            {f'<div class="chart-container">{class_balance_chart}</div>' if class_balance_chart else ""}
         </div>
     </div>
     {temporal_table}
-    {f'<div class="chart-container">{temporal_chart}</div>' if temporal_chart else ''}
+    {f'<div class="chart-container">{temporal_chart}</div>' if temporal_chart else ""}
 </div>
 """
 
@@ -920,7 +920,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             top_df = ranking_df[available_cols].head(30)
 
             header_cells = "".join(
-                f'<th>{c.replace("_", " ").title()}</th>' for c in available_cols
+                f"<th>{c.replace('_', ' ').title()}</th>" for c in available_cols
             )
 
             rows_html = ""
@@ -962,10 +962,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div class="section" id="importancia">
     <h2>Phase 5: Feature Importance</h2>
 
-    {f'<div class="chart-container">{iv_chart}</div>' if iv_chart else ''}
+    {f'<div class="chart-container">{iv_chart}</div>' if iv_chart else ""}
 
     <h3>Top 20 Features (by combined score)</h3>
-    <p>{" ".join(f'<span class="pill"><strong>{i+1}.</strong> {c}</span>' for i, c in enumerate(top_features))}</p>
+    <p>{" ".join(f'<span class="pill"><strong>{i + 1}.</strong> {c}</span>' for i, c in enumerate(top_features))}</p>
 
     <h3>Low Predictive Power Features (IV &lt; threshold)</h3>
     <p>{weak_html}</p>
@@ -1019,7 +1019,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div class="section" id="geo">
     <h2>Phase 4: Geospatial Analysis</h2>
 
-    {f'<div class="chart-container">{mapbox_chart}</div>' if mapbox_chart else ''}
+    {f'<div class="chart-container">{mapbox_chart}</div>' if mapbox_chart else ""}
 
     <h3>Coordinate Quality</h3>
     <table class="data-table">
@@ -1029,13 +1029,17 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
     {clustering_info}
 
-    {f'''
+    {
+            f'''
     <h3>Fraud Rate by Zone</h3>
     <table class="data-table">
         <thead><tr><th>Zone</th><th>Rate</th></tr></thead>
         <tbody>{zone_rows}</tbody>
     </table>
-    ''' if zone_rows else ''}
+    '''
+            if zone_rows
+            else ""
+        }
 </div>
 """
 
@@ -1052,8 +1056,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         ]
 
         segment_rows = "".join(
-            f'<tr><td>{s["column"]}={s["segment"]}</td><td>{s["size"]:,}</td><td>{s["size_pct"]:.1f}%</td>'
-            f'<td>{s["target_rate"]:.1%}</td><td>{s["z_score"]:.2f}</td></tr>'
+            f"<tr><td>{s['column']}={s['segment']}</td><td>{s['size']:,}</td><td>{s['size_pct']:.1f}%</td>"
+            f"<td>{s['target_rate']:.1%}</td><td>{s['z_score']:.2f}</td></tr>"
             for s in top_segments
         )
 
@@ -1063,7 +1067,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div class="section" id="segmentacion">
     <h2>Phase 6: Segmentation Analysis</h2>
 
-    {f'<div class="chart-container">{segment_chart}</div>' if segment_chart else ''}
+    {f'<div class="chart-container">{segment_chart}</div>' if segment_chart else ""}
 
     <h3>Segments with Greatest Fraud Rate Difference</h3>
     <table class="data-table">
@@ -1100,7 +1104,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         if not blocks:
             return ""
-        return f'<h3>Column Detail ({type_label})</h3>{"".join(blocks)}'
+        return f"<h3>Column Detail ({type_label})</h3>{''.join(blocks)}"
 
     # ------------------------------------------------------------------
     # Related columns section
@@ -1140,9 +1144,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     <h4>Hierarchical Breakdown</h4>
     <ul class="tree-list">{tree_html}</ul>
 
-    {f'<div class="chart-container">{sunburst_html}</div>' if sunburst_html else ''}
-    {f'<div class="chart-container">{sankey_html}</div>' if sankey_html else ''}
-    {f'<div class="chart-container">{heatmap_html}</div>' if heatmap_html else ''}
+    {f'<div class="chart-container">{sunburst_html}</div>' if sunburst_html else ""}
+    {f'<div class="chart-container">{sankey_html}</div>' if sankey_html else ""}
+    {f'<div class="chart-container">{heatmap_html}</div>' if heatmap_html else ""}
 
     {cross_html}
 </div>"""

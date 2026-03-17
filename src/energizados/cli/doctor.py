@@ -191,7 +191,7 @@ def _get_gpu_info() -> str:
             for gpu in gpus:
                 gpu_info.append(
                     f"{gpu.name} ({gpu.memoryTotal:.0f}MB, "
-                    f"{gpu.memoryUsed:.0f}MB used, {gpu.load*100:.0f}% load)"
+                    f"{gpu.memoryUsed:.0f}MB used, {gpu.load * 100:.0f}% load)"
                 )
             return ", ".join(gpu_info)
     except ImportError:
@@ -364,22 +364,20 @@ def run_checks(include_optional: bool = False) -> DoctorReport:
     return report
 
 
-def format_report(report: DoctorReport, verbose: bool = False) -> str:
-    """Format the doctor report as a string.
+def format_report(report: DoctorReport, verbose: bool = False) -> list:
+    """Format the doctor report as a list of Rich renderables.
 
     Args:
         report: DoctorReport to format.
         verbose: Whether to show detailed system info.
 
     Returns:
-        Formatted report string.
+        List of Rich renderables (Table, Panel) to be printed directly.
     """
-    from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
 
-    console = Console()
-    output = []
+    renderables = []
 
     # System info section - always show summary
     info = report.system_info
@@ -416,9 +414,7 @@ def format_report(report: DoctorReport, verbose: bool = False) -> str:
                         value = f"[dim]{value}[/]"
                     info_table.add_row(f"  {label}", value)
 
-        with console.capture() as capture:
-            console.print(info_table)
-        output.append(capture.get())
+        renderables.append(info_table)
 
     # Compact summary - always shown
     summary_lines = [f"[cyan]Platform:[/] {info.get('platform', 'Unknown')}"]
@@ -463,9 +459,7 @@ def format_report(report: DoctorReport, verbose: bool = False) -> str:
         border_style="cyan",
         padding=(0, 1),
     )
-    with console.capture() as capture:
-        console.print(panel)
-    output.append(capture.get())
+    renderables.append(panel)
 
     # Checks section
     checks_table = Table(title="Environment Checks", show_header=True)
@@ -488,9 +482,7 @@ def format_report(report: DoctorReport, verbose: bool = False) -> str:
             check.solution,
         )
 
-    with console.capture() as capture:
-        console.print(checks_table)
-    output.append(capture.get())
+    renderables.append(checks_table)
 
     # Summary
     status = "[green]✓ All checks passed![/green]"
@@ -504,8 +496,6 @@ def format_report(report: DoctorReport, verbose: bool = False) -> str:
         title="Summary",
         border_style="green" if report.is_healthy() else "red",
     )
-    with console.capture() as capture:
-        console.print(panel)
-    output.append(capture.get())
+    renderables.append(panel)
 
-    return "\n".join(output)
+    return renderables

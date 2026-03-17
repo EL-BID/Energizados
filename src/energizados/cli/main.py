@@ -1,13 +1,15 @@
 """
 Main CLI entry point for Energizados Framework.
 
-This module defines the main command and the available subcommands.
+This module defines main command and available subcommands.
 """
 
 import logging
 from pathlib import Path
 
 import click
+from rich.panel import Panel
+from rich.tree import Tree
 
 
 def _setup_logging(verbose: int = 0):
@@ -34,6 +36,32 @@ def _setup_logging(verbose: int = 0):
     root_logger.setLevel(level)
     root_logger.handlers = []  # Remove existing handlers
     root_logger.addHandler(handler)
+
+
+def _print_next_steps(project_name: str):
+    """
+    Print next steps as a Rich Panel with Tree.
+
+    Args:
+        project_name: Name of the created project.
+    """
+    from energizados.cli.ui import console
+
+    tree = Tree("[bold cyan]✓ Project created successfully![/]")
+    tree.add(f"[cyan]1.[/] cd {project_name}")
+    edit_config = tree.add("[cyan]2.[/] Edit configuration files in config/:")
+    edit_config.add("[cyan]•[/] etls.yaml")
+    edit_config.add("[cyan]•[/] training.yaml")
+    edit_config.add("[cyan]•[/] inference.yaml")
+    edit_config.add("[cyan]•[/] eda.yaml")
+    tree.add("[cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
+    tree.add("[cyan]4.[/] energizados eda --config config/eda.yaml")
+    tree.add("[cyan]5.[/] energizados run --config config/etls.yaml --config config/training.yaml")
+
+    panel = Panel(tree, title="[bold]Next Steps[/]", border_style="cyan")
+    console.print("\n")
+    console.print(panel)
+    console.print()
 
 
 @click.group()
@@ -115,7 +143,7 @@ def init(ctx, project_name, template, path, copy_from, force):
         energizados init my_project --force      # Replace if exists
     """
     from energizados.cli.init import create_project
-    from energizados.cli.ui import console, print_error, print_info, print_success
+    from energizados.cli.ui import print_error, print_info, print_success
 
     project_path = Path(path) / project_name
 
@@ -137,18 +165,7 @@ def init(ctx, project_name, template, path, copy_from, force):
             force=force,
         )
         print_success(f"Project created successfully at: {project_path}")
-        console.print("\n[bold]Next steps:[/]")
-        console.print(f"  [cyan]1.[/] cd {project_name}")
-        console.print("  [cyan]2.[/] Edit the configuration files in config/:")
-        console.print("     - etls.yaml")
-        console.print("     - training.yaml")
-        console.print("     - inference.yaml")
-        console.print("     - eda.yaml")
-        console.print("  [cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
-        console.print("  [cyan]4.[/] energizados eda --config config/eda.yaml")
-        console.print(
-            "  [cyan]5.[/] energizados run --config config/etls.yaml --config config/training.yaml"
-        )
+        _print_next_steps(project_name)
     except FileExistsError as e:
         # Ask if they want to delete and recreate
         if click.confirm(
@@ -163,15 +180,7 @@ def init(ctx, project_name, template, path, copy_from, force):
                 force=True,
             )
             print_success(f"Project created successfully at: {project_path}")
-            console.print("\n[bold]Next steps:[/]")
-            console.print(f"  [cyan]1.[/] cd {project_name}")
-            console.print("  [cyan]2.[/] Edit the configuration files in config/:")
-            console.print("     - etls.yaml")
-            console.print("     - training.yaml")
-            console.print("     - inference.yaml")
-            console.print("  [cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
-            console.print("  [cyan]4.[/] energizados run --config config/etls.yaml")
-            console.print("           --config config/training.yaml")
+            _print_next_steps(project_name)
         else:
             print_error("Operation cancelled.")
             raise click.Abort()
@@ -567,7 +576,7 @@ def doctor(ctx, verbose, optional):
     Check system information and validate environment.
 
     This command displays system information and validates that
-    the Python version and required packages meet the minimum
+    Python version and required packages meet the minimum
     requirements for Energizados.
 
     Examples:
@@ -576,15 +585,17 @@ def doctor(ctx, verbose, optional):
         energizados doctor --optional
     """
     from energizados.cli.doctor import format_report, run_checks
-    from energizados.cli.ui import print_error, print_info
+    from energizados.cli.ui import console, print_error, print_info
 
     try:
         print_info("Running environment diagnostics...")
 
         report = run_checks(include_optional=optional)
-        output = format_report(report, verbose=verbose)
+        renderables = format_report(report, verbose=verbose)
 
-        click.echo(output)
+        # Print each renderable directly via the singleton console
+        for renderable in renderables:
+            console.print(renderable)
 
         if not report.is_healthy():
             # Exit with error code but don't print extra message

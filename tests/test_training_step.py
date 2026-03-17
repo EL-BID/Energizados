@@ -30,7 +30,7 @@ class _DummyModel(BaseModel):
         proba: float = 0.6,
         cols_for_model=None,
         hyperparams=None,
-        sampling_method="under",
+        sampling_method="undersample",
         sampling_th=0.5,
         search_hip=False,
         n_iter=60,

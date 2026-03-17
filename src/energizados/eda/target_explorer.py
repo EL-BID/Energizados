@@ -137,9 +137,9 @@ class TargetExplorer(BaseExplorer):
         if ratio < 2:
             return "none"
         elif ratio < 10:
-            return "over"
+            return "oversample"
         else:
-            return "under"
+            return "undersample"
 
     def _compute_temporal_rate(
         self, df: pd.DataFrame, target_col: str, date_col: str

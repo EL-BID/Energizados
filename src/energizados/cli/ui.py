@@ -25,3 +25,7 @@ def print_step(msg: str):
 
 def print_header(title: str):
     console.print(Rule(f"[bold]{title}[/]", style="cyan"))
+
+
+def print_warning(msg: str):
+    console.print(f"[bold yellow]⚠[/] {msg}")

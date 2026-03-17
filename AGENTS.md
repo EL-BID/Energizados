@@ -229,7 +229,7 @@ etls:
 
 ### Feature Engineering and Model Training
 
-Feature engineering (preprocessing + feature selection) is now configured inside `config/training.yaml` under the `feature_engineering` key. There is no longer a separate `feature_pipeline.yaml`.
+Feature engineering (preprocessing + feature selection) is now configured inside `config/training.yaml` undersample the `feature_engineering` key. There is no longer a separate `feature_pipeline.yaml`.
 
 The full `training.yaml` has five sections: `split`, `feature_engineering`, `models` (list), `ensemble` (optional), and `evaluation`.
 
@@ -295,7 +295,7 @@ training:
   models:
     - type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
       sampling:
-        method: "under"  # over, under, none
+        method: "undersample"  # oversample, undersample, none
         threshold: 0.5
       hyperparams:
         num_leaves: 31
@@ -310,12 +310,12 @@ training:
   # models:
   #   - name: "lgbm"
   #     type: "lightgbm"
-  #     sampling: { method: "under", threshold: 0.5 }
+  #     sampling: { method: "undersample", threshold: 0.5 }
   #     hyperparams: { num_leaves: 31, learning_rate: 0.05, n_estimators: 500 }
   #     hyperparam_search: { enabled: false }
   #   - name: "cat"
   #     type: "catboost"
-  #     sampling: { method: "under", threshold: 0.5 }
+  #     sampling: { method: "undersample", threshold: 0.5 }
   #     hyperparams: { iterations: 300 }
   #     hyperparam_search: { enabled: false }
   #
@@ -427,7 +427,7 @@ The EDA module generates an interactive HTML report from raw datasets. Configure
 - Phase 6: Segmentation (optional)
 - Phase 7: Related columns (optional, configurable hierarchies)
 
-**Per-column detail charts** (Phase 2): When `detailed_charts: true` is set under `sections.numeric` or `sections.categorical`, collapsible `<details>` blocks are generated per column with histograms, boxplots, treemaps, and target rate charts.
+**Per-column detail charts** (Phase 2): When `detailed_charts: true` is set undersample `sections.numeric` or `sections.categorical`, collapsible `<details>` blocks are generated per column with histograms, boxplots, treemaps, and target rate charts.
 
 **Related columns** (Phase 7): Generic `RelatedColumnsAnalyzer` for configurable column hierarchies. Produces tree breakdowns, cross-tabulations, sunburst/sankey charts, and target rate heatmaps.
 
@@ -461,7 +461,7 @@ sections:
 - `MinMaxScalerRow`: Row-wise MinMax scaling transformer
 
 **`src/modeling/supervised_models.py`** - Supervised model classes:
-- `LGBMModel`: LightGBM with imbalanced-learn sampling (under/over)
+- `LGBMModel`: LightGBM with imbalanced-learn sampling (undersample/over)
 - `CATModel`: CatBoost with native categorical handling
 - `NNModel`: Feedforward neural network (TensorFlow/Keras)
 - `LSTMNNModel`: LSTM + Dense neural network for sequential consumption data
@@ -508,7 +508,7 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 - Configuration uses **3 separate YAML files**: `etls.yaml`, `training.yaml`, `inference.yaml` (no more `feature_pipeline.yaml`)
 - `feature_engineering` is now a sub-section inside `training.yaml` (not a separate file or top-level section)
 - The CLI accepts multiple `--config` parameters which are merged ("last wins" for duplicates)
-- `preprocessing` and `feature_selection` are unified under `training.feature_engineering`
+- `preprocessing` and `feature_selection` are unified undersample `training.feature_engineering`
 - **Model configuration uses `models:` list (not singular `model:`)**: single model as list with one item, multiple models enable ensemble
 - **Ensemble configuration**: When `len(models) > 1`, `ensemble:` section is required; specifies `method` (`stacking` or `soft_voting`), `meta_learner` (for stacking), and `use_val_as_oof` (blending vs OOF)
 - **Output directory structure**: Single model saves to `models/model.pkl`; ensemble saves each base model to `models/{name}/model.pkl` and the ensemble to `models/ensemble.pkl`

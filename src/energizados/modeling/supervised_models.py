@@ -99,7 +99,7 @@ class LGBMModel:
         hyperparams,
         search_hip=False,
         sampling_th=0.5,
-        sampling_method="under",
+        sampling_method="undersample",
         n_iter=60,
         cv=3,
         class_weight=None,
@@ -144,7 +144,7 @@ class LGBMModel:
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, lgbm_model_search)
-        elif self.sampling_method == "under":
+        elif self.sampling_method == "undersample":
             under = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(under, lgbm_model_search)
         else:
@@ -275,7 +275,7 @@ class CATModel:
         search_hip=False,
         sampling_th=0.5,
         preprocesor_num=3,
-        sampling_method="under",
+        sampling_method="undersample",
         n_iter=60,
         cv=3,
         class_weight=None,
@@ -327,7 +327,7 @@ class CATModel:
         if self.sampling_method == "over":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, cb_model_search)
-        elif self.sampling_method == "under":
+        elif self.sampling_method == "undersample":
             under = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(under, cb_model_search)
         else:
@@ -359,7 +359,7 @@ class CATModel:
             .columns.tolist()
         )
 
-        if self.sampling_method not in ["over", "under"]:
+        if self.sampling_method not in ["oversample", "undersample"]:
             logger.warning(
                 "sampling_method '%s' is not one of ['over', 'under']."
                 " No resampling will be applied.",
@@ -452,7 +452,7 @@ class NNModel:
         search_hip=False,
         sampling_th=0.5,
         preprocesor_num=3,
-        sampling_method="under",
+        sampling_method="undersample",
     ):
         """
         Class for a feedforward neural network model.
@@ -492,7 +492,7 @@ class NNModel:
 
         if self.sampling_method == "over":
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
-        elif self.sampling_method == "under":
+        elif self.sampling_method == "undersample":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
         else:
             ramdom_s = None
@@ -635,7 +635,7 @@ class LSTMNNModel:
         search_hip=False,
         sampling_th=0.5,
         preprocesor_num=3,
-        sampling_method="under",
+        sampling_method="undersample",
     ):
         """
         Class for an LSTM neural network model.
@@ -674,7 +674,7 @@ class LSTMNNModel:
 
         if self.sampling_method == "over":
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
-        elif self.sampling_method == "under":
+        elif self.sampling_method == "undersample":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
         else:
             ramdom_s = None

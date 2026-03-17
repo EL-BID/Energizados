@@ -10,6 +10,8 @@ from typing import Any, Dict, List
 
 import yaml
 
+# Import console from ui.py for singleton pattern
+from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError, PipelineError
 from energizados.core.pipeline import ConfigPipelineBuilder
 
@@ -182,12 +184,11 @@ def execute_etl(
         orchestrator = ETLOrchestrator(etl_configs)
 
     if dry_run:
-        print(orchestrator.get_execution_plan())
-        print("\n--dry-run: ETLs were not executed --")
+        console.print(orchestrator.get_execution_plan())
+        console.print("\n[dim]--dry-run: ETLs were not executed --[/]")
         return {}
 
     # Execute ETLs with Rich progress display
-    from rich.console import Console
     from rich.progress import (
         BarColumn,
         Progress,
@@ -206,7 +207,7 @@ def execute_etl(
         BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
-        console=Console(),
+        console=console,
     ) as progress:
         total_etls = len(orchestrator.etl_configs)
         main_task = progress.add_task("ETL Pipeline", total=total_etls)

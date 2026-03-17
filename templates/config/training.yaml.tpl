@@ -187,7 +187,7 @@ training:
       # Class balancing: choose ONE of sampling or class_weight
       # Option 1: Sampling (resamples the data)
       sampling:
-        method: "under"  # Options: over, under, none
+        method: "undersample"  # Options: oversample, undersample, none
         threshold: 0.5
 
       # Option 2: Class weights (balances via internal model weights)
@@ -223,13 +223,13 @@ training:
   # models:
   #   - name: "lgbm"
   #     type: "lightgbm"
-  #     sampling: { method: "under", threshold: 0.5 }
+  #     sampling: { method: "undersample", threshold: 0.5 }
   #     hyperparams: { num_leaves: 31, learning_rate: 0.05, n_estimators: 500 }
   #     hyperparam_search: { enabled: false }
   #
   #   - name: "cat"
   #     type: "catboost"
-  #     sampling: { method: "under", threshold: 0.5 }
+  #     sampling: { method: "undersample", threshold: 0.5 }
   #     hyperparams: { iterations: 300 }
   #     hyperparam_search: { enabled: false }
   #
