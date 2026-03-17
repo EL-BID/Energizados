@@ -39,14 +39,14 @@ dependencies = [
     "click>=8.0",
     "imbalanced-learn~=0.12.0",
     "lightgbm~=4.6.0",
-    "numpy>=1.20.0",
+    "numpy>=1.21.6",
     "pandas>=2.0.0",
     "plotly>=5.0.0",
     "pyarrow>=19.0.0",
     "pyyaml>=6.0",
     "rich>=13.0",
     "scikit-learn~=1.4.2",
-    "scipy~=1.9.0",
+    "scipy>=1.11.0,<2.0.0",
     "tsfel==0.1.9",
     "tqdm>=4.64.0",
     "unidecode~=1.4.0",
@@ -58,13 +58,14 @@ dependencies = [
 
 [project.optional-dependencies]
 catboost = ["catboost==1.2.8"]
-tensorflow = ["tensorflow>=2.10.0"]
-all = ["catboost==1.2.8", "tensorflow>=2.10.0"]
+tensorflow = ["tensorflow>=2.17.0"]
+all = ["catboost==1.2.8", "tensorflow>=2.17.0"]
 dev = [
     "black>=23.0",
     "ipykernel>=6.0",
     "ipywidgets>=8.0",
     "jupyterlab>=4.0",
+    "mkdocs-material>=9.5.0",
     "mypy>=1.0",
     "pytest>=7.0",
     "pytest-cov>=4.0",

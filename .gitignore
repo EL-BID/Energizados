@@ -139,9 +139,7 @@ models/artifacts
 */outputs/
 *.mp4
 
-# TODO: Quitar del ignore cuando se termine
-docs/
+# Only for developers
 .plans/
 .proyects/
 node_modules/
-
