@@ -247,9 +247,24 @@ class TestETLDependencyScenarios:
         """Verify diamond pattern (top → left/right → bottom)."""
         configs = {
             "top": {"enabled": True, "input": "top.csv", "output": "top.parquet", "depends_on": []},
-            "left": {"enabled": True, "input": "@top", "output": "left.parquet", "depends_on": ["top"]},
-            "right": {"enabled": True, "input": "@top", "output": "right.parquet", "depends_on": ["top"]},
-            "bottom": {"enabled": True, "input": ["@left", "@right"], "output": "bottom.parquet", "depends_on": ["left", "right"]},
+            "left": {
+                "enabled": True,
+                "input": "@top",
+                "output": "left.parquet",
+                "depends_on": ["top"],
+            },
+            "right": {
+                "enabled": True,
+                "input": "@top",
+                "output": "right.parquet",
+                "depends_on": ["top"],
+            },
+            "bottom": {
+                "enabled": True,
+                "input": ["@left", "@right"],
+                "output": "bottom.parquet",
+                "depends_on": ["left", "right"],
+            },
         }
 
         orchestrator = ETLOrchestrator(configs)
@@ -289,7 +304,12 @@ class TestETLDependencyScenarios:
         configs = {
             "a": {"enabled": True, "input": "a.csv", "output": "a.parquet", "depends_on": []},
             "b": {"enabled": True, "input": "a.csv", "output": "b.parquet", "depends_on": []},
-            "c": {"enabled": True, "input": ["@a", "@b"], "output": "c.parquet", "depends_on": ["a", "b"]},
+            "c": {
+                "enabled": True,
+                "input": ["@a", "@b"],
+                "output": "c.parquet",
+                "depends_on": ["a", "b"],
+            },
             "d": {"enabled": True, "input": "@c", "output": "d.parquet", "depends_on": ["c"]},
             "e": {"enabled": True, "input": "@d", "output": "e.parquet", "depends_on": ["d"]},
         }
@@ -330,12 +350,10 @@ etls:
     custom_class: "energizados.etl.pipeline.SourceETL"
     depends_on: []
 
-preprocessing:
-  enabled: false
-
 training:
   enabled: false
-  model_type: "lightgbm"
+  models:
+    - type: lightgbm
 
 evaluation:
   enabled: false

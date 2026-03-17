@@ -146,10 +146,14 @@ def init(ctx, project_name, template, path, copy_from, force):
         console.print("     - eda.yaml")
         console.print("  [cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
         console.print("  [cyan]4.[/] energizados eda --config config/eda.yaml")
-        console.print("  [cyan]5.[/] energizados run --config config/etls.yaml --config config/training.yaml")
+        console.print(
+            "  [cyan]5.[/] energizados run --config config/etls.yaml --config config/training.yaml"
+        )
     except FileExistsError as e:
         # Ask if they want to delete and recreate
-        if click.confirm(f"\n{e}\nDo you want to delete the existing directory and recreate it?", default=False):
+        if click.confirm(
+            f"\n{e}\nDo you want to delete the existing directory and recreate it?", default=False
+        ):
             print_info("Removing existing directory...")
             create_project(
                 project_name=project_name,
@@ -166,12 +170,14 @@ def init(ctx, project_name, template, path, copy_from, force):
             console.print("     - training.yaml")
             console.print("     - inference.yaml")
             console.print("  [cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
-            console.print("  [cyan]4.[/] energizados run --config config/etls.yaml --config config/training.yaml")
+            console.print("  [cyan]4.[/] energizados run --config config/etls.yaml")
+            console.print("           --config config/training.yaml")
         else:
             print_error("Operation cancelled.")
             raise click.Abort()
     except Exception as e:
         print_error(f"Error creating project: {e}")
+        print_info("Tip: Check the project name and try again")
         raise click.Abort()
 
 
@@ -270,6 +276,8 @@ def run(ctx, config_paths, step, etl, dry_run):
 
     except Exception as e:
         print_error(f"Error executing pipeline: {e}")
+        print_info("Tip: Run 'energizados validate --config <file>' to check")
+        print_info("      your configuration before running")
         raise click.Abort()
 
 
@@ -307,6 +315,7 @@ def validate(ctx, config_paths, verbose):
         print_success("Configuration is valid")
     except Exception as e:
         print_error(f"Validation failed: {e}")
+        print_info("Tip: Fix the configuration errors above and try again")
         raise click.Abort()
 
 
@@ -372,7 +381,18 @@ def validate(ctx, config_paths, verbose):
     help="Show configuration that would be used without running the analysis.",
 )
 @click.pass_context
-def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_col, etl_name, skip_sections, dry_run):
+def eda(
+    ctx,
+    input_path,
+    target_column,
+    config_path,
+    output_dir,
+    lat_col,
+    lon_col,
+    etl_name,
+    skip_sections,
+    dry_run,
+):
     """
     Run Exploratory Data Analysis (EDA) on a dataset.
 
@@ -404,7 +424,7 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
         except Exception as e:
             from energizados.cli.ui import print_error
 
-            print_error(f"Error leyendo configuración: {e}")
+            print_error(f"Error reading configuration: {e}")
             raise click.Abort()
 
     # CLI args override config
@@ -437,7 +457,9 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
         if not resolved_input:
             from energizados.cli.ui import print_error, print_step
 
-            print_error(f"ETL '{etl_name}' no encontrado o sin 'output' definido en la configuración.")
+            print_error(
+                f"ETL '{etl_name}' not found or has no 'output' defined in the configuration."
+            )
             raise click.Abort()
 
         print_step(f"Usando output del ETL '{etl_name}': {resolved_input}")
@@ -509,17 +531,20 @@ def eda(ctx, input_path, target_column, config_path, output_dir, lat_col, lon_co
 
         print_success("EDA completado exitosamente")
         console.print(f"  Reporte: {report_path}")
-        console.print(f"  Alertas: {alert_count} total ({error_count} errores, {warning_count} advertencias)")
+        console.print(
+            f"  Alertas: {alert_count} total ({error_count} errores, {warning_count} advertencias)"
+        )
 
     except FileNotFoundError as e:
         from energizados.cli.ui import print_error
 
-        print_error(f"Archivo no encontrado: {e}")
+        print_error(f"File not found: {e}")
         raise click.Abort()
     except Exception as e:
-        from energizados.cli.ui import print_error
+        from energizados.cli.ui import print_error, print_info
 
-        print_error(f"Error ejecutando EDA: {e}")
+        print_error(f"Error executing EDA: {e}")
+        print_info("Tip: Run 'energizados validate --config <file>' to verify your configuration")
         raise click.Abort()
 
 

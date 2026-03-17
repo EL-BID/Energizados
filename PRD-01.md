@@ -5,9 +5,9 @@
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
 | **Title**   | Energizados -- ML Framework for Non-Technical Loss Detection |
-| **Version** | 1.3 (Draft)                                                                                        |
-| **Date**    | 2026-03-16                                                                                         |
-| **Status**  | Draft v1.3 -- US gaps filled from FR↔US gap analysis; status inconsistencies resolved |
+| **Version** | 1.4 (Draft)                                                                                           |
+| **Date**    | 2026-03-16                                                                                            |
+| **Status**  | Draft v1.5 -- Added CLI error messages with tips, fixed validate.py bug, JSON Schema integration       |
 | **Authors** | BID (Inter-American Development Bank) Engineering            |
 | **License** | MIT                                                          |
 | **Python**  | >= 3.10                                                      |
@@ -35,6 +35,7 @@
     - [FR-CONFIG: YAML Configuration System](#fr-config-yaml-configuration-system)
     - [FR-OUTPUT: Output Structure & Run Management](#fr-output-output-structure--run-management)
     - [FR-SECURITY: Security](#fr-security-security)
+    - [FR-FIELDVAL: Field Validation & Pilot-Control](#fr-fieldval-field-validation--pilot-control)
 7. [User Stories — Functional Requirements (Detailed)](#7-user-stories--functional-requirements-detailed)
     - [US-CLI: CLI & Project Scaffolding](#us-cli-cli--project-scaffolding)
     - [US-ETL: ETL Pipeline & DAG Orchestration](#us-etl-etl-pipeline--dag-orchestration)
@@ -49,6 +50,7 @@
     - [US-CONFIG: YAML Configuration System](#us-config-yaml-configuration-system)
     - [US-OUTPUT: Output Structure & Run Management](#us-output-output-structure--run-management)
     - [US-SECURITY: Security](#us-security-security)
+    - [US-FIELDVAL: Field Validation & Pilot-Control](#us-fieldval-field-validation--pilot-control)
 8. [Non-Functional Requirements](#8-non-functional-requirements)
 9. [Data Requirements](#9-data-requirements)
 10. [Technical Architecture](#10-technical-architecture)
@@ -242,7 +244,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-CLI-004 | `energizados eda` runs exploratory data analysis on a dataset              | [IMPLEMENTED] |
 | FR-CLI-005 | `energizados doctor` checks environment (dependencies, versions, GPU)      | [IMPLEMENTED] |
 | FR-CLI-006 | CLI uses Click framework with Rich console output for formatting           | [IMPLEMENTED] |
-| FR-CLI-007 | CLI provides meaningful error messages with suggested fixes                | [PARTIAL]     |
+| FR-CLI-007 | CLI provides meaningful error messages with suggested fixes                | [IMPLEMENTED] |
 | FR-CLI-008 | CLI supports `--verbose` / `--debug` flags for log level control           | [IMPLEMENTED] |
 
 ### FR-ETL: ETL Pipeline & DAG Orchestration
@@ -286,6 +288,8 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-PREPROCESS-009 | Transformers are composable in ColumnTransformer pipelines                                     | [IMPLEMENTED] |
 | FR-PREPROCESS-010 | Support custom transformer registration                                                        | [PARTIAL]     |
 | FR-PREPROCESS-011 | Transformer parameters configurable via YAML                                                   | [IMPLEMENTED] |
+| FR-PREPROCESS-012 | **GroupStatComparison**: Compare individual values against group-level statistics (mean, median) with configurable grouping columns and outlier removal via IQR | [PLANNED] |
+| FR-PREPROCESS-013 | **TsfelVars** supports configurable feature domains: statistical, temporal, and spectral (FFT, MFCC, wavelets) | [PLANNED] |
 
 ### FR-FEATSEL: Feature Selection
 
@@ -299,6 +303,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-FEATSEL-006 | BaseFeatureSelector ABC with fit/transform/fit_transform/get_selected_features                          | [IMPLEMENTED] |
 | FR-FEATSEL-007 | Feature selection results logged and persisted for auditability                                         | [PARTIAL]     |
 | FR-FEATSEL-008 | Support mutual information-based selection                                                              | [IMPLEMENTED]  |
+| FR-FEATSEL-009 | **KFoldBorutaSelector**: Cross-validated Boruta that runs selection per fold and keeps features appearing in a configurable majority of folds | [PLANNED] |
 
 ### FR-TRAINING: Model Training
 
@@ -348,6 +353,8 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-EVAL-013 | **RunIndexGenerator**: Global index.html comparing all training runs           | [IMPLEMENTED] |
 | FR-EVAL-014 | Support SHAP-based feature importance in reports                               | [PLANNED]     |
 | FR-EVAL-015 | Support custom metric registration                                             | [PLANNED]     |
+| FR-EVAL-016 | **Probability calibration**: adjust raw model scores to reflect true frequencies via isotonic regression or Platt scaling (`CalibratedClassifierCV`), distinct from threshold calibration | [IMPLEMENTED] |
+| FR-EVAL-017 | Per-segment evaluation: compute metrics broken down by a configurable grouping column | [PLANNED]     |
 
 ### FR-INFERENCE: Prediction Pipeline
 
@@ -415,6 +422,16 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-SECURITY-004 | No secrets or credentials in configuration files                  | [IMPLEMENTED] |
 | FR-SECURITY-005 | Bandit static security analysis in pre-commit hooks               | [IMPLEMENTED] |
 | FR-SECURITY-006 | Support for signed model artifacts                                | [PLANNED]     |
+
+### FR-FIELDVAL: Field Validation & Pilot-Control
+
+| ID              | Requirement                                                                                                           | Status    |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------|-----------|
+| FR-FIELDVAL-001 | Pilot-control split: divide scored population into balanced pilot/control groups using iterative randomized matching   | [PLANNED] |
+| FR-FIELDVAL-002 | Configurable control variables (categorical and numeric) for pilot-control balance validation                          | [PLANNED] |
+| FR-FIELDVAL-003 | Balance metrics: symmetric percentage difference for numeric, PSI-like divergence for categorical variables            | [PLANNED] |
+| FR-FIELDVAL-004 | Top-N selection from pilot group based on model score for field inspection targeting                                    | [PLANNED] |
+| FR-FIELDVAL-005 | Post-inspection result comparison between pilot and control groups to measure model ROI                                | [PLANNED] |
 
 ---
 
@@ -656,6 +673,29 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
     - [x] Supports sklearn-compatible custom transformers
 - **Status**: [PARTIAL]
 
+**US-PREPROCESS-007: Group-level consumption comparison**
+
+- **As** Data Scientist
+- **I want** to compare each record's values against group-level statistics (mean, median) using configurable grouping columns
+- **So that** I can detect anomalies relative to peers (e.g., a customer consuming significantly less than others in the same tariff/zone)
+- **Acceptance criteria**:
+    - [ ] Configurable grouping columns and comparison columns
+    - [ ] Group statistics computed with IQR-based outlier removal
+    - [ ] Generates ratio and binary flag features (e.g., `below_group_mean`)
+    - [ ] sklearn-compatible fit/transform interface
+- **Status**: [PLANNED]
+
+**US-PREPROCESS-008: Configurable TSFEL feature domains**
+
+- **As** Data Scientist
+- **I want** to configure which tsfel feature domains to extract (statistical, temporal, spectral)
+- **So that** I can include spectral features (FFT, MFCC, wavelets) that may improve model performance, or exclude them to reduce dimensionality
+- **Acceptance criteria**:
+    - [ ] Configurable `domains` parameter: list of `["statistical", "temporal", "spectral"]`
+    - [ ] Default: `["statistical", "temporal"]` (current behavior)
+    - [ ] Spectral features include FFT coefficients, MFCC, and wavelet features
+- **Status**: [PLANNED]
+
 ---
 
 ### US-FEATSEL: Feature Selection
@@ -738,6 +778,18 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
     - [x] Supports classification and regression targets
     - [x] Handles non-numeric columns by filtering them out
 - **Status**: [IMPLEMENTED]
+
+**US-FEATSEL-008: K-Fold cross-validated Boruta**
+
+- **As** Data Scientist
+- **I want** to run Boruta feature selection with k-fold cross-validation
+- **So that** feature selection is more robust and less prone to overfitting on a single train split
+- **Acceptance criteria**:
+    - [ ] Runs Boruta independently on each fold
+    - [ ] Selects features appearing in a configurable majority of folds (default ≥ 50%)
+    - [ ] Configurable number of folds (default 5)
+    - [ ] sklearn-compatible fit/transform interface
+- **Status**: [PLANNED]
 
 ---
 
@@ -984,6 +1036,30 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
     - [ ] Supports custom metric function registration
     - [ ] Custom metrics appear in JSON and HTML reports
     - [ ] Metrics conform to a standard interface (y_true, y_pred/y_proba)
+- **Status**: [PLANNED]
+
+**US-EVAL-009: Model probability calibration**
+
+- **As** Data Scientist
+- **I want** to calibrate model predicted probabilities using isotonic regression or Platt scaling
+- **So that** predicted scores reflect actual fraud rates, improving threshold-based operational decisions
+- **Acceptance criteria**:
+    - [ ] Supports isotonic regression and Platt (sigmoid) scaling via `CalibratedClassifierCV`
+    - [ ] Configurable number of CV folds for calibration (default 5)
+    - [ ] Calibrated model saved alongside uncalibrated model
+    - [ ] Calibration curve (reliability diagram) included in evaluation report
+- **Status**: [PLANNED]
+
+**US-EVAL-010: Per-segment evaluation**
+
+- **As** Data Scientist
+- **I want** to compute evaluation metrics broken down by a configurable grouping column (e.g., customer category, zone, tariff type)
+- **So that** I can identify segments where the model performs well or poorly and adjust strategies accordingly
+- **Acceptance criteria**:
+    - [ ] Configurable `segment_column` in evaluation config
+    - [ ] Computes AUC, precision, recall, F1 per segment
+    - [ ] Segment breakdown included in HTML and JSON reports
+    - [ ] Warns when a segment has too few samples for reliable metrics
 - **Status**: [PLANNED]
 
 ---
@@ -1374,6 +1450,46 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 
 ---
 
+### US-FIELDVAL: Field Validation & Pilot-Control
+
+**US-FIELDVAL-001: Pilot-control split for field validation**
+
+- **As** BID Technical Advisor
+- **I want** to split the scored population into balanced pilot and control groups
+- **So that** I can design a randomized controlled trial to prove model ROI against random inspection
+- **Acceptance criteria**:
+    - [ ] Iterative random splitting (configurable max iterations, default 10,000)
+    - [ ] Configurable control variables (categorical and numeric)
+    - [ ] Balance validation: symmetric percentage difference for numeric, PSI-like divergence for categorical
+    - [ ] Configurable maximum allowed error threshold (default 0.01)
+    - [ ] Output: each record tagged as "pilot" or "control"
+- **Status**: [PLANNED]
+
+**US-FIELDVAL-002: Top-N inspection targeting**
+
+- **As** Utility Analyst
+- **I want** to select the top-N highest-scoring records from the pilot group for field inspection
+- **So that** I can prioritize inspections by fraud likelihood within my operational capacity
+- **Acceptance criteria**:
+    - [ ] Configurable N (number of inspections) or top percentage
+    - [ ] Exports inspection list with scores, key features, and consumption history
+    - [ ] Supports filtering by geographic zone or segment before selection
+- **Status**: [PLANNED]
+
+**US-FIELDVAL-003: Post-inspection ROI evaluation**
+
+- **As** BID Technical Advisor
+- **I want** to compare fraud detection rates between pilot (model-driven) and control (random) groups after field inspections
+- **So that** I can quantify the model's added value and justify continued investment
+- **Acceptance criteria**:
+    - [ ] Ingests inspection results (fraud found / not found per record)
+    - [ ] Computes detection rate, precision, and lift for pilot vs control
+    - [ ] Generates comparison report with statistical significance test
+    - [ ] Produces visualizations (bar charts, lift curves) for stakeholder presentations
+- **Status**: [PLANNED]
+
+---
+
 ## 8. Non-Functional Requirements
 
 | ID      | Category        | Requirement                                                                                     | Status        |
@@ -1751,6 +1867,8 @@ eda:
 | Model registry & versioning  | Medium   | Formal model lifecycle management                                                              |
 | Cross-validation support     | Medium   | k-fold CV during training for more robust evaluation                                           |
 | Hyperparameter optimization  | Medium   | Grid, random, and Bayesian search                                                              |
+| Model probability calibration    | High     | Isotonic/Platt scaling for reliable predicted probabilities                                        |
+| Per-segment evaluation           | Medium   | Metrics broken down by configurable grouping column (category, zone, tariff)                       |
 
 ### Phase 3: Production Readiness (Long-term)
 
@@ -1763,6 +1881,7 @@ eda:
 | ONNX model export            | Low      | Framework-agnostic model serialization                   |
 | Temporal split strategies    | Medium   | Time-based train/test splits to prevent temporal leakage |
 | Group-aware splits           | Medium   | Customer-level splits to prevent data leakage            |
+| Pilot-control field validation   | High     | RCT design for proving model ROI against random inspection                                         |
 
 ---
 

@@ -5,10 +5,13 @@ This module implements the 'validate' command functionality to
 validate YAML configuration files.
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
 from energizados.core.exceptions import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationResult:
@@ -113,12 +116,33 @@ def validate_config(config_paths: List[str], verbose: bool = False) -> Validatio
     _validate_evaluation_section(merged_config, result)
     _validate_inference_section(merged_config, result)
 
+    # Second pass: JSON Schema validation (optional, if available)
+    try:
+        from energizados.core.schemas.config_validator import ConfigValidator
+
+        validator = ConfigValidator()
+        schema_errors = validator.validate_config(merged_config, str(config_paths))
+
+        if schema_errors:
+            for error in schema_errors:
+                result.add_error(f"Schema validation: {error}")
+
+        if schema_errors and not result.errors:
+            # If only schema errors, log debug message
+            logger.debug(f"JSON Schema validation found {len(schema_errors)} errors")
+
+    except Exception as e:
+        # If ConfigValidator fails (e.g., missing dependencies), just log debug
+        logger.debug(f"JSON Schema validation skipped: {e}")
+
     # Show results
     if verbose:
         _print_validation_results(result, merged_config)
 
     if not result.is_valid():
-        raise ConfigurationError(f"Validation failed with {len(result.errors)} errors", str(config_paths))
+        raise ConfigurationError(
+            f"Validation failed with {len(result.errors)} errors", str(config_paths)
+        )
 
     return result
 
@@ -189,6 +213,7 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> N
         # custom_class is mandatory
         if "custom_class" not in etl_config:
             result.add_error(f"ETL '{etl_name}': must specify 'custom_class'")
+            result.add_info("Hint: Use 'energizados.etl.pipeline.SourceETL' or a custom class path")
         else:
             _validate_class_reference(etl_config["custom_class"], result)
 
@@ -243,7 +268,9 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
         result: ValidationResult object to store validation messages.
     """
     if "training" not in config:
-        result.add_info("'training' section not present in this config (skipping training validation)")
+        result.add_info(
+            "'training' section not present in this config (skipping training validation)"
+        )
         return
 
     training = config["training"]
@@ -251,15 +278,23 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
         result.add_error("'training' section must be a dictionary")
         return
 
-    # Check model: config nests it as training.model.type
-    model_config = training.get("model", {})
-    has_model_type = "type" in model_config
-    has_custom = "custom_class" in model_config or "custom_class" in training
+    # Check for legacy model: format (deprecated)
+    if "model" in training:
+        result.add_warning(
+            "training: 'model:' key is deprecated. Use 'models:' list format instead."
+        )
 
-    if not has_model_type and not has_custom:
-        result.add_warning("training: no 'model.type' or 'model.custom_class' defined")
+    # Check models list (new format)
+    models = training.get("models", [])
+    if not models:
+        result.add_warning(
+            "training: 'models:' list is empty or not defined. At least one model is required."
+        )
+    else:
+        if not isinstance(models, list):
+            result.add_error("training: 'models' must be a list")
+            return
 
-    if has_model_type:
         valid_models = [
             "lightgbm",
             "lgbm",
@@ -271,16 +306,27 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
             "simple_trend",
             "simple_constant",
         ]
-        model_type = model_config["type"]
-        if model_type not in valid_models:
-            result.add_warning(f"training.model.type unknown: {model_type}")
-        else:
-            result.add_info(f"Model: {model_type}")
 
-    if "custom_class" in model_config:
-        _validate_class_reference(model_config["custom_class"], result)
-    elif "custom_class" in training:
-        _validate_class_reference(training["custom_class"], result)
+        for i, model_config in enumerate(models):
+            if not isinstance(model_config, dict):
+                result.add_error(f"training.models[{i}]: must be a dictionary")
+                continue
+
+            has_model_type = "type" in model_config
+            has_custom = "custom_class" in model_config
+
+            if not has_model_type and not has_custom:
+                result.add_warning(f"training.models[{i}]: no 'type' or 'custom_class' defined")
+
+            if has_model_type:
+                model_type = model_config["type"]
+                if model_type not in valid_models:
+                    result.add_warning(f"training.models[{i}].type unknown: {model_type}")
+                else:
+                    result.add_info(f"Model {i}: {model_type}")
+
+            if has_custom:
+                _validate_class_reference(model_config["custom_class"], result)
 
     # Check split parameters
     if "test_size" in training:
@@ -339,7 +385,9 @@ def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResul
                     if metric not in valid_metrics:
                         result.add_warning(f"Unknown metric: {metric}")
 
-        result.add_info(f"Evaluation: {'enabled' if eval_config.get('enabled', True) else 'disabled'}")
+        result.add_info(
+            f"Evaluation: {'enabled' if eval_config.get('enabled', True) else 'disabled'}"
+        )
 
 
 def _validate_class_reference(class_path: str, result: ValidationResult):

@@ -132,7 +132,7 @@ training:
       # List of sequential selection steps
       steps:
         - name: drop_constant
-          method: constant          # constant | correlation | boruta | selection
+          method: constant          # constant | correlation | boruta | mutual_info | selection
           params:
             threshold: 0.99
           columns:
@@ -206,6 +206,13 @@ training:
         enabled: true
         n_iter: 60
         cv: 3
+
+      # Probability calibration (FR-EVAL-016)
+      # Adjust raw model scores to reflect true frequencies
+      # calibration:
+      #   enabled: true
+      #   method: "sigmoid"   # Options: "sigmoid" (Platt scaling), "isotonic"
+      #   cv: 3               # CV folds for calibration (used if not 'prefit')
 
   # ============================================
   # Ensemble Configuration (requires len(models) > 1)
