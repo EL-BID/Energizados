@@ -287,12 +287,59 @@ class TrainingStep(PipelineStep):
         model = model_class(**params)
         model.fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
+        # Apply probability calibration if configured
+        calibration_config = cfg.get("calibration", {})
+        if calibration_config.get("enabled", False):
+            model = self._apply_calibration(model, model_type, X_val, y_val, calibration_config)
+            logger.info(f"Applied probability calibration to model '{name}'")
+
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "wb") as f:
             pickle.dump(model, f)
         logger.info(f"Model '{name}' saved to: {save_path}")
 
         return model, save_path
+
+    def _apply_calibration(
+        self,
+        model,
+        model_type: str,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        calibration_config: Dict,
+    ):
+        """Apply CalibratedClassifierCV to a trained model.
+
+        Args:
+            model: Trained model (must support predict_proba).
+            model_type: Type of the model (lightgbm, catboost, etc.).
+            X_val: Validation features for fitting calibration.
+            y_val: Validation target for fitting calibration.
+            calibration_config: Calibration configuration dict.
+
+        Returns:
+            Calibrated model wrapped in CalibratedClassifierCV.
+        """
+        from sklearn.calibration import CalibratedClassifierCV
+
+        method = calibration_config.get("method", "sigmoid")
+        cv = calibration_config.get("cv", 3)
+
+        logger.info(f"Calibrating with method='{method}', cv={cv}")
+
+        # Use cv='prefit' to calibrate on validation set without retraining
+        # the underlying model. This is the standard approach when you have
+        # a held-out validation set for calibration.
+        calibrated_model = CalibratedClassifierCV(
+            estimator=model,
+            method=method,
+            cv="prefit",
+        )
+
+        # Fit calibration on validation set (model is already trained, just calibrate probabilities)
+        calibrated_model.fit(X_val, y_val)
+
+        return calibrated_model
 
     # ------------------------------------------------------------------
     # Ensemble helpers

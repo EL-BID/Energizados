@@ -200,7 +200,9 @@ class Metrics:
             cumulative_count += len(bin_df)
 
             results["deciles"].append(i + 1)
-            results["cumulative_gain"].append(cumulative_positives / total_positives if total_positives > 0 else 0)
+            results["cumulative_gain"].append(
+                cumulative_positives / total_positives if total_positives > 0 else 0
+            )
             results["cumulative_population"].append(cumulative_count / len(df))
 
         return results

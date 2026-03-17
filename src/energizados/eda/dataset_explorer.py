@@ -164,7 +164,11 @@ class DatasetExplorer:
 
         # --- Alert when no target column ---
         if not self.target_column or self.target_column not in df.columns:
-            missing_reason = "not configured" if not self.target_column else f"'{self.target_column}' not found in dataset"
+            missing_reason = (
+                "not configured"
+                if not self.target_column
+                else f"'{self.target_column}' not found in dataset"
+            )
             self._add_alert(
                 code="NO_TARGET_COLUMN",
                 message=(
@@ -195,7 +199,9 @@ class DatasetExplorer:
         # --- Phase 4: Geospatial analyzer (optional) ---
         geo_results = {}
         geo_cfg = self.sections.get("geospatial", {})
-        if geo_cfg.get("enabled", False) and (self.lat_column or self.lon_column or self.zone_column):
+        if geo_cfg.get("enabled", False) and (
+            self.lat_column or self.lon_column or self.zone_column
+        ):
             logger.info("Phase 4: Geospatial analysis...")
             geo_results = self._run_geo_analyzer(df)
 
@@ -208,7 +214,11 @@ class DatasetExplorer:
         # --- Phase 6: Segmentation analyzer (optional) ---
         segmentation_results = {}
         seg_cfg = self.sections.get("segmentation", {})
-        if seg_cfg.get("enabled", False) and self.target_column and self.target_column in df.columns:
+        if (
+            seg_cfg.get("enabled", False)
+            and self.target_column
+            and self.target_column in df.columns
+        ):
             logger.info("Phase 6: Segmentation analysis...")
             segmentation_results = self._run_segmentation_analyzer(df)
 
@@ -218,12 +228,16 @@ class DatasetExplorer:
         if rc_cfg.get("enabled", False):
             hierarchies = rc_cfg.get("hierarchies", [])
             if hierarchies:
-                logger.info("Phase 7: Related columns analysis (%d hierarchies)...", len(hierarchies))
+                logger.info(
+                    "Phase 7: Related columns analysis (%d hierarchies)...", len(hierarchies)
+                )
                 related_columns_results = self._run_related_columns_analyzer(df, hierarchies)
 
         # --- Generate charts ---
         logger.info("Generating charts...")
-        charts = self._generate_charts(df, col_types, target_results, importance_results, global_stats, related_columns_results)
+        charts = self._generate_charts(
+            df, col_types, target_results, importance_results, global_stats, related_columns_results
+        )
 
         # --- Generate report ---
         logger.info("Generating HTML report...")
@@ -397,7 +411,10 @@ class DatasetExplorer:
                 code="DUPLICATED_ROWS",
                 message=f"Found {duplicate_rows:,} duplicate rows ({duplicate_rows_pct:.2f}%). Verify if this is expected.",
                 severity="WARNING",
-                details={"duplicate_rows": duplicate_rows, "duplicate_rows_pct": duplicate_rows_pct},
+                details={
+                    "duplicate_rows": duplicate_rows,
+                    "duplicate_rows_pct": duplicate_rows_pct,
+                },
             )
 
         return stats
@@ -405,7 +422,9 @@ class DatasetExplorer:
     def _run_column_explorer(self, df: pd.DataFrame, col_types: Dict) -> Dict:
         """Phase 2: Run column explorer."""
         explorer = ColumnExplorer(config=self._thresholds)
-        results = explorer.analyze(df, target_col=self.target_column, col_types=col_types, config=self._thresholds)
+        results = explorer.analyze(
+            df, target_col=self.target_column, col_types=col_types, config=self._thresholds
+        )
         self._all_alerts.extend(explorer.get_alerts())
         return results
 
@@ -422,7 +441,9 @@ class DatasetExplorer:
         methods = methods_cfg.get("methods", ["iv", "ks_chi2", "cramers_v", "correlation"])
 
         analyzer = FeatureImportanceAnalyzer(config=self._thresholds)
-        results = analyzer.analyze(df, target_col=self.target_column, col_types=col_types, methods=methods)
+        results = analyzer.analyze(
+            df, target_col=self.target_column, col_types=col_types, methods=methods
+        )
         self._all_alerts.extend(analyzer.get_alerts())
         return results
 
@@ -465,7 +486,9 @@ class DatasetExplorer:
         # IV ranking (interactive)
         if importance_results and isinstance(importance_results.get("ranking"), pd.DataFrame):
             try:
-                charts["iv_ranking"] = interactive_plotter.iv_ranking_chart(importance_results["ranking"])
+                charts["iv_ranking"] = interactive_plotter.iv_ranking_chart(
+                    importance_results["ranking"]
+                )
             except Exception as e:
                 logger.warning("Error generating IV ranking chart: %s", e)
 
@@ -473,7 +496,9 @@ class DatasetExplorer:
         nulls_by_col = global_stats.get("nulls_by_col", [])
         if nulls_by_col:
             try:
-                charts["missing_heatmap_interactive"] = interactive_plotter.missing_funnel(nulls_by_col)
+                charts["missing_heatmap_interactive"] = interactive_plotter.missing_funnel(
+                    nulls_by_col
+                )
             except Exception as e:
                 logger.warning("Error generating missing values funnel: %s", e)
 
@@ -491,7 +516,12 @@ class DatasetExplorer:
             try:
                 charts["consumption_trend"] = interactive_plotter.temporal_line(
                     [
-                        {"period": s["period"], "total": 1, "positive": 0, "rate": s.get("mean", 0) or 0}
+                        {
+                            "period": s["period"],
+                            "total": 1,
+                            "positive": 0,
+                            "rate": s.get("mean", 0) or 0,
+                        }
                         for s in (self._get_consumption_stats(df, consumption_cols))
                     ],
                     title="Average Consumption Trend by Period",
@@ -499,28 +529,40 @@ class DatasetExplorer:
             except Exception as e:
                 logger.warning("Error generating consumption trend (fallback to static): %s", e)
                 try:
-                    charts["consumption_trend"] = static_plotter.consumption_trend(df, consumption_cols, target_col=self.target_column)
+                    charts["consumption_trend"] = static_plotter.consumption_trend(
+                        df, consumption_cols, target_col=self.target_column
+                    )
                 except Exception as e2:
                     logger.warning("Error generating static consumption chart: %s", e2)
 
             try:
-                charts["consumption_heatmap"] = interactive_plotter.consumption_heatmap(df, consumption_cols)
+                charts["consumption_heatmap"] = interactive_plotter.consumption_heatmap(
+                    df, consumption_cols
+                )
             except Exception as e:
                 logger.warning("Error generating consumption heatmap: %s", e)
 
         # Correlation heatmap (interactive from null correlation, static from numeric)
-        numeric_cols = [c for c in col_types.get("numeric", []) if c != self.target_column and c in df.columns]
+        numeric_cols = [
+            c for c in col_types.get("numeric", []) if c != self.target_column and c in df.columns
+        ]
         if len(numeric_cols) > 1:
             try:
                 numeric_sample = df[numeric_cols[:30]]
                 corr_matrix = numeric_sample.corr(numeric_only=True)
-                charts["correlation_heatmap"] = interactive_plotter.null_correlation_heatmap(corr_matrix)
+                charts["correlation_heatmap"] = interactive_plotter.null_correlation_heatmap(
+                    corr_matrix
+                )
             except Exception as e:
                 logger.warning("Error generating correlation heatmap: %s", e)
 
         # --- Column detail charts ---
         max_detail = self._full_config.get("visualization", {}).get("max_detail_columns", 30)
-        target_series = df[self.target_column] if self.target_column and self.target_column in df.columns else None
+        target_series = (
+            df[self.target_column]
+            if self.target_column and self.target_column in df.columns
+            else None
+        )
         column_details: Dict[str, Dict[str, str]] = {}
 
         # Numeric column details
@@ -529,11 +571,15 @@ class DatasetExplorer:
             for col in numeric_cols[:max_detail]:
                 col_charts: Dict[str, str] = {}
                 try:
-                    col_charts["histogram"] = interactive_plotter.histogram_interactive(df[col], col, target_series=target_series)
+                    col_charts["histogram"] = interactive_plotter.histogram_interactive(
+                        df[col], col, target_series=target_series
+                    )
                 except Exception as e:
                     logger.debug("Error generating histogram for '%s': %s", col, e)
                 try:
-                    col_charts["boxplot"] = interactive_plotter.boxplot_interactive(df[col], col, target_series=target_series)
+                    col_charts["boxplot"] = interactive_plotter.boxplot_interactive(
+                        df[col], col, target_series=target_series
+                    )
                 except Exception as e:
                     logger.debug("Error generating boxplot for '%s': %s", col, e)
                 if col_charts:
@@ -541,7 +587,11 @@ class DatasetExplorer:
 
         # Categorical column details
         cat_cfg = self.sections.get("categorical", {})
-        cat_cols = [c for c in col_types.get("categorical", []) if c != self.target_column and c in df.columns]
+        cat_cols = [
+            c
+            for c in col_types.get("categorical", [])
+            if c != self.target_column and c in df.columns
+        ]
         if cat_cfg.get("detailed_charts", False):
             for col in cat_cols[:max_detail]:
                 col_charts = {}
@@ -560,7 +610,9 @@ class DatasetExplorer:
                     logger.debug("Error computing value_counts for '%s': %s", col, e)
                 if target_series is not None:
                     try:
-                        col_charts["target_rate"] = interactive_plotter.target_rate_by_category(df, col, self.target_column)
+                        col_charts["target_rate"] = interactive_plotter.target_rate_by_category(
+                            df, col, self.target_column
+                        )
                     except Exception as e:
                         logger.debug("Error generating target rate chart for '%s': %s", col, e)
                 if col_charts:
@@ -571,7 +623,9 @@ class DatasetExplorer:
         for col in temporal_cols[:max_detail]:
             col_charts = {}
             try:
-                col_charts["temporal_dist"] = interactive_plotter.temporal_distribution_chart(df[col], col)
+                col_charts["temporal_dist"] = interactive_plotter.temporal_distribution_chart(
+                    df[col], col
+                )
             except Exception as e:
                 logger.debug("Error generating temporal chart for '%s': %s", col, e)
             if col_charts:
@@ -588,11 +642,15 @@ class DatasetExplorer:
                 if not columns:
                     continue
                 try:
-                    h_charts["sunburst"] = interactive_plotter.sunburst_hierarchy(df, columns, title=f"Sunburst: {h_name}")
+                    h_charts["sunburst"] = interactive_plotter.sunburst_hierarchy(
+                        df, columns, title=f"Sunburst: {h_name}"
+                    )
                 except Exception as e:
                     logger.debug("Error generating sunburst for '%s': %s", h_name, e)
                 try:
-                    h_charts["sankey"] = interactive_plotter.sankey_hierarchy(df, columns, title=f"Flow: {h_name}")
+                    h_charts["sankey"] = interactive_plotter.sankey_hierarchy(
+                        df, columns, title=f"Flow: {h_name}"
+                    )
                 except Exception as e:
                     logger.debug("Error generating sankey for '%s': %s", h_name, e)
 
@@ -623,9 +681,13 @@ class DatasetExplorer:
         generator = EDAReportGenerator(self.output_dir)
         return generator.generate(results, self._all_alerts)
 
-    def _add_alert(self, code: str, message: str, severity: str = "WARNING", details: Optional[Dict] = None) -> None:
+    def _add_alert(
+        self, code: str, message: str, severity: str = "WARNING", details: Optional[Dict] = None
+    ) -> None:
         """Add an alert to the global list."""
-        self._all_alerts.append({"code": code, "message": message, "severity": severity, "details": details or {}})
+        self._all_alerts.append(
+            {"code": code, "message": message, "severity": severity, "details": details or {}}
+        )
 
     def _run_geo_analyzer(self, df: pd.DataFrame) -> Dict:
         """Phase 4: Run geospatial analyzer."""

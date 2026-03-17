@@ -267,7 +267,11 @@ class TestEvaluatorCalibrationIntegration:
 
         _ = DefaultEvaluator(
             output_dir=str(tmp_path / "reports"),
-            calibration_config={"enabled": True, "method": "cost_benefit", "params": {"cost_fp": 1, "cost_fn": 10}},
+            calibration_config={
+                "enabled": True,
+                "method": "cost_benefit",
+                "params": {"cost_fp": 1, "cost_fn": 10},
+            },
             val_predictions_path=val_path,
         )
 

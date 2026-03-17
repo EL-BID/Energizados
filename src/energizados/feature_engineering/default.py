@@ -25,7 +25,9 @@ from energizados.preprocessing.preprocessing import (
 logger = logging.getLogger(__name__)
 
 
-def _build_transformer_from_config(transform_name: str, params: dict, column: str, custom_class: str = None):
+def _build_transformer_from_config(
+    transform_name: str, params: dict, column: str, custom_class: str = None
+):
     """Builds a transformer from YAML config.
 
     Args:
@@ -75,7 +77,10 @@ def _build_transformer_from_config(transform_name: str, params: dict, column: st
     }
 
     if transform_name not in transformer_map:
-        raise ValueError(f"Unknown transformer: {transform_name}. " f"Available options: {list(transformer_map.keys())}")
+        raise ValueError(
+            f"Unknown transformer: {transform_name}. "
+            f"Available options: {list(transformer_map.keys())}"
+        )
 
     cls, default_params = transformer_map[transform_name]
     params = {**default_params, **(params or {})}
@@ -105,7 +110,9 @@ def _build_global_transformers_pipeline(global_transformers_config: list) -> Pip
         if "custom_class" in transformer_config:
             custom_class_path = transformer_config.get("custom_class")
             custom_params = transformer_config.get("params", {})
-            transformer = _build_transformer_from_config("custom_class", custom_params, None, custom_class=custom_class_path)
+            transformer = _build_transformer_from_config(
+                "custom_class", custom_params, None, custom_class=custom_class_path
+            )
             name = f"global_custom_{i}"
         else:
             # Built-in transformers
@@ -141,7 +148,9 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
     if "columns" in preprocessing_config:
         columns_config = preprocessing_config["columns"]
         if not columns_config:
-            raise ValueError("The 'columns' config cannot be empty. Specify at least one column with its transformations.")
+            raise ValueError(
+                "The 'columns' config cannot be empty. Specify at least one column with its transformations."
+            )
 
         transformers = []
 
@@ -159,7 +168,9 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
                 if "custom_class" in transform_config:
                     custom_class_path = transform_config.get("custom_class")
                     custom_params = transform_config.get("params", {})
-                    transformer = _build_transformer_from_config("custom_class", custom_params, column, custom_class=custom_class_path)
+                    transformer = _build_transformer_from_config(
+                        "custom_class", custom_params, column, custom_class=custom_class_path
+                    )
                     steps.append(("custom_class", transformer))
                 else:
                     # Standard built-in transformers
@@ -172,7 +183,9 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
                 transformers.append((f"{column}_pipeline", pipeline, [column]))
 
         # ColumnTransformer with passthrough for unmentioned columns
-        ct = ColumnTransformer(transformers=transformers, remainder="passthrough", verbose_feature_names_out=False)
+        ct = ColumnTransformer(
+            transformers=transformers, remainder="passthrough", verbose_feature_names_out=False
+        )
         ct.set_output(transform="pandas")
 
         # Build global_transformers Pipeline
@@ -181,7 +194,9 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
 
         # Combine into final Pipeline
         if global_pipeline is not None:
-            final_pipeline = Pipeline([("column_transformer", ct), ("global_transformers", global_pipeline)])
+            final_pipeline = Pipeline(
+                [("column_transformer", ct), ("global_transformers", global_pipeline)]
+            )
         else:
             # If no global transformers, wrap ct in Pipeline for consistency
             final_pipeline = Pipeline([("column_transformer", ct)])
@@ -189,7 +204,9 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
         return final_pipeline
 
     # Error if no valid configuration
-    raise ValueError("Invalid preprocessing configuration. 'columns' is required with per-column configuration.")
+    raise ValueError(
+        "Invalid preprocessing configuration. 'columns' is required with per-column configuration."
+    )
 
 
 class DefaultFeatureEngineering(BaseFeatureEngineering):
@@ -226,7 +243,9 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
             preprocessing_config = self.config.get("preprocessing", {})
 
         self.preprocessing_config = preprocessing_config
-        self.feature_selection_config = feature_selection_config or self.config.get("feature_selection", {})
+        self.feature_selection_config = feature_selection_config or self.config.get(
+            "feature_selection", {}
+        )
         self.preprocessor = None
         self.selector = None
 

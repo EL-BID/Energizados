@@ -114,7 +114,9 @@ class EDAStaticPlots:
             import matplotlib.pyplot as plt
             import seaborn as sns
 
-            sub = df[[col] + ([target_col] if target_col and target_col in df.columns else [])].dropna()
+            sub = df[
+                [col] + ([target_col] if target_col and target_col in df.columns else [])
+            ].dropna()
             if len(sub) == 0:
                 return ""
 
@@ -204,10 +206,24 @@ class EDAStaticPlots:
             if target_col and target_col in df.columns:
                 sub = df[[col, target_col]].dropna()
                 # Compute fraud rate per category
-                fraud_rate = sub[sub[col].isin(top_cats.index)].groupby(col)[target_col].mean().reindex(top_cats.index).fillna(0)
-                ax.bar(range(len(top_cats)), top_cats.values, color="steelblue", alpha=0.7, label="Count")
+                fraud_rate = (
+                    sub[sub[col].isin(top_cats.index)]
+                    .groupby(col)[target_col]
+                    .mean()
+                    .reindex(top_cats.index)
+                    .fillna(0)
+                )
+                ax.bar(
+                    range(len(top_cats)),
+                    top_cats.values,
+                    color="steelblue",
+                    alpha=0.7,
+                    label="Count",
+                )
                 ax2 = ax.twinx()
-                ax2.plot(range(len(top_cats)), fraud_rate.values, "ro-", markersize=6, label="Fraud Rate")
+                ax2.plot(
+                    range(len(top_cats)), fraud_rate.values, "ro-", markersize=6, label="Fraud Rate"
+                )
                 ax2.set_ylabel("Fraud Rate", color="red")
                 ax.set_title(f"Categorical distribution: {col} (with fraud rate)")
                 lines2, labels2 = ax2.get_legend_handles_labels()
@@ -218,7 +234,9 @@ class EDAStaticPlots:
                 ax.set_title(f"Categorical distribution: {col}")
 
             ax.set_xticks(range(len(top_cats)))
-            ax.set_xticklabels([str(c) for c in top_cats.index], rotation=45, ha="right", fontsize=9)
+            ax.set_xticklabels(
+                [str(c) for c in top_cats.index], rotation=45, ha="right", fontsize=9
+            )
             ax.set_ylabel("Count")
             ax.set_xlabel(col)
 

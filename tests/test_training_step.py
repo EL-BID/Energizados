@@ -228,7 +228,14 @@ class TestTrainingStepSingleModel:
     def test_context_keys_present(self, step_with_mock):
         step, temp_dir = step_with_mock
         result = step.execute({})
-        for key in ["model", "model_path", "feature_engineering_path", "val_predictions_path", "val_auc", "val_f1"]:
+        for key in [
+            "model",
+            "model_path",
+            "feature_engineering_path",
+            "val_predictions_path",
+            "val_auc",
+            "val_f1",
+        ]:
             assert key in result
 
     def test_val_auc_is_float(self, step_with_mock):
@@ -393,7 +400,14 @@ class TestTrainingStepValidation:
     def test_output_keys(self, temp_dir):
         step = TrainingStep(models_configs=[], output_dir=str(temp_dir))
         keys = step.get_output_keys()
-        for k in ["model", "model_path", "feature_engineering_path", "val_predictions_path", "val_auc", "val_f1"]:
+        for k in [
+            "model",
+            "model_path",
+            "feature_engineering_path",
+            "val_predictions_path",
+            "val_auc",
+            "val_f1",
+        ]:
             assert k in keys
 
 

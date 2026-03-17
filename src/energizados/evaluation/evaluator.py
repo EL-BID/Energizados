@@ -73,7 +73,14 @@ class DefaultEvaluator(PipelineStep):
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.target_column = target_column
         self.threshold = threshold
-        self.metrics = metrics or ["auc", "precision", "recall", "f1", "confusion_matrix", "cumulative_gains"]
+        self.metrics = metrics or [
+            "auc",
+            "precision",
+            "recall",
+            "f1",
+            "confusion_matrix",
+            "cumulative_gains",
+        ]
         self.generate_plots = generate_plots
         self.generate_html_report = generate_html_report
         self.generate_json_report = generate_json_report
@@ -113,7 +120,9 @@ class DefaultEvaluator(PipelineStep):
         ctx = context or {}
         input_path = self.input_path or ctx.get("test_path")
         model_path = self.model_path or ctx.get("model_path")
-        feature_engineering_path = self.feature_engineering_path or ctx.get("feature_engineering_path")
+        feature_engineering_path = self.feature_engineering_path or ctx.get(
+            "feature_engineering_path"
+        )
 
         # Validate inputs before loading (MEJORAS P1-4)
         if not input_path:
@@ -140,7 +149,9 @@ class DefaultEvaluator(PipelineStep):
             X_test_transformed = X_test
 
         # Capture feature names for importance plot (MEJORAS P2-8)
-        feature_names = list(X_test_transformed.columns) if hasattr(X_test_transformed, "columns") else None
+        feature_names = (
+            list(X_test_transformed.columns) if hasattr(X_test_transformed, "columns") else None
+        )
 
         # 4. Calibrate threshold if configured
         calibration_result = None
@@ -153,11 +164,17 @@ class DefaultEvaluator(PipelineStep):
                     method=self.calibration_config.get("method", "cost_benefit"),
                     **self.calibration_config.get("params", {}),
                 )
-                calibration_result = calibrator.calibrate(val_df["y_true"].values, val_df["y_proba"].values)
+                calibration_result = calibrator.calibrate(
+                    val_df["y_true"].values, val_df["y_proba"].values
+                )
                 threshold = calibration_result["threshold"]
-                logger.info(f"Calibrated threshold: {threshold:.4f} (method: {calibration_result['method']})")
+                logger.info(
+                    f"Calibrated threshold: {threshold:.4f} (method: {calibration_result['method']})"
+                )
             else:
-                logger.warning("Calibration enabled but val_predictions_path not found, using default threshold")
+                logger.warning(
+                    "Calibration enabled but val_predictions_path not found, using default threshold"
+                )
 
         # 5. Get predictions
         logger.info("Generating predictions...")
@@ -232,7 +249,9 @@ class DefaultEvaluator(PipelineStep):
             # ROC
             try:
                 fpr, tpr, _ = sk_roc_curve(y_test, y_proba)
-                plots_interactive["roc_curve"] = eval_plots.roc_curve(fpr.tolist(), tpr.tolist(), metrics_results.get("auc", 0))
+                plots_interactive["roc_curve"] = eval_plots.roc_curve(
+                    fpr.tolist(), tpr.tolist(), metrics_results.get("auc", 0)
+                )
             except Exception as e:
                 logger.warning(f"Could not generate interactive ROC curve: {e}")
 
@@ -240,7 +259,9 @@ class DefaultEvaluator(PipelineStep):
             try:
                 prec_vals, rec_vals, _ = sk_pr_curve(y_test, y_proba)
                 ap = float(np.trapz(prec_vals[::-1], rec_vals[::-1]))
-                plots_interactive["precision_recall"] = eval_plots.precision_recall_curve(prec_vals.tolist(), rec_vals.tolist(), ap)
+                plots_interactive["precision_recall"] = eval_plots.precision_recall_curve(
+                    prec_vals.tolist(), rec_vals.tolist(), ap
+                )
             except Exception as e:
                 logger.warning(f"Could not generate interactive PR curve: {e}")
 
@@ -248,27 +269,35 @@ class DefaultEvaluator(PipelineStep):
             try:
                 cm = metrics_results.get("confusion_matrix", {})
                 if "matrix" in cm:
-                    plots_interactive["confusion_matrix"] = eval_plots.confusion_matrix_heatmap(cm["matrix"])
+                    plots_interactive["confusion_matrix"] = eval_plots.confusion_matrix_heatmap(
+                        cm["matrix"]
+                    )
             except Exception as e:
                 logger.warning(f"Could not generate interactive confusion matrix: {e}")
 
             # Cumulative gains
             try:
                 if "cumulative_gains" in metrics_results:
-                    plots_interactive["cumulative_gains"] = eval_plots.cumulative_gains(metrics_results["cumulative_gains"])
+                    plots_interactive["cumulative_gains"] = eval_plots.cumulative_gains(
+                        metrics_results["cumulative_gains"]
+                    )
             except Exception as e:
                 logger.warning(f"Could not generate interactive cumulative gains: {e}")
 
             # Lift chart
             try:
                 if "cumulative_gains" in metrics_results:
-                    plots_interactive["lift_chart"] = eval_plots.lift_chart(metrics_results["cumulative_gains"])
+                    plots_interactive["lift_chart"] = eval_plots.lift_chart(
+                        metrics_results["cumulative_gains"]
+                    )
             except Exception as e:
                 logger.warning(f"Could not generate interactive lift chart: {e}")
 
             # Probability distribution
             try:
-                plots_interactive["probability_distribution"] = eval_plots.probability_distribution(y_test.tolist(), y_proba.tolist())
+                plots_interactive["probability_distribution"] = eval_plots.probability_distribution(
+                    y_test.tolist(), y_proba.tolist()
+                )
             except Exception as e:
                 logger.warning(f"Could not generate interactive probability distribution: {e}")
 
@@ -283,14 +312,18 @@ class DefaultEvaluator(PipelineStep):
                         elif hasattr(inner, "get_feature_importance"):
                             importances = inner.get_feature_importance()
                     if importances is not None:
-                        plots_interactive["feature_importance"] = eval_plots.feature_importance(feature_names, importances.tolist())
+                        plots_interactive["feature_importance"] = eval_plots.feature_importance(
+                            feature_names, importances.tolist()
+                        )
             except Exception as e:
                 logger.warning(f"Could not generate interactive feature importance: {e}")
 
             # Threshold sweep
             try:
                 if threshold_metrics is not None:
-                    plots_interactive["threshold_sweep"] = eval_plots.threshold_sweep(threshold_metrics, threshold)
+                    plots_interactive["threshold_sweep"] = eval_plots.threshold_sweep(
+                        threshold_metrics, threshold
+                    )
             except Exception as e:
                 logger.warning(f"Could not generate interactive threshold sweep: {e}")
 
@@ -298,7 +331,9 @@ class DefaultEvaluator(PipelineStep):
             try:
                 for col_name, col_data in segment_metrics.items():
                     chart_key = f"segment_{col_name}"
-                    plots_interactive[chart_key] = eval_plots.segment_metrics_chart(col_data, metric="f1")
+                    plots_interactive[chart_key] = eval_plots.segment_metrics_chart(
+                        col_data, metric="f1"
+                    )
             except Exception as e:
                 logger.warning(f"Could not generate interactive segment charts: {e}")
 
@@ -408,7 +443,9 @@ class DefaultEvaluator(PipelineStep):
 
         # ROC Curve
         try:
-            path, b64 = self.plot_generator.roc_curve_plot_embedded(y_true, y_proba, metrics.get("auc", 0))
+            path, b64 = self.plot_generator.roc_curve_plot_embedded(
+                y_true, y_proba, metrics.get("auc", 0)
+            )
             plots["roc_curve"] = path
             embedded["roc_curve"] = b64
         except Exception as e:
@@ -426,7 +463,9 @@ class DefaultEvaluator(PipelineStep):
         try:
             cm = metrics.get("confusion_matrix", {})
             if "matrix" in cm:
-                path, b64 = self.plot_generator.confusion_matrix_plot_embedded(np.array(cm["matrix"]))
+                path, b64 = self.plot_generator.confusion_matrix_plot_embedded(
+                    np.array(cm["matrix"])
+                )
                 plots["confusion_matrix"] = path
                 embedded["confusion_matrix"] = b64
         except Exception as e:
@@ -435,7 +474,9 @@ class DefaultEvaluator(PipelineStep):
         # Cumulative Gains
         try:
             if "cumulative_gains" in metrics:
-                path, b64 = self.plot_generator.cumulative_gains_plot_embedded(metrics["cumulative_gains"])
+                path, b64 = self.plot_generator.cumulative_gains_plot_embedded(
+                    metrics["cumulative_gains"]
+                )
                 plots["cumulative_gains"] = path
                 embedded["cumulative_gains"] = b64
         except Exception as e:
@@ -444,7 +485,9 @@ class DefaultEvaluator(PipelineStep):
         # Lift Chart
         try:
             if "cumulative_gains" in metrics:
-                path, b64 = self.plot_generator.lift_chart_plot_embedded(metrics["cumulative_gains"])
+                path, b64 = self.plot_generator.lift_chart_plot_embedded(
+                    metrics["cumulative_gains"]
+                )
                 plots["lift_chart"] = path
                 embedded["lift_chart"] = b64
         except Exception as e:
@@ -469,7 +512,9 @@ class DefaultEvaluator(PipelineStep):
         # Threshold Sweep (static)
         try:
             if threshold_metrics is not None:
-                path, b64 = self.plot_generator.threshold_sweep_plot_embedded(threshold_metrics, threshold)
+                path, b64 = self.plot_generator.threshold_sweep_plot_embedded(
+                    threshold_metrics, threshold
+                )
                 plots["threshold_sweep"] = path
                 embedded["threshold_sweep"] = b64
         except Exception as e:
@@ -487,7 +532,9 @@ class DefaultEvaluator(PipelineStep):
                         importances = inner.get_feature_importance()
 
                 if importances is not None:
-                    path, b64 = self.plot_generator.feature_importance_plot_embedded(feature_names, importances)
+                    path, b64 = self.plot_generator.feature_importance_plot_embedded(
+                        feature_names, importances
+                    )
                     plots["feature_importance"] = path
                     embedded["feature_importance"] = b64
             except Exception as e:
@@ -534,7 +581,11 @@ class DefaultEvaluator(PipelineStep):
                 try:
                     params = inner.get_params()
                     # Filter out nested objects; keep scalar/string params
-                    info["hyperparams"] = {k: v for k, v in params.items() if isinstance(v, (int, float, str, bool, type(None)))}
+                    info["hyperparams"] = {
+                        k: v
+                        for k, v in params.items()
+                        if isinstance(v, (int, float, str, bool, type(None)))
+                    }
                 except Exception as e:
                     logger.debug("Could not retrieve hyperparams from inner model: %s", e)
 

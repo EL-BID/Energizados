@@ -54,7 +54,9 @@ class SchemaValidator:
         # Check categorical data types
         for col in self.categorical_columns:
             if col in df.columns:
-                if not pd.api.types.is_string_dtype(df[col]) and not isinstance(df[col].dtype, pd.CategoricalDtype):
+                if not pd.api.types.is_string_dtype(df[col]) and not isinstance(
+                    df[col].dtype, pd.CategoricalDtype
+                ):
                     errors.append(f"Column '{col}' must be categorical (string or category)")
 
         # Check numeric data types

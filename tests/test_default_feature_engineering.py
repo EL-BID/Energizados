@@ -102,7 +102,9 @@ class TestBuildTransformerFromConfig:
 
     def test_cardinality_reducer(self):
         """Verify the creation of CardinalityReducer."""
-        transformer = _build_transformer_from_config("cardinality_reducer", {"threshold": 0.01}, "test_col")
+        transformer = _build_transformer_from_config(
+            "cardinality_reducer", {"threshold": 0.01}, "test_col"
+        )
         assert isinstance(transformer, CardinalityReducer)
         assert transformer.threshold == 0.01
 

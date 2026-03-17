@@ -74,7 +74,10 @@ class ThresholdCalibrator:
         elif self.method == "precision_recall":
             return self._calibrate_precision_recall(y_true, y_proba)
         else:
-            raise ValueError(f"Unknown calibration method: '{self.method}'. " f"Options: 'cost_benefit', 'operational', 'precision_recall'")
+            raise ValueError(
+                f"Unknown calibration method: '{self.method}'. "
+                f"Options: 'cost_benefit', 'operational', 'precision_recall'"
+            )
 
     # ------------------------------------------------------------------
     # Private methods
@@ -148,7 +151,8 @@ class ThresholdCalibrator:
         metrics = self._metrics_at(y_true, y_proba, threshold)
 
         logger.info(
-            f"Cost_benefit calibration: threshold={threshold:.4f}, " f"cost={costs[best_idx]:.1f} (cost_fp={cost_fp}, cost_fn={cost_fn})"
+            f"Cost_benefit calibration: threshold={threshold:.4f}, "
+            f"cost={costs[best_idx]:.1f} (cost_fp={cost_fp}, cost_fn={cost_fn})"
         )
 
         return {
@@ -183,7 +187,8 @@ class ThresholdCalibrator:
 
         if not np.any(valid_mask):
             logger.warning(
-                f"No threshold found with recall >= {min_recall}. " f"Maximum achievable recall: {recalls.max():.4f}. Using threshold=0.5."
+                f"No threshold found with recall >= {min_recall}. "
+                f"Maximum achievable recall: {recalls.max():.4f}. Using threshold=0.5."
             )
             threshold = 0.5
         else:
@@ -193,7 +198,9 @@ class ThresholdCalibrator:
 
         metrics = self._metrics_at(y_true, y_proba, threshold)
 
-        logger.info(f"Precision_recall calibration: threshold={threshold:.4f}, " f"min_recall={min_recall}")
+        logger.info(
+            f"Precision_recall calibration: threshold={threshold:.4f}, " f"min_recall={min_recall}"
+        )
 
         return {
             "threshold": threshold,

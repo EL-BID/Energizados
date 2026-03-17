@@ -146,6 +146,18 @@ MODEL_CONFIG_SCHEMA = {
                 "n_splits": {"type": "integer"},
             },
         },
+        "calibration": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "method": {
+                    "type": "string",
+                    "enum": ["isotonic", "sigmoid"],
+                    "default": "sigmoid",
+                },
+                "cv": {"type": "integer", "default": 3},
+            },
+        },
     },
 }
 

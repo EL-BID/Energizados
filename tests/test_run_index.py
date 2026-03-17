@@ -14,7 +14,9 @@ from energizados.evaluation.index import RunIndexGenerator
 class TestRunIndexGenerator:
     """Tests for RunIndexGenerator."""
 
-    def _make_run(self, output_dir: Path, run_name: str, metrics: dict = None, model_type: str = "LGBMModel") -> Path:
+    def _make_run(
+        self, output_dir: Path, run_name: str, metrics: dict = None, model_type: str = "LGBMModel"
+    ) -> Path:
         """Helper: create a fake training run directory with evaluation report.
 
         Args:

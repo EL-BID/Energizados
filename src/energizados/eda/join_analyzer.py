@@ -84,7 +84,9 @@ class JoinAnalyzer(BaseExplorer):
 
             indicator = df[indicator_col]
             present_count = int(indicator.fillna(0).astype(bool).sum())
-            present_pct = round(present_count / total_records * 100, 4) if total_records > 0 else 0.0
+            present_pct = (
+                round(present_count / total_records * 100, 4) if total_records > 0 else 0.0
+            )
 
             coverage[source_name] = {
                 "present_count": present_count,
@@ -109,7 +111,9 @@ class JoinAnalyzer(BaseExplorer):
         )
 
         # Apply each source filter sequentially
-        available_sources = [s for s in source_indicators.keys() if source_indicators[s] in df.columns]
+        available_sources = [
+            s for s in source_indicators.keys() if source_indicators[s] in df.columns
+        ]
 
         for source in available_sources:
             indicator_col = source_indicators[source]
@@ -120,7 +124,11 @@ class JoinAnalyzer(BaseExplorer):
                 {
                     "stage": f"with_{source}",
                     "count": cumulative_present,
-                    "pct_of_total": round(cumulative_present / total_records * 100, 4) if total_records > 0 else 0.0,
+                    "pct_of_total": (
+                        round(cumulative_present / total_records * 100, 4)
+                        if total_records > 0
+                        else 0.0
+                    ),
                 }
             )
 
@@ -168,8 +176,12 @@ class JoinAnalyzer(BaseExplorer):
                 target_included = df.loc[included_mask, target_col].mean()
                 target_excluded = df.loc[excluded_mask, target_col].mean()
 
-                excluded_profile["target_rate_included"] = round(float(target_included), 6) if not pd.isna(target_included) else None
-                excluded_profile["target_rate_excluded"] = round(float(target_excluded), 6) if not pd.isna(target_excluded) else None
+                excluded_profile["target_rate_included"] = (
+                    round(float(target_included), 6) if not pd.isna(target_included) else None
+                )
+                excluded_profile["target_rate_excluded"] = (
+                    round(float(target_excluded), 6) if not pd.isna(target_excluded) else None
+                )
 
                 # Alert if excluded have significantly different target rate
                 if not pd.isna(target_included) and not pd.isna(target_excluded):
@@ -205,8 +217,12 @@ class JoinAnalyzer(BaseExplorer):
                     excluded_dist = df.loc[excluded_mask, col].value_counts(normalize=True)
 
                     categorical_comparison[col] = {
-                        "included_top": {str(k): round(float(v), 4) for k, v in included_dist.head(5).items()},
-                        "excluded_top": {str(k): round(float(v), 4) for k, v in excluded_dist.head(5).items()},
+                        "included_top": {
+                            str(k): round(float(v), 4) for k, v in included_dist.head(5).items()
+                        },
+                        "excluded_top": {
+                            str(k): round(float(v), 4) for k, v in excluded_dist.head(5).items()
+                        },
                     }
 
                 excluded_profile["categorical_comparison"] = categorical_comparison

@@ -174,7 +174,11 @@ class EnsembleModel(BaseModel):
 
         # Fallback: re-instantiate with same class
         cls = model.__class__
-        init_params = {k: v for k, v in model.__dict__.items() if not k.startswith("_") and k not in ("is_fitted_", "model_", "config")}
+        init_params = {
+            k: v
+            for k, v in model.__dict__.items()
+            if not k.startswith("_") and k not in ("is_fitted_", "model_", "config")
+        }
         return cls(**init_params)
 
     def _build_meta_learner(self):

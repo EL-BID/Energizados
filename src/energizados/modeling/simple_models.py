@@ -49,7 +49,9 @@ class ChangeTrendPercentajeIdentifierWide(BaseEstimator, ClassifierMixin):
         """
         df_wide = pd.pivot(df, index=["index"], columns=["date"], values=["consumo"]).reset_index()
         # organize columns with appropriate names
-        df_wide.columns = ["index"] + [str(i) + "_anterior" for i in range(self.last_eval_value + self.last_base_value)][::-1]
+        df_wide.columns = ["index"] + [
+            str(i) + "_anterior" for i in range(self.last_eval_value + self.last_base_value)
+        ][::-1]
         return df_wide
 
     def get_cant_cols(self):
@@ -60,10 +62,17 @@ class ChangeTrendPercentajeIdentifierWide(BaseEstimator, ClassifierMixin):
                 columns and cols_eval contains the recent evaluation columns.
         """
         # get base columns and columns used for evaluation
-        cols_base = [str(i) + "_anterior" for i in range(self.last_eval_value + 1, self.last_base_value + self.last_eval_value + 1)][
+        cols_base = [
+            str(i) + "_anterior"
+            for i in range(
+                self.last_eval_value + 1, self.last_base_value + self.last_eval_value + 1
+            )
+        ][
             ::-1
         ]  # last_base_value
-        cols_eval = [str(i) + "_anterior" for i in range(1, self.last_eval_value + 1)][::-1]  # last_eval_value
+        cols_eval = [str(i) + "_anterior" for i in range(1, self.last_eval_value + 1)][
+            ::-1
+        ]  # last_eval_value
         #         print('[INFO]...cols base:', cols_base)
         #         print('[INFO]...cols eval:', cols_eval)
         return cols_base, cols_eval

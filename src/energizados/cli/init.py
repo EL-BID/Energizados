@@ -125,7 +125,9 @@ def create_project(
     # Copy from existing project or create from templates
     if copy_from:
         source_path = project_path.parent / copy_from
-        _copy_project_source(source_path, project_path, copy_from, project_name, old_structure=old_structure)
+        _copy_project_source(
+            source_path, project_path, copy_from, project_name, old_structure=old_structure
+        )
     else:
         # Create base files
         _create_base_files(project_path, project_name)
@@ -264,7 +266,13 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
 
     # Copy example dataset if it exists (only for new projects, not copies)
     if source_name is None:
-        source_dataset = Path(__file__).parent.parent.parent.parent / "templates" / "data" / "raw" / "sample_dataset.parquet"
+        source_dataset = (
+            Path(__file__).parent.parent.parent.parent
+            / "templates"
+            / "data"
+            / "raw"
+            / "sample_dataset.parquet"
+        )
         if source_dataset.exists():
             import shutil
 
@@ -485,7 +493,9 @@ def _map_old_to_new_structure(old_path: str) -> str:
     return old_path
 
 
-def _copy_and_adapt_pipeline_yaml(source_path: Path, target_path: Path, old_name: str, new_name: str, old_structure: bool = False):
+def _copy_and_adapt_pipeline_yaml(
+    source_path: Path, target_path: Path, old_name: str, new_name: str, old_structure: bool = False
+):
     """
     Copies and adapts the configuration files from the source project.
 

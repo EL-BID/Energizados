@@ -109,7 +109,9 @@ class EvalInteractivePlots:
             logger.warning("Error generating ROC curve chart: %s", e)
             return ""
 
-    def precision_recall_curve(self, precision: List[float], recall: List[float], ap_score: float) -> str:
+    def precision_recall_curve(
+        self, precision: List[float], recall: List[float], ap_score: float
+    ) -> str:
         """
         Interactive Precision-Recall curve chart.
 
@@ -151,7 +153,9 @@ class EvalInteractivePlots:
             logger.warning("Error generating precision-recall chart: %s", e)
             return ""
 
-    def confusion_matrix_heatmap(self, cm: List[List[int]], labels: Optional[List[str]] = None) -> str:
+    def confusion_matrix_heatmap(
+        self, cm: List[List[int]], labels: Optional[List[str]] = None
+    ) -> str:
         """
         Interactive confusion matrix heatmap.
 
@@ -281,7 +285,12 @@ class EvalInteractivePlots:
                     hovertemplate="Population: %{x:.1%}<br>Lift: %{y:.2f}<extra></extra>",
                 )
             )
-            fig.add_hline(y=1.0, line_dash="dash", line_color=THEME_COLORS["neutral"], annotation_text="Random (lift=1)")
+            fig.add_hline(
+                y=1.0,
+                line_dash="dash",
+                line_color=THEME_COLORS["neutral"],
+                annotation_text="Random (lift=1)",
+            )
             fig.update_layout(
                 title="Lift Chart",
                 template=self.template,
@@ -415,7 +424,9 @@ class EvalInteractivePlots:
             logger.warning("Error generating probability distribution chart: %s", e)
             return ""
 
-    def feature_importance(self, feature_names: List[str], importances: List[float], top_n: int = 20) -> str:
+    def feature_importance(
+        self, feature_names: List[str], importances: List[float], top_n: int = 20
+    ) -> str:
         """
         Interactive horizontal bar chart of feature importance.
 
@@ -558,7 +569,10 @@ class EvalInteractivePlots:
 
             # Color by value relative to mean
             mean_val = sum(values) / len(values) if values else 0
-            colors = [THEME_COLORS["positive"] if v >= mean_val else THEME_COLORS["negative"] for v in values]
+            colors = [
+                THEME_COLORS["positive"] if v >= mean_val else THEME_COLORS["negative"]
+                for v in values
+            ]
 
             fig = go.Figure(
                 go.Bar(

@@ -119,7 +119,8 @@ class RelatedColumnsAnalyzer(BaseExplorer):
             level_distributions[col] = {
                 "unique": int(vc.shape[0]),
                 "top_values": [
-                    {"value": str(k), "count": int(v), "pct": round(float(v / len(df) * 100), 2)} for k, v in vc.head(20).items()
+                    {"value": str(k), "count": int(v), "pct": round(float(v / len(df) * 100), 2)}
+                    for k, v in vc.head(20).items()
                 ],
             }
         result["level_distributions"] = level_distributions
@@ -232,7 +233,9 @@ class RelatedColumnsAnalyzer(BaseExplorer):
                 details={"hierarchy": name, "dominant_pct": round(top_pct, 4)},
             )
 
-    def _check_target_disparity(self, target_cross: pd.DataFrame, name: str, columns: List[str]) -> None:
+    def _check_target_disparity(
+        self, target_cross: pd.DataFrame, name: str, columns: List[str]
+    ) -> None:
         """Alert if target rate varies significantly across combinations."""
         zscore_threshold = self.config.get("target_disparity_zscore", 2.0)
         rates = target_cross["target_rate"]

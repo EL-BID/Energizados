@@ -78,7 +78,9 @@ class PlotGenerator:
         buf.close()
         return f"data:image/png;base64,{b64}"
 
-    def _save_figure_embedded(self, filename: str, save_path: Optional[str] = None) -> Tuple[str, str]:
+    def _save_figure_embedded(
+        self, filename: str, save_path: Optional[str] = None
+    ) -> Tuple[str, str]:
         """
         Saves the current figure to disk AND returns a base64 data URI.
 
@@ -122,8 +124,16 @@ class PlotGenerator:
         fpr, tpr, _ = roc_curve(y_true, y_proba)
 
         plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color=THEME_COLORS["primary"], lw=2, label=f"ROC curve (AUC = {auc_score:.4f})")
-        plt.plot([0, 1], [0, 1], color=THEME_COLORS["neutral"], lw=2, linestyle="--", label="Random")
+        plt.plot(
+            fpr,
+            tpr,
+            color=THEME_COLORS["primary"],
+            lw=2,
+            label=f"ROC curve (AUC = {auc_score:.4f})",
+        )
+        plt.plot(
+            [0, 1], [0, 1], color=THEME_COLORS["neutral"], lw=2, linestyle="--", label="Random"
+        )
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel("False Positive Rate")
@@ -144,8 +154,16 @@ class PlotGenerator:
         fpr, tpr, _ = roc_curve(y_true, y_proba)
 
         plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color=THEME_COLORS["primary"], lw=2, label=f"ROC curve (AUC = {auc_score:.4f})")
-        plt.plot([0, 1], [0, 1], color=THEME_COLORS["neutral"], lw=2, linestyle="--", label="Random")
+        plt.plot(
+            fpr,
+            tpr,
+            color=THEME_COLORS["primary"],
+            lw=2,
+            label=f"ROC curve (AUC = {auc_score:.4f})",
+        )
+        plt.plot(
+            [0, 1], [0, 1], color=THEME_COLORS["neutral"], lw=2, linestyle="--", label="Random"
+        )
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel("False Positive Rate")
@@ -218,7 +236,9 @@ class PlotGenerator:
 
         plt.figure(figsize=(8, 6))
         # Use primary color as base for colormap
-        cmap = mcolors.LinearSegmentedColormap.from_list("primary_cmap", ["#ffffff", THEME_COLORS["primary"]])
+        cmap = mcolors.LinearSegmentedColormap.from_list(
+            "primary_cmap", ["#ffffff", THEME_COLORS["primary"]]
+        )
         plt.imshow(cm, interpolation="nearest", cmap=cmap)
         plt.title("Confusion Matrix")
         plt.colorbar()
@@ -250,7 +270,9 @@ class PlotGenerator:
         import matplotlib.colors as mcolors
 
         plt.figure(figsize=(8, 6))
-        cmap = mcolors.LinearSegmentedColormap.from_list("primary_cmap", ["#ffffff", THEME_COLORS["primary"]])
+        cmap = mcolors.LinearSegmentedColormap.from_list(
+            "primary_cmap", ["#ffffff", THEME_COLORS["primary"]]
+        )
         plt.imshow(cm, interpolation="nearest", cmap=cmap)
         plt.title("Confusion Matrix")
         plt.colorbar()
@@ -292,7 +314,14 @@ class PlotGenerator:
         cumulative_population = gains_data["cumulative_population"]
 
         plt.figure(figsize=(8, 6))
-        plt.plot(cumulative_population, cumulative_gain, marker="o", linestyle="-", color=THEME_COLORS["positive"], lw=2)
+        plt.plot(
+            cumulative_population,
+            cumulative_gain,
+            marker="o",
+            linestyle="-",
+            color=THEME_COLORS["positive"],
+            lw=2,
+        )
         plt.plot([0, 1], [0, 1], linestyle="--", color=THEME_COLORS["neutral"], label="Random")
         plt.xlabel("Cumulative Population")
         plt.ylabel("Cumulative Gain")
@@ -311,7 +340,14 @@ class PlotGenerator:
         cumulative_population = gains_data["cumulative_population"]
 
         plt.figure(figsize=(8, 6))
-        plt.plot(cumulative_population, cumulative_gain, marker="o", linestyle="-", color=THEME_COLORS["positive"], lw=2)
+        plt.plot(
+            cumulative_population,
+            cumulative_gain,
+            marker="o",
+            linestyle="-",
+            color=THEME_COLORS["positive"],
+            lw=2,
+        )
         plt.plot([0, 1], [0, 1], linestyle="--", color=THEME_COLORS["neutral"], label="Random")
         plt.xlabel("Cumulative Population")
         plt.ylabel("Cumulative Gain")
@@ -344,7 +380,15 @@ class PlotGenerator:
         lifts = [g / p if p > 0 else 0 for g, p in zip(cumulative_gain, cumulative_population)]
 
         plt.figure(figsize=(8, 6))
-        plt.plot(cumulative_population, lifts, marker="o", linestyle="-", color=THEME_COLORS["primary"], lw=2, label="Model")
+        plt.plot(
+            cumulative_population,
+            lifts,
+            marker="o",
+            linestyle="-",
+            color=THEME_COLORS["primary"],
+            lw=2,
+            label="Model",
+        )
         plt.axhline(y=1.0, linestyle="--", color=THEME_COLORS["neutral"], label="Random (lift=1)")
         plt.xlabel("Cumulative Population")
         plt.ylabel("Lift")
@@ -365,7 +409,15 @@ class PlotGenerator:
         lifts = [g / p if p > 0 else 0 for g, p in zip(cumulative_gain, cumulative_population)]
 
         plt.figure(figsize=(8, 6))
-        plt.plot(cumulative_population, lifts, marker="o", linestyle="-", color=THEME_COLORS["primary"], lw=2, label="Model")
+        plt.plot(
+            cumulative_population,
+            lifts,
+            marker="o",
+            linestyle="-",
+            color=THEME_COLORS["primary"],
+            lw=2,
+            label="Model",
+        )
         plt.axhline(y=1.0, linestyle="--", color=THEME_COLORS["neutral"], label="Random (lift=1)")
         plt.xlabel("Cumulative Population")
         plt.ylabel("Lift")
@@ -399,8 +451,21 @@ class PlotGenerator:
         bin_stats = df.groupby("bin").agg({"y_true": "mean", "y_proba": "mean"}).reset_index()
 
         plt.figure(figsize=(8, 6))
-        plt.plot(bin_stats["y_proba"], bin_stats["y_true"], marker="o", linestyle="-", color=THEME_COLORS["primary"], lw=2)
-        plt.plot([0, 1], [0, 1], linestyle="--", color=THEME_COLORS["neutral"], label="Perfect Calibration")
+        plt.plot(
+            bin_stats["y_proba"],
+            bin_stats["y_true"],
+            marker="o",
+            linestyle="-",
+            color=THEME_COLORS["primary"],
+            lw=2,
+        )
+        plt.plot(
+            [0, 1],
+            [0, 1],
+            linestyle="--",
+            color=THEME_COLORS["neutral"],
+            label="Perfect Calibration",
+        )
         plt.xlabel("Mean Predicted Probability")
         plt.ylabel("True Positive Rate")
         plt.title("Calibration Curve")
@@ -421,8 +486,21 @@ class PlotGenerator:
         bin_stats = df.groupby("bin").agg({"y_true": "mean", "y_proba": "mean"}).reset_index()
 
         plt.figure(figsize=(8, 6))
-        plt.plot(bin_stats["y_proba"], bin_stats["y_true"], marker="o", linestyle="-", color=THEME_COLORS["primary"], lw=2)
-        plt.plot([0, 1], [0, 1], linestyle="--", color=THEME_COLORS["neutral"], label="Perfect Calibration")
+        plt.plot(
+            bin_stats["y_proba"],
+            bin_stats["y_true"],
+            marker="o",
+            linestyle="-",
+            color=THEME_COLORS["primary"],
+            lw=2,
+        )
+        plt.plot(
+            [0, 1],
+            [0, 1],
+            linestyle="--",
+            color=THEME_COLORS["neutral"],
+            label="Perfect Calibration",
+        )
         plt.xlabel("Mean Predicted Probability")
         plt.ylabel("True Positive Rate")
         plt.title("Calibration Curve")
@@ -452,8 +530,22 @@ class PlotGenerator:
         proba_0 = y_proba[y_true == 0]
         proba_1 = y_proba[y_true == 1]
 
-        plt.hist(proba_0, bins=50, alpha=0.5, label="Negative Class", color=THEME_COLORS["primary"], density=True)
-        plt.hist(proba_1, bins=50, alpha=0.5, label="Positive Class", color=THEME_COLORS["negative"], density=True)
+        plt.hist(
+            proba_0,
+            bins=50,
+            alpha=0.5,
+            label="Negative Class",
+            color=THEME_COLORS["primary"],
+            density=True,
+        )
+        plt.hist(
+            proba_1,
+            bins=50,
+            alpha=0.5,
+            label="Positive Class",
+            color=THEME_COLORS["negative"],
+            density=True,
+        )
 
         plt.xlabel("Predicted Probability")
         plt.ylabel("Density")
@@ -474,8 +566,22 @@ class PlotGenerator:
         proba_0 = y_proba[y_true == 0]
         proba_1 = y_proba[y_true == 1]
 
-        plt.hist(proba_0, bins=50, alpha=0.5, label="Negative Class", color=THEME_COLORS["primary"], density=True)
-        plt.hist(proba_1, bins=50, alpha=0.5, label="Positive Class", color=THEME_COLORS["negative"], density=True)
+        plt.hist(
+            proba_0,
+            bins=50,
+            alpha=0.5,
+            label="Negative Class",
+            color=THEME_COLORS["primary"],
+            density=True,
+        )
+        plt.hist(
+            proba_1,
+            bins=50,
+            alpha=0.5,
+            label="Positive Class",
+            color=THEME_COLORS["negative"],
+            density=True,
+        )
 
         plt.xlabel("Predicted Probability")
         plt.ylabel("Density")
@@ -571,7 +677,13 @@ class PlotGenerator:
         plt.plot(thresholds, precisions, label="Precision", color=THEME_COLORS["primary"], lw=2)
         plt.plot(thresholds, recalls, label="Recall", color=THEME_COLORS["secondary"], lw=2)
         plt.plot(thresholds, f1s, label="F1", color=THEME_COLORS["positive"], lw=2, linestyle="--")
-        plt.axvline(x=current_threshold, color=THEME_COLORS["negative"], linestyle=":", lw=2, label=f"Current ({current_threshold:.2f})")
+        plt.axvline(
+            x=current_threshold,
+            color=THEME_COLORS["negative"],
+            linestyle=":",
+            lw=2,
+            label=f"Current ({current_threshold:.2f})",
+        )
         plt.xlabel("Threshold")
         plt.ylabel("Score")
         plt.title("Metrics vs Classification Threshold")
@@ -597,7 +709,13 @@ class PlotGenerator:
         plt.plot(thresholds, precisions, label="Precision", color=THEME_COLORS["primary"], lw=2)
         plt.plot(thresholds, recalls, label="Recall", color=THEME_COLORS["secondary"], lw=2)
         plt.plot(thresholds, f1s, label="F1", color=THEME_COLORS["positive"], lw=2, linestyle="--")
-        plt.axvline(x=current_threshold, color=THEME_COLORS["negative"], linestyle=":", lw=2, label=f"Current ({current_threshold:.2f})")
+        plt.axvline(
+            x=current_threshold,
+            color=THEME_COLORS["negative"],
+            linestyle=":",
+            lw=2,
+            label=f"Current ({current_threshold:.2f})",
+        )
         plt.xlabel("Threshold")
         plt.ylabel("Score")
         plt.title("Metrics vs Classification Threshold")

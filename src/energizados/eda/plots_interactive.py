@@ -695,7 +695,14 @@ class EDAInteractivePlots:
                 for i, v in enumerate(sorted(mask.unique())):
                     subset = data.loc[common[mask.loc[common] == v]]
                     if len(subset) > 0:
-                        ax.hist(subset, bins=30, alpha=0.5, color=colors[i % len(colors)], label=f"Class {int(v)}", density=True)
+                        ax.hist(
+                            subset,
+                            bins=30,
+                            alpha=0.5,
+                            color=colors[i % len(colors)],
+                            label=f"Class {int(v)}",
+                            density=True,
+                        )
                 ax.legend()
             else:
                 ax.hist(data, bins=30, color="#2196F3", alpha=0.7, density=True)
@@ -733,12 +740,24 @@ class EDAInteractivePlots:
             if target_series is not None:
                 mask = target_series.reindex(data.index).dropna()
                 common = data.index.intersection(mask.index)
-                groups = [data.loc[common[mask.loc[common] == v]].values for v in sorted(mask.unique())]
+                groups = [
+                    data.loc[common[mask.loc[common] == v]].values for v in sorted(mask.unique())
+                ]
                 labels = [f"Class {int(v)}" for v in sorted(mask.unique())]
                 groups = [g for g in groups if len(g) > 0]
-                ax.boxplot(groups, labels=labels[: len(groups)], patch_artist=True, boxprops={"facecolor": "#bbdefb"})
+                ax.boxplot(
+                    groups,
+                    labels=labels[: len(groups)],
+                    patch_artist=True,
+                    boxprops={"facecolor": "#bbdefb"},
+                )
             else:
-                ax.boxplot(data.values, labels=[col_name], patch_artist=True, boxprops={"facecolor": "#bbdefb"})
+                ax.boxplot(
+                    data.values,
+                    labels=[col_name],
+                    patch_artist=True,
+                    boxprops={"facecolor": "#bbdefb"},
+                )
 
             ax.set_title(f"Boxplot: {col_name}", fontsize=12)
             ax.set_ylabel(col_name)
@@ -772,7 +791,13 @@ class EDAInteractivePlots:
             ax.set_yticks(list(y_pos))
             ax.set_yticklabels([str(v)[:40] for v in top.index], fontsize=9)
             for bar, pct in zip(bars, pcts):
-                ax.text(bar.get_width() * 1.01, bar.get_y() + bar.get_height() / 2, f"{pct:.1f}%", va="center", fontsize=8)
+                ax.text(
+                    bar.get_width() * 1.01,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{pct:.1f}%",
+                    va="center",
+                    fontsize=8,
+                )
             ax.set_title(f"Frequencies: {col_name} (top {len(top)})", fontsize=12)
             ax.set_xlabel("Count")
             ax.spines["top"].set_visible(False)
@@ -813,7 +838,9 @@ class EDAInteractivePlots:
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.bar(range(len(rates)), rates.values, color=colors, alpha=0.85)
             ax.set_xticks(range(len(rates)))
-            ax.set_xticklabels([str(v)[:20] for v in grouped.index], rotation=45, ha="right", fontsize=8)
+            ax.set_xticklabels(
+                [str(v)[:20] for v in grouped.index], rotation=45, ha="right", fontsize=8
+            )
             ax.set_title(f"Target Rate by: {col}", fontsize=12)
             ax.set_ylabel("Target Rate (%)")
             ax.spines["top"].set_visible(False)
@@ -844,7 +871,14 @@ class EDAInteractivePlots:
             periods = [str(p) for p in counts.index]
 
             fig, ax = plt.subplots(figsize=(9, 4))
-            ax.plot(range(len(periods)), counts.values, color="#1a237e", linewidth=2, marker="o", markersize=4)
+            ax.plot(
+                range(len(periods)),
+                counts.values,
+                color="#1a237e",
+                linewidth=2,
+                marker="o",
+                markersize=4,
+            )
             step = max(1, len(periods) // 12)
             ax.set_xticks(range(0, len(periods), step))
             ax.set_xticklabels(periods[::step], rotation=45, ha="right", fontsize=8)
@@ -903,7 +937,10 @@ class EDAInteractivePlots:
             # Remove prefixes from displayed labels
             fig.for_each_trace(
                 lambda t: t.update(
-                    labels=[lbl.split("_", 2)[-1] if lbl.startswith("_lvl") else lbl for lbl in (t.labels if t.labels is not None else [])]
+                    labels=[
+                        lbl.split("_", 2)[-1] if lbl.startswith("_lvl") else lbl
+                        for lbl in (t.labels if t.labels is not None else [])
+                    ]
                 )
             )
             return self._to_html(fig)
@@ -952,7 +989,9 @@ class EDAInteractivePlots:
                     col_totals = pair.groupby(col_name)["count"].sum()
                     small = col_totals[col_totals < threshold].index
                     if len(small) > 0:
-                        pair[col_name] = pair[col_name].apply(lambda x, s=small, cn=col_name: f"Others ({cn})" if x in s else x)
+                        pair[col_name] = pair[col_name].apply(
+                            lambda x, s=small, cn=col_name: f"Others ({cn})" if x in s else x
+                        )
                         pair = pair.groupby([src_col, tgt_col], as_index=False)["count"].sum()
 
                 for _, row in pair.iterrows():
@@ -971,7 +1010,9 @@ class EDAInteractivePlots:
                     link={"source": sources, "target": targets, "value": values},
                 )
             )
-            fig.update_layout(title=title, template=self.template, height=max(500, len(all_labels) * 20))
+            fig.update_layout(
+                title=title, template=self.template, height=max(500, len(all_labels) * 20)
+            )
             return self._to_html(fig)
         except Exception as e:
             logger.warning("Error generating sankey: %s", e)
@@ -1010,7 +1051,9 @@ class EDAInteractivePlots:
             logger.warning("Error generating hierarchy target heatmap: %s", e)
             return ""
 
-    def segment_barplot(self, segment_stats: List[Dict], title: str = "Fraud Rate by Segment") -> str:
+    def segment_barplot(
+        self, segment_stats: List[Dict], title: str = "Fraud Rate by Segment"
+    ) -> str:
         """
         Bar chart showing fraud rate by segment.
 
@@ -1027,7 +1070,9 @@ class EDAInteractivePlots:
             if not segment_stats:
                 return ""
 
-            top_segments = sorted(segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True)[:20]
+            top_segments = sorted(
+                segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True
+            )[:20]
 
             segments = [s["segment"] for s in top_segments]
             rates = [s.get("target_rate", 0) * 100 for s in top_segments]

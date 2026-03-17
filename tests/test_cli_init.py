@@ -150,7 +150,9 @@ class TestInitCommand:
     def test_init_copy_from_nonexistent_project(self):
         """Verify that init fails if the source project does not exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = self.runner.invoke(cli, ["init", "new_project", "--copy", "nonexistent", "--path", tmpdir])
+            result = self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "nonexistent", "--path", tmpdir]
+            )
 
             assert result.exit_code != 0
             assert "does not exist" in result.output.lower()
@@ -169,7 +171,9 @@ class TestInitCommand:
             custom_etl.write_text(content.replace("# TODO:", "# MODIFIED:"))
 
             # Copy the project
-            copy_result = self.runner.invoke(cli, ["init", "copied_project", "--copy", "base_project", "--path", tmpdir])
+            copy_result = self.runner.invoke(
+                cli, ["init", "copied_project", "--copy", "base_project", "--path", tmpdir]
+            )
             assert copy_result.exit_code == 0
 
             # Verify that the file was copied
@@ -186,7 +190,9 @@ class TestInitCommand:
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
 
             # Copy project
-            self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
+            self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir]
+            )
             new_path = Path(tmpdir) / "new_project"
 
             # Verify that the name was updated in YAML
@@ -202,7 +208,9 @@ class TestInitCommand:
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
 
             # Copy project
-            self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
+            self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir]
+            )
             new_path = Path(tmpdir) / "new_project"
 
             # Verify origin note in README
@@ -235,7 +243,9 @@ etls:
 """)
 
             # Copy from old structure
-            result = self.runner.invoke(cli, ["init", "new_project", "--copy", "old_project", "--path", tmpdir])
+            result = self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "old_project", "--path", tmpdir]
+            )
             assert result.exit_code == 0
 
             new_path = Path(tmpdir) / "new_project"
@@ -270,7 +280,9 @@ etls:
             (base_path / "src" / "data" / "custom_etl.py").unlink()
 
             # Copy project
-            result = self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
+            result = self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir]
+            )
             assert result.exit_code == 0
 
             # Verify that template was created
@@ -285,7 +297,9 @@ etls:
             incomplete_path.mkdir()
             (incomplete_path / "src").mkdir()
 
-            result = self.runner.invoke(cli, ["init", "new_project", "--copy", "incomplete_project", "--path", tmpdir])
+            result = self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "incomplete_project", "--path", tmpdir]
+            )
 
             assert result.exit_code != 0
 
@@ -296,7 +310,9 @@ etls:
             self.runner.invoke(cli, ["init", "base_project", "--path", tmpdir])
 
             # Copy project
-            self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
+            self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir]
+            )
             new_path = Path(tmpdir) / "new_project"
 
             # Verify __init__.py files
@@ -319,7 +335,9 @@ etls:
             (run_dir / "model.pkl").write_text("model")
 
             # Copy project
-            self.runner.invoke(cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir])
+            self.runner.invoke(
+                cli, ["init", "new_project", "--copy", "base_project", "--path", tmpdir]
+            )
             new_path = Path(tmpdir) / "new_project"
 
             # Verify that data and runs were NOT copied
@@ -385,7 +403,9 @@ etls:
 
         for input_name, expected in test_cases:
             result = _sanitize_package_name(input_name)
-            assert result == expected, f"For {input_name!r}, expected {expected!r} but got {result!r}"
+            assert (
+                result == expected
+            ), f"For {input_name!r}, expected {expected!r} but got {result!r}"
 
     def test_init_underscore_project_name_generates_valid_yaml(self):
         """Verify that a project name with leading _ generates valid YAML."""

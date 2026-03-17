@@ -124,7 +124,9 @@ class RunIndexGenerator:
         run_count = len(runs)
 
         # Collect unique model types for dropdown filter
-        model_types = sorted({r["model_type"] for r in runs if r.get("model_type") and r["model_type"] != "—"})
+        model_types = sorted(
+            {r["model_type"] for r in runs if r.get("model_type") and r["model_type"] != "—"}
+        )
         model_type_options = "".join(f'<option value="{m}">{m}</option>' for m in model_types)
 
         return f"""<!DOCTYPE html>
@@ -390,7 +392,11 @@ class RunIndexGenerator:
         """Builds HTML rows for each training run."""
         rows = []
         for run in runs:
-            link_html = f'<a href="{run["html_link"]}" class="report-link" target="_blank">View Report</a>' if run.get("html_link") else "—"
+            link_html = (
+                f'<a href="{run["html_link"]}" class="report-link" target="_blank">View Report</a>'
+                if run.get("html_link")
+                else "—"
+            )
             auc_cls = self._metric_class(run.get("auc"), "auc")
             f1_cls = self._metric_class(run.get("f1"), "f1")
             prec_cls = self._metric_class(run.get("precision"), "precision")

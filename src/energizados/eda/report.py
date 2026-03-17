@@ -214,7 +214,9 @@ class EDAReportGenerator:
         # Quality score
         total_null_pct = global_stats.get("total_null_pct", 0)
         quality_score = round(100 - total_null_pct, 1)
-        quality_class = "high" if quality_score >= 80 else ("medium" if quality_score >= 50 else "low")
+        quality_class = (
+            "high" if quality_score >= 80 else ("medium" if quality_score >= 50 else "low")
+        )
 
         # Alert counts by severity
         error_count = sum(1 for a in alerts if a.get("severity") == "ERROR")
@@ -309,7 +311,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 </body>
 </html>"""
 
-    def _build_sidebar(self, geo: Dict, segmentation: Dict, related_columns: Optional[Dict] = None) -> str:
+    def _build_sidebar(
+        self, geo: Dict, segmentation: Dict, related_columns: Optional[Dict] = None
+    ) -> str:
         sections = [
             ("resumen", "Executive Summary"),
             ("alertas", "Alerts"),
@@ -453,14 +457,19 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             return ""
 
         bom = loading.get("bom_detected", False)
-        bom_badge = '<span class="badge badge-WARNING">YES</span>' if bom else '<span class="badge badge-success">NO</span>'
+        bom_badge = (
+            '<span class="badge badge-WARNING">YES</span>'
+            if bom
+            else '<span class="badge badge-success">NO</span>'
+        )
         numeric_as_str = loading.get("numeric_as_string", [])
         whitespace_cols = loading.get("whitespace_columns", [])
 
         num_str_table = ""
         if numeric_as_str:
             rows = "".join(
-                f'<tr><td>{d["col"]}</td><td>{d["parseable_count"]:,}</td><td>{d["parseable_pct"]:.1f}%</td></tr>' for d in numeric_as_str
+                f'<tr><td>{d["col"]}</td><td>{d["parseable_count"]:,}</td><td>{d["parseable_pct"]:.1f}%</td></tr>'
+                for d in numeric_as_str
             )
             num_str_table = f"""
 <h3>Numeric Columns as Text ({len(numeric_as_str)})</h3>
@@ -521,13 +530,23 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         )
 
         dtype_counts = global_stats.get("dtype_counts", {})
-        dtype_html = " ".join(f'<span class="pill">{dtype}: {count}</span>' for dtype, count in dtype_counts.items())
+        dtype_html = " ".join(
+            f'<span class="pill">{dtype}: {count}</span>' for dtype, count in dtype_counts.items()
+        )
 
         const_cols = global_stats.get("constant_cols", [])
-        const_html = " ".join(f'<span class="pill">{c}</span>' for c in const_cols[:20]) if const_cols else "<em>None</em>"
+        const_html = (
+            " ".join(f'<span class="pill">{c}</span>' for c in const_cols[:20])
+            if const_cols
+            else "<em>None</em>"
+        )
 
         fully_null = global_stats.get("fully_null_cols", [])
-        fully_null_html = " ".join(f'<span class="pill">{c}</span>' for c in fully_null[:20]) if fully_null else "<em>None</em>"
+        fully_null_html = (
+            " ".join(f'<span class="pill">{c}</span>' for c in fully_null[:20])
+            if fully_null
+            else "<em>None</em>"
+        )
 
         # Missing heatmap chart
         missing_heatmap_html = charts.get("missing_heatmap_interactive", "")
@@ -598,9 +617,15 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         # Column detail charts (collapsible)
         column_details = charts.get("column_details", {})
-        numeric_details = self._build_column_details([d.get("col", "") for d in numeric], column_details, "Numeric")
-        categorical_details = self._build_column_details([d.get("col", "") for d in categorical], column_details, "Categorical")
-        temporal_details = self._build_column_details([d.get("col", "") for d in temporal], column_details, "Temporal")
+        numeric_details = self._build_column_details(
+            [d.get("col", "") for d in numeric], column_details, "Numeric"
+        )
+        categorical_details = self._build_column_details(
+            [d.get("col", "") for d in categorical], column_details, "Categorical"
+        )
+        temporal_details = self._build_column_details(
+            [d.get("col", "") for d in temporal], column_details, "Temporal"
+        )
 
         return f"""
 <div class="section" id="columnas">
@@ -836,7 +861,11 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         class_balance_chart = charts.get("class_balance", "")
         temporal_chart = charts.get("temporal_rate", "")
 
-        rec_labels = {"over": "Oversampling (over-sampling)", "under": "Undersampling (under-sampling)", "none": "No resampling needed"}
+        rec_labels = {
+            "over": "Oversampling (over-sampling)",
+            "under": "Undersampling (under-sampling)",
+            "none": "No resampling needed",
+        }
         rec_html = rec_labels.get(recommendation, recommendation)
 
         return f"""
@@ -878,11 +907,21 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         # Ranking table
         table_html = ""
         if isinstance(ranking_df, pd.DataFrame) and len(ranking_df) > 0:
-            display_cols = ["feature", "type", "iv", "ks_stat", "cramers_v", "correlation", "combined_score"]
+            display_cols = [
+                "feature",
+                "type",
+                "iv",
+                "ks_stat",
+                "cramers_v",
+                "correlation",
+                "combined_score",
+            ]
             available_cols = [c for c in display_cols if c in ranking_df.columns]
             top_df = ranking_df[available_cols].head(30)
 
-            header_cells = "".join(f'<th>{c.replace("_", " ").title()}</th>' for c in available_cols)
+            header_cells = "".join(
+                f'<th>{c.replace("_", " ").title()}</th>' for c in available_cols
+            )
 
             rows_html = ""
             for _, row in top_df.iterrows():
@@ -905,9 +944,16 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 </table>
 </div>"""
 
-        weak_html = " ".join(f'<span class="pill">{c}</span>' for c in weak_features[:20]) if weak_features else "<em>None</em>"
+        weak_html = (
+            " ".join(f'<span class="pill">{c}</span>' for c in weak_features[:20])
+            if weak_features
+            else "<em>None</em>"
+        )
         leakage_html = (
-            " ".join(f'<span class="pill" style="background:#ffcdd2;color:#c62828;">{c}</span>' for c in leakage_candidates)
+            " ".join(
+                f'<span class="pill" style="background:#ffcdd2;color:#c62828;">{c}</span>'
+                for c in leakage_candidates
+            )
             if leakage_candidates
             else "<em>None</em>"
         )
@@ -957,7 +1003,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         if target_by_zone:
             zone_rows = "".join(
                 f"<tr><td>{zone}</td><td>{rate:.1%}</td></tr>"
-                for zone, rate in sorted(target_by_zone.items(), key=lambda x: x[1], reverse=True)[:15]
+                for zone, rate in sorted(target_by_zone.items(), key=lambda x: x[1], reverse=True)[
+                    :15
+                ]
             )
 
         clustering_info = ""
@@ -999,7 +1047,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         segment_stats = segmentation.get("segment_stats", [])
 
         # Show top segments by z-score
-        top_segments = sorted(segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True)[:15]
+        top_segments = sorted(segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True)[
+            :15
+        ]
 
         segment_rows = "".join(
             f'<tr><td>{s["column"]}={s["segment"]}</td><td>{s["size"]:,}</td><td>{s["size_pct"]:.1f}%</td>'
@@ -1027,18 +1077,25 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     # Column detail collapsible blocks
     # ------------------------------------------------------------------
 
-    def _build_column_details(self, col_names: List[str], column_details: Dict, type_label: str) -> str:
+    def _build_column_details(
+        self, col_names: List[str], column_details: Dict, type_label: str
+    ) -> str:
         """Build collapsible <details> blocks for per-column charts."""
         blocks = []
         for col in col_names:
             col_charts = column_details.get(col, {})
             if not col_charts:
                 continue
-            charts_html = "".join(f'<div class="chart-container">{html}</div>' for html in col_charts.values() if html)
+            charts_html = "".join(
+                f'<div class="chart-container">{html}</div>' for html in col_charts.values() if html
+            )
             if not charts_html:
                 continue
             blocks.append(
-                f'<details class="col-detail">' f"<summary>{col}</summary>" f'<div class="detail-body">{charts_html}</div>' f"</details>"
+                f'<details class="col-detail">'
+                f"<summary>{col}</summary>"
+                f'<div class="detail-body">{charts_html}</div>'
+                f"</details>"
             )
 
         if not blocks:

@@ -97,7 +97,12 @@ class GeospatialAnalyzer(BaseExplorer):
             if country_bounds and len(country_bounds) == 2:
                 lat_min, lon_min = country_bounds[0]
                 lat_max, lon_max = country_bounds[1]
-                oob_mask = (lat_series < lat_min) | (lat_series > lat_max) | (lon_series < lon_min) | (lon_series > lon_max)
+                oob_mask = (
+                    (lat_series < lat_min)
+                    | (lat_series > lat_max)
+                    | (lon_series < lon_min)
+                    | (lon_series > lon_max)
+                )
                 oob_count = int(oob_mask.sum())
 
             # Exact duplicates (multiple clients at same location)
@@ -140,13 +145,19 @@ class GeospatialAnalyzer(BaseExplorer):
                 "total_zones": int(zone_dist.count()),
                 "zone_distribution": {str(k): int(v) for k, v in zone_dist.items()},
                 "most_common_zone": str(zone_dist.idxmax()) if len(zone_dist) > 0 else None,
-                "most_common_zone_pct": round(float(zone_dist.max()) / len(df) * 100, 2) if len(zone_dist) > 0 else 0.0,
+                "most_common_zone_pct": (
+                    round(float(zone_dist.max()) / len(df) * 100, 2) if len(zone_dist) > 0 else 0.0
+                ),
             }
 
             # Target rate by zone
             if target_col and target_col in df.columns:
                 zone_target_rate = df.groupby(zone_col)[target_col].mean()
-                target_by_zone = {str(k): round(float(v), 6) for k, v in zone_target_rate.items() if not pd.isna(v)}
+                target_by_zone = {
+                    str(k): round(float(v), 6)
+                    for k, v in zone_target_rate.items()
+                    if not pd.isna(v)
+                }
 
                 # Check for geographic bias in target rate
                 if len(target_by_zone) > 1:
@@ -158,7 +169,10 @@ class GeospatialAnalyzer(BaseExplorer):
                     if cv > 0.5:  # High variation across zones
                         self._add_alert(
                             code="GEO_BIAS",
-                            message=(f"High variation in fraud rate by zone " f"(CV={cv:.2f}). Check for geographic bias."),
+                            message=(
+                                f"High variation in fraud rate by zone "
+                                f"(CV={cv:.2f}). Check for geographic bias."
+                            ),
                             severity="WARNING",
                             details={"cv": cv, "min_rate": min(rates), "max_rate": max(rates)},
                         )

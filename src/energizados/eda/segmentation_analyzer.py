@@ -101,7 +101,11 @@ class SegmentationAnalyzer(BaseExplorer):
                             f"(threshold: {min_size}). Consider grouping rare categories."
                         ),
                         severity="INFO",
-                        details={"column": col, "segment": str(segment_value), "size": segment_size},
+                        details={
+                            "column": col,
+                            "segment": str(segment_value),
+                            "size": segment_size,
+                        },
                     )
                     continue
 
@@ -183,7 +187,9 @@ class SegmentationAnalyzer(BaseExplorer):
         if segment_stats:
             max_z_score = max(abs(s["z_score"]) for s in segment_stats)
             if max_z_score > 5:  # Very significant difference
-                top_segments = sorted(segment_stats, key=lambda x: abs(x["z_score"]), reverse=True)[:3]
+                top_segments = sorted(segment_stats, key=lambda x: abs(x["z_score"]), reverse=True)[
+                    :3
+                ]
                 self._add_alert(
                     code="POTENTIAL_MODEL_SEPARATION",
                     message=(

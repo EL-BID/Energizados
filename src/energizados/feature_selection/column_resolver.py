@@ -116,5 +116,8 @@ class ColumnResolver:
             KeyError: If step_name is not in step_results.
         """
         if step_name not in self.step_results:
-            raise KeyError(f"Step reference '@{step_name}' not found. " f"Available steps: {list(self.step_results.keys())}")
+            raise KeyError(
+                f"Step reference '@{step_name}' not found. "
+                f"Available steps: {list(self.step_results.keys())}"
+            )
         return list(self.step_results[step_name])

@@ -47,7 +47,10 @@ def import_class(class_path: str) -> type:
         ImportError: If the class cannot be imported or not in the allowlist.
     """
     if not any(class_path.startswith(prefix) for prefix in ALLOWED_PREFIXES):
-        raise ImportError(f"Class '{class_path}' is not in the allowed module prefixes. " f"Allowed prefixes: {ALLOWED_PREFIXES}")
+        raise ImportError(
+            f"Class '{class_path}' is not in the allowed module prefixes. "
+            f"Allowed prefixes: {ALLOWED_PREFIXES}"
+        )
 
     try:
         module_path, class_name = class_path.rsplit(".", 1)
@@ -74,7 +77,9 @@ def import_class(class_path: str) -> type:
             return getattr(module, class_name)
         except (ImportError, AttributeError, ValueError) as e:
             raise ImportError(
-                f"Cannot import class {class_path}. " f"Make sure you are running from the project directory " f"and the module exists."
+                f"Cannot import class {class_path}. "
+                f"Make sure you are running from the project directory "
+                f"and the module exists."
             ) from e
         finally:
             for p in added_paths:

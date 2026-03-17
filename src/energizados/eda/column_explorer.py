@@ -157,7 +157,9 @@ class ColumnExplorer(BaseExplorer):
                     (c1, c2, round(float(corr_matrix.loc[c1, c2]), 4))
                     for c1 in upper_tri.columns
                     for c2 in upper_tri.columns
-                    if c1 != c2 and not pd.isna(upper_tri.loc[c1, c2]) and upper_tri.loc[c1, c2] > correlation_threshold
+                    if c1 != c2
+                    and not pd.isna(upper_tri.loc[c1, c2])
+                    and upper_tri.loc[c1, c2] > correlation_threshold
                 ]
                 if highly_corr:
                     self._add_alert(
@@ -307,7 +309,9 @@ class ColumnExplorer(BaseExplorer):
 
         # Rare categories (freq < 1%)
         rare_mask = (value_counts / count) < 0.01 if count > 0 else pd.Series([], dtype=bool)
-        rare_pct = round(float(rare_mask.sum()) / unique_count * 100, 4) if unique_count > 0 else 0.0
+        rare_pct = (
+            round(float(rare_mask.sum()) / unique_count * 100, 4) if unique_count > 0 else 0.0
+        )
 
         # Singleton categories (appear only once)
         singleton_count = int((value_counts == 1).sum())
@@ -395,9 +399,19 @@ class ColumnExplorer(BaseExplorer):
         dist_by_month = non_null.dt.month.value_counts().sort_index().to_dict()
         dist_by_month = {int(k): int(v) for k, v in dist_by_month.items()}
 
-        weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        weekday_names = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
         dist_by_weekday_num = non_null.dt.dayofweek.value_counts().sort_index().to_dict()
-        dist_by_weekday = {weekday_names[k]: int(v) for k, v in dist_by_weekday_num.items() if 0 <= k <= 6}
+        dist_by_weekday = {
+            weekday_names[k]: int(v) for k, v in dist_by_weekday_num.items() if 0 <= k <= 6
+        }
 
         return {
             "col": col,
@@ -431,7 +445,9 @@ class ColumnExplorer(BaseExplorer):
         except Exception:
             return "unknown"
 
-    def _analyze_consumption(self, df: pd.DataFrame, consumption_cols: List[str], target_col: Optional[str]) -> Dict:
+    def _analyze_consumption(
+        self, df: pd.DataFrame, consumption_cols: List[str], target_col: Optional[str]
+    ) -> Dict:
         """Analyze wide-format consumption columns (N_anterior pattern)."""
         # Sort columns from oldest (highest N) to newest (lowest N)
         import re

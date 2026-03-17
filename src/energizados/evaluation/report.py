@@ -153,7 +153,9 @@ class ReportGenerator:
         # Convert file paths to relative names so the HTML works from the report directory
         plots_rel = {k: Path(v).name for k, v in plots.items()}
 
-        calibration_section = self._build_calibration_html(calibration_result) if calibration_result else ""
+        calibration_section = (
+            self._build_calibration_html(calibration_result) if calibration_result else ""
+        )
 
         # Determine which sections are available for the sidebar
         has_threshold_sweep = threshold_metrics is not None and "thresholds" in threshold_metrics
@@ -180,7 +182,9 @@ class ReportGenerator:
 
         segment_section = ""
         if has_segments:
-            segment_section = self._build_segment_metrics_html(segment_metrics, plots_interactive=plots_interactive)
+            segment_section = self._build_segment_metrics_html(
+                segment_metrics, plots_interactive=plots_interactive
+            )
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -453,7 +457,9 @@ class ReportGenerator:
         # Build summary table: show rows around current and optimal
         show_steps = list(range(0, len(thresholds), max(1, len(thresholds) // 10)))
         # Always include optimal and nearest-to-current rows
-        current_idx = min(range(len(thresholds)), key=lambda i: abs(thresholds[i] - current_threshold))
+        current_idx = min(
+            range(len(thresholds)), key=lambda i: abs(thresholds[i] - current_threshold)
+        )
         show_steps = sorted(set(show_steps) | {optimal_idx, current_idx})
 
         rows_html = ""
@@ -463,7 +469,11 @@ class ReportGenerator:
             p = precisions[i] if i < len(precisions) else 0
             r = recalls[i] if i < len(recalls) else 0
             f = f1s[i] if i < len(f1s) else 0
-            marker = " ★ optimal" if i == optimal_idx else (" ← current" if i == current_idx and i != optimal_idx else "")
+            marker = (
+                " ★ optimal"
+                if i == optimal_idx
+                else (" ← current" if i == current_idx and i != optimal_idx else "")
+            )
             rows_html += f"""
                 <tr class="{row_class}">
                     <td>{t:.3f}{marker}</td>
@@ -598,7 +608,9 @@ class ReportGenerator:
                     seen.add(k)
 
         # Skip plots that are shown in dedicated sections
-        skip_keys = {"threshold_sweep", "confusion_matrix"} | {k for k in (all_keys) if k.startswith("segment_")}
+        skip_keys = {"threshold_sweep", "confusion_matrix"} | {
+            k for k in (all_keys) if k.startswith("segment_")
+        }
 
         for plot_name in all_keys:
             if plot_name in skip_keys:
@@ -671,7 +683,9 @@ class ReportGenerator:
         hyperparams = model_info.get("hyperparams", {})
         hyperparams_html = ""
         if hyperparams:
-            param_rows = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in sorted(hyperparams.items()))
+            param_rows = "".join(
+                f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in sorted(hyperparams.items())
+            )
             hyperparams_html = f"""
             <details class="hyperparams-details">
                 <summary>Hyperparameters ({len(hyperparams)} params)</summary>
@@ -683,7 +697,9 @@ class ReportGenerator:
 
         # Fallback: show remaining keys as simple text
         shown_keys = set(card_keys) | {"hyperparams"}
-        extra_lines = [f"<strong>{k}:</strong> {v}" for k, v in model_info.items() if k not in shown_keys]
+        extra_lines = [
+            f"<strong>{k}:</strong> {v}" for k, v in model_info.items() if k not in shown_keys
+        ]
         extra_html = (
             f'<p style="font-size:0.88em;color:var(--text-muted);margin-top:8px;">{" &nbsp;|&nbsp; ".join(extra_lines)}</p>'
             if extra_lines

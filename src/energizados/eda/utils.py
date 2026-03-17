@@ -54,7 +54,9 @@ def classify_columns(
     # Identify consumption columns - pattern: {N}_anterior
     consumption_pattern = re.compile(r"^\d+" + re.escape(periods_suffix) + r"$")
     consumption_cols = [c for c in df.columns if consumption_pattern.match(c)]
-    result["consumption"] = sorted(consumption_cols, key=lambda x: int(x.replace(periods_suffix, "")), reverse=True)
+    result["consumption"] = sorted(
+        consumption_cols, key=lambda x: int(x.replace(periods_suffix, "")), reverse=True
+    )
 
     # Explicitly specified columns
     if id_col and id_col in df.columns:
@@ -116,7 +118,9 @@ def compute_iv_woe(
     """
     empty_result = {
         "iv": 0.0,
-        "woe_table": pd.DataFrame(columns=["bin", "count", "events", "non_events", "event_rate", "woe", "iv_bin"]),
+        "woe_table": pd.DataFrame(
+            columns=["bin", "count", "events", "non_events", "event_rate", "woe", "iv_bin"]
+        ),
     }
 
     # Remove rows with nulls in either column
@@ -160,7 +164,9 @@ def compute_iv_woe(
             return 0.0
         return np.log(de / dne)
 
-    grouped["woe"] = grouped.apply(lambda r: safe_woe(r["dist_events"], r["dist_non_events"]), axis=1)
+    grouped["woe"] = grouped.apply(
+        lambda r: safe_woe(r["dist_events"], r["dist_non_events"]), axis=1
+    )
     grouped["woe"] = grouped["woe"].clip(-20, 20)
 
     # IV per bin
@@ -168,7 +174,9 @@ def compute_iv_woe(
 
     total_iv = grouped["iv_bin"].sum()
 
-    woe_table = grouped[["bin", "count", "events", "non_events", "event_rate", "woe", "iv_bin"]].copy()
+    woe_table = grouped[
+        ["bin", "count", "events", "non_events", "event_rate", "woe", "iv_bin"]
+    ].copy()
 
     return {"iv": float(total_iv), "woe_table": woe_table}
 
@@ -202,7 +210,9 @@ def cramers_v(df: pd.DataFrame, col1: str, col2: str) -> float:
         except ImportError:
             # Manual chi2 calculation
             expected = np.outer(contingency.sum(axis=1), contingency.sum(axis=0)) / n
-            chi2 = float(((contingency.values - expected) ** 2 / np.where(expected == 0, 1, expected)).sum())
+            chi2 = float(
+                ((contingency.values - expected) ** 2 / np.where(expected == 0, 1, expected)).sum()
+            )
 
         r, k = contingency.shape
         phi2 = chi2 / n

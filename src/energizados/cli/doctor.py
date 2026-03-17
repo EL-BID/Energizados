@@ -189,7 +189,10 @@ def _get_gpu_info() -> str:
         if gpus:
             gpu_info = []
             for gpu in gpus:
-                gpu_info.append(f"{gpu.name} ({gpu.memoryTotal:.0f}MB, " f"{gpu.memoryUsed:.0f}MB used, {gpu.load*100:.0f}% load)")
+                gpu_info.append(
+                    f"{gpu.name} ({gpu.memoryTotal:.0f}MB, "
+                    f"{gpu.memoryUsed:.0f}MB used, {gpu.load*100:.0f}% load)"
+                )
             return ", ".join(gpu_info)
     except ImportError:
         pass
@@ -388,7 +391,13 @@ def format_report(report: DoctorReport, verbose: bool = False) -> str:
 
         sections = {
             "OS & Platform": ["platform", "system", "release", "machine", "hostname"],
-            "CPU": ["processor", "cpu_physical_cores", "cpu_logical_cores", "cpu_freq_mhz", "cpu_usage"],
+            "CPU": [
+                "processor",
+                "cpu_physical_cores",
+                "cpu_logical_cores",
+                "cpu_freq_mhz",
+                "cpu_usage",
+            ],
             "Memory": ["memory_total", "memory_available", "memory_percent"],
             "Disk": ["disk_total", "disk_used", "disk_free", "disk_percent"],
             "Python": ["python_version", "python_implementation", "python_executable"],
@@ -433,10 +442,15 @@ def format_report(report: DoctorReport, verbose: bool = False) -> str:
     disk_total = info.get("disk_total", "")
     disk_percent = info.get("disk_percent", "")
     if "Unknown" not in disk_free:
-        summary_lines.append(f"[cyan]Disk:[/] {disk_free} free / {disk_total} total ({disk_percent} used)")
+        summary_lines.append(
+            f"[cyan]Disk:[/] {disk_free} free / {disk_total} total ({disk_percent} used)"
+        )
 
     # Python line
-    summary_lines.append(f"[cyan]Python:[/] {info.get('python_version', 'Unknown')} " f"({info.get('python_implementation', 'Unknown')})")
+    summary_lines.append(
+        f"[cyan]Python:[/] {info.get('python_version', 'Unknown')} "
+        f"({info.get('python_implementation', 'Unknown')})"
+    )
 
     # GPU line (only if available)
     if info.get("gpu", "Not available") != "Not available":

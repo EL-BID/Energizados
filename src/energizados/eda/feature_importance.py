@@ -75,9 +75,27 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         self.alerts = []
 
         if not target_col or target_col not in df.columns:
-            logger.warning("target_col '%s' not found, skipping feature importance analysis", target_col)
-            empty_df = pd.DataFrame(columns=["feature", "type", "iv", "ks_stat", "ks_pval", "cramers_v", "correlation", "combined_score"])
-            self.results = {"ranking": empty_df, "top_features": [], "weak_features": [], "leakage_candidates": []}
+            logger.warning(
+                "target_col '%s' not found, skipping feature importance analysis", target_col
+            )
+            empty_df = pd.DataFrame(
+                columns=[
+                    "feature",
+                    "type",
+                    "iv",
+                    "ks_stat",
+                    "ks_pval",
+                    "cramers_v",
+                    "correlation",
+                    "combined_score",
+                ]
+            )
+            self.results = {
+                "ranking": empty_df,
+                "top_features": [],
+                "weak_features": [],
+                "leakage_candidates": [],
+            }
             return self.results
 
         methods = methods or _DEFAULT_METHODS
@@ -86,10 +104,16 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         iv_threshold_weak = self.config.get("iv_threshold_weak", 0.02)
         iv_threshold_leakage = self.config.get("iv_threshold_leakage", 0.8)
 
-        numeric_cols = [c for c in col_types.get("numeric", []) if c != target_col and c in df.columns]
-        categorical_cols = [c for c in col_types.get("categorical", []) if c != target_col and c in df.columns]
+        numeric_cols = [
+            c for c in col_types.get("numeric", []) if c != target_col and c in df.columns
+        ]
+        categorical_cols = [
+            c for c in col_types.get("categorical", []) if c != target_col and c in df.columns
+        ]
 
-        all_features = [(c, "numeric") for c in numeric_cols] + [(c, "categorical") for c in categorical_cols]
+        all_features = [(c, "numeric") for c in numeric_cols] + [
+            (c, "categorical") for c in categorical_cols
+        ]
 
         rows = []
         for col, feat_type in all_features:
@@ -117,7 +141,9 @@ class FeatureImportanceAnalyzer(BaseExplorer):
                         sub = df[[col, target_col]].dropna()
                         freq_map = sub[col].value_counts().to_dict()
                         encoded = sub[col].map(freq_map).fillna(0)
-                        tmp_df = pd.DataFrame({col: encoded.values, target_col: sub[target_col].values})
+                        tmp_df = pd.DataFrame(
+                            {col: encoded.values, target_col: sub[target_col].values}
+                        )
                         stat, pval = ks_statistic(tmp_df, col, target_col)
                         row["ks_stat"] = round(stat, 6)
                         row["ks_pval"] = round(pval, 6)
@@ -180,9 +206,13 @@ class FeatureImportanceAnalyzer(BaseExplorer):
             ranking_df["combined_score"] = 0.0
 
         # Drop normalization helper columns
-        ranking_df = ranking_df.drop(columns=[c for c in ranking_df.columns if c.startswith("_norm_")])
+        ranking_df = ranking_df.drop(
+            columns=[c for c in ranking_df.columns if c.startswith("_norm_")]
+        )
 
-        ranking_df = ranking_df.sort_values("combined_score", ascending=False).reset_index(drop=True)
+        ranking_df = ranking_df.sort_values("combined_score", ascending=False).reset_index(
+            drop=True
+        )
 
         top_features = ranking_df["feature"].head(20).tolist()
 
@@ -196,7 +226,9 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         leakage_candidates: List[str] = []
         if "iv" in ranking_df.columns:
             iv_series = ranking_df["iv"].fillna(0)
-            leakage_candidates = ranking_df.loc[iv_series > iv_threshold_leakage, "feature"].tolist()
+            leakage_candidates = ranking_df.loc[
+                iv_series > iv_threshold_leakage, "feature"
+            ].tolist()
 
         # Fire alerts
         if weak_features:
@@ -220,7 +252,10 @@ class FeatureImportanceAnalyzer(BaseExplorer):
                     "Verify that these variables do not contain information from the future."
                 ),
                 severity="ERROR",
-                details={"leakage_candidates": leakage_candidates, "threshold": iv_threshold_leakage},
+                details={
+                    "leakage_candidates": leakage_candidates,
+                    "threshold": iv_threshold_leakage,
+                },
             )
 
         results = {

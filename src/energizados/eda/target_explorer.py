@@ -74,7 +74,9 @@ class TargetExplorer(BaseExplorer):
         if len(value_counts) >= 2:
             majority_count = int(value_counts.iloc[0])
             minority_count = int(value_counts.iloc[-1])
-            imbalance_ratio = round(majority_count / minority_count, 4) if minority_count > 0 else float("inf")
+            imbalance_ratio = (
+                round(majority_count / minority_count, 4) if minority_count > 0 else float("inf")
+            )
         else:
             imbalance_ratio = float("inf")
             majority_count = int(value_counts.iloc[0]) if len(value_counts) > 0 else 0
@@ -139,7 +141,9 @@ class TargetExplorer(BaseExplorer):
         else:
             return "under"
 
-    def _compute_temporal_rate(self, df: pd.DataFrame, target_col: str, date_col: str) -> List[Dict]:
+    def _compute_temporal_rate(
+        self, df: pd.DataFrame, target_col: str, date_col: str
+    ) -> List[Dict]:
         """
         Compute target rate grouped by time period.
 
@@ -167,7 +171,9 @@ class TargetExplorer(BaseExplorer):
             grouped = sub.groupby("_period")[target_col].agg(["sum", "count"]).reset_index()
             grouped.columns = ["period", "positive", "total"]
             grouped["rate"] = grouped.apply(
-                lambda r: round(float(r["positive"]) / r["total"] * 100, 4) if r["total"] > 0 else 0.0,
+                lambda r: (
+                    round(float(r["positive"]) / r["total"] * 100, 4) if r["total"] > 0 else 0.0
+                ),
                 axis=1,
             )
 
