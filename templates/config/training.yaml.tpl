@@ -106,13 +106,13 @@ training:
       # Global transformers
       global_transformers:
         # Time series feature extraction with tsfel
-        - tsfel_vars:
-            num_periodos: 12
-            features_names_path: null  # or path to JSON with custom configuration
-            periods_suffix: *period_suffix
-            n_jobs: -1        # -1 = all cores, 1 = sequential (default)
-            chunk_size: 500   # rows per chunk per worker
-            cache_dir: null   # e.g.: ".cache/tsfel" to cache on disk
+        # - tsfel_vars:
+        #     num_periodos: 12
+        #     features_names_path: null  # or path to JSON with custom configuration
+        #     periods_suffix: *period_suffix
+        #     n_jobs: -1        # -1 = all cores, 1 = sequential (default)
+        #     chunk_size: 500   # rows per chunk per worker
+        #     cache_dir: null   # e.g.: ".cache/tsfel" to cache on disk
 
         # Statistical features for different time windows
         - extra_vars:
