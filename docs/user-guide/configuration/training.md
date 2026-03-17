@@ -131,6 +131,39 @@ split:
 | `save_splits` | boolean | `false` | Whether to save split indices to disk |
 | `splits_dir` | string | `"data/splits/"` | Directory to save split files |
 
+#### Group-based Split
+
+Splits data ensuring that all rows sharing the same group value (e.g., all readings for a given customer) land in exactly one split. Prevents data leakage when multiple rows per entity exist in the dataset.
+
+```yaml
+split:
+  method: "group_based"
+  group_column: "customer_id"
+  test_size: 0.2
+  val_size: 0.1
+  random_state: 42
+  save_splits: true
+  splits_dir: "data/splits/"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `method` | string | - | Must be `"group_based"` |
+| `group_column` | string | - | Column to group by (required for this method) |
+| `test_size` | float | `0.2` | Approximate proportion of **groups** for test set |
+| `val_size` | float | `0.1` | Approximate proportion of **groups** for validation set |
+| `random_state` | int | `42` | Random seed for reproducibility |
+| `save_splits` | boolean | `true` | Whether to save split parquet files to disk |
+| `splits_dir` | string | `"data/splits/"` | Directory to save split files |
+
+**Important:** Proportions apply at the **group level**, not the row level. Because groups may differ in size, row-level proportions may deviate from the requested `test_size`/`val_size`. This is inherent to group-aware splitting.
+
+**Metadata:** When `method: "group_based"`, `split_metadata.json` includes additional keys: `group_column`, `n_groups_total`, `n_groups_train`, `n_groups_val`, `n_groups_test`.
+
+**Class imbalance warning:** A `WARNING` is logged if any split's positive-class rate falls below 10% or exceeds 90%, since group-based splits cannot guarantee stratification.
+
 ---
 
 ## Feature Engineering Configuration

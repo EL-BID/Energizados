@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 from energizados.core.base import PipelineStep
 
@@ -22,10 +22,11 @@ class SplitStep(PipelineStep):
     """
     Divide the dataset into train/val/test.
 
-    Supports three split methods:
+    Supports four split methods:
     - stratified: Maintains target proportion
     - random: Simple random split
     - time_series: Based on time periods
+    - group_based: Groups rows by group_column, ensures no group leaks across splits
 
     Args:
         input_path: Path to the full dataset
@@ -34,7 +35,8 @@ class SplitStep(PipelineStep):
         val_size: Proportion for validation (default: 0.1)
         random_state: Random seed
         splits_dir: Directory to save the splits
-        method: Split method ('stratified', 'random', 'time_series')
+        method: Split method ('stratified', 'random', 'time_series', 'group_based')
+        group_column: Column to group by (for group_based method)
         date_column: Date column (for time_series)
         train_period: Training period [start, end]
         val_period: Validation period [start, end]
@@ -58,6 +60,7 @@ class SplitStep(PipelineStep):
         random_state: int = 42,
         splits_dir: str = "data/splits/",
         method: str = "stratified",
+        group_column: Optional[str] = None,
         date_column: Optional[str] = None,
         train_period: Optional[list] = None,
         val_period: Optional[list] = None,
@@ -72,6 +75,7 @@ class SplitStep(PipelineStep):
         self.random_state = random_state
         self.splits_dir = Path(splits_dir)
         self.method = method
+        self.group_column = group_column
         self.date_column = date_column
         self.train_period = train_period
         self.val_period = val_period
@@ -85,6 +89,31 @@ class SplitStep(PipelineStep):
                 "SplitStep with method='time_series' requires 'date_column'. "
                 "Add date_column to your split configuration."
             )
+
+    def _validate_group_config(self, df: pd.DataFrame) -> None:
+        """Validate group_based-specific config. Raises ValueError if invalid."""
+        if self.group_column is None:
+            raise ValueError(
+                "SplitStep with method='group_based' requires 'group_column'. "
+                "Add group_column to your split configuration."
+            )
+        if self.group_column not in df.columns:
+            raise ValueError(
+                f"Group column '{self.group_column}' not found in dataset columns. "
+                f"Available columns: {list(df.columns)}"
+            )
+
+    def _check_class_imbalance(self, splits: Dict[str, pd.DataFrame], target_column: str) -> None:
+        """Log WARNING if any split's positive rate <0.1 or >0.9."""
+        for split_name, split_df in splits.items():
+            if target_column in split_df.columns:
+                positive_rate = (split_df[target_column] == 1).mean()
+                if positive_rate < 0.1 or positive_rate > 0.9:
+                    logger.warning(
+                        f"Class imbalance detected in {split_name} split: "
+                        f"{positive_rate * 100:.1f}% positive rate. "
+                        f"Group-based splits cannot guarantee class balance."
+                    )
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the split and save train/val/test datasets to disk.
@@ -168,6 +197,67 @@ class SplitStep(PipelineStep):
                         name,
                     )
 
+        # Group-based split
+        elif self.method == "group_based":
+            # Validate group configuration
+            self._validate_group_config(df)
+
+            # Separate X, y, and groups
+            y = df[self.target_column]
+            X = df.drop(columns=[self.target_column])
+            groups = df[self.group_column]
+
+            # First split: all → train + temp (test_size = val_size + test_size)
+            gss1 = GroupShuffleSplit(
+                n_splits=1,
+                test_size=(self.val_size + self.test_size),
+                random_state=self.random_state,
+            )
+            train_idx, temp_idx = next(gss1.split(X, y, groups))
+
+            # Second split: temp → val + test (test_size = test_size / (val+test))
+            temp_test_size = self.test_size / (self.val_size + self.test_size)
+            gss2 = GroupShuffleSplit(
+                n_splits=1, test_size=temp_test_size, random_state=self.random_state
+            )
+            val_idx, test_idx = next(
+                gss2.split(X.iloc[temp_idx], y.iloc[temp_idx], groups.iloc[temp_idx])
+            )
+
+            # Map temp indices back to original dataframe indices
+            val_idx = temp_idx[val_idx]
+            test_idx = temp_idx[test_idx]
+
+            # Filter df rows by group membership
+            train_df = df.iloc[train_idx].copy()
+            val_df = df.iloc[val_idx].copy()
+            test_df = df.iloc[test_idx].copy()
+
+            # Check for group leaks
+            train_groups = set(train_df[self.group_column])
+            val_groups = set(val_df[self.group_column])
+            test_groups = set(test_df[self.group_column])
+
+            for name_a, groups_a, name_b, groups_b in [
+                ("train", train_groups, "val", val_groups),
+                ("train", train_groups, "test", test_groups),
+                ("val", val_groups, "test", test_groups),
+            ]:
+                overlap = groups_a & groups_b
+                if overlap:
+                    logger.warning(
+                        "Group leak detected: %d groups shared between %s and %s splits: %s",
+                        len(overlap),
+                        name_a,
+                        name_b,
+                        list(overlap)[:10],  # Show first 10
+                    )
+
+            # Check for class imbalance
+            self._check_class_imbalance(
+                {"train": train_df, "val": val_df, "test": test_df}, self.target_column
+            )
+
         # Random/stratified split
         else:
             # Separate X and y
@@ -235,6 +325,15 @@ class SplitStep(PipelineStep):
             metadata["train_dates"] = self._get_date_range(train_df, self.date_column)
             metadata["val_dates"] = self._get_date_range(val_df, self.date_column)
             metadata["test_dates"] = self._get_date_range(test_df, self.date_column)
+        elif self.method == "group_based":
+            metadata["group_column"] = self.group_column
+            metadata["n_groups_total"] = df[self.group_column].nunique()
+            metadata["n_groups_train"] = train_df[self.group_column].nunique()
+            metadata["n_groups_val"] = val_df[self.group_column].nunique()
+            metadata["n_groups_test"] = test_df[self.group_column].nunique()
+            metadata["test_size"] = self.test_size
+            metadata["val_size"] = self.val_size
+            metadata["random_state"] = self.random_state
         else:
             metadata["test_size"] = self.test_size
             metadata["val_size"] = self.val_size
@@ -273,6 +372,19 @@ class SplitStep(PipelineStep):
             logger.info(f"Train: {metadata['train_dates']}")
             logger.info(f"Val:   {metadata['val_dates']}")
             logger.info(f"Test:  {metadata['test_dates']}")
+
+        if self.method == "group_based":
+            logger.info(f"\nGroup distribution (by {self.group_column}):")
+            logger.info(f"Total groups: {metadata['n_groups_total']}")
+            logger.info(
+                f"Train groups: {metadata['n_groups_train']} ({metadata['n_groups_train'] / metadata['n_groups_total'] * 100:.1f}%)"
+            )
+            logger.info(
+                f"Val groups:   {metadata['n_groups_val']} ({metadata['n_groups_val'] / metadata['n_groups_total'] * 100:.1f}%)"
+            )
+            logger.info(
+                f"Test groups:  {metadata['n_groups_test']} ({metadata['n_groups_test'] / metadata['n_groups_total'] * 100:.1f}%)"
+            )
 
         logger.info(f"{'=' * 50}")
         if self.save_splits:

@@ -270,7 +270,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-SPLIT-002 | Support configurable test size ratio                                     | [IMPLEMENTED] |
 | FR-SPLIT-003 | Support random seed for reproducibility                                  | [IMPLEMENTED] |
 | FR-SPLIT-004 | Support temporal split (time-based train/test boundary)                  | [IMPLEMENTED]  |
-| FR-SPLIT-005 | Support group-based split (e.g., by customer ID to prevent leakage)      | [PLANNED]     |
+| FR-SPLIT-005 | Support group-based split (e.g., by customer ID to prevent leakage)      | [IMPLEMENTED] |
 | FR-SPLIT-006 | Split step passes train/test DataFrames through pipeline context         | [IMPLEMENTED] |
 
 ### FR-PREPROCESS: Transformers & Preprocessing

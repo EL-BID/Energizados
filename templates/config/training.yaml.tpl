@@ -22,7 +22,7 @@ training:
   # Split Configuration
   # ============================================
   split:
-    method: "time_series"  # Options: stratified, random, time_series
+    method: "time_series"  # Options: stratified, random, time_series, group_based
 
     # For stratified/random methods:
     # test_size: 0.2
@@ -34,6 +34,11 @@ training:
     train_period: ["2010-01-01", "2017-08-01"]  # [start, end] or just [start]
     val_period: ["2017-09-01", "2017-12-31"]
     test_period: ["2018-01-01"]
+
+    # For group_based method (prevents data leakage by keeping all rows
+    # with the same group value in the same split):
+    # group_column: "customer_id"  # Column to group by (required for group_based)
+    # Note: Proportions apply at group level, not row level
 
     # Save splits for reproducibility
     save_splits: true

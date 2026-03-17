@@ -34,7 +34,11 @@ SPLIT_SCHEMA = {
         "val_size": {"type": "number", "minimum": 0, "maximum": 1},
         "random_state": {"type": "integer"},
         "splits_dir": {"type": "string"},
-        "method": {"type": "string", "enum": ["stratified", "random", "time_series"]},
+        "method": {
+            "type": "string",
+            "enum": ["stratified", "random", "time_series", "group_based"],
+        },
+        "group_column": {"type": "string"},
         "date_column": {"type": "string"},
         "train_period": {
             "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]
@@ -45,6 +49,8 @@ SPLIT_SCHEMA = {
         },
         "save_splits": {"type": "boolean"},
     },
+    "if": {"properties": {"method": {"const": "group_based"}}, "required": ["method"]},
+    "then": {"required": ["group_column"]},
 }
 
 # Feature Engineering Configuration Schema

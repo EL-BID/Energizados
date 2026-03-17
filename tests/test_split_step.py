@@ -19,6 +19,10 @@ from energizados.core.steps.split import SplitStep
 # Fixtures
 # =============================================================================
 
+# =============================================================================
+# Fixtures
+# =============================================================================
+
 
 @pytest.fixture
 def sample_df():
@@ -38,6 +42,28 @@ def sample_parquet(tmp_path, sample_df):
     """Write sample_df to parquet, return path."""
     path = tmp_path / "data.parquet"
     sample_df.to_parquet(path, index=False)
+    return str(path)
+
+
+@pytest.fixture
+def grouped_df():
+    """100-row DataFrame with 20 customer_id groups, binary target."""
+    # Create 20 groups, each with 5 rows
+    customer_ids = np.repeat(np.arange(20), 5)
+    return pd.DataFrame(
+        {
+            "customer_id": customer_ids,
+            "f1": np.random.default_rng(42).standard_normal(100),
+            "target": np.random.default_rng(42).integers(0, 2, 100),
+        }
+    )
+
+
+@pytest.fixture
+def grouped_parquet(tmp_path, grouped_df):
+    """Write grouped_df to parquet, return path."""
+    path = tmp_path / "grouped_data.parquet"
+    grouped_df.to_parquet(path, index=False)
     return str(path)
 
 
@@ -199,6 +225,196 @@ def test_time_series_overlap_warns(sample_parquet, caplog):
     assert "val_path" in result
     assert "test_path" in result
     assert "splits_dir" in result
+
+
+# =============================================================================
+# Group-based Split Tests
+# =============================================================================
+
+
+def test_schema_group_based_accepted():
+    """group_based method with group_column must pass schema validation."""
+    config = {
+        "method": "group_based",
+        "group_column": "customer_id",
+        "test_size": 0.2,
+        "val_size": 0.1,
+    }
+    # Should not raise
+    validate(instance=config, schema=SPLIT_SCHEMA)
+
+
+def test_schema_group_based_rejected_without_column():
+    """group_based method without group_column must fail schema validation."""
+    config = {
+        "method": "group_based",
+        "test_size": 0.2,
+        "val_size": 0.1,
+    }
+    with pytest.raises(ValidationError) as excinfo:
+        validate(instance=config, schema=SPLIT_SCHEMA)
+    assert "group_column" in str(excinfo.value).lower()
+
+
+def test_group_based_missing_column_error(grouped_parquet):
+    """group_column not in DataFrame must raise ValueError."""
+    split_step = SplitStep(
+        input_path=grouped_parquet,
+        target_column="target",
+        method="group_based",
+        group_column="nonexistent_column",
+        test_size=0.2,
+        val_size=0.1,
+        random_state=42,
+        save_splits=False,
+    )
+    with pytest.raises(ValueError) as excinfo:
+        split_step.execute({})
+    assert "nonexistent_column" in str(excinfo.value)
+    assert "not found" in str(excinfo.value).lower()
+
+
+def test_group_based_no_leaks(grouped_parquet, tmp_path):
+    """Group-based split must ensure no group leaks across splits."""
+    split_step = SplitStep(
+        input_path=grouped_parquet,
+        target_column="target",
+        method="group_based",
+        group_column="customer_id",
+        test_size=0.2,
+        val_size=0.1,
+        random_state=42,
+        save_splits=True,
+        splits_dir=str(tmp_path / "splits"),
+    )
+    result = split_step.execute({})
+
+    # Read splits
+    train_df = pd.read_parquet(result["train_path"])
+    val_df = pd.read_parquet(result["val_path"])
+    test_df = pd.read_parquet(result["test_path"])
+
+    # Get unique groups per split
+    train_groups = set(train_df["customer_id"])
+    val_groups = set(val_df["customer_id"])
+    test_groups = set(test_df["customer_id"])
+
+    # Assert no group leaks
+    assert len(train_groups & val_groups) == 0, "Groups leaked from train to val"
+    assert len(train_groups & test_groups) == 0, "Groups leaked from train to test"
+    assert len(val_groups & test_groups) == 0, "Groups leaked from val to test"
+
+
+def test_group_based_reproducibility(grouped_parquet, tmp_path):
+    """Group-based split must be reproducible with same random_state."""
+    split_step1 = SplitStep(
+        input_path=grouped_parquet,
+        target_column="target",
+        method="group_based",
+        group_column="customer_id",
+        test_size=0.2,
+        val_size=0.1,
+        random_state=42,
+        save_splits=True,
+        splits_dir=str(tmp_path / "splits1"),
+    )
+    result1 = split_step1.execute({})
+
+    split_step2 = SplitStep(
+        input_path=grouped_parquet,
+        target_column="target",
+        method="group_based",
+        group_column="customer_id",
+        test_size=0.2,
+        val_size=0.1,
+        random_state=42,
+        save_splits=True,
+        splits_dir=str(tmp_path / "splits2"),
+    )
+    result2 = split_step2.execute({})
+
+    # Read splits
+    train_df1 = pd.read_parquet(result1["train_path"])
+    train_df2 = pd.read_parquet(result2["train_path"])
+
+    # Assert splits are identical
+    pd.testing.assert_frame_equal(train_df1, train_df2)
+
+
+def test_group_based_metadata_contract(grouped_parquet, tmp_path):
+    """Group-based split metadata must contain all required group keys."""
+    split_step = SplitStep(
+        input_path=grouped_parquet,
+        target_column="target",
+        method="group_based",
+        group_column="customer_id",
+        test_size=0.2,
+        val_size=0.1,
+        random_state=42,
+        save_splits=True,
+        splits_dir=str(tmp_path / "splits"),
+    )
+    split_step.execute({})
+
+    # Read metadata
+    metadata_path = tmp_path / "splits" / "split_metadata.json"
+    import json
+
+    with open(metadata_path) as f:
+        metadata = json.load(f)
+
+    # Assert group metadata keys exist
+    assert "group_column" in metadata
+    assert metadata["group_column"] == "customer_id"
+    assert "n_groups_total" in metadata
+    assert "n_groups_train" in metadata
+    assert "n_groups_val" in metadata
+    assert "n_groups_test" in metadata
+
+    # Assert group counts sum correctly
+    assert (
+        metadata["n_groups_train"] + metadata["n_groups_val"] + metadata["n_groups_test"]
+        == metadata["n_groups_total"]
+    )
+
+
+def test_group_based_class_imbalance_warning(grouped_parquet, caplog):
+    """Skewed group distribution should trigger class imbalance warning."""
+    # Create a dataset with extreme class imbalance per group
+    # 4 groups total: 3 groups all positive (1), 1 group all negative (0)
+    # Each group has 5 rows
+    skewed_df = pd.DataFrame(
+        {
+            "customer_id": np.repeat([0, 1, 2, 3], 5),
+            "target": np.array(
+                [1] * 15 + [0] * 5
+            ),  # First 15 positive (3 groups), last 5 negative (1 group)
+        }
+    )
+
+    path = grouped_parquet.replace("grouped_data.parquet", "skewed_data.parquet")
+    skewed_df.to_parquet(path, index=False)
+
+    split_step = SplitStep(
+        input_path=path,
+        target_column="target",
+        method="group_based",
+        group_column="customer_id",
+        test_size=0.25,  # 1 group in test (likely the negative one)
+        val_size=0.25,
+        random_state=42,
+        save_splits=False,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        split_step.execute({})
+
+    # Check for imbalance warning
+    warning_logs = [record for record in caplog.records if record.levelno == logging.WARNING]
+    imbalance_warnings = [
+        record for record in warning_logs if "imbalance" in record.getMessage().lower()
+    ]
+    assert len(imbalance_warnings) > 0, "Expected class imbalance warning"
 
 
 # =============================================================================
