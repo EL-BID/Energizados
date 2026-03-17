@@ -9,14 +9,15 @@ The implemented models are:
 
 Each model has methods for training and making predictions.
 
-Note: This module requires LightGBM and CatBoost libraries to be installed for gradient boosting
-models. TensorFlow is only required for neural network models (NNModel and LSTMNNModel).
+Note: This module requires LightGBM for gradient boosting models. CatBoost is an optional
+dependency required only for CATModel (install with: pip install energizados[catboost]).
+TensorFlow is only required for neural network models (NNModel and LSTMNNModel)
+(install with: pip install energizados[tensorflow]).
 
 """
 
 import logging
 
-import catboost as cb
 import numpy as np
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.pipeline import Pipeline, make_pipeline
@@ -313,6 +314,13 @@ class CATModel:
             imblearn.pipeline.Pipeline: Pipeline with optional sampler followed by
                 CatBoostClassifier.
         """
+        try:
+            import catboost as cb  # Lazy import - only load when training CATModel
+        except ImportError:
+            raise ImportError(
+                "catboost is required for CATModel. "
+                "Install it with: pip install energizados[catboost]"
+            )
         cb_model_search = cb.CatBoostClassifier(
             iterations=1000,
             eval_metric="AUC",
