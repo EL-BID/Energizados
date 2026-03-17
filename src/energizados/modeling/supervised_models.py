@@ -717,6 +717,17 @@ class LSTMNNModel:
 
         X_val_features = pipe_features.transform(df_val[self.features_names])
         X_val_spents = pipe_spent.transform(df_val[self.spents_names])
+
+        # Convert to numpy arrays if needed (sklearn may return DataFrames)
+        if hasattr(X_train_features, "values"):
+            X_train_features = X_train_features.values
+        if hasattr(X_train_spents, "values"):
+            X_train_spents = X_train_spents.values
+        if hasattr(X_val_features, "values"):
+            X_val_features = X_val_features.values
+        if hasattr(X_val_spents, "values"):
+            X_val_spents = X_val_spents.values
+
         X_val_spents = X_val_spents.reshape((X_val_spents.shape[0], self.periodo, 1))
 
         X_train_features = np.concatenate([X_train_spents, X_train_features], axis=1)
@@ -777,9 +788,9 @@ class LSTMNNModel:
         if output_bias is not None:
             output_bias = tf.keras.initializers.Constant(output_bias)
 
-        spents_inputs = tf.keras.Input(X_train_spents.shape[1:])
+        spents_inputs = tf.keras.Input(shape=X_train_spents.shape[1:])
         x = tf.keras.layers.LSTM(128, activation="relu")(spents_inputs)
-        features_inputs = tf.keras.Input(X_train_features.shape[1])
+        features_inputs = tf.keras.Input(shape=(int(X_train_features.shape[1]),))
 
         concat = tf.keras.layers.Concatenate()([features_inputs, x])
         x = tf.keras.layers.Dense(64, activation="relu")(concat)

@@ -316,7 +316,38 @@ feature_selection:
 
 ## Model Configuration
 
-### Single Model
+### Available Model Types
+
+Energizados supports six model types:
+
+| Type | Aliases | Description | Requires Preprocessing |
+|------|---------|-------------|----------------------|
+| `lightgbm` | `lgbm` | Gradient Boosting with LightGBM | Yes |
+| `catboost` | `cat` | CatBoost classifier | Yes |
+| `neural_network` | `nn` | Feedforward Neural Network (Dense) | Yes |
+| `lstm` | - | LSTM for sequential consumption data | Yes |
+| `simple_trend` | - | Rule-based trend detector | No (uses raw data) |
+| `simple_constant` | - | Rule-based constant consumption detector | No (uses raw data) |
+
+### Model Categories
+
+#### Machine Learning Models (Require Preprocessing)
+
+These models require feature engineering preprocessing to work correctly:
+
+- **lightgbm**: Fast gradient boosting, good for tabular data
+- **catboost**: Handles categorical features natively
+- **neural_network**: Feedforward Dense network with scaled features
+- **lstm**: Long Short-Term Memory network for sequential consumption patterns
+
+#### Rule-Based Models (Use Raw Data)
+
+These models work directly on raw consumption columns without preprocessing:
+
+- **simple_trend**: Detects fraud based on consumption trend drops
+- **simple_constant**: Detects fraud based on suspiciously constant consumption
+
+### Single Model Configuration
 
 ```yaml
 models:
@@ -338,15 +369,142 @@ models:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `type` | string | - | Model type: `lightgbm`, `catboost`, `neural_network`, `lstm` |
-| `sampling` | dict | - | Sampling configuration |
+| `type` | string | - | Model type: `lightgbm`, `catboost`, `neural_network`, `lstm`, `simple_trend`, `simple_constant` |
+| `sampling` | dict | - | Sampling configuration (ML models only) |
 | `sampling.method` | string | `"none"` | `oversample`, `undersample`, `none` |
 | `sampling.threshold` | float | `0.5` | Threshold for undersampling |
-| `hyperparams` | dict | - | Model hyperparameters |
-| `hyperparam_search` | dict | - | Hyperparameter search configuration |
+| `hyperparams` | dict | - | Model hyperparameters (ML models only) |
+| `hyperparam_search` | dict | - | Hyperparameter search configuration (ML models only) |
 | `hyperparam_search.enabled` | boolean | `false` | Whether to perform hyperparameter search |
 | `hyperparam_search.n_iter` | int | `60` | Number of iterations for RandomizedSearchCV |
 | `hyperparam_search.cv` | int | `3` | Number of cross-validation folds |
+
+### Model-Specific Configuration
+
+#### LightGBM Configuration
+
+```yaml
+models:
+  - type: "lightgbm"
+    sampling:
+      method: "undersample"  # oversample, undersample, none
+      threshold: 0.5
+    hyperparams:
+      num_leaves: 31
+      max_depth: -1
+      learning_rate: 0.05
+      n_estimators: 1000
+    hyperparam_search:
+      enabled: true
+      n_iter: 60
+      cv: 3
+```
+
+**LightGBM Hyperparameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `num_leaves` | int | `31` | Maximum number of leaves in one tree |
+| `max_depth` | int | `-1` | Maximum tree depth (-1 = unlimited) |
+| `learning_rate` | float | `0.05` | Boosting learning rate |
+| `n_estimators` | int | `1000` | Number of boosting iterations |
+| `min_child_samples` | int | `20` | Minimum samples in leaf |
+| `subsample` | float | `1.0` | Subsample ratio of training data |
+
+#### CatBoost Configuration
+
+```yaml
+models:
+  - type: "catboost"
+    sampling:
+      method: "undersample"
+      threshold: 0.5
+    hyperparams:
+      iterations: 500
+      learning_rate: 0.05
+      depth: 6
+```
+
+**CatBoost Hyperparameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `iterations` | int | `500` | Number of iterations |
+| `learning_rate` | float | `0.05` | Learning rate |
+| `depth` | int | `6` | Tree depth |
+| `l2_leaf_reg` | float | `3.0` | L2 regularization |
+
+#### Neural Network (Feedforward) Configuration
+
+```yaml
+models:
+  - type: "neural_network"
+    sampling:
+      method: "undersample"
+      threshold: 0.5
+```
+
+**Neural Network Notes:**
+- Architecture: Dense(512) → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid)
+- Uses early stopping with patience=50 on validation PR-AUC
+- Automatically scales features using MinMaxScaler
+
+#### LSTM Configuration
+
+```yaml
+models:
+  - type: "lstm"
+    sampling:
+      method: "undersample"
+      threshold: 0.5
+```
+
+**LSTM Notes:**
+- Architecture: LSTM(128) → Concatenate with features → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid)
+- Uses early stopping with patience=50 on validation PR-AUC
+- Requires consumption columns in format: `12_anterior`, `11_anterior`, ..., `1_anterior`
+
+#### Simple Trend Configuration (Rule-Based)
+
+```yaml
+models:
+  - type: "simple_trend"
+    threshold: 50              # Percentage drop to flag as fraud
+    last_base_value: 6         # Number of periods for baseline (default: 6)
+    last_eval_value: 3         # Number of periods for evaluation (default: 3)
+```
+
+**Simple Trend Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `threshold` | float | `50` | Percentage drop above which user is flagged as fraud |
+| `last_base_value` | int | `6` | Number of historical periods for baseline |
+| `last_eval_value` | int | `3` | Number of recent periods for evaluation |
+
+**How it works:**
+- Computes: `trend_perc = 100 * mean(recent_periods) / mean(base_periods)`
+- Flags as fraud if: `100 - trend_perc > threshold`
+- Does NOT require preprocessing — uses raw consumption columns
+
+#### Simple Constant Configuration (Rule-Based)
+
+```yaml
+models:
+  - type: "simple_constant"
+    min_count_constante: 3     # Consecutive equal values to flag (default: 3)
+```
+
+**Simple Constant Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `min_count_constante` | int | `3` | Minimum consecutive identical values to flag as fraud |
+
+**How it works:**
+- Detects runs of consecutive identical consumption values
+- Flags as fraud if any run length >= min_count_constante
+- Does NOT require preprocessing — uses raw consumption columns
 
 ### Multiple Models (Ensemble)
 

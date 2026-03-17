@@ -400,6 +400,11 @@ class LSTMNNModelAdapter(BaseModel):
         self.check_fitted()
         X_features = self._pipe_features.transform(X[self.features_names])
         X_spents = self._pipe_spent.transform(X[self.spents_names])
+        # Convert to numpy arrays if needed (sklearn may return DataFrames)
+        if hasattr(X_features, "values"):
+            X_features = X_features.values
+        if hasattr(X_spents, "values"):
+            X_spents = X_spents.values
         X_spents = X_spents.reshape((X_spents.shape[0], self.periodo, 1))
         probs = self.model_.predict([X_spents, X_features], verbose=0)
         return (probs > 0.5).astype(int).flatten()
@@ -416,6 +421,11 @@ class LSTMNNModelAdapter(BaseModel):
         self.check_fitted()
         X_features = self._pipe_features.transform(X[self.features_names])
         X_spents = self._pipe_spent.transform(X[self.spents_names])
+        # Convert to numpy arrays if needed (sklearn may return DataFrames)
+        if hasattr(X_features, "values"):
+            X_features = X_features.values
+        if hasattr(X_spents, "values"):
+            X_spents = X_spents.values
         X_spents = X_spents.reshape((X_spents.shape[0], self.periodo, 1))
         return self.model_.predict([X_spents, X_features], verbose=0).flatten()
 
@@ -502,8 +512,11 @@ class SimpleTrendAdapter(BaseModel):
         """
         self.check_fitted()
         result = self._model.predict(X)
-        # Use trend_perc as probability proxy
-        return (100 - result["trend_perc"]).values / 100
+        # Use trend_perc as probability proxy, handle NaN values
+        proba = (100 - result["trend_perc"]).values / 100
+        # Replace NaN with 0.5 (neutral probability) for rows with missing consumption data
+        proba = np.where(np.isnan(proba), 0.5, proba)
+        return proba
 
 
 class SimpleConstantAdapter(BaseModel):

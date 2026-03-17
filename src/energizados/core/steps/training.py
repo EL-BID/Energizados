@@ -210,6 +210,8 @@ class TrainingStep(PipelineStep):
                 y_train=y_train,
                 X_val=X_val_transformed,
                 y_val=y_val,
+                X_train_raw=X_train,
+                X_val_raw=X_val,
                 save_path=self.output_dir / "model.pkl",
             )
         else:
@@ -222,7 +224,18 @@ class TrainingStep(PipelineStep):
             )
 
         # Phase D: Quick val metrics
-        val_proba = model.predict_proba(X_val_transformed)
+        # For simple models, use raw data for prediction
+        model_type = (
+            self.models_configs[0].get("type", "lightgbm")
+            if len(self.models_configs) == 1
+            else None
+        )
+        if model_type in ["simple_trend", "simple_constant"]:
+            X_val_for_pred = X_val
+        else:
+            X_val_for_pred = X_val_transformed
+
+        val_proba = model.predict_proba(X_val_for_pred)
         val_pred = (val_proba >= 0.5).astype(int)
 
         from sklearn.metrics import f1_score, roc_auc_score
@@ -276,16 +289,36 @@ class TrainingStep(PipelineStep):
         y_train: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
-        save_path: Path,
+        X_train_raw: pd.DataFrame = None,
+        X_val_raw: pd.DataFrame = None,
+        save_path: Path = None,
     ):
-        """Train one model, save it, and return (model, path)."""
+        """Train one model, save it, and return (model, path).
+
+        For simple models (simple_trend, simple_constant), uses raw data (before feature engineering)
+        since these rule-based models need the original consumption columns.
+        """
         model_type = cfg.get("type", "lightgbm")
         logger.info(f"Training model '{name}' (type: {model_type})")
 
         model_class = ModelRegistry.get(model_type)
         params = self._prepare_model_params(cfg, X_train)
+
+        # For simple models, use raw data instead of transformed
+        if model_type in ["simple_trend", "simple_constant"]:
+            if X_train_raw is not None and X_val_raw is not None:
+                X_train_for_model = X_train_raw
+                X_val_for_model = X_val_raw
+                logger.info("Using raw data for simple model (before feature engineering)")
+            else:
+                X_train_for_model = X_train
+                X_val_for_model = X_val
+        else:
+            X_train_for_model = X_train
+            X_val_for_model = X_val
+
         model = model_class(**params)
-        model.fit(X_train, y_train, X_val=X_val, y_val=y_val)
+        model.fit(X_train_for_model, y_train, X_val=X_val_for_model, y_val=y_val)
 
         # Apply probability calibration if configured
         calibration_config = cfg.get("calibration", {})
@@ -479,6 +512,23 @@ class TrainingStep(PipelineStep):
             if class_weight is not None:
                 params["class_weight"] = class_weight
             params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
+
+        elif model_type in ["simple_trend", "simple_constant"]:
+            # Simple models work on raw consumption columns, not preprocessed
+            # They use columns directly from input data - pass config with threshold/params
+            # SimpleTrendAdapter accepts: last_base_value, last_eval_value, threshold
+            # SimpleConstantAdapter accepts: min_count_constante
+            if model_type == "simple_trend":
+                params["last_base_value"] = params.get("last_base_value", 6)
+                params["last_eval_value"] = params.get("last_eval_value", 3)
+                params["threshold"] = params.get("threshold", 50)
+            elif model_type == "simple_constant":
+                params["min_count_constante"] = params.get("min_count_constante", 3)
+            # Remove any config that's not valid for simple models
+            params.pop("sampling", None)
+            params.pop("class_weight", None)
+            params.pop("hyperparams", None)
+            params.pop("hyperparam_search", None)
 
         # Store the type string in the config so evaluator can read it
         params["config"] = {"type": model_type}

@@ -181,8 +181,15 @@ training:
   # Model Configuration
   # ============================================
   # Single model: one item in the list — evaluated directly (no ensemble)
+  # Available model types:
+  #   - lightgbm: Gradient Boosting (requires preprocessing)
+  #   - catboost: CatBoost (requires preprocessing)
+  #   - neural_network / nn: Feedforward Neural Network (requires preprocessing)
+  #   - lstm: LSTM Neural Network for sequential data (requires preprocessing)
+  #   - simple_trend: Rule-based trend detector (uses raw consumption data)
+  #   - simple_constant: Rule-based constant consumption detector (uses raw consumption data)
   models:
-    - type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm
+    - type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm, simple_trend, simple_constant
 
       # Class balancing: choose ONE of sampling or class_weight
       # Option 1: Sampling (resamples the data)
@@ -213,6 +220,50 @@ training:
       #   enabled: true
       #   method: "sigmoid"   # Options: "sigmoid" (Platt scaling), "isotonic"
       #   cv: 3               # CV folds for calibration (used if not 'prefit')
+
+  # ============================================
+  # Model Examples (commented)
+  # ============================================
+  # Uncomment ONE of the following model blocks and replace the models section above
+
+  # ----- Example: CatBoost -----
+  # models:
+  #   - type: "catboost"
+  #     sampling:
+  #       method: "undersample"
+  #       threshold: 0.5
+  #     hyperparams:
+  #       iterations: 500
+  #       learning_rate: 0.05
+  #       depth: 6
+
+  # ----- Example: Neural Network (Feedforward) -----
+  # models:
+  #   - type: "neural_network"
+  #     sampling:
+  #       method: "undersample"
+  #       threshold: 0.5
+
+  # ----- Example: LSTM (for sequential consumption data) -----
+  # models:
+  #   - type: "lstm"
+  #     sampling:
+  #       method: "undersample"
+  #       threshold: 0.5
+
+  # ----- Example: Simple Trend (rule-based, no ML) -----
+  # Uses raw consumption columns, does NOT require preprocessing
+  # models:
+  #   - type: "simple_trend"
+  #     threshold: 50              # % drop to flag as fraud
+  #     last_base_value: 6         # periods for baseline
+  #     last_eval_value: 3         # periods for evaluation
+
+  # ----- Example: Simple Constant (rule-based, no ML) -----
+  # Uses raw consumption columns, does NOT require preprocessing
+  # models:
+  #   - type: "simple_constant"
+  #     min_count_constante: 3     # consecutive equal values to flag
 
   # ============================================
   # Ensemble Configuration (requires len(models) > 1)
