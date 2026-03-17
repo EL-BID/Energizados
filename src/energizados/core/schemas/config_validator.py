@@ -216,6 +216,16 @@ class ConfigValidator:
                         )
                     )
 
+        # Warning for comparison mode (multiple models without ensemble)
+        if "models" in training_config and isinstance(training_config["models"], list):
+            num_models = len(training_config["models"])
+            if num_models > 1 and "ensemble" not in training_config:
+                logger.warning(
+                    f"Multiple models ({num_models}) configured without ensemble section. "
+                    "Comparison mode will be activated - each model will be trained and "
+                    "evaluated independently. Add an 'ensemble' section to enable ensemble mode."
+                )
+
         return errors
 
     def _validate_evaluation(self, eval_config: Any) -> List[ValidationError]:

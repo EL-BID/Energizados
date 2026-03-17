@@ -123,6 +123,7 @@ class DefaultEvaluator(PipelineStep):
         feature_engineering_path = self.feature_engineering_path or ctx.get(
             "feature_engineering_path"
         )
+        model_paths = ctx.get("model_paths")
 
         # Validate inputs before loading (MEJORAS P1-4)
         if not input_path:
@@ -130,6 +131,16 @@ class DefaultEvaluator(PipelineStep):
         if not Path(input_path).exists():
             raise FileNotFoundError(f"Test dataset not found: {input_path}")
 
+        # Detect comparison mode
+        comparison_mode = model_paths is not None and len(model_paths) > 1
+
+        # Comparison mode: evaluate each model independently
+        if comparison_mode:
+            return self._execute_comparison_mode(
+                ctx, input_path, feature_engineering_path, model_paths
+            )
+
+        # Single model or ensemble mode (existing behavior)
         # 1. Load model and feature engineering
         model = self._load_model(model_path)
         feature_engineering = self._load_feature_engineering(feature_engineering_path)
@@ -420,6 +431,363 @@ class DefaultEvaluator(PipelineStep):
             logger.info(f"Loading feature engineering from: {path}")
             return secure_load(path)
         return None
+
+    def _execute_comparison_mode(
+        self,
+        ctx: Dict[str, Any],
+        input_path: str,
+        feature_engineering_path: Optional[str],
+        model_paths: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Execute evaluation in comparison mode (multiple models)."""
+        from energizados.core.utils.secure_pickle import secure_load
+
+        logger.info("Comparison mode detected - evaluating each model independently...")
+
+        # Load feature engineering once
+        feature_engineering = self._load_feature_engineering(feature_engineering_path)
+
+        # Load test data once
+        test_df = pd.read_parquet(input_path)
+        logger.info(f"Test dataset shape: {test_df.shape}")
+
+        X_test = test_df.drop(columns=[self.target_column])
+        y_test = test_df[self.target_column]
+
+        # Apply feature engineering once
+        if feature_engineering is not None:
+            logger.info("Applying feature engineering...")
+            X_test_transformed = feature_engineering.transform(X_test)
+        else:
+            X_test_transformed = X_test
+
+        # Capture feature names for importance plot
+        feature_names = (
+            list(X_test_transformed.columns) if hasattr(X_test_transformed, "columns") else None
+        )
+
+        # Evaluate each model
+        all_metrics = {}
+        all_model_info = {}
+        all_plots_paths = {}
+        all_plots_embedded = {}
+        all_reports = {}
+        all_plots_interactive = {}
+
+        for model_name, model_path in model_paths.items():
+            logger.info(f"\n{'=' * 50}")
+            logger.info(f"Evaluating model: {model_name}")
+            logger.info(f"{'=' * 50}")
+
+            # Create output subdirectory for this model
+            model_output_dir = self.output_dir / model_name
+            model_output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Load model
+            logger.info(f"Loading model from: {model_path}")
+            model = secure_load(model_path)
+
+            # Determine if model uses raw or transformed data
+            model_config = getattr(model, "config", {}) or {}
+            model_type = model_config.get("type", "lightgbm")
+
+            if model_type in ["simple_trend", "simple_constant"]:
+                X_test_for_pred = X_test
+            else:
+                X_test_for_pred = X_test_transformed
+
+            # Get predictions
+            logger.info("Generating predictions...")
+            y_proba = model.predict_proba(X_test_for_pred)
+            y_pred = (y_proba >= self.threshold).astype(int)
+
+            # Calculate metrics
+            logger.info("Calculating metrics...")
+            metrics_calculator = Metrics(y_test, y_pred, y_proba, self.threshold)
+            metrics_results = metrics_calculator.calculate_all(self.metrics)
+            metrics_results["threshold"] = self.threshold
+
+            # Log main metrics
+            logger.info(f"\n{'=' * 50}")
+            logger.info("METRICS SUMMARY")
+            logger.info(f"{'=' * 50}")
+            logger.info(f"AUC:       {metrics_results.get('auc', 0):.4f}")
+            logger.info(f"F1:        {metrics_results.get('f1', 0):.4f}")
+            logger.info(f"Precision: {metrics_results.get('precision', 0):.4f}")
+            logger.info(f"Recall:    {metrics_results.get('recall', 0):.4f}")
+            logger.info(f"{'=' * 50}")
+
+            # Generate visualizations
+            if self.generate_plots:
+                logger.info("Generating plots...")
+                # Use model-specific output directory
+                temp_plot_gen = PlotGenerator(str(model_output_dir))
+                plots_paths, plots_embedded = self._generate_plots_with_generator(
+                    temp_plot_gen,
+                    y_test,
+                    y_proba,
+                    y_pred,
+                    metrics_results,
+                    model=model,
+                    feature_names=feature_names,
+                    threshold_metrics=None,
+                    threshold=self.threshold,
+                )
+                all_plots_paths[model_name] = plots_paths
+                all_plots_embedded[model_name] = plots_embedded
+
+            # Generate interactive plots
+            plots_interactive = {}
+            try:
+                from sklearn.metrics import precision_recall_curve as sk_pr_curve
+                from sklearn.metrics import roc_curve as sk_roc_curve
+
+                from energizados.evaluation.plots_interactive import (
+                    EvalInteractivePlots,
+                )
+
+                eval_plots = EvalInteractivePlots(str(model_output_dir))
+
+                # ROC
+                try:
+                    fpr, tpr, _ = sk_roc_curve(y_test, y_proba)
+                    plots_interactive["roc_curve"] = eval_plots.roc_curve(
+                        fpr.tolist(), tpr.tolist(), metrics_results.get("auc", 0)
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive ROC curve: {e}")
+
+                # Precision-Recall
+                try:
+                    prec_vals, rec_vals, _ = sk_pr_curve(y_test, y_proba)
+                    ap = float(np.trapz(prec_vals[::-1], rec_vals[::-1]))
+                    plots_interactive["precision_recall"] = eval_plots.precision_recall_curve(
+                        prec_vals.tolist(), rec_vals.tolist(), ap
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive PR curve: {e}")
+
+                # Confusion matrix heatmap
+                try:
+                    cm = metrics_results.get("confusion_matrix", {})
+                    if "matrix" in cm:
+                        plots_interactive["confusion_matrix"] = eval_plots.confusion_matrix_heatmap(
+                            cm["matrix"]
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive confusion matrix: {e}")
+
+                # Cumulative gains
+                try:
+                    if "cumulative_gains" in metrics_results:
+                        plots_interactive["cumulative_gains"] = eval_plots.cumulative_gains(
+                            metrics_results["cumulative_gains"]
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive cumulative gains: {e}")
+
+                # Lift chart
+                try:
+                    if "cumulative_gains" in metrics_results:
+                        plots_interactive["lift_chart"] = eval_plots.lift_chart(
+                            metrics_results["cumulative_gains"]
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive lift chart: {e}")
+
+                # Probability distribution
+                try:
+                    plots_interactive["probability_distribution"] = (
+                        eval_plots.probability_distribution(y_test.tolist(), y_proba.tolist())
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive probability distribution: {e}")
+
+                # Feature importance
+                try:
+                    if feature_names is not None:
+                        inner = getattr(model, "_model", None)
+                        importances = None
+                        if inner is not None:
+                            if hasattr(inner, "feature_importances_"):
+                                importances = inner.feature_importances_
+                            elif hasattr(inner, "get_feature_importance"):
+                                importances = inner.get_feature_importance()
+                        if importances is not None:
+                            plots_interactive["feature_importance"] = eval_plots.feature_importance(
+                                feature_names, importances.tolist()
+                            )
+                except Exception as e:
+                    logger.warning(f"Could not generate interactive feature importance: {e}")
+
+                all_plots_interactive[model_name] = plots_interactive
+
+            except ImportError:
+                logger.debug("plotly not available; interactive charts skipped")
+            except Exception as e:
+                logger.warning(f"Could not generate interactive plots: {e}")
+
+            # Generate reports
+            model_reports = {}
+            if self.generate_html_report or self.generate_json_report:
+                logger.info("Generating reports...")
+                temp_report_gen = ReportGenerator(str(model_output_dir))
+                model_info = self._get_model_info(model)
+
+                if self.generate_json_report:
+                    json_path = temp_report_gen.generate_json(
+                        metrics_results,
+                        model_info,
+                        calibration_result=None,
+                        threshold_metrics=None,
+                        segment_metrics=None,
+                    )
+                    model_reports["json"] = json_path
+
+                if self.generate_html_report:
+                    html_path = temp_report_gen.generate_html(
+                        metrics_results,
+                        all_plots_paths.get(model_name, {}),
+                        model_info,
+                        calibration_result=None,
+                        plots_embedded=all_plots_embedded.get(model_name),
+                        plots_interactive=plots_interactive,
+                        threshold_metrics=None,
+                        segment_metrics=None,
+                    )
+                    model_reports["html"] = html_path
+
+            all_reports[model_name] = model_reports
+            all_metrics[model_name] = metrics_results
+            all_model_info[model_name] = model_info
+
+        # Generate comparative report
+        from energizados.evaluation.comparative import ComparativeEvaluator
+
+        comparative_evaluator = ComparativeEvaluator(str(self.output_dir))
+        comparison_result = comparative_evaluator.compare(
+            all_metrics=all_metrics,
+            all_model_info=all_model_info,
+        )
+
+        logger.info(f"\nEvaluation complete. Reports saved to: {self.output_dir}")
+        logger.info(f"Comparative report: {comparison_result['html']}")
+
+        return {
+            **ctx,
+            "model_metrics": all_metrics,
+            "model_reports": all_reports,
+            "model_plots": all_plots_paths,
+            "comparison_report": comparison_result,
+            "evaluation_dir": str(self.output_dir),
+        }
+
+    def _generate_plots_with_generator(
+        self,
+        plot_generator: PlotGenerator,
+        y_true: np.ndarray,
+        y_proba: np.ndarray,
+        y_pred: np.ndarray,
+        metrics: Dict,
+        model=None,
+        feature_names: Optional[List[str]] = None,
+        threshold_metrics: Optional[Dict] = None,
+        threshold: float = 0.5,
+    ) -> tuple:
+        """
+        Generates all visualizations using a provided PlotGenerator instance.
+
+        Returns:
+            Tuple of (plots_paths dict, plots_embedded dict)
+        """
+        plots = {}
+        embedded = {}
+
+        # ROC Curve
+        try:
+            path, b64 = plot_generator.roc_curve_plot_embedded(
+                y_true, y_proba, metrics.get("auc", 0)
+            )
+            plots["roc_curve"] = path
+            embedded["roc_curve"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate ROC curve: {e}")
+
+        # Precision-Recall Curve
+        try:
+            path, b64 = plot_generator.precision_recall_plot_embedded(y_true, y_proba)
+            plots["precision_recall"] = path
+            embedded["precision_recall"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate PR curve: {e}")
+
+        # Confusion Matrix
+        try:
+            cm = metrics.get("confusion_matrix", {})
+            if "matrix" in cm:
+                path, b64 = plot_generator.confusion_matrix_plot_embedded(np.array(cm["matrix"]))
+                plots["confusion_matrix"] = path
+                embedded["confusion_matrix"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate confusion matrix: {e}")
+
+        # Cumulative Gains
+        try:
+            if "cumulative_gains" in metrics:
+                path, b64 = plot_generator.cumulative_gains_plot_embedded(
+                    metrics["cumulative_gains"]
+                )
+                plots["cumulative_gains"] = path
+                embedded["cumulative_gains"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate cumulative gains: {e}")
+
+        # Lift Chart
+        try:
+            if "cumulative_gains" in metrics:
+                path, b64 = plot_generator.lift_chart_plot_embedded(metrics["cumulative_gains"])
+                plots["lift_chart"] = path
+                embedded["lift_chart"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate lift chart: {e}")
+
+        # Probability Distribution
+        try:
+            path, b64 = plot_generator.probability_distribution_plot_embedded(y_true, y_proba)
+            plots["probability_distribution"] = path
+            embedded["probability_distribution"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate probability distribution: {e}")
+
+        # Calibration Curve
+        try:
+            path, b64 = plot_generator.calibration_plot_embedded(y_true, y_proba)
+            plots["calibration"] = path
+            embedded["calibration"] = b64
+        except Exception as e:
+            logger.warning(f"Could not generate calibration curve: {e}")
+
+        # Feature Importance
+        if model is not None and feature_names is not None:
+            try:
+                inner = getattr(model, "_model", None)
+                importances = None
+                if inner is not None:
+                    if hasattr(inner, "feature_importances_"):
+                        importances = inner.feature_importances_
+                    elif hasattr(inner, "get_feature_importance"):
+                        importances = inner.get_feature_importance()
+
+                if importances is not None:
+                    path, b64 = plot_generator.feature_importance_plot_embedded(
+                        feature_names, importances
+                    )
+                    plots["feature_importance"] = path
+                    embedded["feature_importance"] = b64
+            except Exception as e:
+                logger.warning(f"Could not generate feature importance plot: {e}")
+
+        return plots, embedded
 
     def _generate_plots(
         self,

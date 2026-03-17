@@ -309,7 +309,7 @@ class TestTrainingStepEnsemble:
         assert "catboost" in model.ensemble_description
 
     def test_ensemble_requires_ensemble_config(self, parquet_splits, temp_dir):
-        """Missing ensemble_config with multiple models must raise ValueError."""
+        """Multiple models without ensemble_config now enters comparison mode (no error)."""
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
@@ -323,12 +323,15 @@ class TestTrainingStepEnsemble:
                     {"type": "lightgbm", "hyperparams": {}},
                     {"type": "catboost", "hyperparams": {}},
                 ],
-                ensemble_config=None,  # missing!
+                ensemble_config=None,  # missing → comparison mode
                 feature_engineering_config={"enabled": False},
                 output_dir=str(temp_dir / "models"),
             )
-            with pytest.raises(ValueError, match="ensemble_config"):
-                step.execute({})
+            result = step.execute({})
+            # Should NOT raise ValueError anymore - comparison mode is valid
+            assert result["comparison_mode"] is True
+            assert result["model_paths"] is not None
+            assert result["model_path"] is None
 
     def test_stacking_ensemble_fits_meta_learner(self, parquet_splits, temp_dir):
         """Stacking ensemble saves ensemble.pkl with a meta_learner."""
@@ -361,6 +364,159 @@ class TestTrainingStepEnsemble:
         assert result["model"]._meta_learner is not None
 
 
+# ---------------------------------------------------------------------------
+# Multi-model comparison mode
+# ---------------------------------------------------------------------------
+
+
+class TestTrainingStepMultiModel:
+    """Tests for comparison mode (multiple models without ensemble)."""
+
+    @pytest.fixture
+    def multi_model_step(self, parquet_splits, temp_dir):
+        """TrainingStep configured for comparison mode (2 models, no ensemble)."""
+        train_path, val_path = parquet_splits
+        DummyCls = _dummy_model_class(0.6)
+
+        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+            mock_reg.get.return_value = DummyCls
+
+            step = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[
+                    {"name": "lgbm", "type": "lightgbm", "hyperparams": {}},
+                    {"name": "cat", "type": "catboost", "hyperparams": {}},
+                ],
+                ensemble_config=None,  # No ensemble → comparison mode
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "models"),
+            )
+            yield step, temp_dir
+
+    def test_comparison_mode_saves_individual_models(self, multi_model_step):
+        """Each model should be saved to its own subdirectory."""
+        step, temp_dir = multi_model_step
+        step.execute({})
+
+        # Check individual model files
+        assert (temp_dir / "models" / "lgbm" / "model.pkl").exists()
+        assert (temp_dir / "models" / "cat" / "model.pkl").exists()
+
+    def test_comparison_mode_context_keys(self, multi_model_step):
+        """Context should have model_paths dict, not single model_path."""
+        step, _ = multi_model_step
+        result = step.execute({})
+
+        # New comparison mode keys
+        assert "model_paths" in result
+        assert isinstance(result["model_paths"], dict)
+        assert "lgbm" in result["model_paths"]
+        assert "cat" in result["model_paths"]
+
+        # Single model keys should be None
+        assert result["model_path"] is None
+        assert result["model"] is None
+
+        # Metrics should be per-model dict
+        assert "val_metrics" in result
+        assert isinstance(result["val_metrics"], dict)
+        assert "lgbm" in result["val_metrics"]
+        assert "cat" in result["val_metrics"]
+
+        # Single metrics should be None
+        assert result["val_auc"] is None
+        assert result["val_f1"] is None
+
+        # Comparison mode flag
+        assert result["comparison_mode"] is True
+
+    def test_comparison_mode_returns_models_dict(self, multi_model_step):
+        """result["models"] should be a dict of fitted models."""
+        step, _ = multi_model_step
+        result = step.execute({})
+
+        assert "models" in result
+        assert isinstance(result["models"], dict)
+        assert "lgbm" in result["models"]
+        assert "cat" in result["models"]
+        assert isinstance(result["models"]["lgbm"], _DummyModel)
+        assert isinstance(result["models"]["cat"], _DummyModel)
+
+    def test_comparison_mode_val_metrics_structure(self, multi_model_step):
+        """val_metrics should contain auc and f1 for each model."""
+        step, _ = multi_model_step
+        result = step.execute({})
+
+        for model_name in ["lgbm", "cat"]:
+            assert model_name in result["val_metrics"]
+            metrics = result["val_metrics"][model_name]
+            assert "auc" in metrics
+            assert "f1" in metrics
+            assert isinstance(metrics["auc"], float)
+            assert isinstance(metrics["f1"], float)
+            assert 0.0 <= metrics["auc"] <= 1.0
+            assert 0.0 <= metrics["f1"] <= 1.0
+
+    def test_three_way_branching(self, parquet_splits, temp_dir):
+        """Verify three-way branching: single/ensemble/comparison."""
+        train_path, val_path = parquet_splits
+        DummyCls = _dummy_model_class(0.6)
+
+        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+            mock_reg.get.return_value = DummyCls
+
+            # 1. Single model
+            step_single = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[{"type": "lightgbm", "hyperparams": {}}],
+                ensemble_config=None,
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "single"),
+            )
+            result_single = step_single.execute({})
+            assert result_single["comparison_mode"] is False
+            assert result_single["model_path"] is not None
+            assert result_single["model_paths"] is None
+
+            # 2. Ensemble mode
+            step_ensemble = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[
+                    {"type": "lightgbm", "hyperparams": {}},
+                    {"type": "catboost", "hyperparams": {}},
+                ],
+                ensemble_config={"method": "soft_voting"},
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "ensemble"),
+            )
+            result_ensemble = step_ensemble.execute({})
+            assert result_ensemble["comparison_mode"] is False
+            assert result_ensemble["model_path"] is not None
+            assert result_ensemble["model_paths"] is None
+
+            # 3. Comparison mode
+            step_compare = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[
+                    {"name": "lgbm", "type": "lightgbm", "hyperparams": {}},
+                    {"name": "cat", "type": "catboost", "hyperparams": {}},
+                ],
+                ensemble_config=None,
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "compare"),
+            )
+            result_compare = step_compare.execute({})
+            assert result_compare["comparison_mode"] is True
+            assert result_compare["model_path"] is None
+            assert result_compare["model_paths"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Validate input / get_required_keys
 # ---------------------------------------------------------------------------
 # Validate input / get_required_keys
 # ---------------------------------------------------------------------------

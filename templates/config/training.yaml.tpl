@@ -266,6 +266,28 @@ training:
   #     min_count_constante: 3     # consecutive equal values to flag
 
   # ============================================
+  # Comparison Mode (NEW - multiple models, no ensemble)
+  # ============================================
+  # Uncomment the block below to enable comparison mode.
+  # Each model is trained independently and gets its own evaluation report.
+  # A comparative report is generated at the end.
+
+  # models:
+  #   - name: "lgbm"
+  #     type: "lightgbm"
+  #     sampling: { method: "undersample", threshold: 0.5 }
+  #     hyperparams: { num_leaves: 31, learning_rate: 0.05, n_estimators: 500 }
+  #     hyperparam_search: { enabled: false }
+  #
+  #   - name: "cat"
+  #     type: "catboost"
+  #     sampling: { method: "undersample", threshold: 0.5 }
+  #     hyperparams: { iterations: 300 }
+  #     hyperparam_search: { enabled: false }
+  #
+  # # NO ensemble: section → comparison mode (each model evaluated independently)
+
+  # ============================================
   # Ensemble Configuration (requires len(models) > 1)
   # ============================================
   # Uncomment both `models` and `ensemble` blocks below to enable ensemble.

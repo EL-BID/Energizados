@@ -89,7 +89,8 @@ class TrainingStep(PipelineStep):
         Returns:
             Dict: Updated context with keys: ``model_path``, ``feature_engineering_path``,
                 ``val_predictions_path``, ``val_auc``, ``val_f1``, ``model``,
-                ``feature_engineering``.
+                ``feature_engineering``. In comparison mode (multiple models, no ensemble):
+                ``model_paths``, ``models``, ``val_metrics``, ``comparison_mode=True``.
 
         Raises:
             ValueError: If ``train_path`` or ``val_path`` cannot be resolved.
@@ -202,6 +203,12 @@ class TrainingStep(PipelineStep):
 
         names = self._resolve_model_names(self.models_configs)
 
+        # Initialize variables for all modes
+        model = None
+        model_path = None
+        models_dict = None
+        model_paths_dict = None
+
         if len(self.models_configs) == 1:
             model, model_path = self._train_single_model(
                 cfg=self.models_configs[0],
@@ -214,7 +221,7 @@ class TrainingStep(PipelineStep):
                 X_val_raw=X_val,
                 save_path=self.output_dir / "model.pkl",
             )
-        else:
+        elif self.ensemble_config:
             model, model_path = self._train_ensemble(
                 names=names,
                 X_train=X_train_transformed,
@@ -222,34 +229,96 @@ class TrainingStep(PipelineStep):
                 X_val=X_val_transformed,
                 y_val=y_val,
             )
+        else:
+            models_dict, model_paths_dict = self._train_multi_model(
+                names=names,
+                X_train=X_train_transformed,
+                y_train=y_train,
+                X_val=X_val_transformed,
+                y_val=y_val,
+                X_train_raw=X_train,
+                X_val_raw=X_val,
+            )
 
         # Phase D: Quick val metrics
-        # For simple models, use raw data for prediction
-        model_type = (
-            self.models_configs[0].get("type", "lightgbm")
-            if len(self.models_configs) == 1
-            else None
-        )
-        if model_type in ["simple_trend", "simple_constant"]:
-            X_val_for_pred = X_val
-        else:
-            X_val_for_pred = X_val_transformed
-
-        val_proba = model.predict_proba(X_val_for_pred)
-        val_pred = (val_proba >= 0.5).astype(int)
-
         from sklearn.metrics import f1_score, roc_auc_score
 
-        val_auc = roc_auc_score(y_val, val_proba)
-        val_f1 = f1_score(y_val, val_pred)
+        # Comparison mode: calculate metrics for each model
+        if len(self.models_configs) > 1 and not self.ensemble_config:
+            val_metrics = {}
+            logger.info("\nComparison mode - validation metrics per model:")
 
-        logger.info(f"\nValidation AUC: {val_auc:.4f}")
-        logger.info(f"Validation F1:  {val_f1:.4f}")
+            for name in names:
+                model_type = None
+                for cfg in self.models_configs:
+                    if cfg.get("name") == name or (
+                        cfg.get("type") == name and names.count(name) == 1
+                    ):
+                        model_type = cfg.get("type")
+                        break
+                if model_type is None:
+                    model_type = name  # Fallback to name
+
+                if model_type in ["simple_trend", "simple_constant"]:
+                    X_val_for_pred = X_val
+                else:
+                    X_val_for_pred = X_val_transformed
+
+                val_proba = models_dict[name].predict_proba(X_val_for_pred)
+                val_pred = (val_proba >= 0.5).astype(int)
+
+                val_auc = roc_auc_score(y_val, val_proba)
+                val_f1 = f1_score(y_val, val_pred)
+
+                val_metrics[name] = {"auc": val_auc, "f1": val_f1}
+                logger.info(f"  {name:15s} AUC: {val_auc:.4f}, F1: {val_f1:.4f}")
+
+            # Use first model's predictions for global stats (backward compatibility)
+            first_name = names[0]
+            model_type = None
+            for cfg in self.models_configs:
+                if cfg.get("name") == first_name or (
+                    cfg.get("type") == first_name and names.count(first_name) == 1
+                ):
+                    model_type = cfg.get("type")
+                    break
+            if model_type is None:
+                model_type = first_name
+
+            if model_type in ["simple_trend", "simple_constant"]:
+                X_val_for_pred = X_val
+            else:
+                X_val_for_pred = X_val_transformed
+
+            val_proba = models_dict[first_name].predict_proba(X_val_for_pred)
+            val_auc = None
+            val_f1 = None
+        else:
+            # Single model or ensemble mode
+            model_type = (
+                self.models_configs[0].get("type", "lightgbm")
+                if len(self.models_configs) == 1
+                else None
+            )
+            if model_type in ["simple_trend", "simple_constant"]:
+                X_val_for_pred = X_val
+            else:
+                X_val_for_pred = X_val_transformed
+
+            val_proba = model.predict_proba(X_val_for_pred)
+            val_pred = (val_proba >= 0.5).astype(int)
+
+            val_auc = roc_auc_score(y_val, val_proba)
+            val_f1 = f1_score(y_val, val_pred)
+            val_metrics = None
+
+            logger.info(f"\nValidation AUC: {val_auc:.4f}")
+            logger.info(f"Validation F1:  {val_f1:.4f}")
 
         import numpy as np
 
         logger.info(
-            f"Val proba stats: min={val_proba.min():.4f}, max={val_proba.max():.4f}, "
+            f"Val proba stats (first model): min={val_proba.min():.4f}, max={val_proba.max():.4f}, "
             f"mean={val_proba.mean():.4f}, median={np.median(val_proba):.4f}, "
             f"pct>0.5={100 * (val_proba >= 0.5).mean():.1f}%, "
             f"pct>0.3={100 * (val_proba >= 0.3).mean():.1f}%, "
@@ -266,16 +335,36 @@ class TrainingStep(PipelineStep):
         val_predictions.to_parquet(val_pred_path)
         logger.info(f"Val predictions saved to: {val_pred_path}")
 
-        return {
+        # Build return context
+        result = {
             **context,
-            "model_path": str(model_path),
             "feature_engineering_path": str(fe_path),
             "val_predictions_path": str(val_pred_path),
-            "val_auc": val_auc,
-            "val_f1": val_f1,
-            "model": model,
             "feature_engineering": feature_engineering,
         }
+
+        # Comparison mode: set model_paths and val_metrics
+        if len(self.models_configs) > 1 and not self.ensemble_config:
+            result["model_paths"] = {name: str(path) for name, path in model_paths_dict.items()}
+            result["models"] = models_dict
+            result["model_path"] = None
+            result["model"] = None
+            result["val_metrics"] = val_metrics
+            result["val_auc"] = None
+            result["val_f1"] = None
+            result["comparison_mode"] = True
+        else:
+            # Single model or ensemble mode
+            result["model_path"] = str(model_path)
+            result["model"] = model
+            result["model_paths"] = None
+            result["models"] = None
+            result["val_metrics"] = None
+            result["val_auc"] = val_auc
+            result["val_f1"] = val_f1
+            result["comparison_mode"] = False
+
+        return result
 
     # ------------------------------------------------------------------
     # Single model helpers
@@ -373,6 +462,49 @@ class TrainingStep(PipelineStep):
         calibrated_model.fit(X_val, y_val)
 
         return calibrated_model
+
+    # ------------------------------------------------------------------
+    # Multi-model helpers (comparison mode)
+    # ------------------------------------------------------------------
+
+    def _train_multi_model(
+        self,
+        names: List[str],
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        X_train_raw: pd.DataFrame = None,
+        X_val_raw: pd.DataFrame = None,
+    ) -> tuple[dict[str, Any], dict[str, Path]]:
+        """
+        Train each model independently for comparison mode.
+
+        Returns:
+            Tuple of (models_dict, paths_dict) where:
+            - models_dict: {name: fitted_model}
+            - paths_dict: {name: Path to model.pkl}
+        """
+        models_dict = {}
+        paths_dict = {}
+
+        for cfg, name in zip(self.models_configs, names):
+            save_path = self.output_dir / name / "model.pkl"
+            model, _ = self._train_single_model(
+                cfg=cfg,
+                name=name,
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
+                X_train_raw=X_train_raw,
+                X_val_raw=X_val_raw,
+                save_path=save_path,
+            )
+            models_dict[name] = model
+            paths_dict[name] = save_path
+
+        return models_dict, paths_dict
 
     # ------------------------------------------------------------------
     # Ensemble helpers
@@ -567,4 +699,8 @@ class TrainingStep(PipelineStep):
             "val_f1",
             "model",
             "feature_engineering",
+            "model_paths",
+            "models",
+            "val_metrics",
+            "comparison_mode",
         ]
