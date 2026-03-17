@@ -38,4 +38,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ## 📄 License
 
-Licensed under the BID License - see [LICENSE.md](LICENSE.md) for details.
+Licensed under the BID License - see [LICENSE.md]((https://github.com/EL-BID/Plantilla-de-repositorio/blob/master/LICENSE.md)) for details.
+
+## Limitation of Liability
+
+The IDB shall not be liable under any circumstances for any damage or compensation, whether moral or proprietary; direct or indirect; incidental or special; or consequential, whether foreseen or unforeseen, that may arise:
+i. Under any theory of liability, whether by contract, infringement of intellectual property rights, negligence or under any other theory; and/or
+ii. From the use of the Digital Tool, including, but not limited to, potential defects in the Digital Tool, or the loss or inaccuracy of data of any kind. The foregoing includes expenses or damages associated with communication failures and/or computer failures related to the use of the Digital Tool.
+

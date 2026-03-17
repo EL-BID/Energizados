@@ -7,7 +7,7 @@ A machine learning framework for detecting non-technical losses (electricity the
 !!! info "End User"
     Install via pip and use the CLI to train models and detect fraud.
 
-    [Get Started →](getting-started/installation.md)
+    [Get Started →](getting-started/overview.md)
 
 !!! info "Advanced User"
     Clone the repository, extend the framework, and contribute.

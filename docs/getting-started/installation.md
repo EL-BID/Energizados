@@ -180,4 +180,4 @@ If you see the help message, installation was successful.
 
 ---
 
-← [Getting Started](quickstart.md) | [Quick Start](quickstart.md) →
+← [Overview](overview.md) | [Quick Start](quickstart.md) →
