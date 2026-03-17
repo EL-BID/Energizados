@@ -47,28 +47,6 @@ class BaseInference(ABC):
             np.ndarray: Probabilities of the positive class
         """
         pass
-
-    def load_model(self, model_path: str) -> BaseModel:
-        """
-        Load a trained model from disk.
-
-        Args:
-            model_path: Path to model file
-
-        Returns:
-            BaseModel: Loaded model
-        """
-        raise NotImplementedError("Subclasses must implement load_model")
-
-    def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
-        """
-        Save predictions to file.
-
-        Args:
-            predictions: Predictions to save
-            output_path: Output path
-        """
-        raise NotImplementedError("Subclasses must implement save_predictions")
 ```
 
 ## Minimal Example: DefaultInference Wrapper
@@ -273,7 +251,7 @@ from energizados.modeling.adapters import LGBMModelAdapter
 def trained_model(synthetic_classification_data):
     """Create a simple trained model for testing."""
     X, y = synthetic_classification_data
-    model = LGBMModelAdapter(n_estimators=10)
+    model = LGBMModelAdapter(cols_for_model=X.columns.tolist(), hyperparams={"n_estimators": 10})
     model.fit(X, y)
     return model
 

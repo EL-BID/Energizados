@@ -119,75 +119,15 @@ etls:
     depends_on: []
 ```
 
-## Advanced Example: MultiSourceETL with Error Handling
+## Advanced Example: Merging Multiple Sources
 
-```python
-# src/data/multi_source_etl.py
-from energizados.etl.base import BaseETL
-import pandas as pd
-import logging
+The built-in `SourceETL` class supports merging multiple data sources horizontally using `mode="merge"`:
 
-logger = logging.getLogger(__name__)
-
-
-class MultiSourceETL(BaseETL):
-    """ETL that merges multiple sources with error handling."""
-
-    def __init__(self, source_paths=None, merge_key=None, **kwargs):
-        super().__init__(**kwargs)
-        self.source_paths = source_paths or []
-        self.merge_key = merge_key
-
-    def extract(self) -> pd.DataFrame:
-        """Extract and merge multiple data sources."""
-        dfs = []
-        for path in self.source_paths:
-            try:
-                if path.endswith('.csv'):
-                    df = pd.read_csv(path)
-                elif path.endswith('.parquet'):
-                    df = pd.read_parquet(path)
-                else:
-                    raise ValueError(f"Unsupported file format: {path}")
-                dfs.append(df)
-                logger.info(f"Loaded {len(df)} rows from {path}")
-            except Exception as e:
-                logger.error(f"Failed to load {path}: {e}")
-                raise
-
-        if not dfs:
-            raise ValueError("No data sources loaded successfully")
-
-        return dfs
-
-    def transform(self, df_list: list) -> pd.DataFrame:
-        """Merge all DataFrames on the specified key."""
-        if len(df_list) == 1:
-            return df_list[0]
-
-        merged = df_list[0]
-        for df in df_list[1:]:
-            merged = pd.merge(
-                merged,
-                df,
-                on=self.merge_key,
-                how='left'
-            )
-            logger.info(f"Merged: {len(merged)} rows")
-
-        return merged
-
-    def load(self, df: pd.DataFrame, path: str) -> None:
-        """Save to parquet with compression."""
-        df.to_parquet(path, index=False, compression='snappy')
-        logger.info(f"Saved {len(df)} rows to {path}")
-```
-
-Wire it in `config/etls.yaml` with dependencies:
 ```yaml
 etls:
   consumos:
     enabled: true
+    description: "Consumption data"
     input: "data/raw/consumos.csv"
     output: "data/processed/consumos.parquet"
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -197,6 +137,7 @@ etls:
 
   clientes:
     enabled: true
+    description: "Customer data"
     input: "data/raw/clientes.csv"
     output: "data/processed/clientes.parquet"
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -211,12 +152,16 @@ etls:
       - "@consumos"
       - "@clientes"
     output: "data/processed/merged.parquet"
-    custom_class: "src.data.multi_source_etl.MultiSourceETL"
+    custom_class: "energizados.etl.pipeline.SourceETL"
     params:
-      source_paths: ["@consumos", "@clientes"]
-      merge_key: "id_cliente"
+      mode: "merge"
+      merge_config:
+        how: "left"
+        on: "id_cliente"
     depends_on: ["consumos", "clientes"]
 ```
+
+The `merge_config` section accepts any parameter from pandas `pd.merge()`: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
 
 ## ETL Dependencies with @etl_name Syntax
 

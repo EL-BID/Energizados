@@ -51,7 +51,17 @@ src/energizados/
 │
 ├── core/                     # Core framework components
 │   ├── base.py             # Base classes: Pipeline, Model, Inference
-│   ├── pipeline.py         # Pipeline orchestrator (ConfigPipelineBuilder)
+│   ├── pipeline.py         # Pipeline orchestrator (ConfigPipelineBuilder - DEPRECATED)
+│   ├── builders/           # Pipeline step builders (current architecture)
+│   │   ├── base.py         # StepBuilder: abstract base class for builders
+│   │   ├── director.py     # PipelineDirector: orchestrates pipeline construction
+│   │   ├── run_manager.py  # RunManager: manages run directories and post-run tasks
+│   │   ├── etl_builder.py  # ETLBuilder: constructs ETL steps
+│   │   ├── split_builder.py # SplitBuilder: constructs split steps
+│   │   ├── training_builder.py # TrainingBuilder: constructs training steps
+│   │   ├── evaluation_builder.py # EvaluationBuilder: constructs evaluation steps
+│   │   ├── inference_builder.py # InferenceBuilder: constructs inference steps
+│   │   └── eda_builder.py   # EDABuilder: constructs EDA steps
 │   ├── steps/              # Pipeline step implementations
 │   │   ├── split.py        # SplitStep: train/val/test splits
 │   │   └── training.py     # TrainingStep: model training
@@ -93,50 +103,11 @@ Projects created with `energizados init` have the following structure:
 
 ```
 mi_proyecto/
-├── config/                       # Configuration files (3 YAMLs)
+├── config/                       # Configuration files (4 YAMLs)
 │   ├── etls.yaml
 │   ├── training.yaml             # Includes split, feature_engineering, model, evaluation
-│   └── inference.yaml
-│
-├── data/
-│   ├── raw/                     # Input data (includes sample_dataset.parquet)
-│   ├── processed/               # ETL outputs and feature engineering results
-│   └── splits/                  # Train/val/test splits
-│
-├── docs/
-│   └── project_docs.md
-│
-├── output/                        # Training run outputs (auto-created per run)
-│   ├── index.html                 # Summary table of all training runs with metrics
-│   └── train-YYYYMMDD_HHMM/      # One directory per training execution
-│       ├── models/                # Feature engineering + model(s)
-│       │   ├── feature_engineering.pkl
-│       │   ├── model.pkl          # Single model (if len(models)==1)
-│       │   ├── lgbm/             # Base model sub-dirs (if ensemble)
-│       │   │   └── model.pkl
-│       │   ├── cat/
-│       │   │   └── model.pkl
-│       │   └── ensemble.pkl      # Ensemble model (if len(models)>1)
-│       ├── reports/
-│       │   └── evaluation/        # HTML report, JSON report, plots
-│       └── config/               # Copy of YAML config files used for this run
-│
-├── notebooks/
-│   └── example_notebook.ipynb
-│
-├── src/
-│   ├── data/                     # Custom ETL (custom_etl.py)
-│   ├── features/                  # Custom feature selector (custom_selector.py)
-│   ├── models/                    # Custom model (custom_model.py)
-│   ├── inference/                 # Custom inference (custom_inference.py)
-│   ├── utils/                     # Shared utilities (helpers.py)
-│   └── run/                       # Execution scripts
-│       ├── 01_etl.py
-│       ├── 02_training.py
-│       ├── 03_evaluation.py
-│       └── 04_inference.py
-│
-└── tests/
+│   ├── inference.yaml
+│   └── eda.yaml
 ```
 
 ## Module Responsibilities
@@ -145,11 +116,53 @@ mi_proyecto/
 
 | Module | Responsibility |
 |---------|---------------|
-| `core/pipeline.py` | Orchestrates the entire ML pipeline (ETL → Split → Training → Evaluation) |
+| `core/pipeline.py` | **DEPRECATED**: `ConfigPipelineBuilder` is a backwards compatibility wrapper. New code should use `PipelineDirector` from `core/builders/`. |
+| `core/builders/director.py` | `PipelineDirector`: Orchestrates the entire ML pipeline (ETL → Split → Training → Evaluation) using specialized builders |
+| `core/builders/base.py` | `StepBuilder`: Abstract base class for all pipeline step builders |
+| `core/builders/run_manager.py` | `RunManager`: Manages run directory creation, config copying, and index.html generation |
+| `core/builders/etl_builder.py` | `ETLBuilder`: Constructs ETL pipeline steps from configuration |
+| `core/builders/split_builder.py` | `SplitBuilder`: Constructs data splitting pipeline steps |
+| `core/builders/training_builder.py` | `TrainingBuilder`: Constructs training pipeline steps (feature engineering + model training) |
+| `core/builders/evaluation_builder.py` | `EvaluationBuilder`: Constructs evaluation pipeline steps |
+| `core/builders/inference_builder.py` | `InferenceBuilder`: Constructs inference pipeline steps |
+| `core/builders/eda_builder.py` | `EDABuilder`: Constructs EDA (Exploratory Data Analysis) pipeline steps |
 | `core/base.py` | Provides base classes for Pipeline, Model, and Inference |
 | `core/steps/` | Implements pipeline steps (splitting, training) |
 | `core/utils/import_utils.py` | Dynamic class loading with security allowlist |
 | `core/utils/secure_pickle.py` | Pickle serialization with SHA-256 verification |
+
+### Pipeline Builders Module
+
+The `core/builders/` module implements the **Builder pattern** for constructing pipeline steps from YAML configuration.
+
+**Key Classes:**
+
+| Class | Location | Purpose |
+|-------|----------|---------|
+| `PipelineDirector` | `director.py` | Orchestrates the construction of the complete pipeline from configuration, using specialized builders for each step type. Also manages configuration validation and run directory creation. |
+| `StepBuilder` | `base.py` | Abstract base class that defines the interface for all pipeline step builders. Subclasses implement `build()` to construct specific pipeline steps. |
+| `RunManager` | `run_manager.py` | Handles run directory management: creates timestamped run directories, copies config files to the run directory, and regenerates the global `index.html` summary. |
+| `ETLBuilder` | `etl_builder.py` | Constructs ETL pipeline steps using `ETLOrchestrator` to execute ETLs with dependencies. |
+| `SplitBuilder` | `split_builder.py` | Constructs data splitting steps (stratified, random, or time-series split) from configuration. |
+| `TrainingBuilder` | `training_builder.py` | Constructs training steps that perform feature engineering and model training. Supports single models or ensembles. |
+| `EvaluationBuilder` | `evaluation_builder.py` | Constructs evaluation steps using `DefaultEvaluator` to generate metrics, plots, and reports. |
+| `InferenceBuilder` | `inference_builder.py` | Constructs inference steps for making predictions with trained models. |
+| `EDABuilder` | `eda_builder.py` | Constructs EDA (Exploratory Data Analysis) steps using `DatasetExplorer`. |
+
+**How It Works:**
+
+1. `PipelineDirector` reads YAML configuration and validates it against JSON schemas
+2. For each step type (ETL, Split, Training, Evaluation, Inference, EDA), the director delegates to a specialized builder
+3. Each builder constructs a `PipelineStep` instance from the configuration
+4. The director adds all steps to a `Pipeline` instance
+5. When `director.run()` is called, the pipeline executes all steps in order
+
+**Benefits:**
+
+- **Separation of Concerns**: Each builder is responsible for one type of step
+- **Extensibility**: Adding new step types requires only a new builder class
+- **Testability**: Builders can be unit tested independently
+- **Configuration Validation**: Schema validation happens before pipeline execution
 
 ### ETL Framework
 

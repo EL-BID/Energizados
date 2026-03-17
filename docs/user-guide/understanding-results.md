@@ -149,28 +149,12 @@ The default threshold is 0.5, but **this is rarely optimal for fraud detection**
 
 ## Feature Importance
 
-Energizados provides two types of feature importance plots:
-
-### SHAP Values (Model-Agnostic)
-
-**What they show**: How much each feature contributed to predictions, on average.
-
-**Interpretation**:
-- **Positive SHAP value**: Feature increases fraud probability
-- **Negative SHAP value**: Feature decreases fraud probability
-- **Magnitude**: Absolute value indicates importance
-
-**Practical use**:
-- Identify which features are driving predictions
-- Detect potential data leakage (features with extremely high importance)
-- Explain model decisions to stakeholders
+Energizados provides feature importance plots:
 
 ### Feature Importance Plots
 
 **What they show**: Ranked list of features by importance (varies by model type):
 - **LightGBM/CatBoost**: Gain or split-based importance
-- **Neural Networks**: Permutation importance or SHAP values
-- **LSTM**: Attention weights or SHAP values
 
 !!! warning
     Correlated features can inflate importance scores. If two features are highly correlated (e.g., `mean_consumption_6m` and `mean_consumption_12m`), their individual importance scores may be unreliable.

@@ -100,7 +100,7 @@ etls:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `how` | string | `"inner"` | Type of merge: `"left"`, `"right"`, `"inner"`, `"outer"` |
+| `how` | string | `"left"` | Type of merge: `"left"`, `"right"`, `"inner"`, `"outer"` |
 | `on` | string or list | `null` | Column name(s) to merge on |
 | `left_on` | string or list | `null` | Column(s) in left DataFrame to use as keys |
 | `right_on` | string or list | `null` | Column(s) in right DataFrame to use as keys |
@@ -345,19 +345,23 @@ from energizados.etl.base import BaseETL
 import pandas as pd
 
 class CustomETL(BaseETL):
-    def run(self):
+    def __init__(self, name: str, input_paths: list, output_path: str, **kwargs):
+        self.name = name
+        self.input_paths = input_paths
+        self.output_path = output_path
+        # Add any custom parameters from params section
+
+    def extract(self) -> pd.DataFrame:
         # Read input data
-        data = pd.read_parquet(self.input_path)
+        return pd.read_parquet(self.input_paths[0])
 
-        # Apply transformations
-        transformed = self._transform(data)
-
-        # Save output
-        transformed.to_parquet(self.output_path)
-
-    def _transform(self, data: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # Your custom logic here
-        return data
+        return df
+
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        # Save output
+        df.to_parquet(path)
 ```
 
 Then reference it in `etls.yaml`:

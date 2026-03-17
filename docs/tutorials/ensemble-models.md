@@ -507,7 +507,6 @@ ensemble:
   method: "stacking"
   meta_learner:
     type: "lightgbm"  # Can handle features + predictions
-  include_features: true  # Include original features in meta-learner
 ```
 
 ### Dynamic Ensembling

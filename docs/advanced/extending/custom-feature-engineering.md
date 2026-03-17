@@ -224,7 +224,7 @@ training:
 
 | Transformation | Description | Parameters |
 |----------------|-------------|------------|
-| `cardinality_reducer` | Groups infrequent categories into "otros" | `threshold` (float, default=0.1) |
+| `cardinality_reducer` | Groups infrequent categories into "otros" | `threshold` (float, class default=0.1; YAML template default=0.001) |
 | `to_dummy` | One-hot encoding | None |
 | `target_encoding` | Replaces category with target probability (requires y) | `w` (int, default=20) |
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |

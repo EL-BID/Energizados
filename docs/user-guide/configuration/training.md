@@ -196,7 +196,7 @@ Time series feature extraction using the tsfel library.
 | `num_periodos` | int | `12` | Number of time series columns |
 | `features_names_path` | string | `null` | Path to JSON with custom feature configuration |
 | `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
-| `n_jobs` | int | `-1` | Number of parallel jobs (-1 = all cores) |
+| `n_jobs` | int | `1` | Number of parallel jobs (1 = sequential) |
 | `chunk_size` | int | `500` | Rows per chunk per worker |
 | `cache_dir` | string | `null` | Directory to cache tsfel results |
 

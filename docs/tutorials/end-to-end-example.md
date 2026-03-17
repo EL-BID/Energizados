@@ -354,29 +354,28 @@ python << 'EOF'
 import pandas as pd
 
 preds = pd.read_parquet("output/inference_predictions.parquet")
-print(preds[['fraud_probability', 'fraud_prediction', 'inspection_priority']].sort_values('fraud_probability', ascending=False))
+print(preds[['fraud_probability', 'fraud_prediction']].sort_values('fraud_probability', ascending=False))
 EOF
 ```
 
 **Expected output**:
 ```
-      fraud_probability  fraud_prediction  inspection_priority
-7               0.7842                 1                    High
-2               0.6521                 1                    High
-5               0.4123                 0                  Medium
-9               0.3456                 0                  Medium
-1               0.2891                 0                   Low
-0               0.2134                 0                   Low
-3               0.1567                 0                   Low
-4               0.0892                 0                   Low
-6               0.0456                 0                   Low
-8               0.0234                 0                   Low
+      fraud_probability  fraud_prediction
+7               0.7842                 1
+2               0.6521                 1
+5               0.4123                 0
+9               0.3456                 0
+1               0.2891                 0
+0               0.2134                 0
+3               0.1567                 0
+4               0.0892                 0
+6               0.0456                 0
+8               0.0234                 0
 ```
 
 The predictions include:
 - **fraud_probability**: Model's confidence score (0-1)
 - **fraud_prediction**: Binary prediction (1 = fraud, 0 = legitimate) based on threshold
-- **inspection_priority**: Priority category (High/Medium/Low) based on probability bins
 
 ## Step 8: What to Do Next
 

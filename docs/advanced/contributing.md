@@ -270,7 +270,17 @@ src/energizados/
 │   └── validate.py       # Subcommand: energizados validate
 │
 ├── core/                  # Core framework components
-│   ├── pipeline.py       # ConfigPipelineBuilder: orchestrates entire flow
+│   ├── pipeline.py       # ConfigPipelineBuilder: DEPRECATED wrapper - use PipelineDirector from core/builders/
+│   ├── builders/         # Pipeline step builders (current architecture)
+│   │   ├── director.py   # PipelineDirector: orchestrates pipeline construction
+│   │   ├── base.py       # StepBuilder: abstract base class for builders
+│   │   ├── run_manager.py # RunManager: manages run directories and post-run tasks
+│   │   ├── etl_builder.py  # ETLBuilder: constructs ETL steps
+│   │   ├── split_builder.py # SplitBuilder: constructs split steps
+│   │   ├── training_builder.py # TrainingBuilder: constructs training steps
+│   │   ├── evaluation_builder.py # EvaluationBuilder: constructs evaluation steps
+│   │   ├── inference_builder.py # InferenceBuilder: constructs inference steps
+│   │   └── eda_builder.py   # EDABuilder: constructs EDA steps
 │   ├── base.py           # Base classes: Pipeline, Model, Inference
 │   ├── steps/            # Pipeline step implementations
 │   │   ├── split.py      # SplitStep: train/val/test splits

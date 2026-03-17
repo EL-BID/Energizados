@@ -314,7 +314,8 @@ The framework includes several built-in model adapters:
 | CatBoost | `CATModel` | Gradient boosting with automatic categorical handling |
 | Neural Network | `NNModel` | Feedforward neural network (TensorFlow/Keras) |
 | LSTM | `LSTMNNModel` | LSTM for sequential consumption data |
-| Simple Rules | `SimpleModel` | Rule-based baseline models |
+| Simple Trend | `SimpleTrendAdapter` | Rule-based model detecting dramatic consumption drops |
+| Simple Constant | `SimpleConstantAdapter` | Rule-based model identifying constant consumption patterns |
 
 ## See Also
 
