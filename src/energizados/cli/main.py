@@ -38,6 +38,28 @@ def _setup_logging(verbose: int = 0):
     root_logger.addHandler(handler)
 
 
+class EnergizadosGroup(click.Group):
+    """Custom Click Group to provide helpful hints for removed commands."""
+
+    def get_command(self, ctx, cmd_name):
+        """Override to provide custom hints for removed commands."""
+        rv = super().get_command(ctx, cmd_name)
+        if rv is not None:
+            return rv
+
+        # Check if user is trying to run the removed 'eda' command
+        if cmd_name == "eda":
+            from energizados.cli.ui import print_error, print_info
+
+            print_error("No such command 'eda'.")
+            print_info("")
+            print_info("The 'eda' subcommand has been removed.")
+            print_info("  Use: energizados run eda")
+            raise click.Abort()
+
+        return None
+
+
 def _print_next_steps(project_name: str):
     """
     Print next steps as a Rich Panel with Tree.
@@ -55,8 +77,8 @@ def _print_next_steps(project_name: str):
     edit_config.add("[cyan]•[/] inference.yaml")
     edit_config.add("[cyan]•[/] eda.yaml")
     tree.add("[cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
-    tree.add("[cyan]4.[/] energizados eda --config config/eda.yaml")
-    tree.add("[cyan]5.[/] energizados run --config config/etls.yaml --config config/training.yaml")
+    tree.add("[cyan]4.[/] energizados run eda")
+    tree.add("[cyan]5.[/] energizados run etls,training")
 
     panel = Panel(tree, title="[bold]Next Steps[/]", border_style="cyan")
     console.print("\n")
@@ -64,7 +86,7 @@ def _print_next_steps(project_name: str):
     console.print()
 
 
-@click.group()
+@click.group(cls=EnergizadosGroup)
 @click.version_option(version="1.0.0", prog_name="energizados")
 @click.option("--verbose", "-v", count=True, help="Increase verbosity (-v, -vv, -vvv)")
 @click.pass_context
@@ -79,7 +101,6 @@ def cli(ctx, verbose):
     - init: Initialize a new project
     - run: Execute a pipeline from configuration
     - validate: Validate configuration file
-    - eda: Run Exploratory Data Analysis on a dataset
     - doctor: Check system information and validate environment
 
     Verbosity options:
@@ -191,14 +212,12 @@ def init(ctx, project_name, template, path, copy_from, force):
 
 
 @cli.command()
+@click.argument("configs")
 @click.option(
-    "--config",
-    "-c",
-    "config_paths",
-    multiple=True,
-    required=True,
-    type=click.Path(exists=True),
-    help="Path(s) to YAML configuration file(s). Can be used multiple times.",
+    "--config-path",
+    "-p",
+    default=None,
+    help="Config directory (default: ./config/)",
 )
 @click.option(
     "--step",
@@ -217,7 +236,7 @@ def init(ctx, project_name, template, path, copy_from, force):
     help="Show what would be executed without actually running (for ETLs shows the execution plan)",
 )
 @click.pass_context
-def run(ctx, config_paths, step, etl, dry_run):
+def run(ctx, configs, config_path, step, etl, dry_run):
     """
     Execute a pipeline from YAML configuration.
 
@@ -230,9 +249,17 @@ def run(ctx, config_paths, step, etl, dry_run):
     - --etl: Execute a specific ETL (with multiple ETLs)
     - --dry-run: Show the plan without executing
 
-    You can specify multiple configuration files:
-        energizados run --config config/etls.yaml --config config/training.yaml
+    CONFIGS is a comma-separated list of config names or paths.
+    Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
+
+    Examples:
+        energizados run etls                           # Run config/etls.yaml
+        energizados run etls,training                   # Merge and run both configs
+        energizados run eda                            # Run config/eda.yaml
+        energizados run --config-path /custom etls       # Use /custom/etls.yaml
+        energizados run /abs/path/custom.yaml            # Use absolute path directly
     """
+    from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
     from energizados.cli.run import (
         execute_etl,
         execute_pipeline,
@@ -241,10 +268,13 @@ def run(ctx, config_paths, step, etl, dry_run):
     from energizados.cli.ui import print_error, print_info, print_success
 
     try:
+        # Resolve config names to paths
+        config_paths = resolve_configs(configs, config_path)
+
         # If --etl is specified, execute specific ETLs
         if etl:
             print_info(f"Executing ETL '{etl}' (and its dependencies)...")
-            execute_etl(list(config_paths), etl_name=etl, dry_run=dry_run)
+            execute_etl(config_paths, etl_name=etl, dry_run=dry_run)
             if not dry_run:
                 print_success("ETLs completed successfully")
             return
@@ -255,11 +285,11 @@ def run(ctx, config_paths, step, etl, dry_run):
                 print_info(f"Dry-run mode for step '{step}'...")
                 from energizados.cli.validate import validate_config
 
-                validate_config(list(config_paths), verbose=True)
+                validate_config(config_paths, verbose=True)
                 return
 
             print_info(f"Executing step '{step}' of the pipeline...")
-            execute_step(list(config_paths), step)
+            execute_step(config_paths, step)
             print_success("Step completed successfully")
             return
 
@@ -269,36 +299,39 @@ def run(ctx, config_paths, step, etl, dry_run):
 
             print_info("Dry-run mode - showing execution plan...")
             try:
-                plan = show_etl_plan(list(config_paths))
+                plan = show_etl_plan(config_paths)
                 click.echo(plan)
             except Exception:
                 # No ETLs, show general validation
                 from energizados.cli.validate import validate_config
 
-                validate_config(list(config_paths), verbose=True)
+                validate_config(config_paths, verbose=True)
             return
 
         # Execute complete pipeline
-        print_info("Executing complete pipeline...")
-        execute_pipeline(list(config_paths))
+        execute_pipeline(config_paths)
         print_success("Pipeline completed successfully")
 
+    except ConfigResolutionError as e:
+        print_error(str(e))
+        raise click.Abort()
+    except FileNotFoundError as e:
+        print_error(str(e))
+        raise click.Abort()
     except Exception as e:
         print_error(f"Error executing pipeline: {e}")
-        print_info("Tip: Run 'energizados validate --config <file>' to check")
+        print_info("Tip: Run 'energizados validate <config>' to check")
         print_info("      your configuration before running")
         raise click.Abort()
 
 
 @cli.command()
+@click.argument("configs")
 @click.option(
-    "--config",
-    "-c",
-    "config_paths",
-    multiple=True,
-    required=True,
-    type=click.Path(exists=True),
-    help="Path(s) to YAML configuration file(s). Can be used multiple times.",
+    "--config-path",
+    "-p",
+    default=None,
+    help="Config directory (default: ./config/)",
 )
 @click.option(
     "--verbose",
@@ -307,253 +340,42 @@ def run(ctx, config_paths, step, etl, dry_run):
     help="Show complete validation details",
 )
 @click.pass_context
-def validate(ctx, config_paths, verbose):
+def validate(ctx, configs, config_path, verbose):
     """
     Validate YAML configuration file(s).
 
     This command verifies that the configuration file(s) are valid
     and that all references to classes and parameters are correct.
+
+    CONFIGS is a comma-separated list of config names or paths.
+    Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
+
+    Examples:
+        energizados validate etls                    # Validate config/etls.yaml
+        energizados validate etls,training           # Validate both configs
+        energizados validate eda                     # Validate config/eda.yaml
     """
+    from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
     from energizados.cli.ui import print_error, print_info, print_success
     from energizados.cli.validate import validate_config
 
     try:
-        for config_path in config_paths:
-            print_info(f"Validating: {config_path}")
-        validate_config(list(config_paths), verbose=verbose)
+        # Resolve config names to paths
+        config_paths = resolve_configs(configs, config_path)
+
+        for resolved_path in config_paths:
+            print_info(f"Validating: {resolved_path}")
+        validate_config(config_paths, verbose=verbose)
         print_success("Configuration is valid")
+    except ConfigResolutionError as e:
+        print_error(str(e))
+        raise click.Abort()
+    except FileNotFoundError as e:
+        print_error(str(e))
+        raise click.Abort()
     except Exception as e:
         print_error(f"Validation failed: {e}")
         print_info("Tip: Fix the configuration errors above and try again")
-        raise click.Abort()
-
-
-@cli.command()
-@click.option(
-    "--input",
-    "-i",
-    "input_path",
-    default=None,
-    help="Path to input dataset (parquet or CSV). Overrides config file.",
-)
-@click.option(
-    "--target",
-    "-t",
-    "target_column",
-    default=None,
-    help="Name of binary target column.",
-)
-@click.option(
-    "--config",
-    "-c",
-    "config_path",
-    default=None,
-    type=click.Path(exists=True),
-    help="Path to eda.yaml configuration file.",
-)
-@click.option(
-    "--output",
-    "-o",
-    "output_dir",
-    default=None,
-    help="Output directory for EDA report and plots.",
-)
-@click.option(
-    "--lat-col",
-    "lat_col",
-    default=None,
-    help="Name of latitude column (enables geospatial analysis).",
-)
-@click.option(
-    "--lon-col",
-    "lon_col",
-    default=None,
-    help="Name of longitude column (enables geospatial analysis).",
-)
-@click.option(
-    "--etl",
-    "-e",
-    "etl_name",
-    default=None,
-    help="Name of an ETL defined in etls.yaml whose output to analyze.",
-)
-@click.option(
-    "--skip-sections",
-    "skip_sections",
-    default=None,
-    help="Comma-separated list of sections to skip (e.g. 'geo,join,segmentation').",
-)
-@click.option(
-    "--dry-run",
-    "-d",
-    is_flag=True,
-    help="Show configuration that would be used without running the analysis.",
-)
-@click.pass_context
-def eda(
-    ctx,
-    input_path,
-    target_column,
-    config_path,
-    output_dir,
-    lat_col,
-    lon_col,
-    etl_name,
-    skip_sections,
-    dry_run,
-):
-    """
-    Run Exploratory Data Analysis (EDA) on a dataset.
-
-    Analyzes data quality, column distributions, target variable and
-    feature predictive power. Generates a self-contained HTML report.
-
-    Examples:
-
-        energizados eda --input data/raw/dataset.parquet --target target
-
-        energizados eda --config config/eda.yaml
-
-        energizados eda --config config/eda.yaml --etl sample
-
-        energizados eda --config config/eda.yaml --lat-col LATITUDE --lon-col LONGITUDE
-
-        energizados eda --config config/eda.yaml --skip-sections "geo,join"
-
-        energizados eda --config config/eda.yaml --dry-run
-    """
-    import yaml
-
-    # Load config if provided
-    config = {}
-    if config_path:
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f) or {}
-        except Exception as e:
-            from energizados.cli.ui import print_error
-
-            print_error(f"Error reading configuration: {e}")
-            raise click.Abort()
-
-    # CLI args override config
-    eda_cfg = config.get("eda", config)
-
-    # Apply skip-sections overrides
-    if skip_sections:
-        skipped = [s.strip() for s in skip_sections.split(",")]
-        sections = eda_cfg.setdefault("sections", {})
-        for section in skipped:
-            sections.setdefault(section, {})["enabled"] = False
-
-    # Apply lat/lon CLI overrides to column_detection
-    if lat_col or lon_col:
-        col_det = eda_cfg.setdefault("column_detection", {})
-        if lat_col:
-            col_det["lat_col"] = lat_col
-        if lon_col:
-            col_det["lon_col"] = lon_col
-        # Auto-enable geospatial section when coordinates are provided via CLI
-        eda_cfg.setdefault("sections", {}).setdefault("geospatial", {}).setdefault("enabled", True)
-
-    # Resolve input path: --etl takes precedence, then --input, then config
-    resolved_input = input_path
-    if not resolved_input and etl_name:
-        # Resolve ETL output from etls.yaml (config may be an etls.yaml)
-        etls_cfg = config.get("etls", {})
-        etl_entry = etls_cfg.get(etl_name, {})
-        resolved_input = etl_entry.get("output")
-        if not resolved_input:
-            from energizados.cli.ui import print_error, print_step
-
-            print_error(
-                f"ETL '{etl_name}' not found or has no 'output' defined in the configuration."
-            )
-            raise click.Abort()
-
-        print_step(f"Usando output del ETL '{etl_name}': {resolved_input}")
-
-    if not resolved_input:
-        data_sources = eda_cfg.get("data_sources", {})
-        primary = data_sources.get("primary", {})
-        resolved_input = primary.get("path")
-
-    if not resolved_input:
-        from energizados.cli.ui import print_error
-
-        print_error("Se requiere --input, --etl, o config/eda.yaml con data_sources.primary.path")
-        raise click.Abort()
-
-    # Resolve output dir
-    resolved_output = output_dir
-    if not resolved_output:
-        output_cfg = eda_cfg.get("output", {})
-        resolved_output = output_cfg.get("output_dir", "output/eda/")
-
-    # Resolve target
-    resolved_target = target_column
-    if not resolved_target:
-        data_sources = eda_cfg.get("data_sources", {})
-        resolved_target = data_sources.get("primary", {}).get("target_col")
-
-    if dry_run:
-        from energizados.cli.ui import console
-
-        console.print("[dim]Modo dry-run - configuración que se usaría:[/]")
-        console.print(f"[dim]  Entrada:  {resolved_input}[/]")
-        console.print(f"[dim]  Target:   {resolved_target or '(no especificado)'}[/]")
-        console.print(f"[dim]  Salida:   {resolved_output}[/]")
-        if etl_name:
-            console.print(f"[dim]  ETL:      {etl_name}[/]")
-        if lat_col or lon_col:
-            console.print(f"[dim]  Coordenadas: lat={lat_col}, lon={lon_col}[/]")
-        if skip_sections:
-            console.print(f"[dim]  Secciones omitidas: {skip_sections}[/]")
-        return
-
-    try:
-        from energizados.eda.dataset_explorer import DatasetExplorer
-
-        col_detection = eda_cfg.get("column_detection", {})
-
-        explorer = DatasetExplorer(
-            input_path=resolved_input,
-            target_column=resolved_target,
-            id_column=col_detection.get("id_col"),
-            date_column=col_detection.get("date_col"),
-            lat_column=col_detection.get("lat_col"),
-            lon_column=col_detection.get("lon_col"),
-            zone_column=col_detection.get("zone_col"),
-            periods_suffix=col_detection.get("periods_suffix", "_anterior"),
-            output_dir=resolved_output,
-            sections=eda_cfg.get("sections"),
-            config=config if config else None,
-        )
-
-        results = explorer.run()
-        report_path = results.get("report_path", "")
-        alert_count = len(results.get("alerts", []))
-        error_count = sum(1 for a in results.get("alerts", []) if a.get("severity") == "ERROR")
-        warning_count = sum(1 for a in results.get("alerts", []) if a.get("severity") == "WARNING")
-
-        from energizados.cli.ui import console, print_error, print_success
-
-        print_success("EDA completado exitosamente")
-        console.print(f"  Reporte: {report_path}")
-        console.print(
-            f"  Alertas: {alert_count} total ({error_count} errores, {warning_count} advertencias)"
-        )
-
-    except FileNotFoundError as e:
-        from energizados.cli.ui import print_error
-
-        print_error(f"File not found: {e}")
-        raise click.Abort()
-    except Exception as e:
-        from energizados.cli.ui import print_error, print_info
-
-        print_error(f"Error executing EDA: {e}")
-        print_info("Tip: Run 'energizados validate --config <file>' to verify your configuration")
         raise click.Abort()
 
 

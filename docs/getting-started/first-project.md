@@ -87,7 +87,7 @@ This ETL:
 Execute the ETL to process the sample data:
 
 ```bash
-energizados run --config config/etls.yaml
+energizados run etls
 ```
 
 You should see output indicating that the ETL is running and completing successfully. The processed data will be saved to `data/processed/sample_dataset.parquet`.
@@ -154,7 +154,7 @@ models:
 Execute the training pipeline:
 
 ```bash
-energizados run --config config/training.yaml
+energizados run training
 ```
 
 This will:
@@ -201,7 +201,7 @@ Open `output/train-YYYYMMDD_HHMM/reports/evaluation/report.html` in your browser
 Once you have a trained model, you can apply it to new data:
 
 ```bash
-energizados run --config config/inference.yaml
+energizados run inference
 ```
 
 Make sure `config/inference.yaml` is configured with:

@@ -182,7 +182,7 @@ energizados validate --config config/etls.yaml --verbose
 3. Run with verbose output:
 
 ```bash
-energizados run --config config/etls.yaml -vv
+energizados run etls -vv
 ```
 
 4. Check for circular dependencies in `depends_on`:
@@ -229,7 +229,7 @@ print(df.columns)  # Verify target_column is present
 4. Run with debug logging:
 
 ```bash
-energizados run --config config/training.yaml -vvv
+energizados run training -vvv
 ```
 
 ### Common Training Issues
@@ -354,7 +354,7 @@ This verifies:
 Add `-v`, `-vv`, or `-vvv` to commands to see more debug information:
 
 ```bash
-energizados run --config config/training.yaml -vv
+energizados run training -vv
 ```
 
 Verbosity levels:
@@ -366,7 +366,7 @@ Verbosity levels:
 Check the execution plan without running:
 
 ```bash
-energizados run --config config/etls.yaml --dry-run
+energizados run etls --dry-run
 ```
 
 ### 5. Common Issues Checklist

@@ -130,7 +130,7 @@ If your input data has an index column, the output will preserve that index. Oth
 ### Using the CLI
 
 ```bash
-energizados run --config config/inference.yaml
+energizados run inference
 ```
 
 ### Using the Python Script
@@ -301,10 +301,10 @@ For large datasets, consider splitting into batches:
 
 ```bash
 # Run inference on first batch
-energizados run --config config/inference_batch1.yaml
+energizados run inference_batch1
 
 # Run inference on second batch
-energizados run --config config/inference_batch2.yaml
+energizados run inference_batch2
 ```
 
 ### 5. Monitoring

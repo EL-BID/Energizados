@@ -89,6 +89,11 @@ class Pipeline:
         self.context: Dict[str, Any] = {}
         self.steps: List[PipelineStep] = []
 
+        # Optional callbacks for progress tracking
+        self.on_step_start = None  # callable(name, index, total)
+        self.on_step_complete = None  # callable(name, index, total)
+        self.on_step_error = None  # callable(name, error)
+
     def _load_config(self, path: str) -> Dict:
         """
         Load configuration from YAML.
@@ -140,6 +145,10 @@ class Pipeline:
             logger.info(f"STEP {i}/{total_steps}: {step_name}")
             logger.info(f"{'=' * 60}")
 
+            # Notify step start
+            if self.on_step_start:
+                self.on_step_start(step_name, i, total_steps)
+
             # Validate input
             if not step.validate_input(self.context):
                 missing_keys = step.get_required_keys()
@@ -153,7 +162,14 @@ class Pipeline:
             try:
                 self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")
+
+                # Notify step complete
+                if self.on_step_complete:
+                    self.on_step_complete(step_name, i, total_steps)
             except Exception as e:
+                # Notify step error
+                if self.on_step_error:
+                    self.on_step_error(step_name, e)
                 raise PipelineError(f"Error executing step {step_name}: {e}", step=step_name)
 
         logger.info(f"\n{'=' * 60}")

@@ -31,96 +31,109 @@ energizados init my_project --force
 
 ---
 
-## `energizados run --config <file> [options]`
+## `energizados run <configs> [options]`
 
-Executes a pipeline from a YAML configuration file.
+Executes a pipeline from YAML configuration files.
 
-### Required Options
+### Required Arguments
 
-- `--config, -c`: Path to YAML file (can be specified multiple times)
+- `configs`: Comma-separated config names (e.g., `etls,training`)
 
 ### Optional Options
 
+- `--config-path, -p`: Override config directory (default: `config/`)
 - `--step, -s`: Execute only a specific pipeline step (`etl`, `split`, `training`, `evaluation`, `inference`)
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
 
+### Config Name Resolution
+
+Config names are resolved to files in `config/` directory:
+- `etls` → `config/etls.yaml`
+- `training` → `config/training.yaml`
+- `etls,training` → `config/etls.yaml` + `config/training.yaml`
+- Absolute paths are passed through unchanged
+- Use `--config-path` to override the default directory
+
 ### Examples
 
 ```bash
-# Run full pipeline with multiple config files
-energizados run --config config/etls.yaml --config config/training.yaml
+# Run full pipeline with multiple configs
+energizados run etls,training
 
 # Run only one step
-energizados run --config config/training.yaml --step split
-energizados run --config config/training.yaml --step training
+energizados run training --step split
+energizados run training --step training
 
 # Run a specific ETL
-energizados run --config config/etls.yaml --etl sample
+energizados run etls --etl sample
 
 # Dry run (see plan without executing)
-energizados run --config config/etls.yaml --dry-run
+energizados run etls --dry-run
+
+# Use custom config directory
+energizados run --config-path /custom/path etls,training
 ```
 
 ---
 
-## `energizados validate --config <file>`
+## `energizados validate <configs> [options]`
 
 Validates YAML configuration files.
 
-### Options
+### Required Arguments
 
-- `--config, -c`: Path to YAML file (can be specified multiple times)
+- `configs`: Comma-separated config names (e.g., `etls,training`)
+
+### Optional Options
+
+- `--config-path, -p`: Override config directory (default: `config/`)
 - `--verbose, -v`: Show detailed validation information
+
+### Config Name Resolution
+
+Same resolution rules as `energizados run` command (see above).
 
 ### Examples
 
 ```bash
 # Validate single config
-energizados validate --config config/etls.yaml
+energizados validate etls
 
 # Validate multiple configs with detailed output
-energizados validate --config config/etls.yaml --config config/training.yaml --verbose
+energizados validate etls,training --verbose
 ```
 
 ---
 
-## `energizados eda [options]`
+## `energizados run eda [options]`
 
-Runs exploratory data analysis (EDA) on a dataset.
+Runs exploratory data analysis (EDA) on a dataset using `config/eda.yaml`.
+
+**Note**: The `eda` subcommand has been removed. Use `energizados run eda` instead.
 
 ### Options
 
-- `--input, -i`: Path to input dataset (parquet or CSV). Overrides the config file.
-- `--target, -t`: Name of binary target column.
-- `--config, -c`: Path to `eda.yaml` configuration file.
-- `--output, -o`: Output directory for report and plots.
-- `--lat-col`: Latitude column name (enables geospatial analysis).
-- `--lon-col`: Longitude column name (enables geospatial analysis).
-- `--etl, -e`: Name of an ETL defined in `etls.yaml` whose output to analyze.
-- `--skip-sections`: Comma-separated list of sections to skip (e.g., `geo,join,segmentation`).
-- `--dry-run, -d`: Show configuration that would be used without executing analysis.
+All options from `energizados run` are available when using `eda` config:
+- `--config-path, -p`: Override config directory (default: `config/`)
+- `--step, -s`: Execute only a specific pipeline step
+- `--dry-run, -d`: Show execution plan without executing
+
+### Config Name Resolution
+
+Same resolution rules as `energizados run` command.
 
 ### Examples
 
 ```bash
-# Basic analysis with input and target
-energizados eda --input data/raw/dataset.parquet --target target
+# Run EDA with default config
+energizados run eda
 
-# Use configuration file
-energizados eda --config config/eda.yaml
+# Run EDA with custom config directory
+energizados run --config-path /custom/path eda
 
-# Analyze output of an ETL
-energizados eda --config config/eda.yaml --etl sample
-
-# Enable geospatial analysis
-energizados eda --config config/eda.yaml --lat-col LATITUDE --lon-col LONGITUDE
-
-# Skip specific sections
-energizados eda --config config/eda.yaml --skip-sections "geo,join"
-
-# Dry run to see configuration
-energizados eda --config config/eda.yaml --dry-run
+# Dry run to see execution plan
+energizados run eda --dry-run
 ```
 
 ---
@@ -161,10 +174,10 @@ These options can be used with any command:
 
 ```bash
 # Run with INFO level logging
-energizados run --config config/training.yaml -v
+energizados run training -v
 
 # Run with DEBUG level logging
-energizados run --config config/training.yaml -vv
+energizados run training -vv
 ```
 
 ---
@@ -189,36 +202,36 @@ The `--step` option in `energizados run` accepts the following values:
 
 ```bash
 # 1. Run ETLs
-energizados run --config config/etls.yaml
+energizados run etls
 
 # 2. Train models
-energizados run --config config/training.yaml
+energizados run training
 
 # 3. Evaluate results (if not included in training)
-energizados run --config config/training.yaml --step evaluation
+energizados run training --step evaluation
 ```
 
 ### Development Workflow
 
 ```bash
 # 1. Validate configuration
-energizados validate --config config/etls.yaml --config config/training.yaml
+energizados validate etls,training
 
 # 2. Dry run to check execution plan
-energizados run --config config/etls.yaml --dry-run
+energizados run etls --dry-run
 
 # 3. Run with verbose output for debugging
-energizados run --config config/training.yaml -vv
+energizados run training -vv
 ```
 
 ### EDA Workflow
 
 ```bash
-# 1. Run EDA on raw data
-energizados eda --input data/raw/dataset.parquet --target target --output output/eda
+# Run EDA using config
+energizados run eda
 
-# 2. Run EDA on processed data
-energizados eda --config config/eda.yaml --etl sample
+# Run EDA with verbose output
+energizados run eda -v
 ```
 
 ---

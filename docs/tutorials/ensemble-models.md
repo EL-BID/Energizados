@@ -240,7 +240,7 @@ training:
 Run the ensemble training:
 
 ```bash
-energizados run --config config/training.yaml
+energizados run training
 ```
 
 **Expected output** (abbreviated):
@@ -323,7 +323,7 @@ inference:
 
 Run inference:
 ```bash
-energizados run --config config/inference.yaml
+energizados run inference
 ```
 
 The inference automatically:

@@ -94,7 +94,7 @@ Name: target, dtype: int64
 The sample ETL simply removes rows with null values:
 
 ```bash
-energizados run --config config/etls.yaml
+energizados run etls
 ```
 
 **Expected output**:
@@ -119,7 +119,7 @@ The processed data is now available at `data/processed/sample_dataset.parquet`.
 Before training, it's good practice to explore the data:
 
 ```bash
-energizados eda --config config/eda.yaml
+energizados run eda
 ```
 
 This generates an interactive HTML report at `output/eda/eda_report.html`. Open it in your browser to see:
@@ -205,7 +205,7 @@ training:
 Now run the training:
 
 ```bash
-energizados run --config config/training.yaml
+energizados run training
 ```
 
 **Expected output** (abbreviated):
@@ -335,7 +335,7 @@ inference:
 ### Run Inference
 
 ```bash
-energizados run --config config/inference.yaml
+energizados run inference
 ```
 
 **Expected output**:

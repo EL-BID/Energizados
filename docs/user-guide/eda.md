@@ -8,7 +8,7 @@ The Exploratory Data Analysis (EDA) module generates comprehensive, interactive 
 ## Running EDA
 
 ```bash
-energizados eda --config config/eda.yaml
+energizados run eda
 ```
 
 ## Configuration Structure

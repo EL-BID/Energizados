@@ -69,12 +69,64 @@ def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
         ConfigurationError: If there are configuration errors
         PipelineError: If there are errors during execution
     """
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
     # Merge configurations
     merged_config = merge_configs(config_paths)
 
-    # Build and run pipeline; post-run tasks (config copy, index HTML) handled by builder.run()
+    # Build pipeline (don't run yet)
     builder = ConfigPipelineBuilder(config=merged_config, config_paths=list(config_paths))
-    result = builder.run()
+    pipeline = builder.build()
+
+    # Execute with Rich progress display
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold cyan]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        total_steps = len(pipeline.steps)
+        config_names = ",".join(Path(p).stem for p in config_paths)
+        main_task = progress.add_task(f"Running: {config_names}", total=total_steps)
+
+        def on_step_start(name, i, total):
+            progress.update(
+                main_task,
+                description=f"[cyan][{i}/{total}] {name}[/]",
+                completed=i - 1,
+            )
+
+        def on_step_complete(name, i, total):
+            progress.update(
+                main_task,
+                description=f"[green][{i}/{total}] {name}[/]",
+                completed=i,
+            )
+
+        def on_step_error(name, err):
+            progress.update(main_task, description=f"[red][✗] {name}[/]")
+
+        pipeline.on_step_start = on_step_start
+        pipeline.on_step_complete = on_step_complete
+        pipeline.on_step_error = on_step_error
+
+        # Run the pipeline
+        result = pipeline.run()
+
+    # Post-run tasks (config copy, index HTML) - these need to be called manually
+    # since we called pipeline.run() directly instead of builder.run()
+    if builder._director.run_manager._run_dir is not None:
+        builder._copy_configs_to_run_dir()
+        builder._generate_index_html()
 
     return result
 

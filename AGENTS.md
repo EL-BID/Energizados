@@ -40,22 +40,25 @@ The project is primarily run through Jupyter notebooks:
 # Initialize a new project
 energizados init mi_proyecto
 
-# Run pipeline (specify multiple config files)
-energizados run --config config/etls.yaml --config config/training.yaml
+# Run pipeline (specify multiple config names)
+energizados run etls,training
 
 # Validate configuration
-energizados validate --config config/etls.yaml --config config/training.yaml
+energizados validate etls,training
 
 # Run specific step
-energizados run --config config/etls.yaml --step etl
-energizados run --config config/training.yaml --step split
-energizados run --config config/training.yaml --step training
+energizados run etls --step etl
+energizados run training --step split
+energizados run training --step training
 
 # Run specific ETL
-energizados run --config config/etls.yaml --etl sample
+energizados run etls --etl sample
+
+# Run EDA
+energizados run eda
 
 # Dry run (see plan without executing)
-energizados run --config config/etls.yaml --dry-run
+energizados run etls --dry-run
 ```
 
 ### Run Scripts (generated projects)

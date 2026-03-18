@@ -129,7 +129,7 @@ Main notebooks:
 energizados init mi_proyecto
 
 # Run pipeline
-energizados run --config config/etls.yaml --config config/training.yaml
+energizados run etls,training
 
 # Validate configuration
 energizados validate --config config/etls.yaml --config config/training.yaml

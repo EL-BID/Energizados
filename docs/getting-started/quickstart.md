@@ -20,20 +20,20 @@ mkdir energizados_projects
 cd energizados_projects
 ```
 
-> 💡 **Tip:** Choose a name that reflects the purpose (e.g., `energizados_projects`, `ml_projects`, `energy_theft`). Inside this folder, each `energizados init <name>` will create its own subdirectory with its own data, configs, and output results.
+> 💡 **Tip:** Choose a name that reflects purpose (e.g., `energizados_projects`, `ml_projects`, `energy_theft`). Inside this folder, each `energizados init <name>` will create its own subdirectory with its own data, configs, and output results.
 
 ## 1. Create a New Project
 
 The `energizados init` command creates a complete project structure with configuration files, execution scripts, and a sample dataset with 42,500 records:
 
 ```bash
-energizados init my_project
+energizados init fraud_detection
 ```
 
-This generates the following structure:
+This generates following structure:
 
 ```
-my_project/
+fraud_detection/
 ├── config/                 # YAML configuration files
 │   ├── etls.yaml          # ETL configuration
 │   ├── training.yaml      # Training pipeline configuration
@@ -46,6 +46,9 @@ my_project/
 ├── output/                # Training run outputs (auto-created per run)
 │   ├── index.html         # Summary table of all training runs
 │   └── train-YYYYMMDD_HHMM/  # One directory per training execution
+│       ├── models/        # Feature engineering + model(s)
+│       ├── reports/evaluation/  # HTML report, JSON report, plots
+│       └── config/        # Copy of YAML config files used for this run
 ├── notebooks/
 │   └── example_notebook.ipynb
 ├── src/
@@ -75,13 +78,13 @@ my_project/
 - `src/`: Custom components (ETLs, models, features, inference)
 - `src/run/`: Python scripts for direct execution (alternative to CLI)
 
-## 2. Navigate to the Project
+## 2. Navigate to Project
 
 ```bash
-cd my_project
+cd fraud_detection
 ```
 
-## 3. Edit the Configuration Files
+## 3. Edit Configuration Files
 
 The main configuration files are in the `config/` directory:
 
@@ -93,28 +96,34 @@ The main configuration files are in the `config/` directory:
   - Model configuration (single model or ensemble)
   - Evaluation settings (metrics, reports, threshold)
 
-- **`inference.yaml`**: Defines how to apply the trained model to new data.
+- **`inference.yaml`**: Defines how to apply trained model to new data.
 
 - **`eda.yaml`**: Optional configuration for exploratory data analysis (EDA).
 
-## 4. Run the Pipeline Step by Step
+## 4. Run Pipeline Step by Step
 
 **Run ETLs** (processes raw data):
 
 ```bash
-energizados run --config config/etls.yaml
+energizados run etls
 ```
 
 **Run training** (includes split, feature engineering, and model training):
 
 ```bash
-energizados run --config config/training.yaml
+energizados run training
 ```
 
-**Run inference** (applies the trained model to new data):
+**Run inference** (applies trained model to new data):
 
 ```bash
-energizados run --config config/inference.yaml
+energizados run inference
+```
+
+**Run multiple configs at once**:
+
+```bash
+energizados run etls,training
 ```
 
 ## 5. View Results
@@ -126,7 +135,7 @@ Training results are saved in the `output/` directory:
   - Trained models
   - Evaluation reports (HTML and JSON)
   - Plots and visualizations
-  - Copies of the configuration files used
+  - Copies of configuration files used
 
 Open the HTML file in your browser to view detailed results.
 

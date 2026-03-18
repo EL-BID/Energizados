@@ -400,7 +400,7 @@ jobs:
 
       - name: Dry run pipeline
         run: |
-          poetry run energizados run --config config/etls.yaml --dry-run
+          poetry run energizados run etls --dry-run
 ```
 
 **What the CI Pipeline Runs:**

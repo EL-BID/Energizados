@@ -4,108 +4,117 @@
 
 | Skill | Trigger | Description |
 |-------|---------|-------------|
-| `sdd-init` | "sdd init", "iniciar sdd" | Initialize SDD context in a project |
-| `sdd-explore` | `/sdd-explore <topic>` | Explore and investigate ideas before committing to a change |
-| `sdd-propose` | `/sdd-propose <change>` | Create a change proposal |
-| `sdd-spec` | `/sdd-spec` | Write specifications with requirements and scenarios |
-| `sdd-design` | `/sdd-design` | Create technical design document |
-| `sdd-tasks` | `/sdd-tasks` | Break down a change into implementation tasks |
-| `sdd-apply` | `/sdd-apply` | Implement tasks from the change |
-| `sdd-verify` | `/sdd-verify` | Validate implementation against specs |
-| `sdd-archive` | `/sdd-archive` | Archive a completed change |
-| `go-testing` | Go tests, teatest | Go testing patterns for Bubbletea TUI testing |
-| `skill-creator` | Create new skill | Create new AI agent skills |
+| `sdd-init` | "sdd init", "iniciar sdd", "openspec init" | Initialize SDD context in a project |
+| `sdd-explore` | Orchestrator launches explore phase; `/sdd-explore <topic>` | Explore and investigate ideas before committing to a change |
+| `sdd-propose` | Orchestrator launches propose phase; `/sdd-propose` | Create a change proposal with intent, scope, and approach |
+| `sdd-spec` | Orchestrator launches spec phase; `/sdd-spec` | Write specifications with requirements and scenarios |
+| `sdd-design` | Orchestrator launches design phase; `/sdd-design` | Create technical design document with architecture decisions |
+| `sdd-tasks` | Orchestrator launches tasks phase; `/sdd-tasks` | Break down a change into an implementation task checklist |
+| `sdd-apply` | Orchestrator launches apply phase; `/sdd-apply` | Implement tasks from the change following specs and design |
+| `sdd-verify` | Orchestrator launches verify phase; `/sdd-verify` | Validate that implementation matches specs, design, and tasks |
+| `sdd-archive` | Orchestrator launches archive phase; `/sdd-archive` | Sync delta specs to main specs and archive a completed change |
+| `go-testing` | Writing Go tests, using teatest, adding test coverage | Go testing patterns for Gentleman.Dots, including Bubbletea TUI testing |
+| `skill-creator` | User asks to create a new skill or document patterns for AI | Creates new AI agent skills following the Agent Skills spec |
 
 ## Skill Paths (Global)
 
 | Skill | Path |
 |-------|------|
-| `sdd-init` | `~/.claude/skills/sdd-init/SKILL.md` |
-| `sdd-explore` | `~/.claude/skills/sdd-explore/SKILL.md` |
-| `sdd-propose` | `~/.claude/skills/sdd-propose/SKILL.md` |
-| `sdd-spec` | `~/.claude/skills/sdd-spec/SKILL.md` |
-| `sdd-design` | `~/.claude/skills/sdd-design/SKILL.md` |
-| `sdd-tasks` | `~/.claude/skills/sdd-tasks/SKILL.md` |
-| `sdd-apply` | `~/.claude/skills/sdd-apply/SKILL.md` |
-| `sdd-verify` | `~/.claude/skills/sdd-verify/SKILL.md` |
-| `sdd-archive` | `~/.claude/skills/sdd-archive/SKILL.md` |
-| `go-testing` | `~/.claude/skills/go-testing/SKILL.md` |
-| `skill-creator` | `~/.claude/skills/skill-creator/SKILL.md` |
+| `sdd-init` | `~/.config/opencode/skills/sdd-init/SKILL.md` |
+| `sdd-explore` | `~/.config/opencode/skills/sdd-explore/SKILL.md` |
+| `sdd-propose` | `~/.config/opencode/skills/sdd-propose/SKILL.md` |
+| `sdd-spec` | `~/.config/opencode/skills/sdd-spec/SKILL.md` |
+| `sdd-design` | `~/.config/opencode/skills/sdd-design/SKILL.md` |
+| `sdd-tasks` | `~/.config/opencode/skills/sdd-tasks/SKILL.md` |
+| `sdd-apply` | `~/.config/opencode/skills/sdd-apply/SKILL.md` |
+| `sdd-verify` | `~/.config/opencode/skills/sdd-verify/SKILL.md` |
+| `sdd-archive` | `~/.config/opencode/skills/sdd-archive/SKILL.md` |
+| `go-testing` | `~/.config/opencode/skills/go-testing/SKILL.md` |
+| `skill-creator` | `~/.config/opencode/skills/skill-creator/SKILL.md` |
 
 ## Project Conventions
 
 ### Stack
 
 - **Language**: Python 3.10+
-- **Package manager**: pip / setuptools
-- **Package config**: `pyproject.toml`
+- **Package manager**: pip / setuptools (pyproject.toml + setuptools)
+- **Version**: 0.1.2.dev0
+- **Entry point**: `energizados` CLI (`energizados.cli.main:cli`)
 
 ### Code Quality
 
 - **Formatter**: black (line-length 100)
-- **Linter**: ruff, flake8, bandit
-- **Type Checker**: mypy (python 3.10)
-- **Import Sorter**: isort
-- **Pre-commit**: Configured with isort, black, bandit, flake8, prettier
+- **Linter**: ruff (E, F, I, N, W rules), flake8
+- **Security**: bandit (`.code_quality/bandit.yaml`)
+- **Type Checker**: mypy (python 3.10, check_untyped_defs=true)
+- **Import Sorter**: isort (--profile black)
+- **Pre-commit**: isort → black → bandit → flake8 → prettier (yaml)
 
 ### Testing
 
 - **Framework**: pytest + pytest-cov
 - **Config**: `pyproject.toml` → `[tool.pytest.ini_options]`
-- **Coverage**: htmlcov output, `tests/` directory
+- **Coverage**: htmlcov output, source=src, `tests/` directory
 - **Markers**: slow, integration, unit
+- **Run**: `pytest` (includes coverage by default)
+- **IMPORTANT**: `--strict-markers` and `--strict-config` are on — always declare markers
 
 ### ML Stack
 
-- LightGBM 4.6, CatBoost 1.2.8, scikit-learn 1.4.2
-- imbalanced-learn 0.12 (sampling strategies)
-- tsfel 0.1.9 (time series feature extraction)
-- boruta 0.4.3 (feature selection)
-- pandas 2.x + pyarrow (data)
+- **Models**: LightGBM 4.6, CatBoost 1.2.8 (optional), TensorFlow ≥2.17 (optional)
+- **Sampling**: imbalanced-learn 0.12 (RandomUnderSampler, RandomOverSampler)
+- **Feature selection**: boruta 0.4.3, sklearn-based (correlation, constant)
+- **Time series FE**: tsfel 0.1.9
+- **Data**: pandas 2.x + pyarrow 19.x (parquet format)
+- **Ensemble**: stacking (meta-learner) or soft voting
 
 ### Architecture Patterns
 
-- ETL framework with orchestrator and dependency management (YAML config)
-- Feature engineering pipeline: preprocessing + feature selection
-- Builder pattern for pipeline construction (`core/builders/`)
-- JSON Schema validation for YAML configs (`core/schemas/`)
-- Model training with hyperparameter search (RandomizedSearchCV)
-- Ensemble models: stacking and soft voting
-- EDA module generating interactive HTML reports
-- CLI via click + rich
-- Output per-run in `output/train-YYYYMMDD_HHMM/`
+- **ETL**: orchestrator + dependency graph (YAML config), `SourceETL` for concat/merge
+- **Feature engineering**: preprocessing + feature selection pipeline under `training.yaml`
+- **Builder pattern**: `core/builders/` (PipelineDirector replaces ConfigPipelineBuilder)
+- **JSON Schema validation**: `core/schemas/` for YAML configs
+- **Model training**: `TrainingStep` with single/ensemble/multi-model modes
+- **Ensemble**: `EnsembleModel` — stacking or soft voting, `use_val_as_oof` toggle
+- **EDA**: `DatasetExplorer` → 7-phase HTML report
+- **CLI**: click + rich
+- **Output**: per-run in `output/train-YYYYMMDD_HHMM/`
+- **Security**: `secure_pickle.py` (SHA-256 verified), `import_utils.py` (allowlist)
 
 ### Language Conventions
 
 - Documentation: English
-- Code: Spanish variable names for domain features (actividad, tipo_tarifa, zona), English class/method names
-- No `print()` — use Python `logging` module
-- Conventional commits format
+- Domain feature names: Spanish (`actividad`, `tipo_tarifa`, `zona`)
+- Class/method names: English
+- **Logging**: `logging` module only — NO `print()`
+- **Commits**: Conventional commits format, no AI attribution
 
 ## Project Convention Files
 
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Primary AI assistant instructions and full architecture reference |
-| `pyproject.toml` | Package config, linters, testing, coverage |
-| `.pre-commit-config.yaml` | Pre-commit hooks (isort, black, bandit, flake8) |
+| `AGENTS.md` / `CLAUDE.md` | Primary AI assistant instructions and full architecture reference |
+| `pyproject.toml` | Package config, linters, testing, coverage, mypy |
+| `.pre-commit-config.yaml` | Pre-commit hooks (isort, black, bandit, flake8, prettier) |
+| `PRD-01.md` | Product Requirements Document |
 
 ## Key Source Paths
 
 | Path | Description |
 |------|-------------|
-| `src/energizados/` | Framework source |
-| `src/energizados/core/` | Pipeline, builders, schemas |
-| `src/energizados/preprocessing/` | Feature transformers |
-| `src/energizados/modeling/` | Supervised + ensemble models |
-| `src/energizados/feature_engineering/` | FE pipeline |
-| `src/energizados/feature_selection/` | Selection methods |
-| `src/energizados/evaluation/` | Metrics, plots, reports |
-| `src/energizados/inference/` | Inference pipeline |
-| `src/energizados/etl/` | ETL framework |
-| `src/energizados/eda/` | EDA module |
-| `src/energizados/cli/` | CLI commands |
+| `src/energizados/` | Framework source root |
+| `src/energizados/core/` | Pipeline, builders, schemas, exceptions |
+| `src/energizados/core/builders/` | PipelineDirector and builder classes |
+| `src/energizados/core/schemas/` | JSON Schema for YAML config validation |
+| `src/energizados/core/steps/` | SplitStep, TrainingStep |
+| `src/energizados/preprocessing/` | Feature transformers (ToDummy, TeEncoder, CardinalityReducer, TsfelVars, ExtraVars, MinMaxScalerRow, CastDtype) |
+| `src/energizados/modeling/` | LGBMModel, CATModel, NNModel, LSTMNNModel, EnsembleModel, simple models |
+| `src/energizados/feature_engineering/` | DefaultFeatureEngineering (preprocessing + selection) |
+| `src/energizados/feature_selection/` | BorutaSelector, CorrelationSelector, ConstantSelector |
+| `src/energizados/evaluation/` | DefaultEvaluator, metrics, PlotGenerator, ReportGenerator, run index |
+| `src/energizados/inference/` | BaseInference, DefaultInference |
+| `src/energizados/etl/` | BaseETL, SourceETL, ETLOrchestrator |
+| `src/energizados/eda/` | DatasetExplorer + 7 analyzers + HTML report |
+| `src/energizados/cli/` | CLI commands (main, init, run, validate) |
 | `tests/` | Test suite |
-| `PRD-01.md` | Product Requirements Document |
-| `GAP-ANALYSIS-01.md` | Gap analysis vs production systems |
-| `ROADMAP-01.md` | 12-18 month roadmap |
+| `templates/` | Project init templates (including training.yaml.tpl) |
