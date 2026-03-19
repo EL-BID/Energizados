@@ -4,13 +4,30 @@
 
 ### Breaking Changes
 
+#### Config File Renaming
+- **BREAKING**: Renamed configuration files from plural to singular:
+  - `etls.yaml` → `etl.yaml`
+  - `training.yaml` → `train.yaml`
+  - `inference.yaml` → `infer.yaml`
+- **BREAKING**: Updated CLI config name resolution to match new file names:
+  - `etls` → `etl`
+  - `training` → `train`
+  - `inference` → `infer`
+- **Migration guide for existing projects**: Rename files in `config/` directory:
+  ```bash
+  mv config/etls.yaml config/etl.yaml
+  mv config/training.yaml config/train.yaml
+  mv config/inference.yaml config/infer.yaml
+  ```
+- Documentation and examples updated throughout
+
 #### CLI Redesign
 - **BREAKING**: Removed `--config` option from `run` and `validate` commands. Use positional config names instead.
   - Old: `energizados run --config config/etls.yaml --config config/training.yaml`
   - New: `energizados run etls,training`
 - **BREAKING**: Removed `eda` subcommand. EDA now runs via `energizados run eda`
 - Added `--config-path/-p` option to specify custom config directory
-- Added support for comma-separated config names: `etls,training,inference`
+- Added support for comma-separated config names: `etl,train,infer`
 
 ### Feature/Refactor - Complete Framework Redesign
 

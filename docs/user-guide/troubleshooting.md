@@ -176,7 +176,7 @@ ls -la data/raw/  # Verify input files exist
 2. Validate configuration:
 
 ```bash
-energizados validate config/etls.yaml -v
+energizados validate config/etl.yaml -v
 ```
 
 3. Run with verbose output:
@@ -215,7 +215,7 @@ ls -la data/processed/  # Check ETL output
 2. Validate training configuration:
 
 ```bash
-energizados validate --config config/training.yaml --verbose
+energizados validate --config config/train.yaml --verbose
 ```
 
 3. Check target column exists:
@@ -236,7 +236,7 @@ energizados run training -vvv
 
 **Issue:** `ValueError: Target column not found`
 
-**Solution:** Ensure `target_column` in `training.yaml` matches the exact column name in your data (case-sensitive).
+**Solution:** Ensure `target_column` in `train.yaml` matches the exact column name in your data (case-sensitive).
 
 **Issue:** `KeyError: Column not found` during preprocessing
 
@@ -340,7 +340,7 @@ This checks:
 ### 2. Validate Configuration
 
 ```bash
-energizados validate config/etls.yaml,config/training.yaml -v
+energizados validate config/etl.yaml,config/train.yaml -v
 ```
 
 This verifies:

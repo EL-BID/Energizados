@@ -136,9 +136,9 @@ src/energizados/
 ```
 mi_proyecto/
 ├── config/                 # Configuration files (3 YAMLs)
-│   ├── etls.yaml
-│   ├── training.yaml       # Includes split, feature_engineering, model, evaluation
-│   └── inference.yaml
+│   ├── etl.yaml
+│   ├── train.yaml         # Includes split, feature_engineering, model, evaluation
+│   └── infer.yaml
 ├── data/
 │   ├── raw/               # Input data (includes sample_dataset.parquet)
 │   ├── processed/         # ETL outputs and feature engineering results
@@ -177,13 +177,13 @@ mi_proyecto/
 
 ### ETL Framework
 
-The ETL system uses a **multiple ETLs with dependencies** approach. Configuration is done via YAML in `config/etls.yaml`.
+The ETL system uses a **multiple ETLs with dependencies** approach. Configuration is done via YAML in `config/etl.yaml`.
 
 New projects created with `energizados init` include a **sample ETL** that processes the included example dataset:
 
 ```yaml
-# config/etls.yaml
-etls:
+# config/etl.yaml
+etl:
   sample:
     enabled: true
     description: "Procesa dataset de ejemplo (elimina filas con NULL)"
@@ -232,12 +232,12 @@ etls:
 
 ### Feature Engineering and Model Training
 
-Feature engineering (preprocessing + feature selection) is now configured inside `config/training.yaml` undersample the `feature_engineering` key. There is no longer a separate `feature_pipeline.yaml`.
+Feature engineering (preprocessing + feature selection) is now configured inside `config/train.yaml` under the `feature_engineering` key. There is no longer a separate `feature_pipeline.yaml`.
 
-The full `training.yaml` has five sections: `split`, `feature_engineering`, `models` (list), `ensemble` (optional), and `evaluation`.
+The full `train.yaml` has five sections: `split`, `feature_engineering`, `models` (list), `ensemble` (optional), and `evaluation`.
 
 ```yaml
-# config/training.yaml
+# config/train.yaml
 training:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
@@ -508,10 +508,10 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 
 ### Important Implementation Notes
 
-- Configuration uses **3 separate YAML files**: `etls.yaml`, `training.yaml`, `inference.yaml` (no more `feature_pipeline.yaml`)
-- `feature_engineering` is now a sub-section inside `training.yaml` (not a separate file or top-level section)
+- Configuration uses **3 separate YAML files**: `etl.yaml`, `train.yaml`, `infer.yaml` (no more `feature_pipeline.yaml`)
+- `feature_engineering` is now a sub-section inside `train.yaml` (not a separate file or top-level section)
 - The CLI accepts multiple `--config` parameters which are merged ("last wins" for duplicates)
-- `preprocessing` and `feature_selection` are unified undersample `training.feature_engineering`
+- `preprocessing` and `feature_selection` are unified under `train.feature_engineering`
 - **Model configuration uses `models:` list (not singular `model:`)**: single model as list with one item, multiple models enable ensemble
 - **Ensemble configuration**: When `len(models) > 1`, `ensemble:` section is required; specifies `method` (`stacking` or `soft_voting`), `meta_learner` (for stacking), and `use_val_as_oof` (blending vs OOF)
 - **Output directory structure**: Single model saves to `models/model.pkl`; ensemble saves each base model to `models/{name}/model.pkl` and the ensemble to `models/ensemble.pkl`

@@ -149,10 +149,10 @@ The `use_val_as_oof` parameter controls how the meta-learner is trained:
 
 ### Configuration
 
-Here's a complete `training.yaml` with LightGBM + CatBoost ensemble:
+Here's a complete `train.yaml` with LightGBM + CatBoost ensemble:
 
 ```yaml
-# config/training.yaml
+# config/train.yaml
 training:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
@@ -311,7 +311,7 @@ Each base model is saved in its own subdirectory (named by the `name` field in `
 Inference automatically uses the ensemble if `ensemble.pkl` exists. The inference configuration doesn't need to change:
 
 ```yaml
-# config/inference.yaml
+# config/infer.yaml
 inference:
   enabled: true
   input_path: "data/new_customers.parquet"

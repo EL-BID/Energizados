@@ -37,7 +37,7 @@ Executes a pipeline from YAML configuration files.
 
 ### Required Arguments
 
-- `configs`: Comma-separated config names (e.g., `etls,training`)
+- `configs`: Comma-separated config names (e.g., `etl,train`)
 
 ### Optional Options
 
@@ -89,7 +89,7 @@ Validates YAML configuration files.
 
 ### Required Arguments
 
-- `configs`: Comma-separated config names (e.g., `etls,training`)
+- `configs`: Comma-separated config names (e.g., `etl,train`)
 
 ### Optional Options
 

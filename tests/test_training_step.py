@@ -586,7 +586,7 @@ class TestPipelineConfigParsing:
         cfg_file.write_text(
             yaml.dump(
                 {
-                    "training": {
+                    "train": {
                         "enabled": True,
                         "target_column": "target",
                         "models": [{"type": "lightgbm", "hyperparams": {}}],
@@ -613,7 +613,7 @@ class TestPipelineConfigParsing:
         cfg_file.write_text(
             yaml.dump(
                 {
-                    "training": {
+                    "train": {
                         "enabled": True,
                         "models": [{"type": "lightgbm"}, {"type": "catboost"}],
                         "ensemble": {"method": "soft_voting", "weights": [0.6, 0.4]},
@@ -639,7 +639,7 @@ class TestPipelineConfigParsing:
         cfg_file.write_text(
             yaml.dump(
                 {
-                    "training": {
+                    "train": {
                         "enabled": True,
                         "models": [{"type": "lightgbm"}],
                         "feature_engineering": {"enabled": False},

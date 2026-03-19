@@ -177,9 +177,9 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     step_map = {
         "etl": "ETLStep",
         "split": "SplitStep",
-        "training": "TrainingStep",
+        "train": "TrainingStep",
         "evaluation": "EvaluationStep",
-        "inference": "InferenceStep",
+        "infer": "InferenceStep",
     }
 
     if step_name not in step_map:
@@ -242,11 +242,11 @@ def execute_etl(
     merged_config = merge_configs(config_paths)
 
     # Verify if there is ETL configuration
-    etl_configs = merged_config.get("etls")
+    etl_configs = merged_config.get("etl")
 
     if not etl_configs:
         raise PipelineError(
-            "No ETLs configured. Use the 'etls:' section to configure multiple ETLs."
+            "No ETLs configured. Use the 'etl:' section to configure multiple ETLs."
         )
 
     # If a specific ETL is requested, filter its dependencies

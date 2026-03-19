@@ -104,9 +104,9 @@ Projects created with `energizados init` have the following structure:
 ```
 mi_proyecto/
 ├── config/                       # Configuration files (4 YAMLs)
-│   ├── etls.yaml
-│   ├── training.yaml             # Includes split, feature_engineering, model, evaluation
-│   ├── inference.yaml
+│   ├── etl.yaml
+│   ├── train.yaml                # Includes split, feature_engineering, model, evaluation
+│   ├── infer.yaml
 │   └── eda.yaml
 ```
 
@@ -240,29 +240,29 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 ```
 Raw Data
     ↓
-ETL (config/etls.yaml)
+ETL (config/etl.yaml)
     ↓
 Processed Data (data/processed/)
     ↓
-Split (config/training.yaml → split section)
+Split (config/train.yaml → split section)
     ↓
 Train/Val/Test Splits (data/splits/)
     ↓
-Feature Engineering (config/training.yaml → feature_engineering)
+Feature Engineering (config/train.yaml → feature_engineering)
     ├── Preprocessing (column-level transformers)
     ├── Global Transformers
     └── Feature Selection
     ↓
 Feature Engineering Pipeline (saved as .pkl)
     ↓
-Model Training (config/training.yaml → models)
+Model Training (config/train.yaml → models)
     ├── Sampling (undersample/oversample/none)
     ├── Hyperparameter Search (optional)
     └── Model Fitting
     ↓
 Trained Model (output/train-XXX/models/model.pkl)
     ↓
-Evaluation (config/training.yaml → evaluation)
+Evaluation (config/train.yaml → evaluation)
     ├── Metrics Calculation
     ├── Plot Generation
     └── Report Generation
@@ -307,9 +307,9 @@ ETL D (depends_on: [C])
 ### 1. YAML-Based Configuration
 
 All pipeline configuration is done through YAML files:
-- `config/etls.yaml` - ETL definitions with dependencies
-- `config/training.yaml` - Split, feature engineering, models, ensemble, evaluation
-- `config/inference.yaml` - Inference configuration
+- `config/etl.yaml` - ETL definitions with dependencies
+- `config/train.yaml` - Split, feature engineering, models, ensemble, evaluation
+- `config/infer.yaml` - Inference configuration
 
 **Rationale:** YAML is human-readable, easy to version control, and allows for complex nested structures without code changes.
 
@@ -400,10 +400,10 @@ The framework uses wide-format data with 12 monthly consumption columns plus cat
 
 ## Configuration Structure
 
-### ETL Configuration (`etls.yaml`)
+### ETL Configuration (`etl.yaml`)
 
 ```yaml
-etls:
+etl:
   etl_name:
     enabled: true
     description: "Description of the ETL"
@@ -418,7 +418,7 @@ etls:
     depends_on: ["etl1", "etl2"]  # optional dependencies
 ```
 
-### Training Configuration (`training.yaml`)
+### Training Configuration (`train.yaml`)
 
 ```yaml
 training:
@@ -478,7 +478,7 @@ training:
     generate_json_report: true
 ```
 
-### Inference Configuration (`inference.yaml`)
+### Inference Configuration (`infer.yaml`)
 
 ```yaml
 inference:

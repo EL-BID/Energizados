@@ -1,6 +1,6 @@
 # Inference Configuration
 
-Complete reference for `inference.yaml` configuration.
+Complete reference for `infer.yaml` configuration.
 
 ## Overview
 
@@ -247,7 +247,7 @@ class CustomInference(BaseInference):
         return high_risk
 ```
 
-Update `inference.yaml` to use your custom class:
+Update `infer.yaml` to use your custom class:
 
 ```yaml
 inference:

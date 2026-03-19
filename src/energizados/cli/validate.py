@@ -182,17 +182,17 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> N
         config: The full configuration dictionary.
         result: ValidationResult object to store validation messages.
     """
-    if "etls" not in config:
-        result.add_info("'etls' section not present in this config (skipping ETL validation)")
+    if "etl" not in config:
+        result.add_info("'etl' section not present in this config (skipping ETL validation)")
         return
 
-    etls = config["etls"]
+    etls = config["etl"]
     if not isinstance(etls, dict):
-        result.add_error("'etls' section must be a dictionary")
+        result.add_error("'etl' section must be a dictionary")
         return
 
     if not etls:
-        result.add_warning("'etls' section is empty")
+        result.add_warning("'etl' section is empty")
         return
 
     # Validate each ETL
@@ -234,13 +234,13 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
         config: The full configuration dictionary.
         result: ValidationResult object to store validation messages.
     """
-    if "inference" not in config:
-        result.add_warning("'inference' section not found (optional)")
+    if "infer" not in config:
+        result.add_warning("'infer' section not found (optional)")
         return
 
-    inf = config["inference"]
+    inf = config["infer"]
     if not isinstance(inf, dict):
-        result.add_error("'inference' section must be a dictionary")
+        result.add_error("'infer' section must be a dictionary")
         return
 
     if inf.get("enabled", False):
@@ -268,28 +268,24 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
         config: The full configuration dictionary.
         result: ValidationResult object to store validation messages.
     """
-    if "training" not in config:
-        result.add_info(
-            "'training' section not present in this config (skipping training validation)"
-        )
+    if "train" not in config:
+        result.add_info("'train' section not present in this config (skipping training validation)")
         return
 
-    training = config["training"]
+    training = config["train"]
     if not isinstance(training, dict):
-        result.add_error("'training' section must be a dictionary")
+        result.add_error("'train' section must be a dictionary")
         return
 
     # Check for legacy model: format (deprecated)
     if "model" in training:
-        result.add_warning(
-            "training: 'model:' key is deprecated. Use 'models:' list format instead."
-        )
+        result.add_warning("train: 'model:' key is deprecated. Use 'models:' list format instead.")
 
     # Check models list (new format)
     models = training.get("models", [])
     if not models:
         result.add_warning(
-            "training: 'models:' list is empty or not defined. At least one model is required."
+            "train: 'models:' list is empty or not defined. At least one model is required."
         )
     else:
         if not isinstance(models, list):

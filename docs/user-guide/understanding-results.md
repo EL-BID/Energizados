@@ -25,7 +25,7 @@ output/
     │       ├── roc_curve.png
     │       └── cumulative_gains.png
     └── config/
-        └── training.yaml               # Configuration used for this run
+        └── train.yaml                 # Configuration used for this run
 ```
 
 ## The Run Index (`output/index.html`)

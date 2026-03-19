@@ -1,6 +1,6 @@
 # Training Configuration
 
-Complete reference for `training.yaml` configuration.
+Complete reference for `train.yaml` configuration.
 
 ## Overview
 

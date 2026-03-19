@@ -218,7 +218,7 @@ def init(ctx, project_name, template, path, copy_from, force):
 @click.option(
     "--step",
     "-s",
-    help="Run only a specific pipeline step (etl, split, training, evaluation, inference)",
+    help="Run only a specific pipeline step (etl, split, train, evaluation, infer)",
 )
 @click.option(
     "--etl",

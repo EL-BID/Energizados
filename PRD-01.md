@@ -179,9 +179,9 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 
 ```
                          +------------------+
-                         |   YAML Configs   |
-                         | etls / training  |
-                         | inference / eda  |
+                          |   YAML Configs   |
+                          | etl / train      |
+                          | infer / eda      |
                          +--------+---------+
                                   |
                          +--------v---------+
@@ -391,9 +391,9 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 
 | ID            | Requirement                                                    | Status        |
 |---------------|----------------------------------------------------------------|---------------|
-| FR-CONFIG-001 | Support `etls.yaml` for ETL pipeline definition                | [IMPLEMENTED] |
-| FR-CONFIG-002 | Support `training.yaml` for training pipeline configuration    | [IMPLEMENTED] |
-| FR-CONFIG-003 | Support `inference.yaml` for inference pipeline configuration  | [IMPLEMENTED] |
+| FR-CONFIG-001 | Support `etl.yaml` for ETL pipeline definition                  | [IMPLEMENTED] |
+| FR-CONFIG-002 | Support `train.yaml` for training pipeline configuration      | [IMPLEMENTED] |
+| FR-CONFIG-003 | Support `infer.yaml` for inference pipeline configuration    | [IMPLEMENTED] |
 | FR-CONFIG-004 | Support `eda.yaml` for EDA configuration                       | [IMPLEMENTED] |
 | FR-CONFIG-005 | `energizados validate` checks config syntax and structure      | [IMPLEMENTED] |
 | FR-CONFIG-006 | JSON Schema validation for all YAML config files               | [IMPLEMENTED] |
@@ -453,7 +453,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 **US-CLI-002: Execute pipeline from configuration**
 
 - **As** Framework user
-- **I want** to execute `energizados run --config training.yaml` to run the complete pipeline
+- **I want** to execute `energizados run --config train.yaml` to run the complete pipeline
 - **So that** I can train or execute inference without writing code
 - **Acceptance criteria**:
     - [x] Loads YAML configuration
@@ -1254,7 +1254,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 **US-CONFIG-001: ETL configuration**
 
 - **As** Data Scientist
-- **I want** to define ETL pipeline in `etls.yaml`
+- **I want** to define ETL pipeline in `etl.yaml`
 - **So that** I can specify sources, operations, and dependencies
 - **Acceptance criteria**:
     - [x] Declarative syntax
@@ -1265,7 +1265,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 **US-CONFIG-002: Training configuration**
 
 - **As** Data Scientist
-- **I want** to define complete pipeline in `training.yaml`
+- **I want** to define complete pipeline in `train.yaml`
 - **So that** I can configure: split, preprocess, feature selection, model, evaluation
 - **Acceptance criteria**:
     - [x] All pipeline sections
@@ -1276,7 +1276,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 **US-CONFIG-003: Inference configuration**
 
 - **As** ML Engineer
-- **I want** to define inference pipeline in `inference.yaml`
+- **I want** to define inference pipeline in `infer.yaml`
 - **So that** I can specify model and features to use
 - **Acceptance criteria**:
     - [x] Path to serialized model
@@ -1631,7 +1631,7 @@ context = eval_step.execute(context)  # adds 'metrics', 'reports'
 
 ## 11. Configuration Reference
 
-### etls.yaml
+### etl.yaml
 
 ```yaml
 etls:
@@ -1667,7 +1667,7 @@ etls:
     depends_on: [ "main_data", "labels" ]
 ```
 
-### training.yaml
+### train.yaml
 
 ```yaml
 pipeline:
@@ -1742,7 +1742,7 @@ output:
   directory: "output"
 ```
 
-### inference.yaml
+### infer.yaml
 
 ```yaml
 pipeline:

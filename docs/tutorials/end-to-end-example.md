@@ -19,9 +19,9 @@ This creates a project structure with:
 ```
 fraud_detection/
 ├── config/
-│   ├── etls.yaml           # ETL configuration
-│   ├── training.yaml       # Training configuration
-│   ├── inference.yaml      # Inference configuration
+│   ├── etl.yaml            # ETL configuration
+│   ├── train.yaml          # Training configuration
+│   ├── infer.yaml          # Inference configuration
 │   └── eda.yaml            # EDA configuration
 ├── data/
 │   ├── raw/
@@ -134,10 +134,10 @@ This generates an interactive HTML report at `output/eda/eda_report.html`. Open 
 
 ## Step 5: Configure and Run Training
 
-The default `training.yaml` is already configured for LightGBM training. Let's review the key sections:
+The default `train.yaml` is already configured for LightGBM training. Let's review the key sections:
 
 ```yaml
-# config/training.yaml
+# config/train.yaml
 training:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
@@ -316,10 +316,10 @@ EOF
 
 ### Configure Inference
 
-The default `inference.yaml` is already configured:
+The default `infer.yaml` is already configured:
 
 ```yaml
-# config/inference.yaml
+# config/infer.yaml
 inference:
   enabled: true
   input_path: "data/new_customers.parquet"

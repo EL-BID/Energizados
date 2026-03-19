@@ -60,10 +60,10 @@ Contains template files for custom components:
 
 ## Step 3: Configure the Sample ETL
 
-Open `config/etls.yaml`. The default configuration includes:
+Open `config/etl.yaml`. The default configuration includes:
 
 ```yaml
-etls:
+etl:
   sample:
     enabled: true
     description: "Procesa dataset de ejemplo (elimina filas con NULL)"
@@ -215,7 +215,7 @@ Make sure `config/infer.yaml` is configured with:
 Now that you've completed your first project:
 
 1. **Replace the sample data** with your own dataset
-2. **Adjust preprocessing** in `train.yaml` to match your features
+2. **Adjust the preprocessing** in `train.yaml` to match your features
 3. **Experiment with different models** (CatBoost, Neural Networks, LSTM)
 4. **Try ensemble methods** (stacking or soft voting)
 5. **Use the EDA module** to explore your data:

@@ -116,7 +116,7 @@ class PipelineDirector:
         pipeline = Pipeline(config=self.config)
 
         # Generate timestamped run directory if training or evaluation is enabled
-        train_config = self.config.get("training", {})
+        train_config = self.config.get("train", {})
         eval_config = train_config.get("evaluation", {}) or self.config.get("evaluation", {})
         if train_config.get("enabled", False) or eval_config.get("enabled", False):
             base_output_dir = train_config.get("output_base_dir", "output")
@@ -130,7 +130,7 @@ class PipelineDirector:
             pipeline.add_step(etl_step)
 
         # Step 2: Split
-        split_config = self.config.get("training", {}).get("split", {})
+        split_config = self.config.get("train", {}).get("split", {})
         if not split_config:
             split_config = self.config.get("split", {})
         split_builder = SplitBuilder(split_config, self.config)
@@ -139,7 +139,7 @@ class PipelineDirector:
             pipeline.add_step(split_step)
 
         # Step 3: Training
-        train_config = self.config.get("training", {})
+        train_config = self.config.get("train", {})
         if train_config.get("enabled", False):
             train_output_dir = str(self._run_dir / "models") if self._run_dir else None
             train_builder = TrainingBuilder(train_config, train_output_dir)
@@ -148,7 +148,7 @@ class PipelineDirector:
                 pipeline.add_step(train_step)
 
         # Step 4: Evaluation
-        eval_config = self.config.get("training", {}).get("evaluation", {})
+        eval_config = self.config.get("train", {}).get("evaluation", {})
         if not eval_config:
             eval_config = self.config.get("evaluation", {})
         if eval_config.get("enabled", False):
@@ -161,8 +161,8 @@ class PipelineDirector:
                 pipeline.add_step(eval_step)
 
         # Step 5: Inference
-        if self.config.get("inference", {}).get("enabled", False):
-            inference_builder = InferenceBuilder(self.config.get("inference", {}))
+        if self.config.get("infer", {}).get("enabled", False):
+            inference_builder = InferenceBuilder(self.config.get("infer", {}))
             inference_step = inference_builder.build()
             if inference_step is not None:
                 pipeline.add_step(inference_step)

@@ -104,9 +104,9 @@ class SimpleFilterETL(BaseETL):
         df.to_parquet(path, index=False)
 ```
 
-Wire it in `config/etls.yaml`:
+Wire it in `config/etl.yaml`:
 ```yaml
-etls:
+etl:
   filter_data:
     enabled: true
     description: "Removes rows with null values"

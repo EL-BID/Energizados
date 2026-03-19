@@ -23,12 +23,12 @@ class ETLBuilder(StepBuilder):
         """
         Build the ETL step from configuration.
 
-        The configuration should contain an 'etls' key with ETL definitions.
+        The configuration should contain an 'etl' key with ETL definitions.
 
         Returns:
             PipelineStep: The ETL step, or None if no ETLs are configured
         """
-        etl_configs = self.config.get("etls", {})
+        etl_configs = self.config.get("etl", {})
         if not etl_configs:
             return None
 
@@ -95,6 +95,6 @@ class ETLBuilder(StepBuilder):
         """Check if ETL step is enabled.
 
         Returns:
-            bool: True if 'etls' key exists in config
+            bool: True if 'etl' key exists in config
         """
-        return "etls" in self.config and bool(self.config.get("etls"))
+        return "etl" in self.config and bool(self.config.get("etl"))

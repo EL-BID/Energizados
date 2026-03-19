@@ -1,10 +1,10 @@
 # Evaluation Configuration
 
-Complete reference for evaluation configuration in `training.yaml`.
+Complete reference for evaluation configuration in `train.yaml`.
 
 ## Overview
 
-The evaluation section in `training.yaml` controls how models are evaluated, which metrics are computed, what visualizations are generated, and how reports are produced.
+The evaluation section in `train.yaml` controls how models are evaluated, which metrics are computed, what visualizations are generated, and how reports are produced.
 
 ## Configuration Structure
 

@@ -46,10 +46,10 @@ class SplitBuilder(StepBuilder):
         input_path = split_config.get("input_path")
         if not input_path:
             # Also look at training level (global)
-            input_path = self.global_config.get("training", {}).get("input_path")
-        if not input_path and "etls" in self.global_config:
+            input_path = self.global_config.get("train", {}).get("input_path")
+        if not input_path and "etl" in self.global_config:
             # Use last ETL output if it exists
-            etl_configs = self.global_config.get("etls", {})
+            etl_configs = self.global_config.get("etl", {})
             if etl_configs:
                 last_etl = list(etl_configs.keys())[-1]
                 # input_path will be @etl_name
@@ -58,7 +58,7 @@ class SplitBuilder(StepBuilder):
         # Determine target_column - check multiple locations
         target_column = (
             split_config.get("target_column")
-            or self.global_config.get("training", {}).get("target_column")
+            or self.global_config.get("train", {}).get("target_column")
             or "target"
         )
 

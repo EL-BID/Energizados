@@ -35,9 +35,9 @@ This generates following structure:
 ```
 fraud_detection/
 ├── config/                 # YAML configuration files
-│   ├── etls.yaml          # ETL configuration
-│   ├── training.yaml      # Training pipeline configuration
-│   ├── inference.yaml     # Inference configuration
+│   ├── etl.yaml           # ETL configuration
+│   ├── train.yaml         # Training pipeline configuration
+│   ├── infer.yaml         # Inference configuration
 │   └── eda.yaml           # Exploratory data analysis configuration
 ├── data/
 │   ├── raw/               # Input data (includes sample_dataset.parquet)
@@ -88,15 +88,15 @@ cd fraud_detection
 
 The main configuration files are in the `config/` directory:
 
-- **`etls.yaml`**: Defines ETL processes (extract, transform, load) to prepare your data. The generated project includes a sample ETL that processes the included example dataset.
+- **`etl.yaml`**: Defines ETL processes (extract, transform, load) to prepare your data. The generated project includes a sample ETL that processes the included example dataset.
 
-- **`training.yaml`**: Configures the entire training pipeline:
+- **`train.yaml`**: Configures the entire training pipeline:
   - Data splitting (stratified, random, or time-based)
   - Feature engineering (preprocessing + feature selection)
   - Model configuration (single model or ensemble)
   - Evaluation settings (metrics, reports, threshold)
 
-- **`inference.yaml`**: Defines how to apply trained model to new data.
+- **`infer.yaml`**: Defines how to apply trained model to new data.
 
 - **`eda.yaml`**: Optional configuration for exploratory data analysis (EDA).
 

@@ -64,19 +64,11 @@ project:
   version: "1.0.0"
 
 etl:
-  enabled: false
-
-preprocessing:
-  enabled: false
-
-feature_selection:
-  enabled: false
-
-training:
-  enabled: false
-
-evaluation:
-  enabled: false
+  sample:
+    enabled: false
+    input: "data/test.parquet"
+    output: "data/output.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
 """
         config_file.write_text(config_content)
 
@@ -511,9 +503,9 @@ class TestEndToEndScenarios:
         assert (project_path / "src" / "features" / "custom_selector.py").exists()
         assert (project_path / "src" / "models" / "custom_model.py").exists()
         # Verify that config exists with 3 separate files
-        assert (project_path / "config" / "etls.yaml").exists()
-        assert (project_path / "config" / "training.yaml").exists()
-        assert (project_path / "config" / "inference.yaml").exists()
+        assert (project_path / "config" / "etl.yaml").exists()
+        assert (project_path / "config" / "train.yaml").exists()
+        assert (project_path / "config" / "infer.yaml").exists()
         assert (project_path / "README.md").exists()
         # Test templates are no longer created by default
         assert (project_path / "tests" / "__init__.py").exists()

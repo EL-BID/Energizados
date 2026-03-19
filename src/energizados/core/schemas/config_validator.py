@@ -131,20 +131,20 @@ class ConfigValidator:
         errors = []
 
         # Validate ETL section
-        if "etls" in config:
-            errors.extend(self._validate_etl(config["etls"]))
+        if "etl" in config:
+            errors.extend(self._validate_etl(config["etl"]))
 
         # Validate training section
-        if "training" in config:
-            errors.extend(self._validate_training(config["training"]))
+        if "train" in config:
+            errors.extend(self._validate_training(config["train"]))
 
         # Validate evaluation section
         if "evaluation" in config:
             errors.extend(self._validate_evaluation(config["evaluation"]))
 
         # Validate inference section
-        if "inference" in config:
-            errors.extend(self._validate_inference(config["inference"]))
+        if "infer" in config:
+            errors.extend(self._validate_inference(config["infer"]))
 
         # Validate EDA section
         if "eda" in config:
@@ -157,26 +157,26 @@ class ConfigValidator:
         errors = []
 
         if not isinstance(etl_config, dict):
-            return [ValidationError("etls", "ETL config must be a dictionary")]
+            return [ValidationError("etl", "ETL config must be a dictionary")]
 
         for name, config in etl_config.items():
             if not isinstance(config, dict):
-                errors.append(ValidationError(f"etls.{name}", "ETL config must be a dictionary"))
+                errors.append(ValidationError(f"etl.{name}", "ETL config must be a dictionary"))
                 continue
 
             # Check required fields
             if "input" not in config:
                 errors.append(
-                    ValidationError(f"etls.{name}.input", "Missing required field 'input'")
+                    ValidationError(f"etl.{name}.input", "Missing required field 'input'")
                 )
             if "output" not in config:
                 errors.append(
-                    ValidationError(f"etls.{name}.output", "Missing required field 'output'")
+                    ValidationError(f"etl.{name}.output", "Missing required field 'output'")
                 )
 
             # Validate depends_on is a list
             if "depends_on" in config and not isinstance(config["depends_on"], list):
-                errors.append(ValidationError(f"etls.{name}.depends_on", "must be a list"))
+                errors.append(ValidationError(f"etl.{name}.depends_on", "must be a list"))
 
         return errors
 
@@ -185,23 +185,21 @@ class ConfigValidator:
         errors = []
 
         if not isinstance(training_config, dict):
-            return [ValidationError("training", "Training config must be a dictionary")]
+            return [ValidationError("train", "Training config must be a dictionary")]
 
         # Validate models if present
         if "models" in training_config:
             models = training_config["models"]
             if not isinstance(models, list):
-                errors.append(ValidationError("training.models", "must be a list"))
+                errors.append(ValidationError("train.models", "must be a list"))
             else:
                 for i, model in enumerate(models):
                     if not isinstance(model, dict):
-                        errors.append(
-                            ValidationError(f"training.models[{i}]", "must be a dictionary")
-                        )
+                        errors.append(ValidationError(f"train.models[{i}]", "must be a dictionary"))
                     elif "type" not in model:
                         errors.append(
                             ValidationError(
-                                f"training.models[{i}].type", "Missing required field 'type'"
+                                f"train.models[{i}].type", "Missing required field 'type'"
                             )
                         )
 
@@ -211,9 +209,7 @@ class ConfigValidator:
             if isinstance(ensemble, dict):
                 if "method" not in ensemble:
                     errors.append(
-                        ValidationError(
-                            "training.ensemble.method", "Missing required field 'method'"
-                        )
+                        ValidationError("train.ensemble.method", "Missing required field 'method'")
                     )
 
         # Warning for comparison mode (multiple models without ensemble)
@@ -250,15 +246,15 @@ class ConfigValidator:
         errors = []
 
         if not isinstance(inf_config, dict):
-            return [ValidationError("inference", "Inference config must be a dictionary")]
+            return [ValidationError("infer", "Inference config must be a dictionary")]
 
         # Validate threshold if present
         if "threshold" in inf_config:
             threshold = inf_config["threshold"]
             if not isinstance(threshold, (int, float)):
-                errors.append(ValidationError("inference.threshold", "must be a number"))
+                errors.append(ValidationError("infer.threshold", "must be a number"))
             elif not 0 <= threshold <= 1:
-                errors.append(ValidationError("inference.threshold", "must be between 0 and 1"))
+                errors.append(ValidationError("infer.threshold", "must be between 0 and 1"))
 
         return errors
 

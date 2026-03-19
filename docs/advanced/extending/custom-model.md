@@ -126,7 +126,7 @@ class SklearnModelAdapter(BaseModel):
         return self.model_.predict_proba(X)[:, 1]
 ```
 
-Wire it in `config/training.yaml`:
+Wire it in `config/train.yaml`:
 ```yaml
 training:
   models:
@@ -204,7 +204,7 @@ class CustomLightGBMModel(BaseModel):
         return self.model_.predict(X)
 ```
 
-Wire it in `config/training.yaml`:
+Wire it in `config/train.yaml`:
 ```yaml
 training:
   models:

@@ -31,7 +31,7 @@ class TestConfigResolver:
 
             result = resolve_configs("etl", config_dir)
             assert len(result) == 1
-            assert result[0] == str((config_dir / "etls.yaml").absolute())
+            assert result[0] == str((config_dir / "etl.yaml").absolute())
 
     def test_resolve_comma_separated_names(self):
         """Verify that comma-separated names resolve correctly."""
@@ -43,8 +43,8 @@ class TestConfigResolver:
 
             result = resolve_configs("etl,train", config_dir)
             assert len(result) == 2
-            assert result[0] == str((config_dir / "etls.yaml").absolute())
-            assert result[1] == str((config_dir / "training.yaml").absolute())
+            assert result[0] == str((config_dir / "etl.yaml").absolute())
+            assert result[1] == str((config_dir / "train.yaml").absolute())
 
     def test_resolve_with_whitespace(self):
         """Verify that whitespace around names is handled correctly."""
@@ -56,7 +56,7 @@ class TestConfigResolver:
 
             result = resolve_configs("etl , train", config_dir)
             assert len(result) == 2
-            assert result[0] == str((config_dir / "etls.yaml").absolute())
+            assert result[0] == str((config_dir / "etl.yaml").absolute())
 
     def test_resolve_trailing_comma(self):
         """Verify that trailing comma is ignored."""
@@ -67,7 +67,7 @@ class TestConfigResolver:
 
             result = resolve_configs("etl,", config_dir)
             assert len(result) == 1
-            assert result[0] == str((config_dir / "etls.yaml").absolute())
+            assert result[0] == str((config_dir / "etl.yaml").absolute())
 
     def test_resolve_empty_string_raises_error(self):
         """Verify that empty string raises ValueError."""
@@ -275,7 +275,7 @@ class TestResolveSingle:
             (config_dir / "etl.yaml").touch()
 
             result = _resolve_single("etl", config_dir)
-            assert result == (config_dir / "etls.yaml").absolute()
+            assert result == (config_dir / "etl.yaml").absolute()
 
     def test_resolve_single_simple_name(self):
         """Verify resolving a simple name without extension or slash."""
@@ -297,7 +297,7 @@ class TestResolveSingle:
             # _resolve_single assumes name doesn't end with .yaml
             # so we pass "etl" (without extension)
             result = _resolve_single("etl", config_dir)
-            assert result == (config_dir / "etls.yaml").absolute()
+            assert result == (config_dir / "etl.yaml").absolute()
 
     def test_resolve_single_strips_yml_extension(self):
         """Verify that .yml extension is stripped and converted to .yaml."""
@@ -308,7 +308,7 @@ class TestResolveSingle:
             # _resolve_single assumes name doesn't end with .yml
             # so we pass "etl" (without extension)
             result = _resolve_single("etl", config_dir)
-            assert result == (config_dir / "etls.yaml").absolute()
+            assert result == (config_dir / "etl.yaml").absolute()
 
     def test_resolve_single_nonexistent_raises_error(self):
         """Verify that nonexistent name raises ConfigResolutionError."""

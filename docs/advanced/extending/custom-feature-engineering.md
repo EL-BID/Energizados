@@ -167,7 +167,7 @@ class DomainSpecificFeatureEngineering(BaseFeatureEngineering):
         return self.feature_cols
 ```
 
-Wire it in `config/training.yaml`:
+Wire it in `config/train.yaml`:
 ```yaml
 training:
   feature_engineering:

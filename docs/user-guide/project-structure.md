@@ -11,9 +11,9 @@ When you run `energizados init <project_name>`, a complete project structure is 
 ```
 my_project/
 ├── config/                 # YAML configuration files
-│   ├── etls.yaml          # ETL configuration
-│   ├── training.yaml      # Training pipeline configuration
-│   ├── inference.yaml     # Inference configuration
+│   ├── etl.yaml           # ETL configuration
+│   ├── train.yaml         # Training pipeline configuration
+│   ├── infer.yaml         # Inference configuration
 │   └── eda.yaml           # Exploratory data analysis configuration
 ├── data/
 │   ├── raw/               # Input data (includes sample_dataset.parquet)
@@ -46,15 +46,15 @@ my_project/
 
 All pipeline configuration files in YAML format.
 
-- **`etls.yaml`**: Defines ETL (Extract, Transform, Load) processes. Each ETL specifies input sources, transformations, and output locations. Supports dependencies between ETLs using `depends_on`.
+- **`etl.yaml`**: Defines ETL (Extract, Transform, Load) processes. Each ETL specifies input sources, transformations, and output locations. Supports dependencies between ETLs using `depends_on`.
 
-- **`training.yaml`**: Configures the complete training pipeline:
+- **`train.yaml`**: Configures the complete training pipeline:
   - **Split**: Data splitting strategy (stratified, random, time-series)
   - **Feature Engineering**: Preprocessing transformers and feature selection
   - **Models**: Model configuration (single or ensemble)
   - **Evaluation**: Metrics, reports, threshold settings
 
-- **`inference.yaml`**: Defines inference parameters including input data path, model path, and output location.
+- **`infer.yaml`**: Defines inference parameters including input data path, model path, and output location.
 
 - **`eda.yaml`**: Configuration for automated exploratory data analysis reports.
 
@@ -105,8 +105,8 @@ Source code for custom components and execution scripts.
   - **`helpers.py`**: Shared utility functions that can be used across custom components.
 
 - **`run/`**: Python scripts for direct execution without CLI:
-  - **`01_etl.py`**: Executes ETLs from `etls.yaml`
-  - **`02_training.py`**: Runs the training pipeline from `training.yaml`
+  - **`01_etl.py`**: Executes ETLs from `etl.yaml`
+  - **`02_training.py`**: Runs the training pipeline from `train.yaml`
   - **`03_evaluation.py`**: Runs evaluation on a trained model
   - **`04_inference.py`**: Runs inference on new data
 
@@ -124,7 +124,7 @@ The directory is created but empty by default. Add your test files here to ensur
 
 ## File Naming Conventions
 
-- YAML files: lowercase with underscores (e.g., `etls.yaml`)
+- YAML files: lowercase with underscores (e.g., `etl.yaml`)
 - Python files: lowercase with underscores (e.g., `custom_etl.py`)
 - Data files: descriptive names with extensions (e.g., `sample_dataset.parquet`)
 - Output directories: timestamped format `train-YYYYMMDD_HHMM`

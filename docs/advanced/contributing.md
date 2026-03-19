@@ -395,12 +395,12 @@ jobs:
 
       - name: Validate configs
         run: |
-          poetry run energizados validate --config config/etls.yaml
-          poetry run energizados validate --config config/training.yaml
+          poetry run energizados validate --config config/etl.yaml
+          poetry run energizados validate --config config/train.yaml
 
       - name: Dry run pipeline
         run: |
-          poetry run energizados run etls --dry-run
+          poetry run energizados run etl --dry-run
 ```
 
 **What the CI Pipeline Runs:**

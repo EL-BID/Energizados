@@ -1,6 +1,6 @@
-# ETLs Configuration
+# ETL Configuration
 
-Complete reference for `etls.yaml` configuration.
+Complete reference for `etl.yaml` configuration.
 
 ## Overview
 
@@ -9,7 +9,7 @@ The ETL configuration file defines data extraction, transformation, and loading 
 ## File Structure
 
 ```yaml
-etls:
+etl:
   etl_name:
     enabled: true                    # Whether to execute this ETL
     description: "ETL description"  # Human-readable description
@@ -47,7 +47,7 @@ The `SourceETL` class is the built-in ETL implementation that supports two modes
 Concatenates multiple input files vertically (stacks rows).
 
 ```yaml
-etls:
+etl:
   concatenar:
     enabled: true
     description: "Concatenates multiple CSV files"
@@ -72,7 +72,7 @@ etls:
 Merges multiple input files horizontally using pandas `merge()`.
 
 ```yaml
-etls:
+etl:
   merge_dataset:
     enabled: true
     description: "Combines consumption and customer data"
@@ -116,7 +116,7 @@ Use the `@` prefix to reference another ETL's output as input.
 ### Basic Example
 
 ```yaml
-etls:
+etl:
   # ETL 1: No dependencies
   consumos:
     enabled: true
@@ -163,7 +163,7 @@ etls:
 ETLs execute one after another in sequence.
 
 ```yaml
-etls:
+etl:
   extract:
     enabled: true
     input: "data/raw/data.csv"
@@ -197,7 +197,7 @@ etls:
 Independent ETLs execute simultaneously.
 
 ```yaml
-etls:
+etl:
   source_a:
     enabled: true
     input: "data/a.csv"
@@ -236,7 +236,7 @@ etls:
 Multiple branches converge into a single ETL.
 
 ```yaml
-etls:
+etl:
   branch_a:
     enabled: true
     input: "data/a.csv"
@@ -273,7 +273,7 @@ etls:
 ## Complete Example
 
 ```yaml
-etls:
+etl:
   # Raw data ingestion (parallel)
   consumos_2023:
     enabled: true
@@ -364,10 +364,10 @@ class CustomETL(BaseETL):
         df.to_parquet(path)
 ```
 
-Then reference it in `etls.yaml`:
+Then reference it in `etl.yaml`:
 
 ```yaml
-etls:
+etl:
   custom_etl:
     enabled: true
     input: "data/raw/input.parquet"
