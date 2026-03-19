@@ -237,8 +237,14 @@ def init(ctx, project_name, template, path, copy_from, force):
     count=True,
     help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
 )
+@click.option(
+    "--name",
+    "-n",
+    default=None,
+    help="Custom run directory name (default: auto-generated timestamp)",
+)
 @click.pass_context
-def run(ctx, configs, config_path, step, etl, dry_run, verbose):
+def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
     """
     Execute a pipeline from YAML configuration.
 
@@ -249,6 +255,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose):
     - No options: Execute the complete pipeline
     - --step: Execute only a specific step
     - --etl: Execute a specific ETL (with multiple ETLs)
+    - --name, -n: Custom run directory name
     - --dry-run: Show the plan without executing
     - --verbose, -v: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
@@ -263,9 +270,19 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose):
         energizados run /abs/path/custom.yaml            # Use absolute path directly
         energizados run etl -v                         # Run with INFO level logging
         energizados run etl -vv                        # Run with DEBUG level logging
+        energizados run train -n my_experiment          # Run with custom run directory name
     """
     # Configure logging
     _setup_logging(verbose)
+
+    # Validate run name if provided
+    import re
+
+    if name is not None:
+        if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+            raise click.BadParameter(
+                "Run name can only contain letters, numbers, dashes and underscores"
+            )
 
     from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
     from energizados.cli.run import (
@@ -297,7 +314,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose):
                 return
 
             print_info(f"Executing step '{step}' of the pipeline...")
-            execute_step(config_paths, step)
+            execute_step(config_paths, step, run_name=name)
             print_success("Step completed successfully")
             return
 
@@ -317,7 +334,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose):
             return
 
         # Execute complete pipeline
-        execute_pipeline(config_paths)
+        execute_pipeline(config_paths, run_name=name)
         print_success("Pipeline completed successfully")
 
     except ConfigResolutionError as e:

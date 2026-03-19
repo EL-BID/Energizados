@@ -6,7 +6,7 @@ existing project code.
 """
 
 import logging
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -104,6 +104,21 @@ class CorrelationSelector(BaseFeatureSelector):
             raise ValueError("Must call fit() first")
         return X[self.selected_features_].copy()
 
+    def get_audit_stats(self) -> Dict:
+        """
+        Return audit statistics for correlation selector.
+
+        Returns:
+            Dict: Contains vars_to_drop, method, and threshold.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        return {
+            "vars_to_drop": self.vars_to_drop_ or [],
+            "method": self.method,
+            "threshold": self.threshold,
+        }
+
 
 class ConstantSelector(BaseFeatureSelector):
     """
@@ -174,6 +189,20 @@ class ConstantSelector(BaseFeatureSelector):
             raise ValueError("Must call fit() first")
         return X[self.selected_features_].copy()
 
+    def get_audit_stats(self) -> Dict:
+        """
+        Return audit statistics for constant selector.
+
+        Returns:
+            Dict: Contains vars_to_drop and threshold.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        return {
+            "vars_to_drop": self.vars_to_drop_ or [],
+            "threshold": self.threshold,
+        }
+
 
 class BorutaSelector(BaseFeatureSelector):
     """
@@ -207,6 +236,7 @@ class BorutaSelector(BaseFeatureSelector):
         self.perc = perc
         self.random_state = random_state
         self.n_runs_ = 10  # Number of runs for stability
+        self.vote_counts_: Optional[Dict] = None  # Initialized to None, set after fit
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "BorutaSelector":
         """
@@ -287,6 +317,9 @@ class BorutaSelector(BaseFeatureSelector):
                 else:
                     E[var] += 1
 
+        # Store vote counts for audit logging (exclude "random" shadow feature)
+        self.vote_counts_ = {k: v for k, v in E.items() if k != "random"}
+
         # Variables that appear in at least half of the runs
         self.selected_features_ = [k for k in E.keys() if E[k] >= self.n_runs_ // 2]
         self.selected_features_ = [v for v in self.selected_features_ if v != "random"]
@@ -313,6 +346,21 @@ class BorutaSelector(BaseFeatureSelector):
         # Ensure all variables exist
         available_features = [f for f in self.selected_features_ if f in X.columns]
         return X[available_features].copy()
+
+    def get_audit_stats(self) -> Dict:
+        """
+        Return audit statistics for Boruta selector.
+
+        Returns:
+            Dict: Contains vote_counts, n_runs, and threshold.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        return {
+            "vote_counts": self.vote_counts_ or {},
+            "n_runs": self.n_runs_,
+            "threshold": self.n_runs_ // 2,
+        }
 
 
 def feature_selection_by_correlation(x_train, y_train, variables, method="pearson", th=0.9):
@@ -452,3 +500,15 @@ class MutualInformationSelector(BaseFeatureSelector):
         # Ensure all selected features exist
         available_features = [f for f in self.selected_features_ if f in X.columns]
         return X[available_features].copy()
+
+    def get_audit_stats(self) -> Dict:
+        """
+        Return audit statistics for mutual information selector.
+
+        Returns:
+            Dict: Contains scores and k (number of top features).
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        scores = self.scores_.to_dict() if self.scores_ is not None else {}
+        return {"scores": scores, "k": self.k}

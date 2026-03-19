@@ -150,6 +150,20 @@ class TrainingStep(PipelineStep):
 
         feature_engineering.fit(X_train, y_train)
 
+        # Save feature selection audit log if feature selection is enabled
+        if (
+            hasattr(feature_engineering, "selector_pipeline")
+            and feature_engineering.selector_pipeline is not None
+        ):
+            # Check if selector pipeline has any steps
+            if (
+                hasattr(feature_engineering.selector_pipeline, "_step_selectors")
+                and feature_engineering.selector_pipeline._step_selectors
+            ):
+                audit_log_path = self.output_dir / "reports" / "feature_selection_audit.json"
+                feature_engineering.selector_pipeline.save_audit_log(audit_log_path)
+                logger.info(f"Feature selection audit log saved to: {audit_log_path}")
+
         logger.info("Transforming train, val, test...")
         X_train_transformed = feature_engineering.transform(X_train)
         X_val_transformed = feature_engineering.transform(X_val)

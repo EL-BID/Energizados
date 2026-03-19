@@ -4,11 +4,14 @@ Multi-Step Feature Selection Pipeline.
 Provides FeatureSelectionPipeline (orchestrator) and SelectionStep (set composition).
 """
 
+import json
 import logging
+from pathlib import Path
 from typing import Dict, List, Optional, Type
 
 import pandas as pd
 
+from energizados.feature_selection.base import BaseFeatureSelector
 from energizados.feature_selection.column_resolver import ColumnResolver
 
 logger = logging.getLogger(__name__)
@@ -151,6 +154,7 @@ class FeatureSelectionPipeline:
         self._method_map = method_map
         self.selected_features_: Optional[List[str]] = None
         self._step_results: Dict[str, List[str]] = {}
+        self._step_selectors: Dict[str, BaseFeatureSelector] = {}
 
     @property
     def method_map(self) -> Dict[str, type]:
@@ -208,6 +212,7 @@ class FeatureSelectionPipeline:
                 selector = selector_cls(**params)
                 selector.fit(X[scoped_columns], y)
                 self._step_results[name] = selector.selected_features_
+                self._step_selectors[name] = selector
 
             logger.info(
                 f"Step '{name}' ({method}): selected {len(self._step_results[name])} columns"
@@ -240,3 +245,52 @@ class FeatureSelectionPipeline:
         if self.selected_features_ is None:
             raise ValueError("Call fit() before get_selected_features()")
         return self.selected_features_
+
+    def save_audit_log(self, path: Path) -> None:
+        """
+        Serialize step results + per-step audit stats to JSON.
+
+        Creates a JSON file containing:
+        - steps: List of steps with name, method, selected features, and audit stats
+        - final_selected_count: Number of features selected
+        - final_selected_features: List of final selected features
+
+        Args:
+            path: Path where to save the audit log JSON file.
+        """
+        steps_data = []
+
+        for step_cfg in self.steps_config:
+            name = step_cfg["name"]
+            method = step_cfg["method"]
+
+            selected_features = self._step_results.get(name, [])
+            audit_stats = {}
+
+            # Get audit stats from selector if available
+            if name in self._step_selectors:
+                selector = self._step_selectors[name]
+                audit_stats = selector.get_audit_stats()
+
+            step_data = {
+                "name": name,
+                "method": method,
+                "selected_count": len(selected_features),
+                "selected_features": selected_features,
+                "audit_stats": audit_stats,
+            }
+            steps_data.append(step_data)
+
+        audit_log = {
+            "steps": steps_data,
+            "final_selected_count": len(self.selected_features_) if self.selected_features_ else 0,
+            "final_selected_features": self.selected_features_ if self.selected_features_ else [],
+        }
+
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w") as f:
+            json.dump(audit_log, f, indent=2)
+
+        logger.info(f"Feature selection audit log saved to: {path}")

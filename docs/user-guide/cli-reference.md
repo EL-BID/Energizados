@@ -46,6 +46,7 @@ Executes a pipeline from YAML configuration files.
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
 - `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
+- `--name, -n`: Custom run directory name (replaces if exists). Without this, auto-generated timestamp is used (e.g., `train-20260318_2209`). Only alphanumeric, dashes, and underscores allowed.
 
 ### Config Name Resolution
 
@@ -79,6 +80,10 @@ energizados run --config-path /custom/path etl,train
 # Run with verbose output
 energizados run etl -v
 energizados run train -vv
+
+# Run with custom run directory name
+energizados run train -n mi-experimento-v1    # Custom run directory name
+energizados run train -n experimento-v2       # Replaces if already exists
 ```
 
 ---

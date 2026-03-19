@@ -6,11 +6,12 @@ data sources, supporting both concatenation and merge operations.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
 from energizados.core.exceptions import ETLError
+from energizados.core.utils.import_utils import import_class
 from energizados.etl.base import BaseETL
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,10 @@ class SourceETL(BaseETL):
             Options: how ('left', 'right', 'inner', 'outer'), on (column),
                       left_on, right_on, left_index, right_index.
         key_column: Key column used by default in merge_config.
+        transform_fn: Optional custom transform function. Can be:
+            - None (default): No custom transform
+            - str: Dotted path to a function (e.g., 'src.data.transforms.clean_data')
+            - Callable: A function with signature (pd.DataFrame) -> pd.DataFrame
         **kwargs: Additional parameters.
 
     Example:
@@ -55,6 +60,15 @@ class SourceETL(BaseETL):
         ...     merge_config={'how': 'left', 'on': 'id_cliente'},
         ... )
         >>> df = etl.run('data/merged.parquet')
+
+    Example with custom transform:
+        >>> etl = SourceETL(
+        ...     name='cleaned',
+        ...     input_paths=['data/raw/dirty.csv'],
+        ...     output_path='data/cleaned.parquet',
+        ...     transform_fn='src.data.transforms.clean_data',
+        ... )
+        >>> df = etl.run('data/cleaned.parquet')
     """
 
     def __init__(
@@ -67,6 +81,7 @@ class SourceETL(BaseETL):
         key_column: Optional[str] = None,
         input_params: Optional[Dict[str, Any]] = None,
         output_params: Optional[Dict[str, Any]] = None,
+        transform_fn: Optional[Any] = None,
         **kwargs,
     ):
         self.name = name
@@ -78,6 +93,22 @@ class SourceETL(BaseETL):
         self.input_params = input_params or {}
         self.output_params = output_params or {}
         self.kwargs = kwargs
+
+        # Load transform_fn if provided
+        self._transform_fn: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None
+        if transform_fn is not None:
+            if isinstance(transform_fn, str):
+                # Load from dotted path
+                self._transform_fn = import_class(transform_fn)
+                logger.info(f"  • Loaded transform function: {transform_fn}")
+            elif callable(transform_fn):
+                # Use callable directly
+                self._transform_fn = transform_fn
+                logger.info("  • Using callable transform function")
+            else:
+                raise ValueError(
+                    f"transform_fn must be a string path or callable, got {type(transform_fn)}"
+                )
 
         # Validate mode
         if self.mode not in ("concat", "merge"):
@@ -210,6 +241,9 @@ class SourceETL(BaseETL):
 
         Returns:
             pd.DataFrame: Clean DataFrame
+
+        Raises:
+            ETLError: If transform_fn returns invalid type
         """
         df = df.copy()
 
@@ -220,6 +254,17 @@ class SourceETL(BaseETL):
 
         if before_count > after_count:
             logger.info(f"  • Removed {before_count - after_count} empty rows")
+
+        # Apply custom transform function if provided
+        if self._transform_fn is not None:
+            logger.info("  • Applying custom transform function")
+            df = self._transform_fn(df)
+
+            # Validate return type
+            if not isinstance(df, pd.DataFrame):
+                raise ETLError(f"transform_fn must return pd.DataFrame, got {type(df).__name__}")
+
+            logger.info(f"  ✓ Custom transform applied: {len(df)} records")
 
         return df
 

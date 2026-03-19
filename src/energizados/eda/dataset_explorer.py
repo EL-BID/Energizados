@@ -179,20 +179,34 @@ class DatasetExplorer:
             )
 
         # --- Phase 0: Loading validator ---
-        logger.info("Phase 0: Loading validation...")
-        loading_results = self._run_loading_validator(df)
+        loading_results = {}
+        loading_cfg = self.sections.get("loading", {})
+        if loading_cfg.get("enabled", True):
+            logger.info("Phase 0: Loading validation...")
+            loading_results = self._run_loading_validator(df)
 
         # --- Phase 1: Global dataset stats ---
-        logger.info("Phase 1: Global statistics...")
-        global_stats = self._compute_global_stats(df)
+        global_stats = {}
+        global_stats_cfg = self.sections.get("global_stats", {})
+        if global_stats_cfg.get("enabled", True):
+            logger.info("Phase 1: Global statistics...")
+            global_stats = self._compute_global_stats(df)
 
         # --- Phase 2: Column explorer ---
-        logger.info("Phase 2: Column analysis...")
-        columns_results = self._run_column_explorer(df, col_types)
+        columns_results = {}
+        columns_cfg = self.sections.get("columns", {})
+        if columns_cfg.get("enabled", True):
+            logger.info("Phase 2: Column analysis...")
+            columns_results = self._run_column_explorer(df, col_types)
 
         # --- Phase 3: Target explorer ---
         target_results = {}
-        if self.target_column and self.target_column in df.columns:
+        target_cfg = self.sections.get("target", {})
+        if (
+            target_cfg.get("enabled", True)
+            and self.target_column
+            and self.target_column in df.columns
+        ):
             logger.info("Phase 3: Target variable analysis '%s'...", self.target_column)
             target_results = self._run_target_explorer(df)
 
@@ -207,7 +221,12 @@ class DatasetExplorer:
 
         # --- Phase 5: Feature importance ---
         importance_results = {}
-        if self.target_column and self.target_column in df.columns:
+        importance_cfg = self.sections.get("feature_importance", {})
+        if (
+            importance_cfg.get("enabled", True)
+            and self.target_column
+            and self.target_column in df.columns
+        ):
             logger.info("Phase 5: Feature importance analysis...")
             importance_results = self._run_feature_importance(df, col_types)
 
@@ -385,7 +404,7 @@ class DatasetExplorer:
             if d["null_pct"] / 100 > missing_threshold:
                 self._add_alert(
                     code="HIGH_MISSING",
-                    message=f"Column '{d['col']}' has {d['null_pct']:.1f}% missing values (threshold: {missing_threshold*100:.0f}%).",
+                    message=f"Column '{d['col']}' has {d['null_pct']:.1f}% missing values (threshold: {missing_threshold * 100:.0f}%).",
                     severity="WARNING",
                     details={"col": d["col"], "null_pct": d["null_pct"]},
                 )

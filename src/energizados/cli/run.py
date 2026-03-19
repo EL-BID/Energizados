@@ -7,7 +7,7 @@ pipelines from YAML configuration.
 
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 from rich.panel import Panel
@@ -56,12 +56,13 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
     return merged_config
 
 
-def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
+def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Executes the complete pipeline from YAML configuration(s).
 
     Args:
         config_paths: List of paths to YAML configuration files
+        run_name: Optional custom run directory name
 
     Returns:
         Dict: Final context with pipeline results
@@ -83,7 +84,9 @@ def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
     merged_config = merge_configs(config_paths)
 
     # Build pipeline (don't run yet)
-    builder = ConfigPipelineBuilder(config=merged_config, config_paths=list(config_paths))
+    builder = ConfigPipelineBuilder(
+        config=merged_config, config_paths=list(config_paths), run_name=run_name
+    )
     pipeline = builder.build()
 
     # Execute with Rich progress display
@@ -145,13 +148,16 @@ def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
     return result
 
 
-def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
+def execute_step(
+    config_paths: List[str], step_name: str, run_name: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Executes a single step of the pipeline.
 
     Args:
         config_paths: List of paths to YAML configuration files
         step_name: Name of the step to execute
+        run_name: Optional custom run directory name
 
     Returns:
         Dict: Updated context after the step
@@ -176,7 +182,9 @@ def execute_step(config_paths: List[str], step_name: str) -> Dict[str, Any]:
     merged_config = merge_configs(config_paths)
 
     # Build complete pipeline
-    builder = ConfigPipelineBuilder(config=merged_config, config_paths=list(config_paths))
+    builder = ConfigPipelineBuilder(
+        config=merged_config, config_paths=list(config_paths), run_name=run_name
+    )
     pipeline = builder.build()
 
     # Filter only the requested step

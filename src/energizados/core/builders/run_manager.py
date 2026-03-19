@@ -4,11 +4,14 @@ Run Manager.
 This module handles run directory creation, config copying, and post-run tasks.
 """
 
+import json
 import logging
 import shutil
+import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,48 +29,67 @@ class RunManager:
         config_paths: List of config file paths used for this run
     """
 
-    def __init__(self, config_paths: Optional[List[str]] = None):
+    def __init__(self, config_paths: Optional[List[str]] = None, run_name: Optional[str] = None):
         """
-        Initialize the run manager.
+        Initialize run manager.
 
         Args:
             config_paths: List of config file paths used for this run
+            run_name: Optional custom run directory name
         """
         self.config_paths: List[str] = config_paths or []
         self._run_dir: Optional[Path] = None
+        self._run_name: Optional[str] = run_name
+        self._start_time = time.time()
 
     @property
     def run_dir(self) -> Optional[Path]:
         """Get the current run directory path."""
         return self._run_dir
 
-    def generate_run_dir(self, base_output_dir: str = "output") -> Path:
+    def generate_run_dir(
+        self, base_output_dir: str = "output", run_name: Optional[str] = None
+    ) -> Path:
         """
-        Creates a timestamped run directory inside the output base directory.
+        Creates a run directory inside the output base directory.
+
+        If run_name is provided, uses that name directly (deleting existing dir if present).
+        If run_name is None, uses a timestamp with suffix for collisions.
 
         Args:
             base_output_dir: Base output directory (default: "output")
+            run_name: Optional custom run directory name
 
         Returns:
             Path: Path to the created run directory
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        run_name = f"train-{timestamp}"
         base = Path(base_output_dir)
-        run_dir = base / run_name
 
-        # Handle timestamp collisions atomically (avoid TOCTOU race)
-        import os
+        if run_name is not None:
+            # Use custom run name - delete existing directory if present
+            run_dir = base / run_name
+            if run_dir.exists():
+                logger.info(f"Deleting existing run directory: {run_dir}")
+                shutil.rmtree(run_dir)
+            run_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            # Use timestamp with collision handling
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            auto_run_name = f"train-{timestamp}"
+            run_dir = base / auto_run_name
 
-        suffix = 0
-        while True:
-            candidate = run_dir if suffix == 0 else base / f"{run_name}_{suffix}"
-            try:
-                os.makedirs(candidate)
-                run_dir = candidate
-                break
-            except FileExistsError:
-                suffix += 1
+            # Handle timestamp collisions atomically (avoid TOCTOU race)
+            import os
+
+            suffix = 0
+            while True:
+                candidate = run_dir if suffix == 0 else base / f"{auto_run_name}_{suffix}"
+                try:
+                    os.makedirs(candidate)
+                    run_dir = candidate
+                    break
+                except FileExistsError:
+                    suffix += 1
 
         (run_dir / "models").mkdir(parents=True, exist_ok=True)
         (run_dir / "reports" / "evaluation").mkdir(parents=True, exist_ok=True)
@@ -100,14 +122,106 @@ class RunManager:
         if index_path:
             logger.info(f"Index HTML updated: {index_path}")
 
-    def finalize_run(self):
+    def _write_run_metadata(self, context: Dict[str, Any]) -> None:
+        """
+        Write run metadata JSON file to run directory.
+
+        Args:
+            context: Context dict containing training results and configuration
+        """
+        if self._run_dir is None:
+            return
+
+        # Calculate duration
+        duration_seconds = time.time() - self._start_time
+
+        # Get run_id from directory name
+        run_id = self._run_dir.name
+
+        # Get timestamp
+        timestamp = datetime.now().isoformat()
+
+        # Get energizados version with fallback
+        try:
+            import importlib.metadata
+
+            energizados_version = importlib.metadata.version("energizados")
+        except Exception:
+            energizados_version = "unknown"
+
+        # Get Python version
+        import sys
+
+        python_version = (
+            f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        )
+
+        # Get git commit with fallback
+        try:
+            git_commit = (
+                subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
+                .decode()
+                .strip()
+            )
+        except Exception:
+            git_commit = "unknown"
+
+        # Extract model types from context
+        model_types = []
+        if "model" in context and context["model"] is not None:
+            model_types.append(type(context["model"]).__name__)
+        elif "models" in context and context["models"] is not None:
+            model_types = [type(m).__name__ for m in context["models"].values()]
+
+        # Get validation metrics from context
+        val_auc = context.get("val_auc")
+        val_f1 = context.get("val_f1")
+
+        # Get feature count from context
+        feature_count = None
+        if "feature_engineering" in context and context["feature_engineering"] is not None:
+            fe = context["feature_engineering"]
+            if hasattr(fe, "selected_features_") and fe.selected_features_ is not None:
+                feature_count = len(fe.selected_features_)
+
+        # Build metadata dict
+        metadata = {
+            "run_id": run_id,
+            "timestamp": timestamp,
+            "duration_seconds": round(duration_seconds, 2),
+            "energizados_version": energizados_version,
+            "python_version": python_version,
+            "git_commit": git_commit,
+            "model_types": model_types,
+            "val_auc": val_auc,
+            "val_f1": val_f1,
+            "feature_count": feature_count,
+            "config_files": [Path(p).name for p in self.config_paths],
+        }
+
+        # Write to JSON file
+        metadata_path = self._run_dir / "run_metadata.json"
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        logger.info(f"Run metadata saved to: {metadata_path}")
+
+    def finalize_run(self, context: Optional[Dict[str, Any]] = None):
         """
         Run post-build tasks.
 
         This should be called after a successful pipeline run:
         - Copy configs to run directory
         - Regenerate global index HTML
+        - Write run metadata JSON if context is provided
+
+        Args:
+            context: Optional context dict containing training results (val metrics, model types, etc.)
         """
         if self._run_dir is not None:
             self.copy_configs_to_run_dir()
             self.generate_index_html()
+
+            # Write run metadata if context is provided
+            if context is not None:
+                self._write_run_metadata(context)

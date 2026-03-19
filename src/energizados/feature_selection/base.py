@@ -96,3 +96,20 @@ class BaseFeatureSelector(ABC):
         if self.selected_features_ is None:
             raise ValueError("Must call fit() first")
         return self.selected_features_
+
+    def get_audit_stats(self) -> Dict:
+        """
+        Return audit statistics for the selector.
+
+        Subclasses should override this method to provide selector-specific
+        statistics such as vote counts, dropped features, scores, etc.
+
+        Raises:
+            ValueError: If fit() has not been called previously.
+
+        Returns:
+            Dict: Selector-specific stats. Subclasses return relevant stats.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        return {}

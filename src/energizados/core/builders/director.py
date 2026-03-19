@@ -63,7 +63,11 @@ class PipelineDirector:
     """
 
     def __init__(
-        self, config_path: str = None, config: Dict = None, config_paths: List[str] = None
+        self,
+        config_path: str = None,
+        config: Dict = None,
+        config_paths: List[str] = None,
+        run_name: Optional[str] = None,
     ):
         """
         Initialize the director.
@@ -72,6 +76,7 @@ class PipelineDirector:
             config_path: Path to the YAML configuration file (optional)
             config: Configuration dictionary (optional, takes precedence over config_path)
             config_paths: List of all config files used (for copying to run dir)
+            run_name: Optional custom run directory name
         """
         if config is not None:
             self.config = config
@@ -83,7 +88,8 @@ class PipelineDirector:
             raise ValueError("Must provide config_path or config")
 
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
-        self.run_manager = RunManager(self.config_paths)
+        self._run_name: Optional[str] = run_name
+        self.run_manager = RunManager(self.config_paths, run_name=run_name)
         self._run_dir: Optional[Path] = None
 
         # Validate configuration against schema
@@ -120,7 +126,9 @@ class PipelineDirector:
         eval_config = train_config.get("evaluation", {}) or self.config.get("evaluation", {})
         if train_config.get("enabled", False) or eval_config.get("enabled", False):
             base_output_dir = train_config.get("output_base_dir", "output")
-            self._run_dir = self.run_manager.generate_run_dir(base_output_dir)
+            self._run_dir = self.run_manager.generate_run_dir(
+                base_output_dir, run_name=self._run_name
+            )
 
         # Build and add each step
         # Step 1: ETL
@@ -191,6 +199,6 @@ class PipelineDirector:
         result = pipeline.run()
 
         # Run post-build tasks
-        self.run_manager.finalize_run()
+        self.run_manager.finalize_run(context=result)
 
         return result

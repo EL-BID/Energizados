@@ -40,6 +40,7 @@
 #### CLI Improvements
 - **NEW**: `energizados init` command for project creation with complete templates
 - **NEW**: `energizados doctor` command for environment validation with UI module
+- **NEW**: `--name` / `-n` option for custom run directory names in `energizados run` (replaces if exists)
 - Enhanced CLI messages with Rich formatting and actionable tips
 - Fixed `validate.py` bug and improved error messages
 - Support for comma-separated config names in `run` command

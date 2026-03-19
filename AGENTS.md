@@ -59,6 +59,9 @@ energizados run eda
 
 # Dry run (see plan without executing)
 energizados run etl --dry-run
+
+# Run with custom name (replaces if exists)
+energizados run train -n mi-experimento
 ```
 
 ### Run Scripts (generated projects)

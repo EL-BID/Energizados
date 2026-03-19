@@ -259,7 +259,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-ETL-006 | ETL steps declare their dependencies for DAG resolution                                     | [IMPLEMENTED] |
 | FR-ETL-007 | ETL supports column selection, renaming, and type casting at load time                      | [IMPLEMENTED] |
 | FR-ETL-008 | ETL validates that all declared dependencies exist before execution                         | [IMPLEMENTED] |
-| FR-ETL-009 | ETL supports custom transform functions per step                                            | [PARTIAL]     |
+| FR-ETL-009 | ETL supports custom transform functions per step                                            | [IMPLEMENTED] |
 | FR-ETL-010 | ETL supports incremental / delta loading                                                    | [PLANNED]     |
 
 ### FR-SPLIT: Data Splitting Strategies
@@ -286,7 +286,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-PREPROCESS-007 | **ExtraVars**: Statistical feature generation (mean, std, min, max, etc.)                      | [IMPLEMENTED] |
 | FR-PREPROCESS-008 | All transformers follow sklearn-compatible fit/transform interface                             | [IMPLEMENTED] |
 | FR-PREPROCESS-009 | Transformers are composable in ColumnTransformer pipelines                                     | [IMPLEMENTED] |
-| FR-PREPROCESS-010 | Support custom transformer registration                                                        | [PARTIAL]     |
+| FR-PREPROCESS-010 | Support custom transformer registration                                                        | [IMPLEMENTED]  |
 | FR-PREPROCESS-011 | Transformer parameters configurable via YAML                                                   | [IMPLEMENTED] |
 | FR-PREPROCESS-012 | **GroupStatComparison**: Compare individual values against group-level statistics (mean, median) with configurable grouping columns and outlier removal via IQR | [PLANNED] |
 | FR-PREPROCESS-013 | **TsfelVars** supports configurable feature domains: statistical, temporal, and spectral (FFT, MFCC, wavelets) | [PLANNED] |
@@ -301,7 +301,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-FEATSEL-004 | **ColumnResolver**: Flexible column specification with glob, regex, @reference, and !exclusion patterns | [IMPLEMENTED] |
 | FR-FEATSEL-005 | Multi-step selection pipeline (chain multiple selectors)                                                | [IMPLEMENTED] |
 | FR-FEATSEL-006 | BaseFeatureSelector ABC with fit/transform/fit_transform/get_selected_features                          | [IMPLEMENTED] |
-| FR-FEATSEL-007 | Feature selection results logged and persisted for auditability                                         | [PARTIAL]     |
+| FR-FEATSEL-007 | Feature selection results logged and persisted for auditability                                         | [IMPLEMENTED] |
 | FR-FEATSEL-008 | Support mutual information-based selection                                                              | [IMPLEMENTED]  |
 | FR-FEATSEL-009 | **KFoldBorutaSelector**: Cross-validated Boruta that runs selection per fold and keeps features appearing in a configurable majority of folds | [PLANNED] |
 
@@ -385,7 +385,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-EDA-010 | Generate interactive HTML EDA report                                                           | [IMPLEMENTED] |
 | FR-EDA-011 | Generate static plot versions for PDF/print                                                    | [IMPLEMENTED] |
 | FR-EDA-012 | BaseExplorer ABC with analyze/get_alerts interface                                             | [IMPLEMENTED] |
-| FR-EDA-013 | Configurable phase selection (run subset of phases)                                            | [PARTIAL]     |
+| FR-EDA-013 | Configurable phase selection (run subset of phases)                                            | [IMPLEMENTED] |
 
 ### FR-CONFIG: YAML Configuration System
 
@@ -409,8 +409,8 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-OUTPUT-003 | `reports/evaluation/` subdirectory for metrics and plots    | [IMPLEMENTED] |
 | FR-OUTPUT-004 | `config/` subdirectory with config snapshot                 | [IMPLEMENTED] |
 | FR-OUTPUT-005 | Global `index.html` for cross-run comparison                | [IMPLEMENTED] |
-| FR-OUTPUT-006 | Run metadata (duration, dataset size, parameters) persisted | [PARTIAL]     |
-| FR-OUTPUT-007 | Support custom output directory via config                  | [PARTIAL]     |
+| FR-OUTPUT-006 | Run metadata (duration, dataset size, parameters) persisted | [IMPLEMENTED]  |
+| FR-OUTPUT-007 | Support custom output directory via config                  | [IMPLEMENTED]  |
 
 ### FR-SECURITY: Security
 
@@ -554,7 +554,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
     - [x] Allows defining Python function per step
     - [x] Receives DataFrame and returns DataFrame
     - [x] Integrates into DAG flow
-- **Status**: [PARTIAL]
+- **Status**: [IMPLEMENTED]
 
 **US-ETL-005: Incremental / delta loading**
 
@@ -761,10 +761,10 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to see which features were selected and which were removed at each selection step
 - **So that** I can audit the feature selection process and justify model inputs
 - **Acceptance criteria**:
-    - [ ] Logs selected and rejected features per selector
-    - [ ] Persists selection results to output directory
-    - [ ] Includes feature counts before and after each step
-- **Status**: [PARTIAL]
+    - [x] Logs selected and rejected features per selector
+    - [x] Persists selection results to output directory
+    - [x] Includes feature counts before and after each step
+- **Status**: [IMPLEMENTED]
 
 **US-FEATSEL-007: Mutual information-based selection**
 
@@ -1044,11 +1044,11 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to calibrate model predicted probabilities using isotonic regression or Platt scaling
 - **So that** predicted scores reflect actual fraud rates, improving threshold-based operational decisions
 - **Acceptance criteria**:
-    - [ ] Supports isotonic regression and Platt (sigmoid) scaling via `CalibratedClassifierCV`
-    - [ ] Configurable number of CV folds for calibration (default 5)
-    - [ ] Calibrated model saved alongside uncalibrated model
+    - [x] Supports isotonic regression and Platt (sigmoid) scaling via `CalibratedClassifierCV`
+    - [x] Configurable number of CV folds for calibration (default 5)
+    - [x] Calibrated model saved alongside uncalibrated model
     - [ ] Calibration curve (reliability diagram) included in evaluation report
-- **Status**: [PLANNED]
+- **Status**: [IMPLEMENTED]
 
 **US-EVAL-010: Per-segment evaluation**
 
@@ -1242,10 +1242,10 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to specify which EDA phases to run via configuration
 - **So that** I can run only the relevant analysis phases and reduce processing time
 - **Acceptance criteria**:
-    - [ ] `phases` list in `eda.yaml` controls which phases execute
-    - [ ] Skipped phases are logged but not executed
-    - [ ] Default: all phases run when not specified
-- **Status**: [PARTIAL]
+    - [x] `phases` list in `eda.yaml` controls which phases execute
+    - [x] Skipped phases are logged but not executed
+    - [x] Default: all phases run when not specified
+- **Status**: [IMPLEMENTED]
 
 ---
 

@@ -172,10 +172,6 @@ class Pipeline:
                     self.on_step_error(step_name, e)
                 raise PipelineError(f"Error executing step {step_name}: {e}", step=step_name)
 
-        logger.info(f"\n{'=' * 60}")
-        logger.info("PIPELINE COMPLETED SUCCESSFULLY")
-        logger.info(f"{'=' * 60}")
-
         return self.context
 
     def get_context(self) -> Dict[str, Any]:
@@ -214,7 +210,11 @@ class ConfigPipelineBuilder:
     """
 
     def __init__(
-        self, config_path: str = None, config: Dict = None, config_paths: List[str] = None
+        self,
+        config_path: str = None,
+        config: Dict = None,
+        config_paths: List[str] = None,
+        run_name: Optional[str] = None,
     ):
         """
         Initialize the builder.
@@ -223,6 +223,7 @@ class ConfigPipelineBuilder:
             config_path: Path to the YAML configuration file (optional)
             config: Configuration dictionary (optional, takes precedence over config_path)
             config_paths: List of all config files used (for copying to run dir)
+            run_name: Optional custom run directory name
         """
         # Store config paths for backwards compatibility
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
@@ -234,6 +235,7 @@ class ConfigPipelineBuilder:
             config_path=config_path,
             config=config,
             config_paths=self.config_paths,
+            run_name=run_name,
         )
 
     def _load_config(self, path: str) -> Dict:
