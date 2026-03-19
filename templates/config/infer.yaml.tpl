@@ -1,9 +1,9 @@
-# Inference Configuration for {{project_name}}
+# Infer Configuration for {{project_name}}
 #
 # This file configures inference and prediction
 # using trained models.
 
-inference:
+infer:
   enabled: false  # Change to true to enable
 
   # Input/output paths

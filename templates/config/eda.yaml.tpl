@@ -1,7 +1,7 @@
 # EDA Configuration for {{project_name}}
 #
 # Exploratory Data Analysis of raw datasources before preprocessing.
-# Run with: energizados eda --config config/eda.yaml
+# Run with: energizados run eda
 
 eda:
   enabled: true

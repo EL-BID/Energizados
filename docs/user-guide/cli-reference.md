@@ -45,13 +45,15 @@ Executes a pipeline from YAML configuration files.
 - `--step, -s`: Execute only a specific pipeline step (`etl`, `split`, `training`, `evaluation`, `inference`)
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
+- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
 ### Config Name Resolution
 
 Config names are resolved to files in `config/` directory:
-- `etls` → `config/etls.yaml`
-- `training` → `config/training.yaml`
-- `etls,training` → `config/etls.yaml` + `config/training.yaml`
+- `etl` → `config/etl.yaml`
+- `train` → `config/train.yaml`
+- `infer` → `config/infer.yaml`
+- `etl,train` → `config/etl.yaml` + `config/train.yaml`
 - Absolute paths are passed through unchanged
 - Use `--config-path` to override the default directory
 
@@ -59,20 +61,24 @@ Config names are resolved to files in `config/` directory:
 
 ```bash
 # Run full pipeline with multiple configs
-energizados run etls,training
+energizados run etl,train
 
 # Run only one step
-energizados run training --step split
-energizados run training --step training
+energizados run train --step split
+energizados run train --step training
 
 # Run a specific ETL
-energizados run etls --etl sample
+energizados run etl --etl sample
 
 # Dry run (see plan without executing)
-energizados run etls --dry-run
+energizados run etl --dry-run
 
 # Use custom config directory
-energizados run --config-path /custom/path etls,training
+energizados run --config-path /custom/path etl,train
+
+# Run with verbose output
+energizados run etl -v
+energizados run train -vv
 ```
 
 ---
@@ -88,7 +94,7 @@ Validates YAML configuration files.
 ### Optional Options
 
 - `--config-path, -p`: Override config directory (default: `config/`)
-- `--verbose, -v`: Show detailed validation information
+- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
 ### Config Name Resolution
 
@@ -98,10 +104,14 @@ Same resolution rules as `energizados run` command (see above).
 
 ```bash
 # Validate single config
-energizados validate etls
+energizados validate etl
 
-# Validate multiple configs with detailed output
-energizados validate etls,training --verbose
+# Validate multiple configs
+energizados validate etl,train
+
+# Validate with verbose output
+energizados validate etl -v
+energizados validate etl,train -vv
 ```
 
 ---
@@ -109,8 +119,6 @@ energizados validate etls,training --verbose
 ## `energizados run eda [options]`
 
 Runs exploratory data analysis (EDA) on a dataset using `config/eda.yaml`.
-
-**Note**: The `eda` subcommand has been removed. Use `energizados run eda` instead.
 
 ### Options
 
@@ -144,7 +152,7 @@ Checks system information and validates the environment.
 
 ### Options
 
-- `--verbose, -v`: Show detailed system information
+- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 - `--optional, -o`: Include optional visualization packages (matplotlib, seaborn)
 
 ### Examples
@@ -153,31 +161,12 @@ Checks system information and validates the environment.
 # Basic system check
 energizados doctor
 
-# Detailed system information
-energizados doctor --verbose
+# Verbose system information
+energizados doctor -v
+energizados doctor -vv
 
 # Include optional packages
 energizados doctor --optional
-```
-
----
-
-## Global Options
-
-These options can be used with any command:
-
-- `--verbose, -v`: Increase verbosity
-  - `-v`: INFO level logging
-  - `-vv` or `-vvv`: DEBUG level logging
-
-### Examples
-
-```bash
-# Run with INFO level logging
-energizados run training -v
-
-# Run with DEBUG level logging
-energizados run training -vv
 ```
 
 ---
@@ -188,7 +177,7 @@ The `--step` option in `energizados run` accepts the following values:
 
 | Step | Description |
 |------|-------------|
-| `etl` | Run ETL processes defined in `etls.yaml` |
+| `etl` | Run ETL processes defined in `etl.yaml` |
 | `split` | Split data into train/val/test sets |
 | `training` | Train models (includes feature engineering) |
 | `evaluation` | Evaluate trained models |
@@ -202,26 +191,26 @@ The `--step` option in `energizados run` accepts the following values:
 
 ```bash
 # 1. Run ETLs
-energizados run etls
+energizados run etl
 
 # 2. Train models
-energizados run training
+energizados run train
 
 # 3. Evaluate results (if not included in training)
-energizados run training --step evaluation
+energizados run train --step evaluation
 ```
 
 ### Development Workflow
 
 ```bash
 # 1. Validate configuration
-energizados validate etls,training
+energizados validate etl,train
 
 # 2. Dry run to check execution plan
-energizados run etls --dry-run
+energizados run etl --dry-run
 
 # 3. Run with verbose output for debugging
-energizados run training -vv
+energizados run train -vv
 ```
 
 ### EDA Workflow

@@ -241,7 +241,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-CLI-001 | `energizados init` creates a new project with standard directory structure | [IMPLEMENTED] |
 | FR-CLI-002 | `energizados run` executes a training or inference pipeline from config    | [IMPLEMENTED] |
 | FR-CLI-003 | `energizados validate` checks YAML config files for correctness            | [IMPLEMENTED] |
-| FR-CLI-004 | `energizados eda` runs exploratory data analysis on a dataset              | [IMPLEMENTED] |
+| FR-CLI-004 | `energizados run eda` runs exploratory data analysis on a dataset          | [IMPLEMENTED] |
 | FR-CLI-005 | `energizados doctor` checks environment (dependencies, versions, GPU)      | [IMPLEMENTED] |
 | FR-CLI-006 | CLI uses Click framework with Rich console output for formatting           | [IMPLEMENTED] |
 | FR-CLI-007 | CLI provides meaningful error messages with suggested fixes                | [IMPLEMENTED] |
@@ -476,7 +476,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 **US-CLI-004: Execute exploratory analysis**
 
 - **As** Framework user
-- **I want** to execute `energizados eda --config eda.yaml` to analyze a dataset
+- **I want** to execute `energizados run eda` to analyze a dataset
 - **So that** I can understand data distribution before training models
 - **Acceptance criteria**:
     - [x] Executes the 8 configured EDA phases

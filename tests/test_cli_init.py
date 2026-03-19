@@ -62,9 +62,9 @@ class TestInitCommand:
             assert (project_path / "docs" / "project_docs.md").exists()
 
             # Verify configuration files (3 separate files)
-            assert (project_path / "config" / "etls.yaml").exists()
-            assert (project_path / "config" / "training.yaml").exists()
-            assert (project_path / "config" / "inference.yaml").exists()
+            assert (project_path / "config" / "etl.yaml").exists()
+            assert (project_path / "config" / "train.yaml").exists()
+            assert (project_path / "config" / "infer.yaml").exists()
 
             # Verify that the old pipeline.yaml NO longer exists
             assert not (project_path / "config" / "pipeline.yaml").exists()
@@ -196,10 +196,10 @@ class TestInitCommand:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify that the name was updated in YAML
-            etls_yaml = (new_path / "config" / "etls.yaml").read_text()
+            etl_yaml = (new_path / "config" / "etl.yaml").read_text()
             # The name appears in the header comment
-            assert "new_project" in etls_yaml
-            assert "base_project" not in etls_yaml
+            assert "new_project" in etl_yaml
+            assert "base_project" not in etl_yaml
 
     def test_init_copy_creates_readme_with_origin_note(self):
         """Verify that the README indicates the source project."""
@@ -234,9 +234,9 @@ class TestInitCommand:
             (old_path / "feature_selection" / "custom_selector.py").write_text("# OLD SELECTOR")
             (old_path / "models" / "custom_model.py").write_text("# OLD MODEL")
             (old_path / "inference" / "custom_inference.py").write_text("# OLD INFERENCE")
-            (old_path / "configs" / "etls.yaml").write_text("""
+            (old_path / "configs" / "etl.yaml").write_text("""
 # ETLs Configuration for old_project
-etls:
+etl:
   sample:
     enabled: true
     custom_class: "old_project.etl.custom_etl.CustomETL"
@@ -257,15 +257,15 @@ etls:
             assert (new_path / "src" / "inference" / "custom_inference.py").exists()
 
             # Verify that 3 config files were created
-            assert (new_path / "config" / "etls.yaml").exists()
-            assert (new_path / "config" / "training.yaml").exists()
-            assert (new_path / "config" / "inference.yaml").exists()
+            assert (new_path / "config" / "etl.yaml").exists()
+            assert (new_path / "config" / "train.yaml").exists()
+            assert (new_path / "config" / "infer.yaml").exists()
 
             # Verify that custom files were copied
             assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text()
 
             # Verify that the name was updated in YAML (in comment)
-            yaml_content = (new_path / "config" / "etls.yaml").read_text()
+            yaml_content = (new_path / "config" / "etl.yaml").read_text()
             assert "new_project" in yaml_content
             assert "old_project" not in yaml_content
 
@@ -359,9 +359,9 @@ etls:
             assert (project_path / "config").exists()
 
             # Must have the 3 config files
-            assert (project_path / "config" / "etls.yaml").exists()
-            assert (project_path / "config" / "training.yaml").exists()
-            assert (project_path / "config" / "inference.yaml").exists()
+            assert (project_path / "config" / "etl.yaml").exists()
+            assert (project_path / "config" / "train.yaml").exists()
+            assert (project_path / "config" / "infer.yaml").exists()
 
             # Must NOT be configs/ (plural)
             assert not (project_path / "configs").exists()
@@ -417,13 +417,13 @@ etls:
             project_path = Path(tmpdir) / "_sample"
 
             # Verify that YAML uses correct import path (without package prefix)
-            etls_yaml = (project_path / "config" / "etls.yaml").read_text()
+            etl_yaml = (project_path / "config" / "etl.yaml").read_text()
             # YAML must use "data.custom_etl.CustomETL" (without package prefix)
-            assert "data.custom_etl.CustomETL" in etls_yaml
+            assert "data.custom_etl.CustomETL" in etl_yaml
             # Must not contain sanitized package prefix
-            assert "sample.data.custom_etl.CustomETL" not in etls_yaml
+            assert "sample.data.custom_etl.CustomETL" not in etl_yaml
             # Header comment can use original name
-            assert "_sample" in etls_yaml  # In comment
+            assert "_sample" in etl_yaml  # In comment
 
     def test_init_copy_sanitizes_package_names_in_yaml(self):
         """Verify that package names are sanitized when copying projects."""
@@ -437,10 +437,10 @@ etls:
             new_path = Path(tmpdir) / "_new"
 
             # Verify that YAML uses correct import path (without package prefix)
-            etls_yaml = (new_path / "config" / "etls.yaml").read_text()
+            etl_yaml = (new_path / "config" / "etl.yaml").read_text()
             # Imports must use paths without package prefix
-            assert "data.custom_etl.CustomETL" in etls_yaml
+            assert "data.custom_etl.CustomETL" in etl_yaml
             # Must not contain package prefixes
-            assert "new.data.custom_etl.CustomETL" not in etls_yaml
-            assert "_new.data" not in etls_yaml
-            assert "_old.data" not in etls_yaml
+            assert "new.data.custom_etl.CustomETL" not in etl_yaml
+            assert "_new.data" not in etl_yaml
+            assert "_old.data" not in etl_yaml

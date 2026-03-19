@@ -513,7 +513,7 @@ def _copy_and_adapt_pipeline_yaml(
     new_package = _sanitize_package_name(new_name)
 
     # List of configuration files to copy
-    config_files = ["etls.yaml", "training.yaml", "inference.yaml", "eda.yaml"]
+    config_files = ["etl.yaml", "train.yaml", "infer.yaml", "eda.yaml"]
 
     for config_file in config_files:
         # Determine path according to structure
@@ -747,21 +747,21 @@ def _create_config_files(project_path: Path, project_name: str):
     Creates configuration files of the project.
 
     Creates 3 separate configuration files:
-    - etls.yaml
-    - training.yaml
-    - inference.yaml
+    - etl.yaml
+    - train.yaml
+    - infer.yaml
 
     Args:
-        project_path: Path of the project
-        project_name: Name of the project
+        project_path: Path of project
+        project_name: Name of project
     """
     # Sanitize name for package imports
     package_name = _sanitize_package_name(project_name)
 
     config_templates = {
-        "etls.yaml": "config/etls.yaml.tpl",
-        "training.yaml": "config/training.yaml.tpl",
-        "inference.yaml": "config/inference.yaml.tpl",
+        "etl.yaml": "config/etl.yaml.tpl",
+        "train.yaml": "config/train.yaml.tpl",
+        "infer.yaml": "config/infer.yaml.tpl",
         "eda.yaml": "config/eda.yaml.tpl",
     }
 

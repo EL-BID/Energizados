@@ -1,4 +1,4 @@
-# Training Configuration for .sample
+# Train Configuration for .sample
 #
 # This file configures the full training workflow:
 # 1. Split: Split data into train/val/test
@@ -6,7 +6,7 @@
 # 3. Model: Model training
 # 4. Evaluation: Evaluation of the trained model
 
-training:
+train:
   enabled: true
 
   # Input from ETL

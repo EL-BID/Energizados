@@ -41,7 +41,7 @@ if __name__ == "__main__":
         with open(feature_engineering_path, "rb") as f:
             feature_engineering = pickle.load(f)
 
-    builder = ConfigPipelineBuilder(config_path="config/inference.yaml")
+    builder = ConfigPipelineBuilder(config_path="config/infer.yaml")
     pipeline = builder.build()
 
     # Inject trained artifacts into context before running

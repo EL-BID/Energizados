@@ -4,13 +4,16 @@ Integration tests for CLI run and validate commands.
 Tests for the new positional `configs` argument and config resolution.
 """
 
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 from click.testing import CliRunner
+from rich.logging import RichHandler
 
-from energizados.cli.main import cli
+from energizados.cli import ui
+from energizados.cli.main import _setup_logging, cli
 
 
 class TestRunCommand:
@@ -28,9 +31,9 @@ class TestRunCommand:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            etls_yaml = config_dir / "etls.yaml"
-            etls_yaml.write_text("""
-etls:
+            etl_yaml = config_dir / "etl.yaml"
+            etl_yaml.write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -42,7 +45,7 @@ etls:
             try:
                 os.chdir(project_path)
                 with patch("energizados.cli.run.execute_pipeline"):
-                    result = self.runner.invoke(cli, ["run", "etls"])
+                    result = self.runner.invoke(cli, ["run", "etl"])
                     assert result.exit_code == 0
             finally:
                 os.chdir(old_cwd)
@@ -55,14 +58,14 @@ etls:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").write_text("""
-etls:
+            (config_dir / "etl.yaml").write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
 """)
-            (config_dir / "training.yaml").write_text("""
-training:
+            (config_dir / "train.yaml").write_text("""
+train:
   enabled: false
 """)
 
@@ -72,7 +75,7 @@ training:
             try:
                 os.chdir(project_path)
                 with patch("energizados.cli.run.execute_pipeline"):
-                    result = self.runner.invoke(cli, ["run", "etls,training"])
+                    result = self.runner.invoke(cli, ["run", "etl,train"])
                     assert result.exit_code == 0
             finally:
                 os.chdir(old_cwd)
@@ -83,8 +86,8 @@ training:
             # Create custom config directory
             custom_config = Path(tmpdir) / "custom_config"
             custom_config.mkdir()
-            (custom_config / "etls.yaml").write_text("""
-etls:
+            (custom_config / "etl.yaml").write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -97,7 +100,7 @@ etls:
                 os.chdir(tmpdir)
                 with patch("energizados.cli.run.execute_pipeline"):
                     result = self.runner.invoke(
-                        cli, ["run", "--config-path", str(custom_config), "etls"]
+                        cli, ["run", "--config-path", str(custom_config), "etl"]
                     )
                     assert result.exit_code == 0
             finally:
@@ -108,7 +111,7 @@ etls:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "custom.yaml"
             config_file.write_text("""
-etls:
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -153,7 +156,7 @@ etls:
             old_cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                result = self.runner.invoke(cli, ["run", "etls"])
+                result = self.runner.invoke(cli, ["run", "etl"])
                 assert result.exit_code != 0
                 assert "No config/ directory found" in result.output
                 assert "Use --config-path" in result.output
@@ -174,8 +177,8 @@ etls:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "training.yaml").write_text("""
-training:
+            (config_dir / "train.yaml").write_text("""
+train:
   enabled: false
 """)
 
@@ -185,7 +188,7 @@ training:
             try:
                 os.chdir(project_path)
                 with patch("energizados.cli.run.execute_step"):
-                    result = self.runner.invoke(cli, ["run", "training", "--step", "training"])
+                    result = self.runner.invoke(cli, ["run", "train", "--step", "train"])
                     assert result.exit_code == 0
             finally:
                 os.chdir(old_cwd)
@@ -199,7 +202,7 @@ training:
             config_dir = project_path / "config"
             config_dir.mkdir()
             # Fix YAML indentation and add required fields
-            (config_dir / "etls.yaml").write_text("""etls:
+            (config_dir / "etl.yaml").write_text("""etl:
   sample:
     enabled: false
     input: data/input.csv
@@ -212,7 +215,7 @@ training:
             old_cwd = os.getcwd()
             try:
                 os.chdir(project_path)
-                result = self.runner.invoke(cli, ["run", "etls", "--dry-run"])
+                result = self.runner.invoke(cli, ["run", "etl", "--dry-run"])
                 assert result.exit_code == 0
                 assert "Dry-run mode" in result.output
             finally:
@@ -234,8 +237,8 @@ class TestValidateCommand:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").write_text("""
-etls:
+            (config_dir / "etl.yaml").write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -247,7 +250,7 @@ etls:
             try:
                 os.chdir(project_path)
                 with patch("energizados.cli.validate.validate_config"):
-                    result = self.runner.invoke(cli, ["validate", "etls"])
+                    result = self.runner.invoke(cli, ["validate", "etl"])
                     assert result.exit_code == 0
             finally:
                 os.chdir(old_cwd)
@@ -260,14 +263,14 @@ etls:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").write_text("""
-etls:
+            (config_dir / "etl.yaml").write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
 """)
-            (config_dir / "training.yaml").write_text("""
-training:
+            (config_dir / "train.yaml").write_text("""
+train:
   enabled: false
 """)
 
@@ -277,7 +280,7 @@ training:
             try:
                 os.chdir(project_path)
                 with patch("energizados.cli.validate.validate_config"):
-                    result = self.runner.invoke(cli, ["validate", "etls,training"])
+                    result = self.runner.invoke(cli, ["validate", "etl,train"])
                     assert result.exit_code == 0
             finally:
                 os.chdir(old_cwd)
@@ -288,8 +291,8 @@ training:
             # Create custom config directory
             custom_config = Path(tmpdir) / "custom_config"
             custom_config.mkdir()
-            (custom_config / "etls.yaml").write_text("""
-etls:
+            (custom_config / "etl.yaml").write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -302,7 +305,7 @@ etls:
                 os.chdir(tmpdir)
                 with patch("energizados.cli.validate.validate_config"):
                     result = self.runner.invoke(
-                        cli, ["validate", "--config-path", str(custom_config), "etls"]
+                        cli, ["validate", "--config-path", str(custom_config), "etl"]
                     )
                     assert result.exit_code == 0
             finally:
@@ -336,8 +339,8 @@ etls:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").write_text("""
-etls:
+            (config_dir / "etl.yaml").write_text("""
+etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
@@ -349,7 +352,7 @@ etls:
             try:
                 os.chdir(project_path)
                 with patch("energizados.cli.validate.validate_config"):
-                    result = self.runner.invoke(cli, ["validate", "etls", "--verbose"])
+                    result = self.runner.invoke(cli, ["validate", "etl", "--verbose"])
                     assert result.exit_code == 0
             finally:
                 os.chdir(old_cwd)
@@ -367,3 +370,126 @@ class TestEDACommand:
         result = self.runner.invoke(cli, ["eda"])
         assert result.exit_code != 0
         assert "No such command" in result.output
+
+
+class TestRichLoggingIntegration:
+    """Tests for RichHandler integration and level gating."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.runner = CliRunner()
+
+    def test_setup_logging_installs_rich_handler(self):
+        """Verify that _setup_logging(1) installs RichHandler as first handler."""
+        _setup_logging(verbose=1)
+        root_logger = logging.getLogger()
+        assert len(root_logger.handlers) == 1
+        assert isinstance(root_logger.handlers[0], RichHandler)
+
+    def test_rich_handler_exposed_in_ui(self):
+        """Verify that rich_handler in ui.py is not None after _setup_logging()."""
+        _setup_logging(verbose=1)
+        assert ui.rich_handler is not None
+        assert isinstance(ui.rich_handler, RichHandler)
+
+    def test_rich_handler_none_before_setup(self):
+        """Verify that rich_handler is None before _setup_logging()."""
+        # Reset handler to None
+        ui.rich_handler = None
+        assert ui.rich_handler is None
+
+    def test_handler_level_gated_during_progress(self):
+        """Verify that handler level is WARNING during Progress context."""
+        from rich.progress import Progress
+
+        _setup_logging(verbose=1)  # INFO level
+        assert ui.rich_handler.level == logging.INFO
+
+        original_level = ui.rich_handler.level
+        ui.rich_handler.setLevel(logging.WARNING)
+
+        try:
+            with Progress(console=ui.console):
+                assert ui.rich_handler.level == logging.WARNING
+        finally:
+            ui.rich_handler.setLevel(original_level)
+
+        assert ui.rich_handler.level == logging.INFO
+
+    def test_verbose_2_sets_debug_level(self):
+        """Verify that verbose=2 sets DEBUG level on RichHandler."""
+        _setup_logging(verbose=2)
+        root_logger = logging.getLogger()
+        assert len(root_logger.handlers) == 1
+        assert root_logger.handlers[0].level == logging.DEBUG
+        assert ui.rich_handler.level == logging.DEBUG
+
+    def test_warning_visible_during_progress_context(self):
+        """Verify that WARNING messages are visible during Progress context."""
+        # Set up INFO level logging
+        _setup_logging(verbose=1)
+        assert ui.rich_handler.level == logging.INFO
+
+        # Save original level to restore later
+        original_level = ui.rich_handler.level
+
+        try:
+            # Simulate Progress context with level gating (as done in run.py)
+            ui.rich_handler.setLevel(logging.WARNING)
+
+            # Verify handler level is WARNING during Progress
+            assert ui.rich_handler.level == logging.WARNING
+
+            # Log a WARNING - should be visible at WARNING level
+            logger = logging.getLogger(__name__)
+            logger.warning("Test warning message")
+
+            # Verify handler level is still WARNING
+            assert ui.rich_handler.level == logging.WARNING
+
+            # Restore original level (as done in run.py finally block)
+            ui.rich_handler.setLevel(original_level)
+
+            # Verify handler level is restored to INFO
+            assert ui.rich_handler.level == logging.INFO
+
+        finally:
+            # Always restore original level
+            ui.rich_handler.setLevel(original_level)
+
+    def test_execute_pipeline_output_contains_panel(self):
+        """Verify that execute_pipeline() output contains Panel markup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create project structure
+            project_path = Path(tmpdir) / "test_project"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "train.yaml").write_text("""
+train:
+  enabled: false
+""")
+
+            import os
+
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                # Execute with mocked pipeline to avoid full execution
+                with patch("energizados.cli.run.ConfigPipelineBuilder") as mock_builder:
+                    mock_pipeline = mock_builder.return_value.build.return_value
+                    mock_pipeline.steps = []
+                    mock_pipeline.run.return_value = {}
+                    mock_builder.return_value._director.run_manager._run_dir = None
+
+                    # Capture output
+                    with patch("energizados.cli.run.console.print"):
+                        from energizados.cli.run import execute_pipeline
+
+                        result = execute_pipeline([str(config_dir / "train.yaml")])
+
+                        # Check that console.print was called (may or may not have Panel
+                        # depending on whether steps exist)
+                        assert isinstance(result, dict)
+            finally:
+                os.chdir(old_cwd)

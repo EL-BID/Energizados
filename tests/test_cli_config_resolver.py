@@ -27,9 +27,9 @@ class TestConfigResolver:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir) / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
-            result = resolve_configs("etls", config_dir)
+            result = resolve_configs("etl", config_dir)
             assert len(result) == 1
             assert result[0] == str((config_dir / "etls.yaml").absolute())
 
@@ -38,10 +38,10 @@ class TestConfigResolver:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir) / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").touch()
-            (config_dir / "training.yaml").touch()
+            (config_dir / "etl.yaml").touch()
+            (config_dir / "train.yaml").touch()
 
-            result = resolve_configs("etls,training", config_dir)
+            result = resolve_configs("etl,train", config_dir)
             assert len(result) == 2
             assert result[0] == str((config_dir / "etls.yaml").absolute())
             assert result[1] == str((config_dir / "training.yaml").absolute())
@@ -51,10 +51,10 @@ class TestConfigResolver:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir) / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").touch()
-            (config_dir / "training.yaml").touch()
+            (config_dir / "etl.yaml").touch()
+            (config_dir / "train.yaml").touch()
 
-            result = resolve_configs("etls , training", config_dir)
+            result = resolve_configs("etl , train", config_dir)
             assert len(result) == 2
             assert result[0] == str((config_dir / "etls.yaml").absolute())
 
@@ -63,9 +63,9 @@ class TestConfigResolver:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir) / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
-            result = resolve_configs("etls,", config_dir)
+            result = resolve_configs("etl,", config_dir)
             assert len(result) == 1
             assert result[0] == str((config_dir / "etls.yaml").absolute())
 
@@ -83,7 +83,7 @@ class TestConfigResolver:
         """Verify that .yaml extension is treated as passthrough path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create config in CWD (not in config/)
-            config_file = Path(tmpdir) / "etls.yaml"
+            config_file = Path(tmpdir) / "etl.yaml"
             config_file.touch()
 
             import os
@@ -93,7 +93,7 @@ class TestConfigResolver:
                 os.chdir(tmpdir)
                 # Since it ends with .yaml, it should be treated as passthrough
                 # and looked up from CWD, not from config_dir
-                result = resolve_configs("etls.yaml", None)
+                result = resolve_configs("etl.yaml", None)
                 assert len(result) == 1
                 assert result[0] == str(config_file.absolute())
             finally:
@@ -103,7 +103,7 @@ class TestConfigResolver:
         """Verify that .yml extension is treated as passthrough path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create config in CWD (not in config/)
-            config_file = Path(tmpdir) / "etls.yml"
+            config_file = Path(tmpdir) / "etl.yml"
             config_file.touch()
 
             import os
@@ -113,7 +113,7 @@ class TestConfigResolver:
                 os.chdir(tmpdir)
                 # Since it ends with .yml, it should be treated as passthrough
                 # and looked up from CWD, not from config_dir
-                result = resolve_configs("etls.yml", None)
+                result = resolve_configs("etl.yml", None)
                 assert len(result) == 1
                 assert result[0] == str(config_file.absolute())
             finally:
@@ -163,7 +163,7 @@ class TestConfigResolver:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir) / "config"
             config_dir.mkdir()
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
             with pytest.raises(ConfigResolutionError, match="Config 'missing' not found"):
                 resolve_configs("missing", config_dir)
@@ -272,9 +272,9 @@ class TestResolveSingle:
         """Verify resolving a simple name."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
-            result = _resolve_single("etls", config_dir)
+            result = _resolve_single("etl", config_dir)
             assert result == (config_dir / "etls.yaml").absolute()
 
     def test_resolve_single_simple_name(self):
@@ -292,29 +292,29 @@ class TestResolveSingle:
         """Verify that .yaml extension is stripped when present."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
             # _resolve_single assumes name doesn't end with .yaml
-            # so we pass "etls" (without extension)
-            result = _resolve_single("etls", config_dir)
+            # so we pass "etl" (without extension)
+            result = _resolve_single("etl", config_dir)
             assert result == (config_dir / "etls.yaml").absolute()
 
     def test_resolve_single_strips_yml_extension(self):
         """Verify that .yml extension is stripped and converted to .yaml."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
             # _resolve_single assumes name doesn't end with .yml
-            # so we pass "etls" (without extension)
-            result = _resolve_single("etls", config_dir)
+            # so we pass "etl" (without extension)
+            result = _resolve_single("etl", config_dir)
             assert result == (config_dir / "etls.yaml").absolute()
 
     def test_resolve_single_nonexistent_raises_error(self):
         """Verify that nonexistent name raises ConfigResolutionError."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
-            (config_dir / "etls.yaml").touch()
+            (config_dir / "etl.yaml").touch()
 
             with pytest.raises(ConfigResolutionError):
                 _resolve_single("missing", config_dir)

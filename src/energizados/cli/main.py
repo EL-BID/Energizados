@@ -19,6 +19,10 @@ def _setup_logging(verbose: int = 0):
     Args:
         verbose: Verbosity level (0=WARNING, 1=INFO, 2+=DEBUG)
     """
+    from rich.logging import RichHandler
+
+    from energizados.cli import ui
+
     if verbose == 0:
         level = logging.WARNING
     elif verbose == 1:
@@ -26,16 +30,18 @@ def _setup_logging(verbose: int = 0):
     else:
         level = logging.DEBUG
 
-    # Configure console handler
-    handler = logging.StreamHandler()
+    # Configure RichHandler
+    handler = RichHandler(console=ui.console, show_path=False, rich_tracebacks=True)
     handler.setLevel(level)
-    handler.setFormatter(logging.Formatter("%(message)s"))
 
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.handlers = []  # Remove existing handlers
     root_logger.addHandler(handler)
+
+    # Expose handler globally for level management
+    ui.set_rich_handler(handler)
 
 
 class EnergizadosGroup(click.Group):
@@ -72,13 +78,13 @@ def _print_next_steps(project_name: str):
     tree = Tree("[bold cyan]✓ Project created successfully![/]")
     tree.add(f"[cyan]1.[/] cd {project_name}")
     edit_config = tree.add("[cyan]2.[/] Edit configuration files in config/:")
-    edit_config.add("[cyan]•[/] etls.yaml")
-    edit_config.add("[cyan]•[/] training.yaml")
-    edit_config.add("[cyan]•[/] inference.yaml")
+    edit_config.add("[cyan]•[/] etl.yaml")
+    edit_config.add("[cyan]•[/] train.yaml")
+    edit_config.add("[cyan]•[/] infer.yaml")
     edit_config.add("[cyan]•[/] eda.yaml")
     tree.add("[cyan]3.[/] (Optional) Customize src/data/custom_etl.py")
     tree.add("[cyan]4.[/] energizados run eda")
-    tree.add("[cyan]5.[/] energizados run etls,training")
+    tree.add("[cyan]5.[/] energizados run etl,train")
 
     panel = Panel(tree, title="[bold]Next Steps[/]", border_style="cyan")
     console.print("\n")
@@ -88,9 +94,8 @@ def _print_next_steps(project_name: str):
 
 @click.group(cls=EnergizadosGroup)
 @click.version_option(version="1.0.0", prog_name="energizados")
-@click.option("--verbose", "-v", count=True, help="Increase verbosity (-v, -vv, -vvv)")
 @click.pass_context
-def cli(ctx, verbose):
+def cli(ctx):
     """
     Energizados - Framework for detecting fraud in energy consumption.
 
@@ -103,20 +108,11 @@ def cli(ctx, verbose):
     - validate: Validate configuration file
     - doctor: Check system information and validate environment
 
-    Verbosity options:
-        -v: INFO (shows informative messages)
-        -vv: DEBUG (shows debug messages)
-        -vvv: DEBUG (same as -vv)
-
     For help on a specific command:
         energizados <command> --help
     """
-    # Configure logging
-    _setup_logging(verbose)
-
     # Shared context between commands
     ctx.ensure_object(dict)
-    ctx.obj["verbose"] = verbose
 
 
 @cli.command()
@@ -235,8 +231,14 @@ def init(ctx, project_name, template, path, copy_from, force):
     is_flag=True,
     help="Show what would be executed without actually running (for ETLs shows the execution plan)",
 )
+@click.option(
+    "--verbose",
+    "-v",
+    count=True,
+    help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
+)
 @click.pass_context
-def run(ctx, configs, config_path, step, etl, dry_run):
+def run(ctx, configs, config_path, step, etl, dry_run, verbose):
     """
     Execute a pipeline from YAML configuration.
 
@@ -248,17 +250,23 @@ def run(ctx, configs, config_path, step, etl, dry_run):
     - --step: Execute only a specific step
     - --etl: Execute a specific ETL (with multiple ETLs)
     - --dry-run: Show the plan without executing
+    - --verbose, -v: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
     CONFIGS is a comma-separated list of config names or paths.
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
 
     Examples:
-        energizados run etls                           # Run config/etls.yaml
-        energizados run etls,training                   # Merge and run both configs
-        energizados run eda                            # Run config/eda.yaml
-        energizados run --config-path /custom etls       # Use /custom/etls.yaml
+        energizados run etl                            # Run config/etl.yaml
+        energizados run etl,train                      # Merge and run both configs
+        energizados run eda                             # Run config/eda.yaml
+        energizados run --config-path /custom etl       # Use /custom/etl.yaml
         energizados run /abs/path/custom.yaml            # Use absolute path directly
+        energizados run etl -v                         # Run with INFO level logging
+        energizados run etl -vv                        # Run with DEBUG level logging
     """
+    # Configure logging
+    _setup_logging(verbose)
+
     from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
     from energizados.cli.run import (
         execute_etl,
@@ -285,7 +293,7 @@ def run(ctx, configs, config_path, step, etl, dry_run):
                 print_info(f"Dry-run mode for step '{step}'...")
                 from energizados.cli.validate import validate_config
 
-                validate_config(config_paths, verbose=True)
+                validate_config(config_paths, verbose=verbose > 0)
                 return
 
             print_info(f"Executing step '{step}' of the pipeline...")
@@ -305,7 +313,7 @@ def run(ctx, configs, config_path, step, etl, dry_run):
                 # No ETLs, show general validation
                 from energizados.cli.validate import validate_config
 
-                validate_config(config_paths, verbose=True)
+                validate_config(config_paths, verbose=verbose > 0)
             return
 
         # Execute complete pipeline
@@ -336,8 +344,8 @@ def run(ctx, configs, config_path, step, etl, dry_run):
 @click.option(
     "--verbose",
     "-v",
-    is_flag=True,
-    help="Show complete validation details",
+    count=True,
+    help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
 )
 @click.pass_context
 def validate(ctx, configs, config_path, verbose):
@@ -351,10 +359,15 @@ def validate(ctx, configs, config_path, verbose):
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
 
     Examples:
-        energizados validate etls                    # Validate config/etls.yaml
-        energizados validate etls,training           # Validate both configs
+        energizados validate etl                     # Validate config/etl.yaml
+        energizados validate etl,train              # Validate both configs
         energizados validate eda                     # Validate config/eda.yaml
+        energizados validate etl -v                 # Validate with INFO level logging
+        energizados validate etl -vv                # Validate with DEBUG level logging
     """
+    # Configure logging
+    _setup_logging(verbose)
+
     from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
     from energizados.cli.ui import print_error, print_info, print_success
     from energizados.cli.validate import validate_config
@@ -365,7 +378,7 @@ def validate(ctx, configs, config_path, verbose):
 
         for resolved_path in config_paths:
             print_info(f"Validating: {resolved_path}")
-        validate_config(config_paths, verbose=verbose)
+        validate_config(config_paths, verbose=verbose > 0)
         print_success("Configuration is valid")
     except ConfigResolutionError as e:
         print_error(str(e))
@@ -383,8 +396,8 @@ def validate(ctx, configs, config_path, verbose):
 @click.option(
     "--verbose",
     "-v",
-    is_flag=True,
-    help="Show detailed system information",
+    count=True,
+    help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
 )
 @click.option(
     "--optional",
@@ -403,9 +416,13 @@ def doctor(ctx, verbose, optional):
 
     Examples:
         energizados doctor
-        energizados doctor --verbose
+        energizados doctor -v
+        energizados doctor -vv
         energizados doctor --optional
     """
+    # Configure logging
+    _setup_logging(verbose)
+
     from energizados.cli.doctor import format_report, run_checks
     from energizados.cli.ui import console, print_error, print_info
 

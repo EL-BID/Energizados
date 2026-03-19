@@ -18,16 +18,16 @@ Let's explore the project structure:
 
 ### Configuration Files (`config/`)
 
-- **`etls.yaml`**: Defines your data processing pipeline. The default includes a sample ETL that removes rows with NULL values from the sample dataset.
+- **`etl.yaml`**: Defines your data processing pipeline. The default includes a sample ETL that removes rows with NULL values from the sample dataset.
 
-- **`training.yaml`**: Controls the entire training pipeline:
+- **`train.yaml`**: Controls the entire training pipeline:
   - **Split**: How to split data into train/val/test sets
   - **Feature Engineering**: Preprocessing transformers and feature selection
   - **Models**: Model configuration (LightGBM, CatBoost, Neural Networks, LSTM)
   - **Ensemble**: Optional ensemble configuration (stacking or soft voting)
   - **Evaluation**: Metrics, reports, and threshold settings
 
-- **`inference.yaml`**: Configuration for running inference on new data.
+- **`infer.yaml`**: Configuration for running inference on new data.
 
 - **`eda.yaml`**: Settings for exploratory data analysis.
 
@@ -94,7 +94,7 @@ You should see output indicating that the ETL is running and completing successf
 
 ## Step 5: Configure Training
 
-Open `config/training.yaml`. The default configuration uses:
+Open `config/train.yaml`. The default configuration uses:
 
 - **Split method**: Time series split
 - **Feature engineering**: Preprocessing with categorical encodings
@@ -151,10 +151,10 @@ models:
 
 ## Step 6: Run Training
 
-Execute the training pipeline:
+Execute training pipeline:
 
 ```bash
-energizados run training
+energizados run train
 ```
 
 This will:
@@ -201,10 +201,10 @@ Open `output/train-YYYYMMDD_HHMM/reports/evaluation/report.html` in your browser
 Once you have a trained model, you can apply it to new data:
 
 ```bash
-energizados run inference
+energizados run infer
 ```
 
-Make sure `config/inference.yaml` is configured with:
+Make sure `config/infer.yaml` is configured with:
 - `input_path`: Path to your new data
 - `output_path`: Where to save predictions
 - `model_path`: Path to the trained model
@@ -215,12 +215,12 @@ Make sure `config/inference.yaml` is configured with:
 Now that you've completed your first project:
 
 1. **Replace the sample data** with your own dataset
-2. **Adjust the preprocessing** in `training.yaml` to match your features
+2. **Adjust preprocessing** in `train.yaml` to match your features
 3. **Experiment with different models** (CatBoost, Neural Networks, LSTM)
 4. **Try ensemble methods** (stacking or soft voting)
 5. **Use the EDA module** to explore your data:
    ```bash
-   energizados eda --input data/processed/sample_dataset.parquet --target target
+   energizados run eda
    ```
 
 ---

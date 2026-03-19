@@ -176,7 +176,7 @@ ls -la data/raw/  # Verify input files exist
 2. Validate configuration:
 
 ```bash
-energizados validate --config config/etls.yaml --verbose
+energizados validate config/etls.yaml -v
 ```
 
 3. Run with verbose output:
@@ -340,7 +340,7 @@ This checks:
 ### 2. Validate Configuration
 
 ```bash
-energizados validate --config config/etls.yaml --config config/training.yaml --verbose
+energizados validate config/etls.yaml,config/training.yaml -v
 ```
 
 This verifies:

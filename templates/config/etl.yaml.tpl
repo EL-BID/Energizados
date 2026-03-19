@@ -1,9 +1,9 @@
-# ETLs Configuration for {{project_name}}
+# ETL Configuration for {{project_name}}
 #
 # This file defines the data transformations (Extract, Transform, Load)
-# using the multiple ETLs with dependencies system.
+# using the multiple ETL with dependencies system.
 
-etls:
+etl:
   # ETL "sample" - Processes the included example dataset
   sample:
     enabled: true

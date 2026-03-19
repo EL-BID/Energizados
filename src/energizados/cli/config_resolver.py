@@ -30,7 +30,7 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
     4. If not found → error with available configs
 
     Args:
-        configs_str: Comma-separated names or paths (e.g. "etls,training")
+        configs_str: Comma-separated names or paths (e.g. "etl,train")
         config_path: Override config directory. Default: ./config/
 
     Returns:
@@ -46,7 +46,7 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
     if not names:
         raise ValueError(
             "At least one config name is required. "
-            "Example: 'energizados run etls' or 'energizados run etls,training'"
+            "Example: 'energizados run etl' or 'energizados run etl,train'"
         )
 
     # Discover config directory only if needed (non-passthrough names)
