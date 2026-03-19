@@ -5,7 +5,6 @@ This module implements the 'run' command functionality to execute
 pipelines from YAML configuration.
 """
 
-import logging
 import time
 from pathlib import Path
 from typing import Any, Dict, List
@@ -13,8 +12,6 @@ from typing import Any, Dict, List
 import yaml
 from rich.panel import Panel
 
-# Import console from ui.py for singleton pattern
-from energizados.cli import ui
 from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError, PipelineError
 from energizados.core.pipeline import ConfigPipelineBuilder
@@ -89,65 +86,55 @@ def execute_pipeline(config_paths: List[str]) -> Dict[str, Any]:
     builder = ConfigPipelineBuilder(config=merged_config, config_paths=list(config_paths))
     pipeline = builder.build()
 
-    # Save original log level and suppress INFO/DEBUG during Progress
-    original_level = ui.rich_handler.level if ui.rich_handler else None
-    if ui.rich_handler:
-        ui.rich_handler.setLevel(logging.WARNING)
-
     # Execute with Rich progress display
-    try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[bold cyan]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            total_steps = len(pipeline.steps)
-            config_names = ",".join(Path(p).stem for p in config_paths)
-            main_task = progress.add_task(f"Running: {config_names}", total=total_steps)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold cyan]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        total_steps = len(pipeline.steps)
+        config_names = ",".join(Path(p).stem for p in config_paths)
+        main_task = progress.add_task(f"Running: {config_names}", total=total_steps)
 
-            # Track step start time for elapsed time calculation
-            step_start_time = None
+        # Track step start time for elapsed time calculation
+        step_start_time = None
 
-            def on_step_start(name, i, total):
-                nonlocal step_start_time
-                step_start_time = time.time()
-                progress.update(
-                    main_task,
-                    description=f"[cyan][{i}/{total}] {name}[/]",
-                    completed=i - 1,
+        def on_step_start(name, i, total):
+            nonlocal step_start_time
+            step_start_time = time.time()
+            progress.update(
+                main_task,
+                description=f"[cyan][{i}/{total}] {name}[/]",
+                completed=i - 1,
+            )
+
+        def on_step_complete(name, i, total):
+            elapsed = time.time() - step_start_time if step_start_time else 0
+            progress.update(
+                main_task,
+                description=f"[green][{i}/{total}] {name}[/]",
+                completed=i,
+            )
+            # Print summary panel after step completes
+            console.print(
+                Panel(
+                    f"[bold]{name}[/]\n\n[green]✓[/] Completed in {elapsed:.2f}s",
+                    border_style="green",
                 )
+            )
 
-            def on_step_complete(name, i, total):
-                elapsed = time.time() - step_start_time if step_start_time else 0
-                progress.update(
-                    main_task,
-                    description=f"[green][{i}/{total}] {name}[/]",
-                    completed=i,
-                )
-                # Print summary panel after step completes
-                console.print(
-                    Panel(
-                        f"[bold]{name}[/]\n\n[green]✓[/] Completed in {elapsed:.2f}s",
-                        border_style="green",
-                    )
-                )
+        def on_step_error(name, err):
+            progress.update(main_task, description=f"[red][✗] {name}[/]")
 
-            def on_step_error(name, err):
-                progress.update(main_task, description=f"[red][✗] {name}[/]")
+        pipeline.on_step_start = on_step_start
+        pipeline.on_step_complete = on_step_complete
+        pipeline.on_step_error = on_step_error
 
-            pipeline.on_step_start = on_step_start
-            pipeline.on_step_complete = on_step_complete
-            pipeline.on_step_error = on_step_error
-
-            # Run the pipeline
-            result = pipeline.run()
-    finally:
-        # Restore original log level
-        if ui.rich_handler and original_level is not None:
-            ui.rich_handler.setLevel(original_level)
+        # Run the pipeline
+        result = pipeline.run()
 
     # Post-run tasks (config copy, index HTML) - these need to be called manually
     # since we called pipeline.run() directly instead of builder.run()
@@ -267,11 +254,6 @@ def execute_etl(
         console.print("\n[dim]--dry-run: ETLs were not executed --[/]")
         return {}
 
-    # Save original log level and suppress INFO/DEBUG during Progress
-    original_level = ui.rich_handler.level if ui.rich_handler else None
-    if ui.rich_handler:
-        ui.rich_handler.setLevel(logging.WARNING)
-
     # Execute ETLs with Rich progress display
     from rich.progress import (
         BarColumn,
@@ -285,60 +267,55 @@ def execute_etl(
     results = {}
     completed_etls = []
 
-    try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[bold cyan]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            total_etls = len(orchestrator.etl_configs)
-            main_task = progress.add_task("ETL Pipeline", total=total_etls)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold cyan]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        total_etls = len(orchestrator.etl_configs)
+        main_task = progress.add_task("ETL Pipeline", total=total_etls)
 
-            # Track ETL start time for elapsed time calculation
-            etl_start_time = None
+        # Track ETL start time for elapsed time calculation
+        etl_start_time = None
 
-            def on_etl_start(name, idx, total):
-                nonlocal etl_start_time
-                etl_start_time = time.time()
-                progress.update(main_task, description=f"ETL Pipeline — [yellow]{name}[/]")
+        def on_etl_start(name, idx, total):
+            nonlocal etl_start_time
+            etl_start_time = time.time()
+            progress.update(main_task, description=f"ETL Pipeline — [yellow]{name}[/]")
 
-            def on_etl_complete(name, rows):
-                elapsed = time.time() - etl_start_time if etl_start_time else 0
-                completed_etls.append((name, rows))
-                progress.advance(main_task)
-                progress.update(
-                    main_task, description=f"ETL Pipeline — [green]✓ {name}[/] ({rows:,} rows)"
+        def on_etl_complete(name, rows):
+            elapsed = time.time() - etl_start_time if etl_start_time else 0
+            completed_etls.append((name, rows))
+            progress.advance(main_task)
+            progress.update(
+                main_task, description=f"ETL Pipeline — [green]✓ {name}[/] ({rows:,} rows)"
+            )
+            # Print summary panel after ETL completes
+            # Get output path from ETL config if available
+            output_path = "N/A"
+            if name in orchestrator.etl_configs:
+                output_path = orchestrator.etl_configs[name].get("output", "N/A")
+            console.print(
+                Panel(
+                    f"[bold]{name}[/]\n\n"
+                    f"[green]✓[/] Completed in {elapsed:.2f}s\n"
+                    f"[cyan]Rows:[/] {rows:,}\n"
+                    f"[cyan]Output:[/] {output_path}",
+                    border_style="cyan",
                 )
-                # Print summary panel after ETL completes
-                # Get output path from ETL config if available
-                output_path = "N/A"
-                if name in orchestrator.etl_configs:
-                    output_path = orchestrator.etl_configs[name].get("output", "N/A")
-                console.print(
-                    Panel(
-                        f"[bold]{name}[/]\n\n"
-                        f"[green]✓[/] Completed in {elapsed:.2f}s\n"
-                        f"[cyan]Rows:[/] {rows:,}\n"
-                        f"[cyan]Output:[/] {output_path}",
-                        border_style="cyan",
-                    )
-                )
+            )
 
-            def on_etl_error(name, err):
-                progress.update(main_task, description=f"ETL Pipeline — [red]✗ {name}[/]")
+        def on_etl_error(name, err):
+            progress.update(main_task, description=f"ETL Pipeline — [red]✗ {name}[/]")
 
-            orchestrator.on_etl_start = on_etl_start
-            orchestrator.on_etl_complete = on_etl_complete
-            orchestrator.on_etl_error = on_etl_error
+        orchestrator.on_etl_start = on_etl_start
+        orchestrator.on_etl_complete = on_etl_complete
+        orchestrator.on_etl_error = on_etl_error
 
-            results = orchestrator.run()
-    finally:
-        # Restore original log level
-        if ui.rich_handler and original_level is not None:
-            ui.rich_handler.setLevel(original_level)
+        results = orchestrator.run()
 
     return results
 

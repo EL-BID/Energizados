@@ -14,9 +14,9 @@ if __name__ == "__main__":
     )
     results = builder.run()
 
-    if builder._run_dir:
+    if builder.run_dir:
         print(f"✓ Training completed")
-        print(f"  Run directory: {builder._run_dir}")
-        print(f"  Index: {builder._run_dir.parent / 'index.html'}")
+        print(f"  Run directory: {builder.run_dir}")
+        print(f"  Index: {builder.run_dir.parent / 'index.html'}")
     else:
         print("✓ Training completed")

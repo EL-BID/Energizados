@@ -11,7 +11,7 @@ ConfigPipelineBuilder that delegates to the new PipelineDirector.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -239,6 +239,11 @@ class ConfigPipelineBuilder:
     def _load_config(self, path: str) -> Dict:
         """Load configuration from YAML (backwards compatibility)."""
         return _load_yaml_config(path)
+
+    @property
+    def run_dir(self) -> Optional[Path]:
+        """Return the run directory after pipeline execution."""
+        return self._director.run_manager.run_dir
 
     def _generate_run_dir(self, base_output_dir: str = "output") -> Path:
         """Generate run directory (delegated to director)."""
