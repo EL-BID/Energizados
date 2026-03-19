@@ -243,12 +243,9 @@ class ETLOrchestrator:
             params["output_path"] = output_path
             self.etl_instances[etl_name] = etl_class(**params)
 
-    def run(self, parallel: bool = False) -> Dict[str, pd.DataFrame]:
+    def run(self) -> Dict[str, pd.DataFrame]:
         """
         Executes all ETLs respecting dependencies.
-
-        Args:
-            parallel: If True, executes independent ETLs in parallel (not implemented yet)
 
         Returns:
             Dictionary with results of each ETL

@@ -17,7 +17,6 @@ from energizados.core.pipeline import (
     ConfigPipelineBuilder,
     Pipeline,
 )
-from energizados.core.plots.utils import plot_roc
 from energizados.etl.base import BaseETL
 
 __all__ = [
@@ -31,6 +30,4 @@ __all__ = [
     # Pipeline
     "Pipeline",
     "ConfigPipelineBuilder",
-    # Plotting utilities
-    "plot_roc",
 ]

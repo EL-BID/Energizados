@@ -7,7 +7,7 @@ Classes:
     BaseETL: Abstract base class for custom ETL implementations.
     SourceETL: Concrete ETL for processing single or multiple data sources.
     ETLOrchestrator: Orchestrates multiple ETLs respecting dependencies.
-    SchemaValidator: Validates DataFrame schemas after ETL processing.
+    SchemaValidator: Validates DataFrame schemas (not integrated into the pipeline).
 """
 
 from energizados.etl.base import BaseETL

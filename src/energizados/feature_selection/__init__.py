@@ -12,9 +12,6 @@ from energizados.feature_selection.methods import (
     ConstantSelector,
     CorrelationSelector,
     MutualInformationSelector,
-    feature_selection_by_boruta,
-    feature_selection_by_constant,
-    feature_selection_by_correlation,
 )
 from energizados.feature_selection.pipeline import (
     FeatureSelectionPipeline,
@@ -30,8 +27,8 @@ __all__ = [
     "MutualInformationSelector",
     "FeatureSelectionPipeline",
     "SelectionStep",
-    # Legacy functions for backward compatibility
-    "feature_selection_by_correlation",
-    "feature_selection_by_constant",
+    # Deprecated — kept for backward compatibility but will be removed
     "feature_selection_by_boruta",
+    "feature_selection_by_constant",
+    "feature_selection_by_correlation",
 ]

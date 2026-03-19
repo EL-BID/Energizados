@@ -67,10 +67,10 @@ energizados run train -n mi-experimento
 ### Run Scripts (generated projects)
 New projects include Python scripts in `src/run/` for direct execution without CLI:
 ```bash
-python src/run/01_etl.py          # ETLs
-python src/run/02_training.py     # Entrenamiento (incluye feature engineering)
-python src/run/03_evaluation.py   # Evaluación
-python src/run/04_inference.py    # Inferencia
+python src/run/00_etl.py          # ETLs
+python src/run/01_eda.py           # EDA (Exploratory Data Analysis)
+python src/run/02_training.py      # Entrenamiento (incluye feature engineering y evaluación)
+python src/run/03_inference.py     # Inferencia
 ```
 These scripts use `ConfigPipelineBuilder` API directly.
 
@@ -171,10 +171,10 @@ mi_proyecto/
 │   ├── inference/         # Custom inference (custom_inference.py)
 │   ├── utils/             # Shared utilities (helpers.py)
 │   └── run/               # Execution scripts
-│       ├── 01_etl.py
-│       ├── 02_training.py
-│       ├── 03_evaluation.py
-│       └── 04_inference.py
+│       ├── 00_etl.py          # ETLs
+│       ├── 01_eda.py           # EDA (Exploratory Data Analysis)
+│       ├── 02_training.py      # Entrenamiento (incluye feature engineering y evaluación)
+│       └── 03_inference.py     # Inferencia
 └── tests/
 ```
 
@@ -415,7 +415,7 @@ Additional ETL examples are provided (commented out) in the template:
 - `BaseETL`: Abstract base class for all ETL implementations
 - `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
 - `ETLOrchestrator`: Manages execution order based on dependencies
-- `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Uses deprecated pandas API; not recommended for use.
+- `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Available for manual use in custom ETLs.
 
 **IMPORTANT:** Each ETL must specify `custom_class`. The `DefaultETL` class has been removed.
 

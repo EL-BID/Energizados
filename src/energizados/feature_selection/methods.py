@@ -6,6 +6,7 @@ existing project code.
 """
 
 import logging
+import warnings
 from typing import Dict, Optional, Union
 
 import numpy as np
@@ -368,8 +369,15 @@ def feature_selection_by_correlation(x_train, y_train, variables, method="pearso
     Legacy function for compatibility with existing code.
 
     .. deprecated::
-        Use CorrelationSelector instead.
+        Use :class:`CorrelationSelector` instead.
+        Will be removed in a future version.
     """
+    warnings.warn(
+        "feature_selection_by_correlation is deprecated and will be removed in a future version. "
+        "Use CorrelationSelector instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     selector = CorrelationSelector(method=method, threshold=th)
     selector.fit(x_train[variables], y_train)
     return selector.get_selected_features()
@@ -380,8 +388,15 @@ def feature_selection_by_constant(x_train, y_train, variables, th=0.99):
     Legacy function for compatibility with existing code.
 
     .. deprecated::
-        Use ConstantSelector instead.
+        Use :class:`ConstantSelector` instead.
+        Will be removed in a future version.
     """
+    warnings.warn(
+        "feature_selection_by_constant is deprecated and will be removed in a future version. "
+        "Use ConstantSelector instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     selector = ConstantSelector(threshold=th)
     selector.fit(x_train[variables], y_train)
     return selector.get_selected_features()
@@ -392,8 +407,15 @@ def feature_selection_by_boruta(X_train, y_train, N=10):
     Legacy function for compatibility with existing code.
 
     .. deprecated::
-        Use BorutaSelector instead.
+        Use :class:`BorutaSelector` instead.
+        Will be removed in a future version.
     """
+    warnings.warn(
+        "feature_selection_by_boruta is deprecated and will be removed in a future version. "
+        "Use BorutaSelector instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     selector = BorutaSelector(max_iter=N)
     selector.fit(X_train, y_train)
     return selector.get_selected_features()

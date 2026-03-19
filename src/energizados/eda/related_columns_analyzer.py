@@ -2,7 +2,7 @@
 Related Columns Analyzer - Energizados EDA Framework.
 
 Generic analyzer for hierarchical column relationships.
-Replaces the hardcoded InspectionAnalyzer with configurable hierarchies.
+Provides configurable hierarchies for analyzing column relationships.
 """
 
 import logging
