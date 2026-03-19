@@ -394,7 +394,7 @@ def feature_selection_by_boruta(X_train, y_train, N=10):
     .. deprecated::
         Use BorutaSelector instead.
     """
-    selector = BorutaSelector(max_iter=N, n_runs_=N)
+    selector = BorutaSelector(max_iter=N)
     selector.fit(X_train, y_train)
     return selector.get_selected_features()
 

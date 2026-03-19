@@ -25,66 +25,12 @@ from imblearn.under_sampling import RandomUnderSampler
 from lightgbm import LGBMClassifier, early_stopping, log_evaluation
 from scipy.stats import randint as sp_randint
 from scipy.stats import uniform as sp_uniform
-from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
-from sklearn.preprocessing import MinMaxScaler, OrdinalEncoder
+from sklearn.preprocessing import MinMaxScaler
 
-from energizados.preprocessing.preprocessing import (
-    CardinalityReducer,
-    MinMaxScalerRow,
-    TeEncoder,
-    ToDummy,
-)
+from energizados.preprocessing.preprocessing import MinMaxScalerRow
 
 logger = logging.getLogger(__name__)
-
-
-def get_preprocesor(preprocesor):
-    """Build a sklearn ColumnTransformer based on a preprocessor number.
-
-    Args:
-        preprocesor: Integer selecting the preprocessing configuration.
-            Currently only 4 is supported.
-
-    Returns:
-        sklearn.compose.ColumnTransformer: Configured preprocessor.
-    """
-    if preprocesor == 4:
-        # Activity
-        pipe_actividad = Pipeline(
-            [
-                ("cardinality_reducer", CardinalityReducer(threshold=0.001)),
-                ("a_dummy", ToDummy(["actividad"])),
-            ]
-        )
-
-        # Tariff Segment
-        pipe_tarifa = Pipeline(
-            [
-                ("cardinality_reducer", CardinalityReducer(threshold=0.001)),
-                ("tarifa_te", TeEncoder(["tipo_tarifa"], w=20)),
-            ]
-        )
-
-        vars_enc = ["zona", "nivel_tension"]
-        t_features = [
-            (
-                "var_encoder",
-                OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
-                vars_enc,
-            ),
-            (
-                "material_isntalacion_te",
-                TeEncoder(["material_instalacion"], w=10),
-                ["material_instalacion"],
-            ),
-            ("actividad_cr_dummy", pipe_actividad, ["actividad"]),
-            ("tarifa_cr_te", pipe_tarifa, ["tipo_tarifa"]),
-        ]
-
-        preprocessor = ColumnTransformer(transformers=t_features, remainder="passthrough")
-
-    return preprocessor
 
 
 class LGBMModel:
