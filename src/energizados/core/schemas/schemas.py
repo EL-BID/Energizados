@@ -222,6 +222,11 @@ TRAINING_SCHEMA = {
                         "params": {"type": "object"},
                     },
                 },
+                "segment_columns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Column names to compute per-segment evaluation metrics",
+                },
             },
         },
     },
@@ -283,6 +288,11 @@ EVALUATION_SCHEMA = {
                 },
             },
             "additionalProperties": False,
+        },
+        "segment_columns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Column names to compute per-segment evaluation metrics",
         },
     },
 }

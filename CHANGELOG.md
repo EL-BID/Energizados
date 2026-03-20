@@ -145,6 +145,10 @@
   - `get_raw_model()` method on BaseModel ABC for extracting fitted models from adapters
   - New module: `energizados.explainability` with `ShapExplainer`
   - Added `shap>=0.42.0` dependency
+- **Per-Segment Evaluation** (FR-EVAL-017): Compute metrics broken down by configurable grouping columns (e.g., zona, tipo_tarifa)
+  - AUC, Precision, Recall, F1 per segment value
+  - Interactive Plotly chart + heatmap-colored HTML table
+  - Configured via `evaluation.segment_columns` in train.yaml
 
 ---
 

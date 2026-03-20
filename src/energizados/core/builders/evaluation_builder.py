@@ -73,6 +73,7 @@ class EvaluationBuilder(StepBuilder):
             generate_json_report=eval_config.get("generate_json_report", True),
             calibration_config=eval_config.get("calibration"),
             shap_config=eval_config.get("shap"),
+            segment_columns=eval_config.get("segment_columns"),
         )
 
     def is_enabled(self) -> bool:

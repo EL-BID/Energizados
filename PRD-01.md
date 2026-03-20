@@ -355,7 +355,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-EVAL-014 | Support SHAP-based feature importance in reports (TreeExplainer + KernelExplainer) | [IMPLEMENTED] |
 | FR-EVAL-015 | Support custom metric registration                                             | [PLANNED]     |
 | FR-EVAL-016 | **Probability calibration**: adjust raw model scores to reflect true frequencies via isotonic regression or Platt scaling (`CalibratedClassifierCV`), distinct from threshold calibration | [IMPLEMENTED] |
-| FR-EVAL-017 | Per-segment evaluation: compute metrics broken down by a configurable grouping column | [PLANNED]     |
+| FR-EVAL-017 | Per-segment evaluation: compute metrics broken down by a configurable grouping column | [IMPLEMENTED] |
 
 ### FR-INFERENCE: Prediction Pipeline
 
@@ -1059,11 +1059,11 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to compute evaluation metrics broken down by a configurable grouping column (e.g., customer category, zone, tariff type)
 - **So that** I can identify segments where the model performs well or poorly and adjust strategies accordingly
 - **Acceptance criteria**:
-    - [ ] Configurable `segment_column` in evaluation config
-    - [ ] Computes AUC, precision, recall, F1 per segment
-    - [ ] Segment breakdown included in HTML and JSON reports
-    - [ ] Warns when a segment has too few samples for reliable metrics
-- **Status**: [PLANNED]
+    - [x] Configurable `segment_columns` in evaluation config
+    - [x] Computes AUC, precision, recall, F1 per segment
+    - [x] Segment breakdown included in HTML and JSON reports
+    - [x] Warns when a segment has too few samples for reliable metrics
+- **Status**: [IMPLEMENTED]
 
 ---
 

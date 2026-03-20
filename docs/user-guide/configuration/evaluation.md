@@ -54,6 +54,28 @@ evaluation:
 | `generate_json_report` | boolean | `true` | Whether to generate JSON report |
 | `calibration` | dict | - | Threshold calibration configuration |
 | `shap` | dict | - | SHAP explainability configuration |
+| `segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics |
+
+---
+
+## Per-Segment Evaluation
+
+Evaluate model performance broken down by configurable grouping columns (e.g., zone, tariff type, customer category).
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics |
+
+Example:
+
+```yaml
+evaluation:
+  segment_columns:
+    - "zona"
+    - "tipo_tarifa"
+```
+
+This generates a segment comparison table and interactive chart in the HTML report showing AUC, Precision, Recall, and F1 for each segment value. Segments are color-coded: green (≥0.7), yellow (≥0.4), red (<0.4).
 
 ---
 
