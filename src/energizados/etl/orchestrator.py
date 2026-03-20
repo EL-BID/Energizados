@@ -129,22 +129,31 @@ class ETLOrchestrator:
         """
         Builds the execution order using topological order (BFS).
 
+        Only includes ETLs with enabled=True (or no enabled key, defaults to True).
+
         Returns:
             List of ETL names in execution order
 
         Raises:
             ETLDependencyError: If the order cannot be determined (cycle)
         """
+        enabled_configs = {
+            name: config for name, config in self.etl_configs.items() if config.get("enabled", True)
+        }
+
+        enabled_names = set(enabled_configs.keys())
+
         in_degree = defaultdict(int)
         adj_list = defaultdict(list)
 
-        for etl_name, config in self.etl_configs.items():
+        for etl_name, config in enabled_configs.items():
             deps = config.get("depends_on", [])
-            in_degree[etl_name] = len(deps)
-            for dep in deps:
+            valid_deps = [d for d in deps if d in enabled_names]
+            in_degree[etl_name] = len(valid_deps)
+            for dep in valid_deps:
                 adj_list[dep].append(etl_name)
 
-        queue = deque([etl for etl in self.etl_configs if in_degree[etl] == 0])
+        queue = deque([etl for etl in enabled_configs if in_degree[etl] == 0])
         order = []
 
         while queue:
@@ -156,8 +165,11 @@ class ETLOrchestrator:
                 if in_degree[neighbor] == 0:
                     queue.append(neighbor)
 
-        if len(order) != len(self.etl_configs):
-            raise ETLDependencyError("Could not determine topological order (possible cycle)")
+        if len(order) != len(enabled_configs):
+            remaining = [e for e in enabled_configs if e not in order]
+            raise ETLDependencyError(
+                f"Could not determine topological order. Check dependencies of: {remaining}"
+            )
 
         self.execution_order = order
         return order
@@ -194,9 +206,12 @@ class ETLOrchestrator:
             if path_spec.startswith("@"):
                 ref_etl = path_spec[1:]
                 if ref_etl in self.etl_configs:
-                    # Get the output path from the referenced ETL config
-                    # It doesn't matter if it was already executed, the path is in the config
                     ref_config = self.etl_configs[ref_etl]
+                    if not ref_config.get("enabled", True):
+                        logger.debug(
+                            f"ETL '{etl_name}' references disabled ETL '{ref_etl}', skipping its output"
+                        )
+                        continue
                     resolved_paths.append(ref_config["output"])
                 else:
                     raise ETLDependencyError(f"ETL '{etl_name}' references unknown ETL '{ref_etl}'")
