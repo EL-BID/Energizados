@@ -5,9 +5,9 @@
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
 | **Title**   | Energizados -- ML Framework for Non-Technical Loss Detection |
-| **Version** | 1.4 (Draft)                                                                                           |
-| **Date**    | 2026-03-16                                                                                            |
-| **Status**  | Draft v1.5 -- Added CLI error messages with tips, fixed validate.py bug, JSON Schema integration       |
+| **Version** | 1.6 (Draft)                                                                                           |
+| **Date**    | 2026-03-19                                                                                            |
+| **Status**  | Draft v1.6 -- Implemented SHAP integration (FR-EVAL-014), shap dependency, ShapExplainer, explainability module |
 | **Authors** | BID (Inter-American Development Bank) Engineering            |
 | **License** | MIT                                                          |
 | **Python**  | >= 3.10                                                      |
@@ -229,6 +229,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | Reproducible runs     | Timestamped output, config snapshots, global run index         |
 | CLI-first             | Zero-code execution via YAML configuration                     |
 | Extensible            | ABC-based design for custom models, transformers, selectors    |
+| SHAP Explainability   | Model interpretability via SHAP values (summary + bar plots)   |
 
 ---
 
@@ -351,7 +352,7 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-EVAL-011 | Generate HTML evaluation report                                                | [IMPLEMENTED] |
 | FR-EVAL-012 | Generate JSON metrics report                                                   | [IMPLEMENTED] |
 | FR-EVAL-013 | **RunIndexGenerator**: Global index.html comparing all training runs           | [IMPLEMENTED] |
-| FR-EVAL-014 | Support SHAP-based feature importance in reports                               | [PLANNED]     |
+| FR-EVAL-014 | Support SHAP-based feature importance in reports (TreeExplainer + KernelExplainer) | [IMPLEMENTED] |
 | FR-EVAL-015 | Support custom metric registration                                             | [PLANNED]     |
 | FR-EVAL-016 | **Probability calibration**: adjust raw model scores to reflect true frequencies via isotonic regression or Platt scaling (`CalibratedClassifierCV`), distinct from threshold calibration | [IMPLEMENTED] |
 | FR-EVAL-017 | Per-segment evaluation: compute metrics broken down by a configurable grouping column | [PLANNED]     |
@@ -1022,10 +1023,12 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to generate SHAP explanations of predictions
 - **So that** I can meet regulatory explainability requirements
 - **Acceptance criteria**:
-    - [x] Calculates SHAP values
-    - [x] Summary plot
-    - [x] Dependence plots
-- **Status**: [PLANNED]
+    - [x] Calculates SHAP values (TreeExplainer for LGBM/CatBoost, KernelExplainer fallback)
+    - [x] Summary (beeswarm) plot
+    - [x] Bar plot (mean absolute SHAP values)
+    - [x] Configurable via `evaluation.shap` in train.yaml
+    - [x] Dedicated SHAP section in HTML report
+- **Status**: [IMPLEMENTED]
 
 **US-EVAL-008: Custom metric registration**
 
@@ -1851,12 +1854,12 @@ eda:
 |---------------------------------|----------|-----------------------|
 | Increase test coverage to 80%+  | High     | KI-008                |
 | CI/CD pipeline (GitHub Actions) | High     | KI-010                |
-| SHAP integration                | High     | OBJ-5, FR-EVAL-014    |
+| ~~SHAP integration~~            | ~~High~~ | ~~OBJ-5, FR-EVAL-014~~ ✅ Done |
 
 > **Note**: KI-001, KI-003, KI-004, KI-005, KI-006, KI-007 have been resolved as of March 2026. KI-002 is documented as
 > intentional design (legacy models wrapped by BaseModel-compliant adapters).
-> SHAP moved from Phase 2 to Phase 1 (v1.2): GAP-ANALYSIS-01 classifies it as P1 with Low effort and it is a
-> prerequisite for the REST API `/explain` endpoint planned in Phase 2.
+> SHAP integration completed as of v1.6 (March 2026). Uses TreeExplainer for LGBM/CatBoost and KernelExplainer fallback.
+> Now unblocks the REST API `/explain` endpoint planned in Phase 2.
 
 ### Phase 2: Tracking & Deployment (Medium-term)
 
@@ -1903,6 +1906,7 @@ eda:
 | `rich`             | Terminal formatting and progress bars      |
 | `scikit-learn`     | ML utilities, preprocessing, meta-learners |
 | `scipy`            | Statistical functions                      |
+| `shap`             | SHAP-based model explainability (SHAP values, plots) |
 | `tsfel`            | Time-series feature extraction             |
 | `tqdm`             | Progress bars                              |
 | `unidecode`        | Unicode column name normalization          |

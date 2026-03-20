@@ -5,7 +5,7 @@ Combines N base models via soft voting or stacking with a meta-learner.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -236,3 +236,23 @@ class EnsembleModel(BaseModel):
     def ensemble_description(self) -> str:
         """Human-readable description for reports, e.g. 'Ensemble (lightgbm, catboost)'."""
         return f"Ensemble ({', '.join(self.model_types)})"
+
+    def get_raw_model(self) -> Any:
+        """Extract raw models from all base models.
+
+        Returns:
+            Dict mapping model names to their raw fitted models.
+            Returns None if no base models are available.
+        """
+        if not self.base_models:
+            logger.warning("EnsembleModel.get_raw_model() called with no base models.")
+            return None
+        raw_models = {}
+        for name, model in zip(self.model_names, self.base_models):
+            raw = model.get_raw_model()
+            if raw is not None:
+                raw_models[name] = raw
+            else:
+                logger.warning("Base model '%s' returned None from get_raw_model().", name)
+        logger.debug("EnsembleModel.get_raw_model() returning %d raw models.", len(raw_models))
+        return raw_models if raw_models else None

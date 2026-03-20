@@ -252,6 +252,38 @@ EVALUATION_SCHEMA = {
                 "params": {"type": "object"},
             },
         },
+        "shap": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable SHAP value computation and plots",
+                    "default": False,
+                },
+                "max_samples": {
+                    "type": "integer",
+                    "description": "Maximum number of samples for SHAP computation (background + test)",
+                    "minimum": 50,
+                    "default": 500,
+                },
+                "top_n_features": {
+                    "type": "integer",
+                    "description": "Number of top features to display in SHAP plots",
+                    "minimum": 1,
+                    "default": 20,
+                },
+                "plot_types": {
+                    "type": "array",
+                    "description": "Which SHAP plot types to generate",
+                    "items": {
+                        "type": "string",
+                        "enum": ["summary", "bar"],
+                    },
+                    "default": ["summary", "bar"],
+                },
+            },
+            "additionalProperties": False,
+        },
     },
 }
 

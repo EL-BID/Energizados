@@ -37,6 +37,9 @@ def _make_dummy_model(proba_value: float):
             self.check_fitted()
             return np.full(len(X), self.proba)
 
+        def get_raw_model(self):
+            return self
+
     m = DummyModel(proba=proba_value)
     m.is_fitted_ = True
     return m
@@ -188,6 +191,9 @@ class TestSoftVoting:
 
             def predict_proba(self, X):
                 return np.full(len(X), 0.4)
+
+            def get_raw_model(self):
+                return self
 
         X_train, y_train, X_val, y_val = split_data
         TrackingModel.fitted_count = 0

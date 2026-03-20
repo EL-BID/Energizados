@@ -10,6 +10,7 @@ pyyaml>=6.0
 rich>=13.0
 scikit-learn~=1.4.2
 scipy~=1.9.0
+shap>=0.42.0
 tsfel==0.1.9
 tqdm>=4.64.0
 unidecode~=1.4.0

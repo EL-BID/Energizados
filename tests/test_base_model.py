@@ -47,6 +47,9 @@ class TestBaseModel:
             def predict_proba(self, X):
                 return np.array([0.5])
 
+            def get_raw_model(self):
+                return self.model_
+
         model = ConcreteModel(config={"learning_rate": 0.01})
         assert model.config == {"learning_rate": 0.01}
 
@@ -63,6 +66,9 @@ class TestBaseModel:
             def predict_proba(self, X):
                 return np.array([0.5])
 
+            def get_raw_model(self):
+                return self.model_
+
         model = ConcreteModel()
         assert model.config == {}
 
@@ -78,6 +84,9 @@ class TestBaseModel:
 
             def predict_proba(self, X):
                 return np.array([0.5])
+
+            def get_raw_model(self):
+                return self.model_
 
         model = ConcreteModel()
         assert model.model_ is None
@@ -124,6 +133,23 @@ class TestBaseModel:
         with pytest.raises(TypeError):
             IncompleteModel()
 
+    def test_concrete_model_must_implement_get_raw_model(self):
+        """Verify that a model must implement get_raw_model()."""
+
+        class IncompleteModel(BaseModel):
+            def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
+                self.is_fitted_ = True
+                return self
+
+            def predict(self, X: pd.DataFrame) -> np.ndarray:
+                return np.array([0, 0])
+
+            def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+                return np.array([0.0, 0.0])
+
+        with pytest.raises(TypeError):
+            IncompleteModel()
+
     def test_complete_model_can_be_instantiated(self):
         """Verify that a complete model can be instantiated."""
 
@@ -140,6 +166,9 @@ class TestBaseModel:
             def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
                 self.check_fitted()
                 return np.array([0.5, 0.5])
+
+            def get_raw_model(self):
+                return self.model_
 
         model = CompleteModel()
         assert model is not None
@@ -158,6 +187,9 @@ class TestBaseModel:
             def predict_proba(self, X):
                 return np.array([0.5])
 
+            def get_raw_model(self):
+                return self.model_
+
         model = ConcreteModel()
 
         with pytest.raises(ModelNotFittedError, match="is not fitted"):
@@ -175,6 +207,9 @@ class TestBaseModel:
 
             def predict_proba(self, X):
                 return np.array([0.5])
+
+            def get_raw_model(self):
+                return self.model_
 
         model = ConcreteModel()
         model.is_fitted_ = True
@@ -200,6 +235,9 @@ class TestBaseModel:
             def predict_proba(self, X):
                 return np.array([0.5, 0.5])
 
+            def get_raw_model(self):
+                return self.model_
+
         model = TestModel()
         model.fit(X, y, X_val=X_val, y_val=y_val)
 
@@ -220,6 +258,9 @@ class TestBaseModel:
 
             def predict_proba(self, X):
                 return np.array([0.5, 0.5])
+
+            def get_raw_model(self):
+                return self.model_
 
         model = TestModel()
         model.fit(X, y)

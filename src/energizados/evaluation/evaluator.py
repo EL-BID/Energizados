@@ -64,6 +64,7 @@ class DefaultEvaluator(PipelineStep):
         segment_columns: Optional[List[str]] = None,
         calibration_config: Optional[Dict] = None,
         val_predictions_path: Optional[str] = None,
+        shap_config: Optional[Dict] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -87,6 +88,7 @@ class DefaultEvaluator(PipelineStep):
         self.segment_columns = segment_columns or []
         self.calibration_config = calibration_config
         self.val_predictions_path = val_predictions_path
+        self._shap_config = shap_config
 
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
@@ -231,6 +233,62 @@ class DefaultEvaluator(PipelineStep):
         except Exception as e:
             logger.warning(f"Could not calculate threshold metrics: {e}")
 
+        # 6d. SHAP Explainability
+        shap_embedded = {}
+        shap_plots = {}
+        if self._shap_config and self._shap_config.get("enabled", False):
+            try:
+                from energizados.explainability.shap_explainer import ShapExplainer
+
+                shap_max_samples = self._shap_config.get("max_samples", 500)
+                shap_top_n = self._shap_config.get("top_n_features", 20)
+                shap_plot_types = self._shap_config.get("plot_types", ["summary", "bar"])
+
+                logger.info(
+                    f"Computing SHAP values (max_samples={shap_max_samples}, top_n={shap_top_n})..."
+                )
+
+                explainer = ShapExplainer(
+                    model=model,
+                    X_background=X_test_transformed,
+                    feature_names=feature_names,
+                    max_samples=shap_max_samples,
+                )
+
+                shap_values = explainer.compute_shap_values(
+                    X_test_transformed, max_samples=shap_max_samples
+                )
+
+                if shap_values is not None:
+                    if "summary" in shap_plot_types:
+                        path, b64 = self.plot_generator.shap_summary_plot_embedded(
+                            shap_values, X_test_transformed, feature_names, top_n=shap_top_n
+                        )
+                        shap_plots["shap_summary"] = path
+                        shap_embedded["shap_summary"] = b64
+
+                    if "bar" in shap_plot_types:
+                        path, b64 = self.plot_generator.shap_bar_plot_embedded(
+                            shap_values, feature_names, top_n=shap_top_n
+                        )
+                        shap_plots["shap_bar"] = path
+                        shap_embedded["shap_bar"] = b64
+
+                    top_features = explainer.get_top_features(shap_values, top_n=shap_top_n)
+                    metrics_results["shap_top_features"] = top_features
+
+                    logger.info(f"SHAP analysis complete. Top features: {top_features[:5]}")
+                else:
+                    logger.warning("SHAP values could not be computed.")
+
+            except ImportError:
+                logger.warning(
+                    "shap package not installed. Skipping SHAP analysis. "
+                    "Install with: pip install shap"
+                )
+            except Exception as e:
+                logger.error(f"SHAP analysis failed: {e}", exc_info=True)
+
         # 7. Generate visualizations
         plots_paths = {}
         plots_embedded = {}
@@ -246,6 +304,12 @@ class DefaultEvaluator(PipelineStep):
                 threshold_metrics=threshold_metrics,
                 threshold=threshold,
             )
+
+        # Merge SHAP plots into results
+        if shap_plots:
+            plots_paths.update(shap_plots)
+        if shap_embedded:
+            plots_embedded.update(shap_embedded)
 
         # 7b. Generate interactive plots
         plots_interactive = {}

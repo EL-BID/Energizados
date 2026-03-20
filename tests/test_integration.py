@@ -87,8 +87,10 @@ etl:
         builder = ConfigPipelineBuilder(str(valid_config))
         pipeline = builder.build()
 
-        # Pipeline with no steps should be able to be created
-        assert len(pipeline.steps) == 0
+        # Pipeline should have 1 step (ETLStep is created even when enabled=false)
+        # The ETLBuilder checks if 'etl' section exists, not if individual ETLs are enabled
+        assert len(pipeline.steps) == 1
+        assert pipeline.steps[0].__class__.__name__ == "ETLStep"
 
     def test_pipeline_with_multi_etl_config(self, temp_dir):
         """Verify integration with multiple ETLs."""
@@ -107,18 +109,16 @@ project:
   name: "multi_etl_test"
   version: "1.0.0"
 
-etls:
+etl:
   source1:
     enabled: true
     description: "Processes source 1"
     input: "data/raw/source1.csv"
     output: "data/processed/source1.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
     depends_on: []
 
-preprocessing:
-  enabled: false
-
-training:
+train:
   enabled: false
 
 evaluation:
@@ -129,8 +129,9 @@ evaluation:
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
 
-        # Verify that MultiETLStep was created
+        # Verify that ETLStep was created
         assert len(pipeline.steps) == 1
+        assert pipeline.steps[0].__class__.__name__ == "ETLStep"
 
 
 class TestETLOrchestratorIntegration:
@@ -373,12 +374,12 @@ class TestTrainingConfigIntegration:
     """Integration tests for the new models: list config schema."""
 
     def test_pipeline_builds_with_single_model_list(self, tmp_path):
-        """ConfigPipelineBuilder accepts training.models list with one entry."""
+        """ConfigPipelineBuilder accepts train.models list with one entry."""
         from energizados.core.pipeline import ConfigPipelineBuilder, Pipeline
 
         config_file = tmp_path / "training_single.yaml"
         config_file.write_text("""
-training:
+train:
   enabled: true
   target_column: target
   models:
@@ -430,7 +431,7 @@ training:
 
         config_file = tmp_path / "cfg.yaml"
         config_file.write_text("""
-training:
+train:
   enabled: true
   models:
     - type: lightgbm
@@ -453,7 +454,7 @@ training:
 
         config_file = tmp_path / "cfg2.yaml"
         config_file.write_text("""
-training:
+train:
   enabled: true
   models:
     - type: lightgbm

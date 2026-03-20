@@ -99,6 +99,23 @@ class BaseModel(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_raw_model(self) -> Any:
+        """
+        Extract the underlying fitted model from the adapter's trained pipeline.
+
+        Adapters wrap sklearn/lightgbm/catboost/keras models inside pipelines
+        (e.g., sklearn Pipeline). This method returns the raw fitted model
+        suitable for tools like SHAP that need direct access to the model object.
+
+        Returns:
+            The raw fitted model instance (e.g., LGBMClassifier, Sequential).
+
+        Raises:
+            ModelNotFittedError: If the model is not fitted
+        """
+        pass
+
     def check_fitted(self):
         """
         Check that the model is fitted.

@@ -5,6 +5,7 @@ Tests for the new positional `configs` argument and config resolution.
 """
 
 import logging
+import re
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -14,6 +15,11 @@ from rich.logging import RichHandler
 
 from energizados.cli import ui
 from energizados.cli.main import _setup_logging, cli
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 class TestRunCommand:
@@ -142,9 +148,10 @@ etl:
                 os.chdir(tmpdir)
                 result = self.runner.invoke(cli, ["run", "nonexistent"])
                 assert result.exit_code != 0
-                assert "Config 'nonexistent' not found" in result.output
-                assert "Available configs:" in result.output
-                assert "Use --config-path" in result.output
+                output = strip_ansi(result.output)
+                assert "Config 'nonexistent' not found" in output
+                assert "Available configs:" in output
+                assert "Use --config-path" in output
             finally:
                 os.chdir(old_cwd)
 
@@ -325,9 +332,10 @@ etl:
                 os.chdir(tmpdir)
                 result = self.runner.invoke(cli, ["validate", "nonexistent"])
                 assert result.exit_code != 0
-                assert "Config 'nonexistent' not found" in result.output
-                assert "Available configs:" in result.output
-                assert "Use --config-path" in result.output
+                output = strip_ansi(result.output)
+                assert "Config 'nonexistent' not found" in output
+                assert "Available configs:" in output
+                assert "Use --config-path" in output
             finally:
                 os.chdir(old_cwd)
 

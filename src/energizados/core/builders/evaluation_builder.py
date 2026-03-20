@@ -72,6 +72,7 @@ class EvaluationBuilder(StepBuilder):
             generate_html_report=eval_config.get("generate_html_report", True),
             generate_json_report=eval_config.get("generate_json_report", True),
             calibration_config=eval_config.get("calibration"),
+            shap_config=eval_config.get("shap"),
         )
 
     def is_enabled(self) -> bool:

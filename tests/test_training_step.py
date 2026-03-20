@@ -53,6 +53,9 @@ class _DummyModel(BaseModel):
         self.check_fitted()
         return np.full(len(X), self.proba)
 
+    def get_raw_model(self):
+        return self
+
 
 def _dummy_model_class(proba: float = 0.6):
     """Return _DummyModel (module-level, picklable). proba ignored — uses default 0.6."""

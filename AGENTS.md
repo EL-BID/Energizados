@@ -14,7 +14,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Check and fix tests.
 - Check pre-commit rules and ensure controls pass.
 - Do NOT use `print` for logging. Use the Python `logging` module instead.
-- Always use `colgrep` for code searches.
+- **Code search rules — `Grep` tool vs `colgrep`:**
+  - Use the **`Grep` tool** (ripgrep) when you know **exactly** what to look for:
+    - Exact function/class/variable name: `Grep pattern="class EnsembleModel"`
+    - Exact string or import: `Grep pattern="from energizados.modeling"`
+    - Regex over a known pattern: `Grep pattern="def fit\(self"`
+    - Counting occurrences or listing files: use `output_mode="count"` or `"files_with_matches"`
+    - Searching within 2–3 specific files you already have open
+  - Use **`colgrep`** (semantic grep) when you know **what the code does** but not its exact name:
+    - Concept-based search: `colgrep "error handling logic"` or `colgrep "resampling for class imbalance"`
+    - Discovering where a behavior lives without knowing the symbol name
+    - Hybrid mode when you have both a concept and a known token: `colgrep "feature importance ranking" -e "def "`
+    - Exploring unfamiliar areas of the codebase before diving in
+  - **Decision rule**: If you can write the exact text you expect to find → `Grep`. If you need to describe the intent in plain English → `colgrep`.
+  - **Never** call `grep`, `rg`, or `find` as Bash commands — use the `Grep` tool or `colgrep` instead.
 
 ## Project Overview
 

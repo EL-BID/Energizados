@@ -5,12 +5,15 @@ Provides adapters/wrappers for existing models
 to comply with the framework's BaseModel interface.
 """
 
-from typing import Optional
+import logging
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 
 from energizados.core.base import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class LGBMModelAdapter(BaseModel):
@@ -116,6 +119,23 @@ class LGBMModelAdapter(BaseModel):
         self.check_fitted()
         return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
 
+    def get_raw_model(self) -> Any:
+        """Extract the fitted LGBMClassifier from the trained pipeline.
+
+        Returns:
+            The fitted LGBMClassifier instance, or None if not yet trained.
+        """
+        if self._trained_pipeline is None:
+            logger.warning("LGBMModelAdapter.get_raw_model() called before fit().")
+            return None
+        raw = self._trained_pipeline.named_steps.get("lgbmclassifier")
+        if raw is None:
+            logger.warning(
+                "Step 'lgbmclassifier' not found in pipeline. Available: %s",
+                list(self._trained_pipeline.named_steps.keys()),
+            )
+        return raw
+
 
 class CATModelAdapter(BaseModel):
     """Adapter for CATModel that implements the BaseModel interface.
@@ -218,6 +238,23 @@ class CATModelAdapter(BaseModel):
         self.check_fitted()
         return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
 
+    def get_raw_model(self) -> Any:
+        """Extract the fitted CatBoostClassifier from the trained pipeline.
+
+        Returns:
+            The fitted CatBoostClassifier instance, or None if not yet trained.
+        """
+        if self._trained_pipeline is None:
+            logger.warning("CATModelAdapter.get_raw_model() called before fit().")
+            return None
+        raw = self._trained_pipeline.named_steps.get("catboostclassifier")
+        if raw is None:
+            logger.warning(
+                "Step 'catboostclassifier' not found in pipeline. Available: %s",
+                list(self._trained_pipeline.named_steps.keys()),
+            )
+        return raw
+
 
 class NNModelAdapter(BaseModel):
     """Adapter for NNModel that implements the BaseModel interface.
@@ -316,6 +353,18 @@ class NNModelAdapter(BaseModel):
         X_spents = self._pipe_spent.transform(X[self.spents_names])
         X_combined = np.concatenate([X_features, X_spents], axis=1)
         return self.model_.predict(X_combined, verbose=0).flatten()
+
+    def get_raw_model(self) -> Any:
+        """Extract the fitted Keras model.
+
+        Returns:
+            The fitted Keras Model instance, or None if not yet trained.
+        """
+        if self.model_ is None:
+            logger.warning("NNModelAdapter.get_raw_model() called before fit().")
+            return None
+        logger.debug("Returning raw Keras model from NNModelAdapter.")
+        return self.model_
 
 
 class LSTMNNModelAdapter(BaseModel):
@@ -429,6 +478,18 @@ class LSTMNNModelAdapter(BaseModel):
         X_spents = X_spents.reshape((X_spents.shape[0], self.periodo, 1))
         return self.model_.predict([X_spents, X_features], verbose=0).flatten()
 
+    def get_raw_model(self) -> Any:
+        """Extract the fitted Keras model.
+
+        Returns:
+            The fitted Keras Model instance, or None if not yet trained.
+        """
+        if self.model_ is None:
+            logger.warning("LSTMNNModelAdapter.get_raw_model() called before fit().")
+            return None
+        logger.debug("Returning raw Keras model from LSTMNNModelAdapter.")
+        return self.model_
+
 
 class SimpleTrendAdapter(BaseModel):
     """Adapter for ChangeTrendPercentajeIdentifierWide that implements BaseModel.
@@ -518,6 +579,15 @@ class SimpleTrendAdapter(BaseModel):
         proba = np.where(np.isnan(proba), 0.5, proba)
         return proba
 
+    def get_raw_model(self) -> Any:
+        """Rule-based model has no raw fitted model.
+
+        Returns:
+            self: The adapter instance itself (SHAP is not applicable).
+        """
+        logger.debug("SimpleTrendAdapter.get_raw_model() returning self (rule-based).")
+        return self
+
 
 class SimpleConstantAdapter(BaseModel):
     """Adapter for ConstantConsumptionClassifierWide that implements BaseModel.
@@ -590,3 +660,12 @@ class SimpleConstantAdapter(BaseModel):
         self.check_fitted()
         # For this model, binary predictions are the only ones available
         return self._model.predict(X).values.astype(float)
+
+    def get_raw_model(self) -> Any:
+        """Rule-based model has no raw fitted model.
+
+        Returns:
+            self: The adapter instance itself (SHAP is not applicable).
+        """
+        logger.debug("SimpleConstantAdapter.get_raw_model() returning self (rule-based).")
+        return self

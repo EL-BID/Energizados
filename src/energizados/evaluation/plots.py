@@ -724,3 +724,78 @@ class PlotGenerator:
         plt.ylim([0.0, 1.05])
 
         return self._save_figure_embedded("threshold_sweep.png", save_path)
+
+    # ------------------------------------------------------------------
+    # SHAP explainability plots
+    # ------------------------------------------------------------------
+
+    def shap_summary_plot_embedded(
+        self,
+        shap_values: np.ndarray,
+        X: pd.DataFrame,
+        feature_names: List[str],
+        top_n: int = 20,
+    ) -> Tuple[str, str]:
+        """Generate SHAP summary (beeswarm) plot.
+
+        Args:
+            shap_values: SHAP values array
+            X: Feature data used for SHAP
+            feature_names: List of feature names
+            top_n: Number of top features to show
+
+        Returns:
+            Tuple of (file_path, base64_data_uri)
+        """
+        import shap
+
+        mean_abs = np.abs(shap_values).mean(axis=0)
+        top_idx = np.argsort(mean_abs)[-top_n:][::-1]
+
+        shap_sub = shap_values[:, top_idx]
+        X_sub = X.iloc[:, top_idx] if hasattr(X, "iloc") else X[:, top_idx]
+
+        shap.summary_plot(
+            shap_sub,
+            features=X_sub,
+            feature_names=[feature_names[i] for i in top_idx],
+            show=False,
+            max_display=top_n,
+        )
+
+        plt.title(f"SHAP Summary Plot (Top {top_n} Features)")
+        plt.tight_layout()
+
+        return self._save_figure_embedded("shap_summary.png")
+
+    def shap_bar_plot_embedded(
+        self,
+        shap_values: np.ndarray,
+        feature_names: List[str],
+        top_n: int = 20,
+    ) -> Tuple[str, str]:
+        """Generate SHAP bar plot (mean absolute SHAP values).
+
+        Args:
+            shap_values: SHAP values array
+            feature_names: List of feature names
+            top_n: Number of top features to show
+
+        Returns:
+            Tuple of (file_path, base64_data_uri)
+        """
+        import shap
+
+        shap.summary_plot(
+            shap_values,
+            features=None,
+            feature_names=feature_names,
+            plot_type="bar",
+            show=False,
+            max_display=top_n,
+        )
+
+        plt.title(f"SHAP Feature Importance (Top {top_n} Features)")
+        plt.tight_layout()
+
+        return self._save_figure_embedded("shap_bar.png")
