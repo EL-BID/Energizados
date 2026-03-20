@@ -159,6 +159,37 @@ Energizados provides feature importance plots:
 !!! warning
     Correlated features can inflate importance scores. If two features are highly correlated (e.g., `mean_consumption_6m` and `mean_consumption_12m`), their individual importance scores may be unreliable.
 
+### SHAP Values
+
+For deeper model interpretability, enable SHAP (SHapley Additive exPlanations):
+
+!!! example "Enabling SHAP"
+    ```yaml
+    evaluation:
+      shap:
+        enabled: true
+        max_samples: 500      # samples for computation
+        top_n_features: 20    # features to show
+        plot_types: [summary, bar]
+    ```
+
+SHAP generates two plots in the evaluation report:
+
+| Plot | What it shows | When to use |
+|------|---------------|-------------|
+| **Summary (beeswarm)** | Feature impact × feature value per prediction | Understanding direction and magnitude of effects |
+| **Bar (importance)** | Mean absolute SHAP value per feature | Quick ranking of most important features |
+
+!!! tip "Choosing between gain-based and SHAP importance"
+    - **Gain-based importance** (LightGBM/CatBoost): Fast, model-specific, measures split contribution
+    - **SHAP importance**: Model-agnostic, consistent, game-theoretically grounded
+    - Use SHAP when you need to **explain individual predictions** or meet regulatory requirements
+
+!!! warning "Performance"
+    SHAP computation can take 30-60 seconds on 500 samples. For larger test sets,
+    it automatically subsamples to `max_samples`. KernelExplainer (for ensembles/NN)
+    is significantly slower than TreeExplainer (for tree models).
+
 ## Comparing Runs
 
 ### Using the Run Index

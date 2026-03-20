@@ -650,6 +650,28 @@ evaluation:
 | `operational` | Ensures number of alerts matches inspection capacity | `capacity` |
 | `precision_recall` | Guarantees minimum recall rate | `min_recall` |
 
+**SHAP Explainability:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `shap.enabled` | bool | `false` | Enable SHAP value computation |
+| `shap.max_samples` | int | `500` | Max samples for SHAP (controls compute time) |
+| `shap.top_n_features` | int | `20` | Number of top features in SHAP plots |
+| `shap.plot_types` | list | `["summary", "bar"]` | Which plots to generate |
+
+Example:
+
+```yaml
+evaluation:
+  shap:
+    enabled: true
+    max_samples: 500
+    top_n_features: 20
+    plot_types: [summary, bar]
+```
+
+> SHAP uses TreeExplainer for LightGBM/CatBoost and KernelExplainer for other model types.
+
 ---
 
 ## Complete Example

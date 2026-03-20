@@ -136,6 +136,16 @@
 - **NEW**: Skill registry for AI agents (.atl/skill-registry.md)
 - Removed compiled files and added pre-commit hooks
 
+### Added
+- **SHAP Integration** (FR-EVAL-014): Model explainability via SHAP values
+  - `ShapExplainer` class with TreeExplainer (LGBM/CatBoost) and KernelExplainer fallback
+  - Summary (beeswarm) and bar (importance) plots in evaluation HTML report
+  - Configurable via `evaluation.shap` in train.yaml (enabled, max_samples, top_n_features, plot_types)
+  - Dedicated "SHAP Explainability" section in HTML report with top features
+  - `get_raw_model()` method on BaseModel ABC for extracting fitted models from adapters
+  - New module: `energizados.explainability` with `ShapExplainer`
+  - Added `shap>=0.42.0` dependency
+
 ---
 
 ### Stats (feature/refactor → master)

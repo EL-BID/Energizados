@@ -24,6 +24,13 @@ evaluation:
     method: "cost_benefit"
     params:
       # Calibration method parameters
+
+  # SHAP explainability (optional)
+  shap:
+    enabled: false
+    max_samples: 500
+    top_n_features: 20
+    plot_types: [summary, bar]
 ```
 
 ## Parameters
@@ -46,6 +53,7 @@ evaluation:
 | `generate_html_report` | boolean | `true` | Whether to generate HTML report |
 | `generate_json_report` | boolean | `true` | Whether to generate JSON report |
 | `calibration` | dict | - | Threshold calibration configuration |
+| `shap` | dict | - | SHAP explainability configuration |
 
 ---
 
@@ -143,6 +151,8 @@ Individual PNG files for each visualization:
 - `precision_recall_curve.png`: Precision-recall curve
 - `cumulative_gains.png`: Cumulative gains chart
 - `feature_importance.png`: Feature importance bar chart (if applicable)
+- `shap_summary.png`: SHAP beeswarm plot (if SHAP enabled)
+- `shap_bar.png`: Mean |SHAP| per feature (if SHAP enabled)
 
 ---
 
@@ -272,6 +282,38 @@ evaluation:
       cost_fp: 1
       cost_fn: 10
 ```
+
+---
+
+## SHAP Explainability
+
+### SHAP Configuration
+
+SHAP (SHapley Additive exPlanations) provides model interpretability by computing feature attribution values.
+It helps answer "which features drove this prediction?" — critical for regulatory compliance and model debugging.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable SHAP value computation and plot generation |
+| `max_samples` | int | `500` | Maximum samples for SHAP computation (background + test). Higher = more accurate but slower |
+| `top_n_features` | int | `20` | Number of top features to display in SHAP plots |
+| `plot_types` | list | `["summary", "bar"]` | Plot types: `summary` (beeswarm) and/or `bar` (mean |SHAP|) |
+
+### How it works
+
+- **LightGBM / CatBoost**: Uses `shap.TreeExplainer` (fast, accurate)
+- **Ensembles / NN / LSTM**: Uses `shap.KernelExplainer` (model-agnostic, slower)
+
+> ⚠️ **Performance**: SHAP on large datasets can be slow. Use `max_samples` to limit computation.
+> For 500K+ row test sets, SHAP automatically subsamples to `max_samples` rows.
+
+### Output
+
+SHAP generates two plots in the evaluation report:
+- **Summary Plot (beeswarm)**: Shows feature impact on predictions, colored by feature value
+- **Bar Plot**: Mean absolute SHAP value per feature (feature importance)
+
+These appear in a dedicated "SHAP Explainability" section in the HTML report.
 
 ---
 
