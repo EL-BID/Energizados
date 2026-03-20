@@ -672,6 +672,21 @@ evaluation:
 
 > SHAP uses TreeExplainer for LightGBM/CatBoost and KernelExplainer for other model types.
 
+**Per-Segment Evaluation:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `evaluation.segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics |
+
+Example:
+
+```yaml
+evaluation:
+  segment_columns:
+    - "zona"
+    - "tipo_tarifa"
+```
+
 ---
 
 ## Complete Example

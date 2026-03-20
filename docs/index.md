@@ -32,6 +32,7 @@ Energizados provides a complete toolkit for electricity theft detection:
 - **ML Models** — LightGBM, CatBoost, Neural Networks (Dense), LSTM, plus rule-based baselines
 - **EDA Module** — Comprehensive exploratory data analysis with interactive reports
 - **CLI** — Streamlined command-line interface for the entire pipeline
+- **Model Explainability** — SHAP values (TreeExplainer + KernelExplainer) for regulatory compliance
 
 ### Supported Models
 

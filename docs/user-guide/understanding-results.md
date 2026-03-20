@@ -190,6 +190,34 @@ SHAP generates two plots in the evaluation report:
     it automatically subsamples to `max_samples`. KernelExplainer (for ensembles/NN)
     is significantly slower than TreeExplainer (for tree models).
 
+### Per-Segment Evaluation
+
+When you configure `segment_columns`, the evaluation report includes a breakdown of model performance by segment value.
+
+!!! example "Enabling segment evaluation"
+    ```yaml
+    evaluation:
+      segment_columns:
+        - "zona"
+        - "tipo_tarifa"
+    ```
+
+The report generates:
+
+- **Segment Table**: AUC, Precision, Recall, F1 for each segment value, color-coded by performance:
+    - Green: metric ≥ 0.7
+    - Yellow: metric ≥ 0.4
+    - Red: metric < 0.4
+- **Interactive Chart**: Plotly horizontal bar chart comparing F1 (or other metrics) across segments
+
+!!! tip "Use cases for segment evaluation"
+    - **Detect model weaknesses**: If the model performs well in urban zones but poorly in rural, you know where to focus data collection
+    - **Justify investment**: Show stakeholders that the model works for specific customer categories
+    - **Identify bias**: Ensure the model doesn't systematically underperform in certain segments
+
+!!! warning "Low sample segments"
+    If a segment has very few samples, its metrics may be unreliable. The report highlights segments with low counts.
+
 ## Comparing Runs
 
 ### Using the Run Index

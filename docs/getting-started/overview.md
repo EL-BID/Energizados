@@ -82,6 +82,8 @@ Trained models are evaluated on held-out data. The primary metric is **AUC-ROC**
 
 Additional metrics: precision, recall, F1, confusion matrix, cumulative gains curve.
 
+- SHAP-based model explainability (summary + bar plots) for regulatory compliance
+
 ![ROC Curve](../assets/roc_curve.png)
 
 ## Sample Dataset

@@ -15,6 +15,7 @@
 - **ML Models**: LightGBM, CatBoost, Neural Networks, LSTM, and ensemble methods
 - **EDA Module**: Interactive HTML reports for exploratory data analysis
 - **CLI Tools**: Complete command-line interface for pipeline orchestration
+- **SHAP Explainability**: Model interpretability via SHAP values for regulatory compliance
 
 ## 🚀 Quick Start
 

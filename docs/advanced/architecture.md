@@ -91,6 +91,10 @@ src/energizados/
 │   ├── report.py                # HTML report generator
 │   └── utils.py                 # IV, WoE, KS, Cramér's V utilities
 │
+├── explainability/             # Model interpretability (SHAP)
+│   ├── __init__.py
+│   └── shap_explainer.py      # ShapExplainer (TreeExplainer + KernelExplainer)
+│
 └── etl/                       # ETL framework components
     ├── base.py             # BaseETL abstract class
     ├── pipeline.py         # SourceETL implementation
@@ -223,6 +227,12 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `eda/plots.py` | Static Matplotlib/Plotly charts |
 | `eda/plots_interactive.py` | Interactive Plotly charts (HTML strings) |
 | `eda/report.py` | HTML report generator |
+
+### Explainability
+
+| Module | Responsibility |
+|---------|---------------|
+| `explainability/shap_explainer.py` | `ShapExplainer`: SHAP-based model explainability with TreeExplainer and KernelExplainer support |
 
 ### CLI
 
