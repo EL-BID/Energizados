@@ -194,7 +194,7 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         score_cols = []
         for metric_col in ["iv", "ks_stat", "cramers_v", "correlation"]:
             if metric_col in ranking_df.columns:
-                series = ranking_df[metric_col].infer_objects(copy=False).fillna(0)
+                series = pd.to_numeric(ranking_df[metric_col], errors="coerce").fillna(0)
                 max_val = series.max()
                 if max_val > 0:
                     ranking_df[f"_norm_{metric_col}"] = series / max_val

@@ -7,7 +7,7 @@ for this project.
 Edit the fit(), predict() and predict_proba() methods as needed.
 """
 
-from energizados.modeling.base import BaseModel
+from energizados.core.base import BaseModel
 import pandas as pd
 import numpy as np
 

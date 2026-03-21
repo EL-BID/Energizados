@@ -209,28 +209,41 @@ def _create_directory_structure(project_path: Path) -> None:
 
     # Create __init__.py files for each module in src/
     init_modules = {
-        project_path / "src" / "__init__.py": ("", ""),
-        project_path / "src" / "data" / "__init__.py": ("custom_etl", "CustomETL"),
-        project_path / "src" / "features" / "__init__.py": ("custom_selector", "CustomSelector"),
-        project_path / "src" / "models" / "__init__.py": ("custom_model", "CustomModel"),
-        project_path / "src" / "inference" / "__init__.py": ("custom_inference", "CustomInference"),
-        project_path / "src" / "utils" / "__init__.py": ("helpers", "Helpers"),
-        project_path / "tests" / "__init__.py": ("", ""),
+        project_path / "src" / "__init__.py": None,
+        project_path / "src" / "data" / "__init__.py": "custom_etl",
+        project_path / "src" / "features" / "__init__.py": "custom_selector",
+        project_path / "src" / "models" / "__init__.py": "custom_model",
+        project_path / "src" / "inference" / "__init__.py": "custom_inference",
+        project_path / "src" / "utils" / "__init__.py": "helpers",
+        project_path / "tests" / "__init__.py": None,
     }
 
-    for init_file, (module_name, class_name) in init_modules.items():
-        if module_name:
-            init_file.write_text(f'''"""{init_file.parent.name} module of the project.
+    for init_file, module_name in init_modules.items():
+        if module_name is None:
+            init_file.write_text(f'''"""{init_file.parent.name} module of the project."""''')
+        else:
+            pkg_name = f"{init_file.parent.parent.name}.{init_file.parent.name}"
+            init_file.write_text(
+                f'''"""Custom {module_name} implementations for {project_path.name}.
 
-This module contains the custom implementations for {project_path.name}.
+Dynamically imports all classes from submodules.
 """
 
-from .{module_name} import {class_name}
+import importlib
+import pkgutil
 
-__all__ = ["{class_name}"]
-''')
-        else:
-            init_file.write_text(f'''"""{init_file.parent.name} module of the project."""''')
+__all__ = []
+
+for _importer, modname, _ispkg in pkgutil.iter_modules(__path__, prefix="{pkg_name}."):
+    module = importlib.import_module(modname)
+    for attr_name in dir(module):
+        if not attr_name.startswith("_"):
+            attr = getattr(module, attr_name)
+            if isinstance(attr, type):
+                globals()[attr_name] = attr
+                __all__.append(attr_name)
+'''
+            )
 
 
 def _create_base_files(project_path: Path, project_name: str, source_name: str = None):
