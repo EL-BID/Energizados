@@ -99,6 +99,9 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         "EDAStep": ["analyzing_data", "generating_report"],
     }
 
+    # Track active ETL name for ETLStep
+    active_etl_name = None
+
     # Execute with Rich progress display
     with Progress(
         SpinnerColumn(),
@@ -115,12 +118,12 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
 
         # Track step start time for elapsed time calculation
         step_start_time = None
-        # Track current sub-task for phase updates
+        # Track current sub-task for phase updates (non-ETL steps only)
         current_sub_task = None
         step_task_ids = {}  # Map step_name -> task_id
         step_phases = {}  # Map step_name -> list of phases
-        # For dynamic steps (like ETL), track the total_phases passed in callback
-        step_total_phases = {}  # Map step_name -> total_phases from callback
+        # Track active ETL name for display
+        active_etl_name = None
 
         def on_step_start(name, i, total):
             nonlocal step_start_time, current_sub_task
@@ -136,7 +139,6 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
             # Get phases for this step type (None for ETLStep - handled dynamically)
             phases = STEP_PHASES.get(name)
             step_phases[name] = phases if phases else []
-            step_total_phases[name] = None  # Will be set by first phase callback
             # Only mark as created if we actually create the sub-task
             # For dynamic steps, sub-task is created by first phase_update
             step_task_ids[name] = None  # None means not created yet
@@ -149,48 +151,45 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
                     parent=main_task,
                 )
                 step_task_ids[name] = current_sub_task
-                current_sub_task = current_sub_task
 
-            progress.update(
-                main_task,
-                description=f"[cyan][{i}/{total}] {name}[/]",
-                completed=i - 1,
-            )
+            # Update main task description
+            if name == "ETLStep":
+                progress.update(
+                    main_task,
+                    description="[cyan]ETL Pipeline[/]",
+                    completed=i - 1,
+                )
+            else:
+                progress.update(
+                    main_task,
+                    description=f"[cyan][{i}/{total}] {name}[/]",
+                    completed=i - 1,
+                )
 
         def on_phase_update(step_name, phase, pct, total_phases):
-            # For ETLStep with dynamic phases, create/update sub-task dynamically
             try:
                 if step_name == "ETLStep" and total_phases is not None:
-                    # ETLStep: phase is the ETL name, total_phases tells us total count
-                    task_id = step_task_ids.get(step_name)
-                    if task_id is None:
-                        # First ETL - create sub-task
-                        new_task = progress.add_task(
-                            f"[yellow]▶ {phase}[/]",
-                            total=total_phases,
-                            parent=main_task,
-                        )
-                        step_task_ids[step_name] = new_task
-                        step_total_phases[step_name] = total_phases
+                    # For ETLStep: update main task description with ETL name
+                    nonlocal active_etl_name
+                    active_etl_name = phase
 
-                    # Find current ETL index
-                    task_id = step_task_ids.get(step_name)
-                    if task_id is not None:
-                        # Get all phases for this step to find current index
-                        phases = step_phases.get(step_name, [])
-                        # Track ETL indices dynamically
-                        if phase not in phases:
-                            phases.append(phase)
-                            step_phases[step_name] = phases
+                    # Get all ETL names processed so far
+                    phases = step_phases.get(step_name, [])
+                    if phase not in phases:
+                        phases.append(phase)
+                        step_phases[step_name] = phases
 
-                        phase_idx = len(phases) - 1  # Current ETL is at this index
-                        completed = phase_idx + (pct / 100)
+                    # Calculate overall progress
+                    phase_idx = len(phases) - 1
+                    completed = phase_idx + (pct / 100)
+                    total = len(step_phases.get(step_name, []))
 
-                        progress.update(
-                            task_id,
-                            completed=completed,
-                            description=f"[yellow]▶ {phase}[/]",
-                        )
+                    # Update main task description with ETL name
+                    progress.update(
+                        main_task,
+                        description=f"[cyan]ETL Pipeline — {phase}[/] ({phase_idx + 1}/{total})",
+                        completed=phase_idx + (pct / 100) if pct == 100 else phase_idx,
+                    )
                 else:
                     # Standard step with predefined phases
                     phases = step_phases.get(step_name, [])
@@ -222,11 +221,19 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
                 except Exception:  # nosec: Silently ignore cleanup errors
                     pass
 
-            progress.update(
-                main_task,
-                description=f"[green][{i}/{total}] {name}[/]",
-                completed=i,
-            )
+            # Update main task description
+            if name == "ETLStep":
+                progress.update(
+                    main_task,
+                    description=f"[green]ETL Pipeline — ✓ {active_etl_name}[/]",
+                    completed=i,
+                )
+            else:
+                progress.update(
+                    main_task,
+                    description=f"[green][{i}/{total}] {name}[/]",
+                    completed=i,
+                )
 
             # Print summary panel after step completes
             console.print(
