@@ -17,6 +17,7 @@ TensorFlow is only required for neural network models (NNModel and LSTMNNModel)
 """
 
 import logging
+import re
 
 import numpy as np
 from imblearn.over_sampling import RandomOverSampler
@@ -31,6 +32,24 @@ from sklearn.preprocessing import MinMaxScaler
 from energizados.preprocessing.preprocessing import MinMaxScalerRow
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_feature_names(df):
+    """Remove special JSON characters from column names for LightGBM compatibility.
+
+    LightGBM does not support special JSON characters in feature names:
+    { } [ ] : , "
+
+    Args:
+        df: DataFrame with potentially problematic column names.
+
+    Returns:
+        DataFrame with sanitized column names.
+    """
+    df = df.copy()
+    pattern = r'[{}\[\]:,"]'
+    df.columns = [re.sub(pattern, "_", str(col)) for col in df.columns]
+    return df
 
 
 class LGBMModel:
@@ -117,21 +136,23 @@ class LGBMModel:
                 df_train, y_train, test_size=0.1, random_state=42
             )
 
-        pipe_preproceso_model = self.build_pipeline_preproceso_model()
+        X_train = df_train[self.cols_for_model].copy()
+        X_val = df_val[self.cols_for_model].copy()
 
-        # preprocessor_features = pipe_preproceso_model.steps[0][1]
-        # preprocessor_features.fit(df_train[self.cols_for_model], y_train)
-        # df_val_tra = preprocessor_features.transform(df_val[self.cols_for_model])
+        X_train = _sanitize_feature_names(X_train)
+        X_val = _sanitize_feature_names(X_val)
+
+        pipe_preproceso_model = self.build_pipeline_preproceso_model()
 
         if self.search_hip:
             self.best_score_, self.hyperparams = self.find_hyp_lgbm_model(
-                df_train[self.cols_for_model], y_train, df_val, y_val, pipe_preproceso_model
+                X_train, y_train, X_val, y_val, pipe_preproceso_model
             )
 
         params = self.hyperparams
         fit_params = {
             "eval_metric": ["auc"],
-            "eval_set": [(df_val, y_val)],
+            "eval_set": [(X_val, y_val)],
             "eval_names": ["valid"],
             "callbacks": [
                 early_stopping(stopping_rounds=30, first_metric_only=True),
@@ -142,7 +163,7 @@ class LGBMModel:
         }
         new_fit_params = {"lgbmclassifier__" + key: fit_params[key] for key in fit_params}
         pipe_preproceso_model.set_params(**params)
-        pipe_preproceso_model.fit(df_train[self.cols_for_model], y_train, **new_fit_params)
+        pipe_preproceso_model.fit(X_train, y_train, **new_fit_params)
 
         return pipe_preproceso_model
 
@@ -159,9 +180,7 @@ class LGBMModel:
         Returns:
             tuple: (best_score, best_params) from the randomized search.
         """
-        # Phase 1 (search): do NOT pass eval_set so early stopping does not use the
-        # held-out validation set during CV — that would leak val into hyperparameter selection.
-        # The final model is retrained with eval_set in train() (Phase 2).
+        X_train = _sanitize_feature_names(X_train)
         search_fit_params = {
             "categorical_feature": "auto",
             "feature_name": "auto",

@@ -6,9 +6,9 @@ This module contains classes and functions used for data preprocessing before an
 Classes:
 - ToDummy: Transforms categorical variables into dummy variables.
 - TeEncoder: Encodes categorical variables using target encoding.
-- CardinalityReducer: Reduces the cardinality of categorical variables.
+- CardinalityReducer: Reduces cardinality of categorical variables.
 - MinMaxScalerRow: Applies Min-Max transformation to matrix rows.
-- TsfelVars: Calculates features using the tsfel library.
+- TsfelVars: Calculates features using tsfel library.
 - ExtraVars: Creates additional features based on previous values.
 
 Functions:
@@ -19,6 +19,7 @@ Functions:
 """
 
 import logging
+import re
 from itertools import groupby
 
 import numpy as np
@@ -28,6 +29,22 @@ from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_feature_name(name):
+    """Remove special JSON characters from feature name.
+
+    LightGBM does not support special JSON characters in feature names:
+    { } [ ] : , "
+
+    Args:
+        name: String to sanitize.
+
+    Returns:
+        Sanitized string with special characters replaced by underscore.
+    """
+    pattern = r'[{}\[\]:,"]'
+    return re.sub(pattern, "_", str(name))
 
 
 # tsfel is imported lazily to avoid scipy compatibility issues
@@ -79,11 +96,12 @@ class ToDummy(BaseEstimator, TransformerMixin):
         names = []
         for col, cats in categories.items():
             for cat in cats:
-                names.append(f"dummy_{col}_{cat}")
+                name = _sanitize_feature_name(f"dummy_{col}_{cat}")
+                names.append(name)
         return names
 
     def transform(self, X, y=None):
-        """Apply one-hot encoding to the columns.
+        """Apply one-hot encoding to columns.
 
         Args:
             X: Input DataFrame with columns to encode.
@@ -101,12 +119,14 @@ class ToDummy(BaseEstimator, TransformerMixin):
 
             # Add missing columns (categories in train but not in test)
             for cat in self.categories_[col]:
-                col_name = f"dummy_{col}_{cat}"
+                col_name = _sanitize_feature_name(f"dummy_{col}_{cat}")
                 if col_name not in dummies.columns:
                     dummies[col_name] = 0
 
             # Remove extra columns (categories in test but not in train)
-            cols_to_keep = [f"dummy_{col}_{cat}" for cat in self.categories_[col]]
+            cols_to_keep = [
+                _sanitize_feature_name(f"dummy_{col}_{cat}") for cat in self.categories_[col]
+            ]
             dummies = dummies[cols_to_keep]
 
             X_transformed = pd.concat([X_transformed, dummies], axis=1)
@@ -141,10 +161,10 @@ class TeEncoder(BaseEstimator, TransformerMixin):
         self.te_var_name = None
 
     def _generate_output_name(self):
-        """Generate the output column name."""
+        """Generate output column name."""
         if self.cols is None:
             return "target_enc_prob"
-        return "_".join(self.cols) + "_prob"
+        return _sanitize_feature_name("_".join(self.cols) + "_prob")
 
     def fit(self, X, y=None):
         """Compute target encoding mapping from training data.
