@@ -89,6 +89,16 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     )
     pipeline = builder.build()
 
+    # Define phases for each step type
+    STEP_PHASES = {
+        "ETLStep": ["extracting", "transforming", "loading"],
+        "SplitStep": ["analyzing", "splitting", "saving"],
+        "TrainingStep": ["loading", "feature_engineering", "training", "evaluation"],
+        "EvaluationStep": ["evaluating", "generating_report"],
+        "InferenceStep": ["loading_model", "predicting", "saving"],
+        "EDAStep": ["analyzing_data", "generating_report"],
+    }
+
     # Execute with Rich progress display
     with Progress(
         SpinnerColumn(),
@@ -97,6 +107,7 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         TaskProgressColumn(),
         TimeElapsedColumn(),
         console=console,
+        expand=True,
     ) as progress:
         total_steps = len(pipeline.steps)
         config_names = ",".join(Path(p).stem for p in config_paths)
@@ -104,23 +115,79 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
 
         # Track step start time for elapsed time calculation
         step_start_time = None
+        # Track current sub-task for phase updates
+        current_sub_task = None
+        step_task_ids = {}  # Map step_name -> task_id
+        step_phases = {}  # Map step_name -> list of phases
 
         def on_step_start(name, i, total):
-            nonlocal step_start_time
+            nonlocal step_start_time, current_sub_task
             step_start_time = time.time()
+
+            # Remove previous sub-task if exists
+            if current_sub_task is not None:
+                try:
+                    progress.remove_task(current_sub_task)
+                except Exception:  # nosec: Silently ignore cleanup errors
+                    pass
+
+            # Create sub-task for phases
+            phases = STEP_PHASES.get(name, ["processing"])
+            step_phases[name] = phases
+
+            # Add sub-task (child of main_task)
+            current_sub_task = progress.add_task(
+                f"[yellow]▶ {name}[/]",
+                total=len(phases),
+                parent=main_task,
+            )
+            step_task_ids[name] = current_sub_task
+
             progress.update(
                 main_task,
                 description=f"[cyan][{i}/{total}] {name}[/]",
                 completed=i - 1,
             )
 
+        def on_phase_update(step_name, phase, pct, total_phases):
+            # Find phase index
+            try:
+                phases = step_phases.get(step_name, [])
+                phase_idx = phases.index(phase) if phase in phases else -1
+                if phase_idx >= 0:
+                    # Calculate completed count (phases completed + current progress)
+                    completed = phase_idx + (pct / 100)
+                    task_id = step_task_ids.get(step_name)
+                    if task_id is not None:
+                        progress.update(
+                            task_id,
+                            completed=completed,
+                            description=f"[yellow]▶ {step_name}[/] — {phase} ({pct}%)",
+                        )
+            except Exception:  # nosec: Silently ignore callback errors
+                pass
+
         def on_step_complete(name, i, total):
+            nonlocal current_sub_task
             elapsed = time.time() - step_start_time if step_start_time else 0
+
+            # Mark sub-task as complete
+            if name in step_task_ids:
+                task_id = step_task_ids[name]
+                phases = step_phases.get(name, [])
+                try:
+                    progress.update(
+                        task_id, completed=len(phases), description=f"[green]✓ {name}[/]"
+                    )
+                except Exception:  # nosec: Silently ignore cleanup errors
+                    pass
+
             progress.update(
                 main_task,
                 description=f"[green][{i}/{total}] {name}[/]",
                 completed=i,
             )
+
             # Print summary panel after step completes
             console.print(
                 Panel(
@@ -129,12 +196,15 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
                 )
             )
 
+            current_sub_task = None
+
         def on_step_error(name, err):
             progress.update(main_task, description=f"[red][✗] {name}[/]")
 
         pipeline.on_step_start = on_step_start
         pipeline.on_step_complete = on_step_complete
         pipeline.on_step_error = on_step_error
+        pipeline.on_phase_update = on_phase_update
 
         # Run the pipeline
         result = pipeline.run()

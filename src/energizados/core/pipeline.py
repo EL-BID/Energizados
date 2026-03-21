@@ -93,6 +93,7 @@ class Pipeline:
         self.on_step_start = None  # callable(name, index, total)
         self.on_step_complete = None  # callable(name, index, total)
         self.on_step_error = None  # callable(name, error)
+        self.on_phase_update = None  # callable(step_name, phase_name, progress_pct, total_phases)
 
     def _load_config(self, path: str) -> Dict:
         """
@@ -160,6 +161,11 @@ class Pipeline:
 
             # Execute step
             try:
+                # Pass phase update callback via context if step supports it
+                if self.on_phase_update:
+                    self.context["_on_phase_update"] = lambda step, phase, pct: (
+                        self.on_phase_update(step, phase, pct, None)
+                    )
                 self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")
 

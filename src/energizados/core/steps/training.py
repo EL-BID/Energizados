@@ -70,6 +70,27 @@ class TrainingStep(PipelineStep):
         self.ensemble_config = ensemble_config
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self._phase_callback = None
+
+    # ------------------------------------------------------------------
+    # Phase progress reporting
+    # ------------------------------------------------------------------
+
+    def _report_phase(self, context: Dict[str, Any], phase: str, pct: int):
+        """Report phase progress if callback is available.
+
+        Args:
+            context: Pipeline context (may contain _on_phase_update callback)
+            phase: Name of the current phase
+            pct: Progress percentage (0-100)
+        """
+        if self._phase_callback is None:
+            self._phase_callback = context.get("_on_phase_update")
+        if self._phase_callback:
+            try:
+                self._phase_callback("TrainingStep", phase, pct)
+            except Exception:  # nosec: Silently ignore callback errors
+                pass
 
     # ------------------------------------------------------------------
     # Main execute
@@ -109,6 +130,8 @@ class TrainingStep(PipelineStep):
         logger.info("TRAINING STEP")
         logger.info("=" * 50)
 
+        self._report_phase(context, "loading", 0)
+
         train_df = pd.read_parquet(self.train_path)
         val_df = pd.read_parquet(self.val_path)
         test_df = pd.read_parquet(self.test_path) if self.test_path else None
@@ -128,6 +151,8 @@ class TrainingStep(PipelineStep):
         if test_df is not None:
             X_test = test_df.drop(columns=[self.target_column])
             y_test = test_df[self.target_column]  # noqa: F841
+
+        self._report_phase(context, "loading", 10)
 
         # Phase B: Feature Engineering — fit ONCE on train
         logger.info("\n" + "=" * 50)
@@ -210,6 +235,8 @@ class TrainingStep(PipelineStep):
             pickle.dump(feature_engineering, f)
         logger.info(f"Feature Engineering saved to: {fe_path}")
 
+        self._report_phase(context, "feature_engineering", 50)
+
         # Phase C: Build and train model(s)
         logger.info("\n" + "=" * 50)
         logger.info("MODEL TRAINING")
@@ -253,6 +280,8 @@ class TrainingStep(PipelineStep):
                 X_train_raw=X_train,
                 X_val_raw=X_val,
             )
+
+        self._report_phase(context, "training", 90)
 
         # Phase D: Quick val metrics
         from sklearn.metrics import f1_score, roc_auc_score
@@ -377,6 +406,8 @@ class TrainingStep(PipelineStep):
             result["val_auc"] = val_auc
             result["val_f1"] = val_f1
             result["comparison_mode"] = False
+
+        self._report_phase(context, "evaluation", 100)
 
         return result
 

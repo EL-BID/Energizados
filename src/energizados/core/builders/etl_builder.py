@@ -62,6 +62,26 @@ class ETLBuilder(StepBuilder):
                     Dict: Updated context with ``data`` (last ETL output) and
                         ``etl_results`` (all ETL outputs).
                 """
+                # Get phase callback if available
+                phase_callback = context.get("_on_phase_update")
+
+                # Set up callbacks for each ETL phase
+                def on_etl_start(name, idx, total):
+                    if phase_callback:
+                        phase_callback("ETLStep", f"{name}", 0)
+
+                def on_etl_complete(name, rows):
+                    if phase_callback:
+                        phase_callback("ETLStep", f"{name}", 100)
+
+                def on_etl_error(name, err):
+                    if phase_callback:
+                        phase_callback("ETLStep", f"{name} (error)", 0)
+
+                self.orchestrator.on_etl_start = on_etl_start
+                self.orchestrator.on_etl_complete = on_etl_complete
+                self.orchestrator.on_etl_error = on_etl_error
+
                 # Execute all ETLs in topological order
                 results = self.orchestrator.run()
 
