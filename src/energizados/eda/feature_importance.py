@@ -194,7 +194,7 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         score_cols = []
         for metric_col in ["iv", "ks_stat", "cramers_v", "correlation"]:
             if metric_col in ranking_df.columns:
-                series = ranking_df[metric_col].fillna(0).infer_objects(copy=False)
+                series = ranking_df[metric_col].infer_objects(copy=False).fillna(0)
                 max_val = series.max()
                 if max_val > 0:
                     ranking_df[f"_norm_{metric_col}"] = series / max_val
@@ -219,13 +219,13 @@ class FeatureImportanceAnalyzer(BaseExplorer):
         # Weak features (low IV)
         weak_features: List[str] = []
         if "iv" in ranking_df.columns:
-            iv_series = ranking_df["iv"].fillna(0)
+            iv_series = ranking_df["iv"].infer_objects(copy=False).fillna(0)
             weak_features = ranking_df.loc[iv_series < iv_threshold_weak, "feature"].tolist()
 
         # Potential leakage (very high IV)
         leakage_candidates: List[str] = []
         if "iv" in ranking_df.columns:
-            iv_series = ranking_df["iv"].fillna(0)
+            iv_series = ranking_df["iv"].infer_objects(copy=False).fillna(0)
             leakage_candidates = ranking_df.loc[
                 iv_series > iv_threshold_leakage, "feature"
             ].tolist()
