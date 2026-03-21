@@ -34,11 +34,15 @@ class ETLBuilder(StepBuilder):
 
         orchestrator = ETLOrchestrator(etl_configs)
 
+        # Get enabled ETL names for phase tracking
+        etl_names = [name for name, cfg in etl_configs.items() if cfg.get("enabled", True)]
+
         class ETLStep(PipelineStep):
             """Pipeline step that executes multiple ETLs."""
 
-            def __init__(self, orchestrator: ETLOrchestrator):
+            def __init__(self, orchestrator: ETLOrchestrator, etl_names: List[str]):
                 self.orchestrator = orchestrator
+                self.etl_names = etl_names
 
             def validate_input(self, context: Dict[str, Any]) -> bool:
                 """Return True; ETLs read from disk and require no prior context.
@@ -68,15 +72,17 @@ class ETLBuilder(StepBuilder):
                 # Set up callbacks for each ETL phase
                 def on_etl_start(name, idx, total):
                     if phase_callback:
-                        phase_callback("ETLStep", f"{name}", 0)
+                        # phase_callback(step_name, phase, pct, total_phases)
+                        # For ETLs, phase is the ETL name and we pass total as metadata
+                        phase_callback("ETLStep", name, 0, len(self.etl_names))
 
                 def on_etl_complete(name, rows):
                     if phase_callback:
-                        phase_callback("ETLStep", f"{name}", 100)
+                        phase_callback("ETLStep", name, 100, len(self.etl_names))
 
                 def on_etl_error(name, err):
                     if phase_callback:
-                        phase_callback("ETLStep", f"{name} (error)", 0)
+                        phase_callback("ETLStep", f"{name} (error)", 0, len(self.etl_names))
 
                 self.orchestrator.on_etl_start = on_etl_start
                 self.orchestrator.on_etl_complete = on_etl_complete
@@ -109,7 +115,7 @@ class ETLBuilder(StepBuilder):
                 """
                 return ["data", "etl_results"]
 
-        return ETLStep(orchestrator)
+        return ETLStep(orchestrator, etl_names)
 
     def is_enabled(self) -> bool:
         """Check if ETL step is enabled.

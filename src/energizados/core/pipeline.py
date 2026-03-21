@@ -162,9 +162,11 @@ class Pipeline:
             # Execute step
             try:
                 # Pass phase update callback via context if step supports it
+                # The callback signature is: (step_name, phase, pct, total_phases)
+                # Steps can call with 3 args (total_phases defaults to None) or 4 args
                 if self.on_phase_update:
-                    self.context["_on_phase_update"] = lambda step, phase, pct: (
-                        self.on_phase_update(step, phase, pct, None)
+                    self.context["_on_phase_update"] = lambda step, phase, pct, total_phases=None: (
+                        self.on_phase_update(step, phase, pct, total_phases)
                     )
                 self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")

@@ -49,11 +49,10 @@ train:
   # ============================================
   feature_engineering:
     enabled: true
-    output_pkl: "data/processed/feature_engineering.pkl"
 
     preprocessing:
       enabled: true
-      output_parquet: "data/processed/preprocessing.parquet"
+      output_parquet: "data/processed/feat/preprocessing.parquet"
 
       drop_columns: [index, fecha_inspeccion]  # columns to exclude from model
 
@@ -132,7 +131,7 @@ train:
 
     feature_selection:
       enabled: true
-      output_parquet: "data/processed/feature_selection.parquet"
+      output_parquet: "data/processed/feat/feature_selection.parquet"
 
       # List of sequential selection steps
       steps:

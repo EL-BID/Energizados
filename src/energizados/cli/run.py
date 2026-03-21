@@ -90,8 +90,8 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     pipeline = builder.build()
 
     # Define phases for each step type
+    # Note: ETLStep uses dynamic phases based on ETL names (handled in on_step_start)
     STEP_PHASES = {
-        "ETLStep": ["extracting", "transforming", "loading"],
         "SplitStep": ["analyzing", "splitting", "saving"],
         "TrainingStep": ["loading", "feature_engineering", "training", "evaluation"],
         "EvaluationStep": ["evaluating", "generating_report"],
@@ -119,6 +119,8 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         current_sub_task = None
         step_task_ids = {}  # Map step_name -> task_id
         step_phases = {}  # Map step_name -> list of phases
+        # For dynamic steps (like ETL), track the total_phases passed in callback
+        step_total_phases = {}  # Map step_name -> total_phases from callback
 
         def on_step_start(name, i, total):
             nonlocal step_start_time, current_sub_task
@@ -131,17 +133,23 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
                 except Exception:  # nosec: Silently ignore cleanup errors
                     pass
 
-            # Create sub-task for phases
-            phases = STEP_PHASES.get(name, ["processing"])
-            step_phases[name] = phases
+            # Get phases for this step type (None for ETLStep - handled dynamically)
+            phases = STEP_PHASES.get(name)
+            step_phases[name] = phases if phases else []
+            step_total_phases[name] = None  # Will be set by first phase callback
+            # Only mark as created if we actually create the sub-task
+            # For dynamic steps, sub-task is created by first phase_update
+            step_task_ids[name] = None  # None means not created yet
 
-            # Add sub-task (child of main_task)
-            current_sub_task = progress.add_task(
-                f"[yellow]▶ {name}[/]",
-                total=len(phases),
-                parent=main_task,
-            )
-            step_task_ids[name] = current_sub_task
+            # For non-ETL steps, create sub-task immediately with known phases
+            if phases:
+                current_sub_task = progress.add_task(
+                    f"[yellow]▶ {name}[/]",
+                    total=len(phases),
+                    parent=main_task,
+                )
+                step_task_ids[name] = current_sub_task
+                current_sub_task = current_sub_task
 
             progress.update(
                 main_task,
@@ -150,20 +158,52 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
             )
 
         def on_phase_update(step_name, phase, pct, total_phases):
-            # Find phase index
+            # For ETLStep with dynamic phases, create/update sub-task dynamically
             try:
-                phases = step_phases.get(step_name, [])
-                phase_idx = phases.index(phase) if phase in phases else -1
-                if phase_idx >= 0:
-                    # Calculate completed count (phases completed + current progress)
-                    completed = phase_idx + (pct / 100)
+                if step_name == "ETLStep" and total_phases is not None:
+                    # ETLStep: phase is the ETL name, total_phases tells us total count
+                    task_id = step_task_ids.get(step_name)
+                    if task_id is None:
+                        # First ETL - create sub-task
+                        new_task = progress.add_task(
+                            f"[yellow]▶ {phase}[/]",
+                            total=total_phases,
+                            parent=main_task,
+                        )
+                        step_task_ids[step_name] = new_task
+                        step_total_phases[step_name] = total_phases
+
+                    # Find current ETL index
                     task_id = step_task_ids.get(step_name)
                     if task_id is not None:
+                        # Get all phases for this step to find current index
+                        phases = step_phases.get(step_name, [])
+                        # Track ETL indices dynamically
+                        if phase not in phases:
+                            phases.append(phase)
+                            step_phases[step_name] = phases
+
+                        phase_idx = len(phases) - 1  # Current ETL is at this index
+                        completed = phase_idx + (pct / 100)
+
                         progress.update(
                             task_id,
                             completed=completed,
-                            description=f"[yellow]▶ {step_name}[/] — {phase} ({pct}%)",
+                            description=f"[yellow]▶ {phase}[/]",
                         )
+                else:
+                    # Standard step with predefined phases
+                    phases = step_phases.get(step_name, [])
+                    phase_idx = phases.index(phase) if phase in phases else -1
+                    if phase_idx >= 0:
+                        completed = phase_idx + (pct / 100)
+                        task_id = step_task_ids.get(step_name)
+                        if task_id is not None:
+                            progress.update(
+                                task_id,
+                                completed=completed,
+                                description=f"[yellow]▶ {step_name}[/] — {phase} ({pct}%)",
+                            )
             except Exception:  # nosec: Silently ignore callback errors
                 pass
 
@@ -171,9 +211,9 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
             nonlocal current_sub_task
             elapsed = time.time() - step_start_time if step_start_time else 0
 
-            # Mark sub-task as complete
-            if name in step_task_ids:
-                task_id = step_task_ids[name]
+            # Mark sub-task as complete (if it was created)
+            task_id = step_task_ids.get(name)
+            if task_id is not None:
                 phases = step_phases.get(name, [])
                 try:
                     progress.update(
