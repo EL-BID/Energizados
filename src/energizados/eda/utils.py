@@ -35,12 +35,13 @@ def classify_columns(
 
     Returns:
         dict with keys:
-            - numeric: numeric columns (excluding consumption)
+            - numeric: numeric columns (excluding consumption and geo)
             - categorical: object/category columns
             - temporal: datetime columns
             - consumption: columns matching period suffix pattern
             - id: id columns
             - target_candidates: binary columns that could be target
+            - geo: lat/lon columns (excluded from numeric analysis)
     """
     result: Dict[str, List[str]] = {
         "numeric": [],
@@ -49,6 +50,7 @@ def classify_columns(
         "consumption": [],
         "id": [],
         "target_candidates": [],
+        "geo": [],
     }
 
     # Identify consumption columns - pattern: {N}_anterior
@@ -68,9 +70,9 @@ def classify_columns(
         if col in excluded:
             continue
 
-        # Geo columns → numeric
+        # Geo columns → geo (excluded from numeric analysis)
         if col in (lat_col, lon_col):
-            result["numeric"].append(col)
+            result["geo"].append(col)
             continue
 
         dtype = df[col].dtype

@@ -79,8 +79,8 @@ class GeospatialAnalyzer(BaseExplorer):
         has_lat_lon = lat_col and lat_col in df.columns and lon_col and lon_col in df.columns
 
         if has_lat_lon:
-            lat_series = df[lat_col]
-            lon_series = df[lon_col]
+            lat_series = pd.to_numeric(df[lat_col], errors="coerce")
+            lon_series = pd.to_numeric(df[lon_col], errors="coerce")
 
             total = len(df)
             null_count = lat_series.isna().sum() + lon_series.isna().sum()

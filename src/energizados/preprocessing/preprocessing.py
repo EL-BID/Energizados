@@ -819,7 +819,7 @@ def fill_empty_values_cycle(df, cant_ciclos_validos, suffix: str = "_anterior"):
     return df
 
 
-def fill_empty_values_str(df, cols, str_value):
+def fill_empty_values_str(df, cols, str_value: str = "sin_dato"):
     """Fill missing values in string columns with a fixed string.
 
     Args:
