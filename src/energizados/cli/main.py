@@ -335,7 +335,6 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
 
         # Execute complete pipeline
         execute_pipeline(config_paths, run_name=name)
-        print_success("Pipeline completed successfully")
 
     except ConfigResolutionError as e:
         print_error(str(e))

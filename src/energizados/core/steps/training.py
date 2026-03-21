@@ -211,20 +211,26 @@ class TrainingStep(PipelineStep):
                     f"Train NaN columns ({len(nan_cols)}): {nan_cols.nlargest(10).to_dict()}"
                 )
 
-        # Save intermediate parquets if configured
+        # Save intermediate parquets if configured (for inspection — includes target column)
         preprocessing_parquet = fe_config.get("output_parquet")
         if preprocessing_parquet and feature_engineering.preprocessor is not None:
             prep_path = Path(preprocessing_parquet)
             prep_path.parent.mkdir(parents=True, exist_ok=True)
             X_prep = feature_engineering.preprocessor.transform(X_train)
-            X_prep.to_parquet(prep_path, index=False)
+            # Include target column for inspection purposes
+            prep_df = X_prep.copy()
+            prep_df[self.target_column] = y_train.values
+            prep_df.to_parquet(prep_path, index=False)
             logger.info(f"Preprocessing output saved to: {prep_path}")
 
         fs_parquet = fs_config.get("output_parquet")
         if fs_parquet:
             fs_path = Path(fs_parquet)
             fs_path.parent.mkdir(parents=True, exist_ok=True)
-            X_train_transformed.to_parquet(fs_path, index=False)
+            # Include target column for inspection purposes
+            fs_df = X_train_transformed.copy()
+            fs_df[self.target_column] = y_train.values
+            fs_df.to_parquet(fs_path, index=False)
             logger.info(f"Feature selection output saved to: {fs_path}")
 
         # Save feature engineering

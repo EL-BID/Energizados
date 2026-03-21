@@ -20,13 +20,13 @@ Functions:
 
 import logging
 import re
+import warnings
 from itertools import groupby
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, OneToOneFeatureMixin, TransformerMixin
 from sklearn.preprocessing import MinMaxScaler
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -432,16 +432,32 @@ def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
     tsfel = _get_tsfel()
     results = []
     for idx, values in zip(chunk_indices, chunk_values):
-        features = tsfel.time_series_features_extractor(cfg, values, fs=1, verbose=0)
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=RuntimeWarning, module="scipy")
+                features = tsfel.time_series_features_extractor(cfg, values, fs=1, verbose=0)
+        except Exception as e:
+            # Constant/zero series can crash tsfel (e.g. ecdf_percentile on constant input).
+            # Skip this row — the left join in transform() will leave its tsfel cols as NaN,
+            # which are then filled with 0.
+            logger.debug(
+                f"TsfelVars: index {idx} raised {type(e).__name__} (likely constant/zero "
+                f"series). values={values}. Row will be filled with 0."
+            )
+            continue
         null_count = features.isnull().sum().sum()
         if null_count > 0:
             null_cols = features.columns[features.isnull().any()].tolist()
-            logger.warning(
+            logger.debug(
                 f"TsfelVars: index {idx} generated {null_count} nulls "
                 f"(e.g., {null_cols[:3]}). values={values}"
             )
         features["index"] = idx
         results.append(features)
+    if not results:
+        # All rows in this chunk crashed (e.g. all-constant series).
+        # Return empty DataFrame so the left join in transform() fills them with NaN → 0.
+        return pd.DataFrame(columns=["index"])
     return pd.concat(results, ignore_index=True)
 
 
@@ -515,7 +531,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
 
         results = Parallel(n_jobs=self.n_jobs)(
             delayed(_tsfel_process_chunk)(chunk_values, chunk_indices, cfg)
-            for chunk_values, chunk_indices in tqdm(chunks, desc=desc)
+            for chunk_values, chunk_indices in chunks
         )
 
         return pd.concat(results, ignore_index=True)
@@ -621,6 +637,10 @@ class TsfelVars(BaseEstimator, TransformerMixin):
     def transform(self, X):
         """Extract time series features and append them to the DataFrame.
 
+        Rows with constant consumption (max == min across all periods) are skipped
+        from tsfel processing and receive 0 for all tsfel features. They are never
+        removed from the output — index and row order are fully preserved.
+
         Args:
             X: Input DataFrame with consumption columns (e.g., '12_anterior', ..., '1_anterior').
 
@@ -630,45 +650,61 @@ class TsfelVars(BaseEstimator, TransformerMixin):
         cached_compute = self._get_cached_transform()
         cols_anterior = self.obtener_cols_anterior(self.num_periodos)
 
+        # Detect constant-consumption rows: max == min means std == 0, so kurtosis/skewness
+        # are undefined. We skip tsfel for these rows and fill with 0.
+        cons = X[cols_anterior]
+        is_constant = cons.max(axis=1) == cons.min(axis=1)
+        X_variable = X[~is_constant]
+        n_constant = int(is_constant.sum())
+
+        if n_constant > 0:
+            logger.debug(
+                f"TsfelVars: {n_constant} rows with constant consumption — "
+                f"tsfel skipped, features set to 0."
+            )
+
         if self.features_names_path is not None:
             df_tsfel = cached_compute(
-                X[cols_anterior].values,
-                X.index.tolist(),
+                X_variable[cols_anterior].values,
+                X_variable.index.tolist(),
                 cols_anterior,
                 cfg_json_path=self.features_names_path,
             )
             df_tsfel = df_tsfel.set_index("index")
-            X = X.join(df_tsfel, how="left")
+            tsfel_cols = df_tsfel.columns.tolist()
         else:
             df_result_stat = cached_compute(
-                X[cols_anterior].values,
-                X.index.tolist(),
+                X_variable[cols_anterior].values,
+                X_variable.index.tolist(),
                 cols_anterior,
                 cfg_domain="statistical",
             )
             df_result_temporal = cached_compute(
-                X[cols_anterior].values,
-                X.index.tolist(),
+                X_variable[cols_anterior].values,
+                X_variable.index.tolist(),
                 cols_anterior,
                 cfg_domain="temporal",
             )
-
             df_tsfel = pd.merge(df_result_stat, df_result_temporal, how="inner", on="index")
             df_tsfel = df_tsfel.set_index("index")
+            tsfel_cols = df_tsfel.columns.tolist()
 
-            X = X.join(df_tsfel, how="left")
+        # Add constant rows back with 0 for all tsfel features
+        if n_constant > 0 and tsfel_cols:
+            df_constant = pd.DataFrame(0.0, index=X[is_constant].index, columns=tsfel_cols)
+            df_tsfel = pd.concat([df_tsfel, df_constant])
 
-        # Log diagnostics about NaN values from tsfel
-        tsfel_cols = [c for c in X.columns if c not in cols_anterior]
+        X = X.join(df_tsfel, how="left")
+
+        # Residual NaN guard (e.g. tsfel crashed mid-chunk on a non-constant row)
         nan_counts = X[tsfel_cols].isnull().sum()
         nan_cols = nan_counts[nan_counts > 0]
         if len(nan_cols) > 0:
-            total_rows = len(X)
             logger.warning(
-                f"TsfelVars: {len(nan_cols)} columns with NaN values "
-                f"(out of {len(tsfel_cols)} tsfel columns, {total_rows} rows). "
-                f"Top NaN columns: {nan_cols.nlargest(5).to_dict()}"
+                f"TsfelVars: {len(nan_cols)} tsfel columns still have NaN after constant-row "
+                f"handling ({len(X)} rows). Top: {nan_cols.nlargest(5).to_dict()}. Filling with 0."
             )
+            X[tsfel_cols] = X[tsfel_cols].fillna(0)
 
         return X
 
@@ -807,13 +843,14 @@ class ExtraVars(BaseEstimator, TransformerMixin):
             axis=1
         )
         # skewness and kurtosis for 3 periods
-        df_total_super.loc[:, "skew_cons" + num_periodos_str] = df_total_super[
-            cols_3_anterior
-        ].skew(axis=1)
+        # fillna(0): pandas returns NaN for constant/zero series (std=0), 0 is the correct value
+        df_total_super.loc[:, "skew_cons" + num_periodos_str] = (
+            df_total_super[cols_3_anterior].skew(axis=1).fillna(0)
+        )
         if self.num_periodos > 3:
-            df_total_super.loc[:, "kurt_cons" + num_periodos_str] = df_total_super[
-                cols_3_anterior
-            ].kurt(axis=1)
+            df_total_super.loc[:, "kurt_cons" + num_periodos_str] = (
+                df_total_super[cols_3_anterior].kurt(axis=1).fillna(0)
+            )
 
         return df_total_super
 

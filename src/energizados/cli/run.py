@@ -5,16 +5,32 @@ This module implements the 'run' command functionality to execute
 pipelines from YAML configuration.
 """
 
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-from rich.panel import Panel
+from rich.progress import ProgressColumn
+from rich.text import Text
 
 from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError, PipelineError
 from energizados.core.pipeline import ConfigPipelineBuilder
+
+
+class TimeElapsedColumnMs(ProgressColumn):
+    """Elapsed time column with millisecond precision (H:MM:SS.mmm)."""
+
+    def render(self, task) -> Text:
+        elapsed = task.elapsed
+        if elapsed is None:
+            return Text("-:--:--.---", style="progress.elapsed")
+        minutes, seconds = divmod(elapsed, 60)
+        hours, minutes = divmod(minutes, 60)
+        ms = int((elapsed % 1) * 1000)
+        return Text(
+            f"{int(hours)}:{int(minutes):02d}:{int(seconds):02d}.{ms:03d}",
+            style="progress.elapsed",
+        )
 
 
 def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
@@ -77,7 +93,6 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         SpinnerColumn,
         TaskProgressColumn,
         TextColumn,
-        TimeElapsedColumn,
     )
 
     # Merge configurations
@@ -99,162 +114,144 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         "EDAStep": ["analyzing_data", "generating_report"],
     }
 
-    # Track active ETL name for ETLStep
-    active_etl_name = None
+    STEP_NAMES = {
+        "SplitStep": "split",
+        "TrainingStep": "train",
+        "DefaultEvaluator": "evaluator",
+        "EvaluationStep": "evaluation",
+        "InferenceStep": "inference",
+        "EDAStep": "eda",
+        "ETLStep": "etl",
+    }
 
-    # Execute with Rich progress display
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[bold cyan]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        console=console,
-        expand=True,
-    ) as progress:
-        total_steps = len(pipeline.steps)
-        config_names = ",".join(Path(p).stem for p in config_paths)
-        main_task = progress.add_task(f"Running: {config_names}", total=total_steps)
+    STEP_SECTIONS = {
+        "ETLStep": "etl",
+        "SplitStep": "train",
+        "TrainingStep": "train",
+        "DefaultEvaluator": "train",
+        "EvaluationStep": "evaluation",
+        "InferenceStep": "inference",
+        "EDAStep": "eda",
+    }
 
-        # Track step start time for elapsed time calculation
-        step_start_time = None
-        # Track current sub-task for phase updates (non-ETL steps only)
-        current_sub_task = None
-        step_task_ids = {}  # Map step_name -> task_id
-        step_phases = {}  # Map step_name -> list of phases
-        # Track active ETL name for display
-        active_etl_name = None
+    from rich.rule import Rule
 
-        def on_step_start(name, i, total):
-            nonlocal step_start_time, current_sub_task
-            step_start_time = time.time()
+    def _make_progress() -> Progress:
+        return Progress(
+            SpinnerColumn(),
+            TextColumn("[bold cyan]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumnMs(),
+            console=console,
+            expand=True,
+        )
 
-            # Remove previous sub-task if exists
-            if current_sub_task is not None:
+    # One Progress instance per section (etl, train, …) so section Rules
+    # appear between bar groups rather than above all of them.
+    active_progress: list = [None]  # [Progress | None]
+    current_section: list = [None]  # [str | None]
+    step_task_ids: dict = {}
+    step_phases: dict = {}
+    etl_sub_tasks: dict = {}
+
+    def _ensure_section(section: str) -> Progress:
+        if section != current_section[0]:
+            if active_progress[0] is not None:
+                active_progress[0].stop()
+            console.print(Rule(f"[bold cyan]{section}[/]"))
+            p = _make_progress()
+            p.start()
+            active_progress[0] = p
+            current_section[0] = section
+        return active_progress[0]
+
+    def on_step_start(name, i, total):
+        section = STEP_SECTIONS.get(name, name)
+        progress = _ensure_section(section)
+
+        phases = STEP_PHASES.get(name)
+        step_phases[name] = phases if phases else []
+
+        if name == "ETLStep":
+            step_task_ids[name] = None
+        else:
+            label = STEP_NAMES.get(name, name)
+            task_id = progress.add_task(
+                f"[yellow]▶ {label}[/]",
+                total=max(len(step_phases[name]), 1),
+            )
+            step_task_ids[name] = task_id
+
+    def on_phase_update(step_name, phase, pct, total_phases):
+        progress = active_progress[0]
+        if progress is None:
+            return
+        try:
+            if step_name == "ETLStep" and total_phases is not None:
+                if pct == 0:
+                    task_id = progress.add_task(f"[yellow]▶ {phase}[/]", total=1)
+                    etl_sub_tasks[phase] = task_id
+                elif pct == 100:
+                    task_id = etl_sub_tasks.get(phase)
+                    if task_id is not None:
+                        progress.update(task_id, completed=1, description=f"[green]✓ {phase}[/]")
+                        progress.stop_task(task_id)
+            else:
+                phases = step_phases.get(step_name, [])
+                phase_idx = phases.index(phase) if phase in phases else -1
+                if phase_idx >= 0:
+                    task_id = step_task_ids.get(step_name)
+                    if task_id is not None:
+                        progress.update(
+                            task_id,
+                            completed=phase_idx + (pct / 100),
+                            description=f"[yellow]▶ {STEP_NAMES.get(step_name, step_name)}[/] — {phase}",
+                        )
+        except Exception:  # nosec
+            pass
+
+    def on_step_complete(name, i, total):
+        progress = active_progress[0]
+        if progress is None:
+            return
+        task_id = step_task_ids.get(name)
+        if task_id is not None:
+            phases = step_phases.get(name, [])
+            try:
+                progress.update(
+                    task_id,
+                    completed=max(len(phases), 1),
+                    description=f"[green]✓ {STEP_NAMES.get(name, name)}[/]",
+                )
+                progress.stop_task(task_id)
+            except Exception:  # nosec
+                pass
+        elif name == "ETLStep":
+            for etl_task_id in etl_sub_tasks.values():
                 try:
-                    progress.remove_task(current_sub_task)
-                except Exception:  # nosec: Silently ignore cleanup errors
+                    progress.update(etl_task_id, completed=1)
+                    progress.stop_task(etl_task_id)
+                except Exception:  # nosec
                     pass
 
-            # Get phases for this step type (None for ETLStep - handled dynamically)
-            phases = STEP_PHASES.get(name)
-            step_phases[name] = phases if phases else []
-            # Only mark as created if we actually create the sub-task
-            # For dynamic steps, sub-task is created by first phase_update
-            step_task_ids[name] = None  # None means not created yet
-
-            # For non-ETL steps, create sub-task immediately with known phases
-            if phases:
-                current_sub_task = progress.add_task(
-                    f"[yellow]▶ {name}[/]",
-                    total=len(phases),
-                    parent=main_task,
-                )
-                step_task_ids[name] = current_sub_task
-
-            # Update main task description
-            if name == "ETLStep":
-                progress.update(
-                    main_task,
-                    description="[cyan]ETL Pipeline[/]",
-                    completed=i - 1,
-                )
-            else:
-                progress.update(
-                    main_task,
-                    description=f"[cyan][{i}/{total}] {name}[/]",
-                    completed=i - 1,
-                )
-
-        def on_phase_update(step_name, phase, pct, total_phases):
-            try:
-                if step_name == "ETLStep" and total_phases is not None:
-                    # For ETLStep: update main task description with ETL name
-                    nonlocal active_etl_name
-                    active_etl_name = phase
-
-                    # Get all ETL names processed so far
-                    phases = step_phases.get(step_name, [])
-                    if phase not in phases:
-                        phases.append(phase)
-                        step_phases[step_name] = phases
-
-                    # Calculate overall progress
-                    phase_idx = len(phases) - 1
-                    completed = phase_idx + (pct / 100)
-                    total = len(step_phases.get(step_name, []))
-
-                    # Update main task description with ETL name
-                    progress.update(
-                        main_task,
-                        description=f"[cyan]ETL Pipeline — {phase}[/] ({phase_idx + 1}/{total})",
-                        completed=phase_idx + (pct / 100) if pct == 100 else phase_idx,
-                    )
-                else:
-                    # Standard step with predefined phases
-                    phases = step_phases.get(step_name, [])
-                    phase_idx = phases.index(phase) if phase in phases else -1
-                    if phase_idx >= 0:
-                        completed = phase_idx + (pct / 100)
-                        task_id = step_task_ids.get(step_name)
-                        if task_id is not None:
-                            progress.update(
-                                task_id,
-                                completed=completed,
-                                description=f"[yellow]▶ {step_name}[/] — {phase} ({pct}%)",
-                            )
-            except Exception:  # nosec: Silently ignore callback errors
-                pass
-
-        def on_step_complete(name, i, total):
-            nonlocal current_sub_task
-            elapsed = time.time() - step_start_time if step_start_time else 0
-
-            # Mark sub-task as complete (if it was created)
+    def on_step_error(name, err):
+        progress = active_progress[0]
+        if progress is not None:
             task_id = step_task_ids.get(name)
             if task_id is not None:
-                phases = step_phases.get(name, [])
-                try:
-                    progress.update(
-                        task_id, completed=len(phases), description=f"[green]✓ {name}[/]"
-                    )
-                except Exception:  # nosec: Silently ignore cleanup errors
-                    pass
+                progress.update(task_id, description=f"[red]✗ {STEP_NAMES.get(name, name)}[/]")
 
-            # Update main task description
-            if name == "ETLStep":
-                progress.update(
-                    main_task,
-                    description=f"[green]ETL Pipeline — ✓ {active_etl_name}[/]",
-                    completed=i,
-                )
-            else:
-                progress.update(
-                    main_task,
-                    description=f"[green][{i}/{total}] {name}[/]",
-                    completed=i,
-                )
+    pipeline.on_step_start = on_step_start
+    pipeline.on_step_complete = on_step_complete
+    pipeline.on_step_error = on_step_error
+    pipeline.on_phase_update = on_phase_update
 
-            # Print summary panel after step completes
-            console.print(
-                Panel(
-                    f"[bold]{name}[/]\n\n[green]✓[/] Completed in {elapsed:.2f}s",
-                    border_style="green",
-                )
-            )
-
-            current_sub_task = None
-
-        def on_step_error(name, err):
-            progress.update(main_task, description=f"[red][✗] {name}[/]")
-
-        pipeline.on_step_start = on_step_start
-        pipeline.on_step_complete = on_step_complete
-        pipeline.on_step_error = on_step_error
-        pipeline.on_phase_update = on_phase_update
-
-        # Run the pipeline
+    try:
         result = pipeline.run()
+    finally:
+        if active_progress[0] is not None:
+            active_progress[0].stop()
 
     # Post-run tasks (config copy, index HTML) - these need to be called manually
     # since we called pipeline.run() directly instead of builder.run()
@@ -262,7 +259,69 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         builder._copy_configs_to_run_dir()
         builder._generate_index_html()
 
+    _print_metrics_summary(result)
+
     return result
+
+
+def _print_confusion_matrix(cm: Dict) -> None:
+    """Renders a 2x2 confusion matrix using a Rich table."""
+    from rich import box as rich_box
+    from rich.table import Table
+
+    tn, fp, fn, tp = cm["tn"], cm["fp"], cm["fn"], cm["tp"]
+    table = Table(box=rich_box.SIMPLE, padding=(0, 2), show_edge=False)
+    table.add_column("", style="dim")
+    table.add_column("pred 0", justify="right", style="cyan")
+    table.add_column("pred 1", justify="right", style="cyan")
+    table.add_row("actual 0", f"{tn:,}", f"[red]{fp:,}[/]")
+    table.add_row("actual 1", f"[red]{fn:,}[/]", f"[green]{tp:,}[/]")
+    console.print(table)
+
+
+def _print_metrics_summary(result: Dict[str, Any]) -> None:
+    """Prints a compact metrics table after pipeline completion."""
+    from rich.table import Table
+
+    # Single model: result["metrics"] is a flat dict {auc: float, precision: float, ...}
+    # Ensemble: result["model_metrics"] is a dict {model_name: {auc: float, ...}}
+    metrics = result.get("metrics")
+    model_metrics = result.get("model_metrics")
+
+    if not metrics and not model_metrics:
+        return
+
+    DISPLAY = ["auc", "precision", "recall", "f1", "accuracy"]
+
+    def _fmt(v) -> str:
+        if isinstance(v, float):
+            return f"{v:.4f}"
+        return str(v)
+
+    if metrics:
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column(style="dim")
+        table.add_column(style="bold cyan")
+        for key in DISPLAY:
+            if key in metrics:
+                table.add_row(key, _fmt(metrics[key]))
+        console.print()
+        console.print(table)
+
+        cm = metrics.get("confusion_matrix")
+        if cm:
+            _print_confusion_matrix(cm)
+
+    elif model_metrics:
+        table = Table(box=None, padding=(0, 2))
+        table.add_column("model", style="dim")
+        for key in DISPLAY:
+            table.add_column(key, style="bold cyan")
+        for model_name, m in model_metrics.items():
+            row = [model_name] + [_fmt(m.get(key, "—")) for key in DISPLAY]
+            table.add_row(*row)
+        console.print()
+        console.print(table)
 
 
 def execute_step(
@@ -386,55 +445,42 @@ def execute_etl(
         SpinnerColumn,
         TaskProgressColumn,
         TextColumn,
-        TimeElapsedColumn,
     )
+    from rich.rule import Rule
+
+    config_names = ", ".join(Path(p).stem for p in config_paths)
+    console.print(Rule(f"[bold cyan]{config_names}[/]"))
 
     results = {}
-    completed_etls = []
 
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold cyan]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
-        TimeElapsedColumn(),
+        TimeElapsedColumnMs(),
         console=console,
     ) as progress:
-        total_etls = len(orchestrator.etl_configs)
-        main_task = progress.add_task("ETL Pipeline", total=total_etls)
-
-        # Track ETL start time for elapsed time calculation
-        etl_start_time = None
+        etl_tasks = {}  # etl_name -> task_id
 
         def on_etl_start(name, idx, total):
-            nonlocal etl_start_time
-            etl_start_time = time.time()
-            progress.update(main_task, description=f"ETL Pipeline — [yellow]{name}[/]")
+            task_id = progress.add_task(f"[yellow]▶ [{idx + 1}/{total}] {name}[/]", total=1)
+            etl_tasks[name] = task_id
 
         def on_etl_complete(name, rows):
-            elapsed = time.time() - etl_start_time if etl_start_time else 0
-            completed_etls.append((name, rows))
-            progress.advance(main_task)
-            progress.update(
-                main_task, description=f"ETL Pipeline — [green]✓ {name}[/] ({rows:,} rows)"
-            )
-            # Print summary panel after ETL completes
-            # Get output path from ETL config if available
-            output_path = "N/A"
-            if name in orchestrator.etl_configs:
-                output_path = orchestrator.etl_configs[name].get("output", "N/A")
-            console.print(
-                Panel(
-                    f"[bold]{name}[/]\n\n"
-                    f"[green]✓[/] Completed in {elapsed:.2f}s\n"
-                    f"[cyan]Rows:[/] {rows:,}\n"
-                    f"[cyan]Output:[/] {output_path}",
-                    border_style="cyan",
+            task_id = etl_tasks.get(name)
+            if task_id is not None:
+                progress.update(
+                    task_id,
+                    completed=1,
+                    description=f"[green]✓ {name}[/] [dim]({rows:,} rows)[/]",
                 )
-            )
+                progress.stop_task(task_id)
 
         def on_etl_error(name, err):
-            progress.update(main_task, description=f"ETL Pipeline — [red]✗ {name}[/]")
+            task_id = etl_tasks.get(name)
+            if task_id is not None:
+                progress.update(task_id, description=f"[red]✗ {name}[/]")
 
         orchestrator.on_etl_start = on_etl_start
         orchestrator.on_etl_complete = on_etl_complete

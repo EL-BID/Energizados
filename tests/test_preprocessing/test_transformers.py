@@ -959,3 +959,60 @@ class TestExtraVars:
         result2 = extra2.transform(df)
 
         pd.testing.assert_frame_equal(result1, result2)
+
+    def test_transform_zero_series_no_nan(self):
+        """transform() produces no NaN for all-zero consumption series."""
+        df = pd.DataFrame(
+            {"3_anterior": [0.0, 100.0], "2_anterior": [0.0, 110.0], "1_anterior": [0.0, 120.0]}
+        )
+        extra = ExtraVars(num_periodos=3)
+        result = extra.transform(df)
+
+        assert not result.isnull().any().any(), "ExtraVars should not produce NaN for zero series"
+
+    def test_transform_zero_series_skew_is_zero(self):
+        """skewness is 0 (not NaN) for constant zero series."""
+        df = pd.DataFrame({"3_anterior": [0.0], "2_anterior": [0.0], "1_anterior": [0.0]})
+        extra = ExtraVars(num_periodos=3)
+        result = extra.transform(df)
+
+        assert result.loc[0, "skew_cons3"] == 0.0
+
+    def test_transform_zero_series_kurtosis_is_zero(self):
+        """kurtosis is 0 (not NaN) for constant zero series when num_periodos > 3."""
+        df = pd.DataFrame({f"{i}_anterior": [0.0] for i in range(6, 0, -1)})
+        extra = ExtraVars(num_periodos=6)
+        result = extra.transform(df)
+
+        assert result.loc[0, "kurt_cons6"] == 0.0
+
+
+class TestTsfelVarsZeroSeries:
+    """Tests for TsfelVars behavior with all-zero consumption series."""
+
+    def test_transform_zero_series_no_nan(self):
+        """TsfelVars.transform() must not produce NaN for all-zero series."""
+        n_rows = 5
+        df = pd.DataFrame({f"{i}_anterior": np.zeros(n_rows) for i in range(3, 0, -1)})
+        transformer = TsfelVars(num_periodos=3)
+        result = transformer.transform(df)
+
+        tsfel_cols = [c for c in result.columns if c not in df.columns]
+        nan_count = result[tsfel_cols].isnull().sum().sum()
+        assert nan_count == 0, f"Expected 0 NaN in tsfel features for zero series, got {nan_count}"
+
+    def test_transform_mixed_zero_and_nonzero_no_nan(self):
+        """TsfelVars.transform() must not produce NaN when some rows are zero and others are not."""
+        df = pd.DataFrame(
+            {
+                "3_anterior": [0.0, 100.0, 0.0, 200.0, 0.0],
+                "2_anterior": [0.0, 110.0, 0.0, 210.0, 0.0],
+                "1_anterior": [0.0, 120.0, 0.0, 220.0, 0.0],
+            }
+        )
+        transformer = TsfelVars(num_periodos=3)
+        result = transformer.transform(df)
+
+        tsfel_cols = [c for c in result.columns if c not in df.columns]
+        nan_count = result[tsfel_cols].isnull().sum().sum()
+        assert nan_count == 0, f"Expected 0 NaN in tsfel features for mixed series, got {nan_count}"

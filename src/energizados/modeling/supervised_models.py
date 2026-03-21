@@ -150,19 +150,26 @@ class LGBMModel:
             )
 
         params = self.hyperparams
+        import logging as _logging
+
+        _lgbm_verbose = _logging.getLogger().level <= _logging.INFO
         fit_params = {
             "eval_metric": ["auc"],
             "eval_set": [(X_val, y_val)],
             "eval_names": ["valid"],
             "callbacks": [
-                early_stopping(stopping_rounds=30, first_metric_only=True),
+                early_stopping(stopping_rounds=30, first_metric_only=True, verbose=_lgbm_verbose),
                 log_evaluation(0),
             ],
             "categorical_feature": "auto",
             "feature_name": "auto",
         }
         new_fit_params = {"lgbmclassifier__" + key: fit_params[key] for key in fit_params}
-        pipe_preproceso_model.set_params(**params)
+        # Prefix raw YAML params with step name; search_hip returns already-prefixed best_params_
+        prefixed_params = {
+            (k if "__" in k else f"lgbmclassifier__{k}"): v for k, v in params.items()
+        }
+        pipe_preproceso_model.set_params(**prefixed_params)
         pipe_preproceso_model.fit(X_train, y_train, **new_fit_params)
 
         return pipe_preproceso_model

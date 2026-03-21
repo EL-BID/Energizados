@@ -281,7 +281,7 @@ training:
 
     preprocessing:
       enabled: true
-      # output_parquet: "data/processed/preprocessing.parquet"  # opcional
+      # output_parquet: "data/processed/preprocessing.parquet"  # opcional (incluye target para inspección)
       columns:
         actividad:
           - cardinality_reducer:
@@ -302,7 +302,7 @@ training:
 
     feature_selection:
       enabled: false
-      # output_parquet: "data/processed/feature_selection.parquet"  # opcional
+      # output_parquet: "data/processed/feature_selection.parquet"  # opcional (incluye target para inspección)
       steps:
         - name: selector
           method: "boruta"  # boruta, correlation, constant
@@ -535,7 +535,7 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 - Time series consumption data uses row-wise MinMax scaling (`MinMaxScalerRow`)
 - Neural models concatenate processed features with scaled consumption series
 - LSTM models reshape consumption data to (samples, 12, 1) for sequential processing
-- Preprocessed datasets are saved in `data/processed/` as parquet files
+- Preprocessed datasets are saved in `data/processed/` as parquet files (include target column for inspection)
 - Feature pipelines are saved as `.pkl` files for reuse in training and inference
 - **ETL configuration requires `custom_class` for each ETL** - use `SourceETL` (supports both `concat` and `merge` modes) or a custom class
 - **New projects include `data/raw/sample_dataset.parquet`** for immediate testing

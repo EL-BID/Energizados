@@ -5,9 +5,9 @@
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
 | **Title**   | Energizados -- ML Framework for Non-Technical Loss Detection |
-| **Version** | 1.6 (Draft)                                                                                           |
-| **Date**    | 2026-03-19                                                                                            |
-| **Status**  | Draft v1.6 -- Implemented SHAP integration (FR-EVAL-014), shap dependency, ShapExplainer, explainability module |
+| **Version** | 1.7 (Draft)                                                                                           |
+| **Date**    | 2026-03-21                                                                                            |
+| **Status**  | Draft v1.7 -- Added E2E testing requirements (FR-TEST, US-TEST), expanded testing strategy with coverage plan |
 | **Authors** | BID (Inter-American Development Bank) Engineering            |
 | **License** | MIT                                                          |
 | **Python**  | >= 3.10                                                      |
@@ -36,6 +36,7 @@
     - [FR-OUTPUT: Output Structure & Run Management](#fr-output-output-structure--run-management)
     - [FR-SECURITY: Security](#fr-security-security)
     - [FR-FIELDVAL: Field Validation & Pilot-Control](#fr-fieldval-field-validation--pilot-control)
+    - [FR-TEST: Testing & Quality Assurance](#fr-test-testing--quality-assurance)
 7. [User Stories — Functional Requirements (Detailed)](#7-user-stories--functional-requirements-detailed)
     - [US-CLI: CLI & Project Scaffolding](#us-cli-cli--project-scaffolding)
     - [US-ETL: ETL Pipeline & DAG Orchestration](#us-etl-etl-pipeline--dag-orchestration)
@@ -51,6 +52,7 @@
     - [US-OUTPUT: Output Structure & Run Management](#us-output-output-structure--run-management)
     - [US-SECURITY: Security](#us-security-security)
     - [US-FIELDVAL: Field Validation & Pilot-Control](#us-fieldval-field-validation--pilot-control)
+    - [US-TEST: Testing & Quality Assurance](#us-test-testing--quality-assurance)
 8. [Non-Functional Requirements](#8-non-functional-requirements)
 9. [Data Requirements](#9-data-requirements)
 10. [Technical Architecture](#10-technical-architecture)
@@ -434,6 +436,16 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 | FR-FIELDVAL-004 | Top-N selection from pilot group based on model score for field inspection targeting                                    | [PLANNED] |
 | FR-FIELDVAL-005 | Post-inspection result comparison between pilot and control groups to measure model ROI                                | [PLANNED] |
 
+### FR-TEST: Testing & Quality Assurance
+
+| ID          | Requirement                                                                              | Status    |
+|-------------|------------------------------------------------------------------------------------------|-----------|
+| FR-TEST-001 | E2E smoke test validates full pipeline (ETL→Split→FE→Train→Eval) with synthetic data     | [IMPLEMENTED] |
+| FR-TEST-002 | Contract tests validate output schemas between pipeline phases                           | [IMPLEMENTED] |
+| FR-TEST-003 | Configuration matrix tests cover critical YAML config combinations                       | [IMPLEMENTED] |
+| FR-TEST-004 | All E2E tests use reproducible synthetic data (seed-based, deterministic)                 | [IMPLEMENTED] |
+| FR-TEST-005 | E2E tests validate all output artifacts (models, reports, metadata, config copies)        | [IMPLEMENTED] |
+
 ---
 
 ## 7. User Stories — Functional Requirements (Detailed)
@@ -600,9 +612,9 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to split by group (e.g., customer_id) to prevent data leakage
 - **So that** I can ensure the model doesn't learn patterns from specific customers that appear in both sets
 - **Acceptance criteria**:
-    - [ ] Specifies group column
-    - [ ] Ensures entire group is in train or test, not both
-- **Status**: [PLANNED]
+    - [x] Specifies group column
+    - [x] Ensures entire group is in train or test, not both
+- **Status**: [IMPLEMENTED]
 
 ---
 
@@ -879,10 +891,10 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to execute cross-validation during training
 - **So that** I can obtain robust performance estimation
 - **Acceptance criteria**:
-    - [x] k-fold CV configurable
+    - [x] k-fold CV configurable (via `hyperparam_search.cv`)
     - [x] Reports metrics per fold
     - [x] Averages final metrics
-- **Status**: [PLANNED]
+- **Status**: [IMPLEMENTED]
 
 **US-TRAINING-009: Hyperparameter optimization**
 
@@ -1108,9 +1120,9 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to optimize inference for large volumes
 - **So that** I can reduce processing time
 - **Acceptance criteria**:
-    - [x] Chunked processing
-    - [x] Parallelization
-    - [x] Memory-efficient
+    - [ ] Chunked processing
+    - [ ] Parallelization
+    - [ ] Memory-efficient
 - **Status**: [PLANNED]
 
 **US-INFERENCE-005: Real-time inference API**
@@ -1119,9 +1131,9 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to serve predictions via HTTP endpoint
 - **So that** I can integrate with operational systems
 - **Acceptance criteria**:
-    - [x] POST /predict endpoint
-    - [x] Single record input
-    - [x] Response with probability
+    - [ ] POST /predict endpoint
+    - [ ] Single record input
+    - [ ] Response with probability
 - **Status**: [PLANNED]
 
 ---
@@ -1315,8 +1327,8 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
 - **I want** to use variables or templates in configs
 - **So that** I can avoid repetition and facilitate maintenance
 - **Acceptance criteria**:
-    - [x] Variable interpolation `${var}`
-    - [x] Section reuse
+    - [ ] Variable interpolation `${var}`
+    - [x] Section reuse (via YAML anchors `&` / `*`)
     - [x] Sensible defaults
 - **Status**: [PLANNED]
 
@@ -1489,6 +1501,57 @@ data ingestion through operationally-calibrated predictions, reducing the barrie
     - [ ] Computes detection rate, precision, and lift for pilot vs control
     - [ ] Generates comparison report with statistical significance test
     - [ ] Produces visualizations (bar charts, lift curves) for stakeholder presentations
+- **Status**: [PLANNED]
+
+### US-TEST: Testing & Quality Assurance
+
+**US-TEST-001: E2E smoke test**
+
+- **As** Framework developer
+- **I want** an automated E2E test that runs the full pipeline on synthetic data
+- **So that** I can catch regressions that break the pipeline end-to-end
+- **Acceptance criteria**:
+    - [x] Generates 100-row synthetic dataset with domain-specific columns
+    - [x] Runs ETL → Split → Feature Engineering → Training → Evaluation
+    - [x] Validates model.pkl, feature_engineering.pkl, reports, and metadata exist
+    - [x] Validates JSON report contains valid AUC (0-1) and confusion matrix
+    - [x] Runs under `pytest -m slow` marker (excluded from default suite)
+- **Status**: [IMPLEMENTED]
+
+**US-TEST-002: Phase contract validation**
+
+- **As** Framework developer
+- **I want** tests that validate the output schema of each pipeline phase
+- **So that** I can detect breaking changes at phase boundaries before they cascade
+- **Acceptance criteria**:
+    - [x] ETL output has all expected columns and correct dtypes
+    - [x] Split output has no overlapping indices between train/val/test
+    - [x] Feature engineering output is model-compatible (no unexpected NaNs)
+    - [x] Model predictions have y_true in {0,1} and y_proba in [0,1]
+- **Status**: [IMPLEMENTED]
+
+**US-TEST-003: Configuration matrix coverage**
+
+- **As** Framework developer
+- **I want** parametrized tests that cover critical config combinations
+- **So that** I can ensure split methods and sampling strategies work in all permutations
+- **Acceptance criteria**:
+    - [x] Tests stratified and random split methods
+    - [x] Tests undersample and none sampling methods
+    - [x] Tests ensemble scenario (2 models with soft_voting)
+    - [x] All combinations produce valid output artifacts
+- **Status**: [IMPLEMENTED]
+
+**US-TEST-004: Regression test for known-good outputs**
+
+- **As** Framework developer
+- **I want** a regression test that compares outputs against a known-good baseline
+- **So that** I can detect unintentional changes to model outputs or report format
+- **Acceptance criteria**:
+    - [ ] Deterministic seed produces consistent synthetic data
+    - [ ] JSON report structure matches expected schema
+    - [ ] Metric values are within expected tolerance of baseline
+    - [ ] New fields in reports do not break existing structure
 - **Status**: [PLANNED]
 
 ---
@@ -1969,10 +2032,25 @@ eda:
 
 1. **Unit tests:** All ABCs, transformers, selectors, model adapters tested in isolation
 2. **Integration tests:** End-to-end pipeline execution with synthetic data
+   - E2E smoke test: full pipeline (ETL→Train→Eval) with single LightGBM on 100-row synthetic dataset
+   - Phase contract tests: validate output schemas between ETL, Split, FE, and Training phases
+   - Configuration matrix: parametrized tests for split methods, sampling strategies, and ensemble configs
 3. **Configuration tests:** All YAML config permutations validated
 4. **Security tests:** Pickle loading, path traversal, allowlist enforcement
 5. **Regression tests:** Known-good outputs preserved and validated against
 6. **Performance tests:** Benchmark training/inference time on standard datasets
+
+### E2E Test Coverage (Planned)
+
+| Test Level | Tests | Runs | Marker |
+|------------|-------|------|--------|
+| Smoke | 1 | 1 | `@pytest.mark.slow` `@pytest.mark.integration` |
+| Contract | 4 | 4 | `@pytest.mark.slow` `@pytest.mark.integration` |
+| Config Matrix | 2 | 5 | `@pytest.mark.slow` `@pytest.mark.integration` |
+| **Total** | **7** | **10** | |
+
+Test file: `tests/test_e2e_pipeline.py`
+Execution: `pytest -m slow` (excluded from default test suite)
 
 ---
 

@@ -182,3 +182,36 @@ def nn_adapter_data():
     y = pd.Series(np.random.randint(0, 2, n_samples), name="target")
 
     return X, y, features_names, spents_names
+
+
+@pytest.fixture
+def e2e_synthetic_dataset():
+    """Generate a synthetic dataset for E2E pipeline tests."""
+    n = 100
+    np.random.seed(42)
+
+    data = {}
+    for i in range(12, 0, -1):
+        data[f"{i}_anterior"] = np.random.uniform(50, 1000, n)
+
+    data["actividad"] = np.random.choice(
+        ["Comercio", "Industrial", "Residencial", "Servicios", "Agricola"],
+        n,
+        p=[0.3, 0.2, 0.3, 0.15, 0.05],
+    )
+    data["tipo_tarifa"] = np.random.choice(["T1", "T2", "T3"], n, p=[0.5, 0.3, 0.2])
+    data["zona"] = np.random.choice(["Norte", "Sur", "Este", "Oeste"], n)
+    data["target"] = np.random.choice([0, 1], n, p=[0.8, 0.2])
+
+    return pd.DataFrame(data)
+
+
+@pytest.fixture
+def e2e_project_dir(tmp_path, e2e_synthetic_dataset):
+    """Create a temporary project directory structure for E2E tests."""
+    for subdir in ["data/raw", "data/processed", "data/splits", "output", "config"]:
+        (tmp_path / subdir).mkdir(parents=True, exist_ok=True)
+
+    e2e_synthetic_dataset.to_parquet(tmp_path / "data/raw/test_dataset.parquet", index=False)
+
+    return tmp_path
