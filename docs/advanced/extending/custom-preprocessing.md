@@ -248,7 +248,7 @@ pytest tests/test_custom_transformers.py -v
 
 - [Custom Feature Engineering](custom-feature-engineering.md) - Full pipeline customization
 - [Custom ETLs](custom-etl.md) - ETL implementations
-- [Feature Engineering Guide](../../user-guide/configuration/training.md#feature-engineering) - Available transformations
+- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering) - Available transformations
 
 ---
 

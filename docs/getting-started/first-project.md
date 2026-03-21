@@ -87,7 +87,7 @@ This ETL:
 Execute the ETL to process the sample data:
 
 ```bash
-energizados run etls
+energizados run etl
 ```
 
 You should see output indicating that the ETL is running and completing successfully. The processed data will be saved to `data/processed/sample_dataset.parquet`.

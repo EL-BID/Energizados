@@ -314,7 +314,7 @@ pytest tests/test_custom_feature_engineering.py -v
 
 - [Custom Preprocessing](custom-preprocessing.md) - Custom column and global transformers
 - [Custom Models](custom-model.md) - Model implementations
-- [Feature Engineering Guide](../../user-guide/configuration/training.md#feature-engineering) - Available transformations and usage
+- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering) - Available transformations and usage
 
 ---
 

@@ -90,9 +90,9 @@ class TestInitCommand:
             assert (project_path / "src" / "utils" / "__init__.py").exists()
             assert (project_path / "tests" / "__init__.py").exists()
 
-            # Verify correct imports
+            # Verify correct imports (dynamic pkgutil pattern)
             data_init = (project_path / "src" / "data" / "__init__.py").read_text()
-            assert "CustomETL" in data_init
+            assert "pkgutil" in data_init
             assert "custom_etl" in data_init
 
     def test_init_creates_test_templates(self):
@@ -315,9 +315,9 @@ etl:
             )
             new_path = Path(tmpdir) / "new_project"
 
-            # Verify __init__.py files
+            # Verify __init__.py files (dynamic pkgutil pattern)
             data_init = (new_path / "src" / "data" / "__init__.py").read_text()
-            assert "CustomETL" in data_init
+            assert "pkgutil" in data_init
             assert "custom_etl" in data_init
 
     def test_init_copy_does_not_copy_data_or_models(self):

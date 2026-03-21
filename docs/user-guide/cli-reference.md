@@ -230,4 +230,4 @@ energizados run eda -v
 
 ---
 
-← [Project Structure](project-structure.md) | [Configuration: ETLs](configuration/etls.md) →
+← [Project Structure](project-structure.md) | [Configuration: ETL](configuration/etl.md) →

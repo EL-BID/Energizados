@@ -29,6 +29,7 @@ etl:
   #   custom_class: "data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"  # Concatenate files (default)
+  #     # sample: 10000  # Optional: read only N rows for quick testing
   #   depends_on: []
   #
   # # ETL 1b: Consumos with CSV options
@@ -117,3 +118,16 @@ etl:
   #       on: "id_cliente"
   #   depends_on:
   #     - "merge_dataset"
+  #
+  # # ETL 6: Quick testing with sample
+  # # Use 'sample' to read only N rows - useful for development and debugging
+  # quick_test:
+  #   enabled: false
+  #   description: "Quick test with sampled data"
+  #   input: "data/raw/full_dataset.csv"
+  #   output: "data/processed/sample_test.parquet"
+  #   custom_class: "data.custom_etl.CustomETL"
+  #   params:
+  #     mode: "concat"
+  #     sample: 1000  # Read only 1000 rows for fast iteration
+  #   depends_on: []

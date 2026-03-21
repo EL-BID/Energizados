@@ -529,6 +529,9 @@ class TsfelVars(BaseEstimator, TransformerMixin):
 
         logger.info(f"TsfelVars [{desc}]: {n} rows in {len(chunks)} chunks, n_jobs={self.n_jobs}")
 
+        if not chunks:
+            return pd.DataFrame({"index": []})
+
         results = Parallel(n_jobs=self.n_jobs)(
             delayed(_tsfel_process_chunk)(chunk_values, chunk_indices, cfg)
             for chunk_values, chunk_indices in chunks

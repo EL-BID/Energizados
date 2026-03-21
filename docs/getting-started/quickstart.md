@@ -105,25 +105,25 @@ The main configuration files are in the `config/` directory:
 **Run ETLs** (processes raw data):
 
 ```bash
-energizados run etls
+energizados run etl
 ```
 
 **Run training** (includes split, feature engineering, and model training):
 
 ```bash
-energizados run training
+energizados run train
 ```
 
 **Run inference** (applies trained model to new data):
 
 ```bash
-energizados run inference
+energizados run infer
 ```
 
 **Run multiple configs at once**:
 
 ```bash
-energizados run etls,training
+energizados run etl,train
 ```
 
 ## 5. View Results

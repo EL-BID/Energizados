@@ -806,4 +806,4 @@ training:
 
 ---
 
-← [Configuration: ETLs](etls.md) | [Configuration: Evaluation](evaluation.md) →
+← [Configuration: ETL](etl.md) | [Configuration: Evaluation](evaluation.md) →

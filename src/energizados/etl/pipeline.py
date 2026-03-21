@@ -40,6 +40,9 @@ class SourceETL(BaseETL):
             - None (default): No custom transform
             - str: Dotted path to a function (e.g., 'src.data.transforms.clean_data')
             - Callable: A function with signature (pd.DataFrame) -> pd.DataFrame
+        sample: Optional number of rows to sample from input data.
+            If specified, reads only this many rows (uses random_state=42 for reproducibility).
+            If None (default), reads all data.
         **kwargs: Additional parameters.
 
     Example:
@@ -69,6 +72,15 @@ class SourceETL(BaseETL):
         ...     transform_fn='src.data.transforms.clean_data',
         ... )
         >>> df = etl.run('data/cleaned.parquet')
+
+    Example with sampling:
+        >>> etl = SourceETL(
+        ...     name='sample_data',
+        ...     input_paths=['data/raw/full_dataset.csv'],
+        ...     output_path='data/sample.parquet',
+        ...     sample=1000,  # Read only 1000 rows for quick testing
+        ... )
+        >>> df = etl.run('data/sample.parquet')
     """
 
     def __init__(
@@ -82,6 +94,7 @@ class SourceETL(BaseETL):
         input_params: Optional[Dict[str, Any]] = None,
         output_params: Optional[Dict[str, Any]] = None,
         transform_fn: Optional[Any] = None,
+        sample: Optional[int] = None,
         **kwargs,
     ):
         self.name = name
@@ -92,6 +105,7 @@ class SourceETL(BaseETL):
         self.key_column = key_column or "id_cliente"
         self.input_params = input_params or {}
         self.output_params = output_params or {}
+        self.sample = sample
         self.kwargs = kwargs
 
         # Load transform_fn if provided

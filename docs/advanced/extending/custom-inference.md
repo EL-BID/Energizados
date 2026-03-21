@@ -320,7 +320,7 @@ The framework includes a built-in inference implementation:
 
 - [Custom Models](custom-model.md) - Model implementations
 - [Custom ETLs](custom-etl.md) - ETL extensions
-- [Inference Guide](../../user-guide/configuration/inference.md) - Running inference
+- [Inference Guide](../../user-guide/configuration/infer.md) - Running inference
 
 ---
 

@@ -23,23 +23,23 @@
 pip install energizados
 energizados init my_project
 cd my_project
-energizados run etls,training
+energizados run etl,train
 ```
 
 ## 📖 Documentation
 
-- [Getting Started](docs/getting-started/introduction.md) - Installation and project setup
+- [Getting Started](docs/getting-started/overview.md) - Installation and project setup
 - [User Guide](docs/user-guide/) - Complete framework documentation
 - [Tutorials](docs/tutorials/) - Hands-on examples and walkthroughs
 - [Advanced](docs/advanced/) - Extending and customizing the framework
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! See [Contributing Guidelines](docs/advanced/contributing.md) for details.
 
 ## 📄 License
 
-Licensed under the BID License - see [LICENSE.md]((https://github.com/EL-BID/Plantilla-de-repositorio/blob/master/LICENSE.md)) for details.
+Licensed under the BID License - see [LICENSE.md](LICENSE.md) for details.
 
 ## Limitation of Liability
 

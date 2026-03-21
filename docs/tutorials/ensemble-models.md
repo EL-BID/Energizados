@@ -240,7 +240,7 @@ training:
 Run the ensemble training:
 
 ```bash
-energizados run training
+energizados run train
 ```
 
 **Expected output** (abbreviated):

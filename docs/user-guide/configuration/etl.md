@@ -36,7 +36,7 @@ etl:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `description` | string | `null` | Human-readable description of the ETL |
-| `params` | dict | `{}` | ETL-specific parameters |
+| `params` | dict | `{}` | ETL-specific parameters (includes `mode`, `sample`, `merge_config`, etc.) |
 
 ## SourceETL
 
@@ -108,6 +108,32 @@ etl:
 | `right_index` | boolean | `false` | Use right DataFrame's index as merge key |
 
 > ⚠️ **IMPORTANT:** When `mode="merge"`, `merge_config` is required.
+
+### Sampling
+
+Use the `sample` parameter to read only a subset of rows from input data. Useful for development, testing, and debugging without loading full datasets.
+
+```yaml
+etl:
+  quick_test:
+    enabled: true
+    description: "Quick test with sampled data"
+    input: "data/raw/full_dataset.csv"
+    output: "data/processed/sample.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "concat"
+      sample: 1000  # Read only 1000 rows
+    depends_on: []
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sample` | integer | `null` | Number of rows to sample from input (uses `random_state=42` for reproducibility) |
+
+> 💡 **Tip:** If `sample` is greater than the number of available rows, pandas returns all available rows without error.
 
 ## ETL Dependencies
 
@@ -380,4 +406,4 @@ etl:
 
 ---
 
-← [CLI Reference](../cli-reference.md) | [Configuration: Training](training.md) →
+← [CLI Reference](../cli-reference.md) | [Configuration: Training](train.md) →

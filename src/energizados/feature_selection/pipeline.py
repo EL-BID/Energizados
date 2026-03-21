@@ -26,6 +26,7 @@ def _get_default_method_map() -> Dict[str, type]:
     if _DEFAULT_METHOD_MAP is None:
         from energizados.feature_selection.methods import (
             BorutaSelector,
+            CategoricalSelector,
             ConstantSelector,
             CorrelationSelector,
             MutualInformationSelector,
@@ -33,6 +34,7 @@ def _get_default_method_map() -> Dict[str, type]:
 
         _DEFAULT_METHOD_MAP = {
             "boruta": BorutaSelector,
+            "categorical": CategoricalSelector,
             "correlation": CorrelationSelector,
             "constant": ConstantSelector,
             "mutual_info": MutualInformationSelector,
@@ -214,9 +216,15 @@ class FeatureSelectionPipeline:
                 self._step_results[name] = selector.selected_features_
                 self._step_selectors[name] = selector
 
+            selected = self._step_results[name]
+            dropped = [c for c in scoped_columns if c not in selected]
             logger.info(
-                f"Step '{name}' ({method}): selected {len(self._step_results[name])} columns"
+                f"Step '{name}' ({method}): {len(selected)}/{len(scoped_columns)} columns selected"
             )
+            logger.info(f"  Input:  {scoped_columns}")
+            logger.info(f"  Output: {selected}")
+            if dropped:
+                logger.info(f"  Dropped: {dropped}")
             last_name = name
 
         if last_name is not None:

@@ -124,7 +124,7 @@ etl:
 The built-in `SourceETL` class supports merging multiple data sources horizontally using `mode="merge"`:
 
 ```yaml
-etls:
+etl:
   consumos:
     enabled: true
     description: "Consumption data"
@@ -134,7 +134,7 @@ etls:
     params:
       mode: "concat"
     depends_on: []
-
+ 
   clientes:
     enabled: true
     description: "Customer data"
@@ -144,7 +144,7 @@ etls:
     params:
       mode: "concat"
     depends_on: []
-
+ 
   merge_all:
     enabled: true
     description: "Merges consumos and clientes by id_cliente"
@@ -168,12 +168,12 @@ The `merge_config` section accepts any parameter from pandas `pd.merge()`: `how`
 Reference other ETL outputs using the `@etl_name` syntax in the `input` field:
 
 ```yaml
-etls:
+etl:
   step1:
     input: "data/raw/source.csv"
     output: "data/processed/step1.parquet"
     custom_class: "energizados.etl.pipeline.SourceETL"
-
+ 
   step2:
     input: "@step1"  # References step1's output
     output: "data/processed/step2.parquet"

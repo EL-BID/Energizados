@@ -136,7 +136,7 @@ train:
       # List of sequential selection steps
       steps:
         - name: drop_constant
-          method: constant          # constant | correlation | boruta | mutual_info | selection
+          method: constant          # constant | correlation | boruta | mutual_info | categorical | selection
           params:
             threshold: 0.99
           columns:
@@ -168,6 +168,14 @@ train:
       #       - "re:^zona.*"          # Regex with re: prefix
       #       - "@drop_constant"      # Reference to previous step result
       #       - "!nivel_tension"      # Exclude
+
+      #   - name: solo_categoricas
+      #     method: categorical
+      #     # params:
+      #     #   include_object: true   # include dtype 'object' (default: true)
+      #     #   include_category: true # include dtype 'category' (default: true)
+      #     columns:
+      #       - "*"
 
         - name: final
           method: selection

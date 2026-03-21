@@ -94,7 +94,7 @@ Name: target, dtype: int64
 The sample ETL simply removes rows with null values:
 
 ```bash
-energizados run etls
+energizados run etl
 ```
 
 **Expected output**:
@@ -205,7 +205,7 @@ training:
 Now run the training:
 
 ```bash
-energizados run training
+energizados run train
 ```
 
 **Expected output** (abbreviated):
@@ -335,7 +335,7 @@ inference:
 ### Run Inference
 
 ```bash
-energizados run inference
+energizados run infer
 ```
 
 **Expected output**:

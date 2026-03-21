@@ -30,6 +30,10 @@ class BaseETL(ABC):
 
     def __init__(self):
         """Initialize the ETL instance."""
+        # Support 'sample' parameter for all ETL subclasses
+        # If subclass sets self.sample, it will be used in run()
+        if not hasattr(self, "sample"):
+            self.sample = getattr(self, "sample", None)
 
     @abstractmethod
     def extract(self) -> pd.DataFrame:
@@ -86,10 +90,22 @@ class BaseETL(ABC):
         Returns:
             pd.DataFrame: Transformed DataFrame
         """
+        import logging
+
         from energizados.core.exceptions import ETLError
+
+        logger = logging.getLogger(__name__)
 
         try:
             df = self.extract()
+
+            # Apply sampling if 'sample' parameter was provided
+            sample = getattr(self, "sample", None)
+            if sample is not None:
+                original_len = len(df)
+                df = df.sample(n=min(sample, len(df)), random_state=42)
+                logger.info(f"  • Sampled {len(df)} records (was {original_len})")
+
             df = self.transform(df)
             self.load(df, output_path)
             return df

@@ -272,7 +272,8 @@ class BorutaSelector(BaseFeatureSelector):
         y = y.copy()
 
         d = {}
-        for i in tqdm(range(self.n_runs_), total=self.n_runs_, desc="Running Boruta"):
+        pbar = tqdm(total=self.n_runs_, desc="Running Boruta", leave=False)
+        for i in range(self.n_runs_):
             # Add random variable as shadow feature
             X_temp = X.copy()
             X_temp["random"] = np.random.randn(len(X_temp))
@@ -308,6 +309,9 @@ class BorutaSelector(BaseFeatureSelector):
                 variables = ranking.columns.values
 
             d[i] = variables
+            pbar.update(1)
+
+        pbar.close()
 
         # Count how many times each variable appeared
         E = {}
@@ -419,6 +423,90 @@ def feature_selection_by_boruta(X_train, y_train, N=10):
     selector = BorutaSelector(max_iter=N)
     selector.fit(X_train, y_train)
     return selector.get_selected_features()
+
+
+class CategoricalSelector(BaseFeatureSelector):
+    """
+    Selector that filters to keep only categorical columns.
+
+    Returns columns with dtype 'object' or 'category'. Useful for
+    scoping categorical variables in a multi-step pipeline.
+
+    Args:
+        include_category: If True (default), includes 'category' dtype.
+        include_object: If True (default), includes 'object' dtype.
+    """
+
+    def __init__(
+        self,
+        include_category: bool = True,
+        include_object: bool = True,
+        config: Optional[dict] = None,
+    ):
+        super().__init__(config)
+        self.include_category = include_category
+        self.include_object = include_object
+        self.vars_to_drop_ = None
+
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: pd.Series) -> "CategoricalSelector":
+        """
+        Learn which columns are categorical.
+
+        Args:
+            X: Training features.
+            y: Training target (not used in this method).
+
+        Returns:
+            self: The fitted instance.
+        """
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        include = []
+        if self.include_object:
+            include.append("object")
+        if self.include_category:
+            include.append("category")
+
+        categorical_cols = X.select_dtypes(include=include).columns.tolist()
+        all_cols = X.columns.tolist()
+
+        self.selected_features_ = categorical_cols
+        self.vars_to_drop_ = [c for c in all_cols if c not in categorical_cols]
+
+        logger.info(f"Selected {len(self.selected_features_)} categorical columns")
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transform X keeping only categorical columns.
+
+        Args:
+            X: DataFrame to transform.
+
+        Returns:
+            pd.DataFrame: DataFrame with only categorical columns.
+
+        Raises:
+            ValueError: If fit() has not been called previously.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        return X[self.selected_features_].copy()
+
+    def get_audit_stats(self) -> Dict:
+        """
+        Return audit statistics for categorical selector.
+
+        Returns:
+            Dict: Contains vars_to_drop and selected count.
+        """
+        if self.selected_features_ is None:
+            raise ValueError("Must call fit() first")
+        return {
+            "vars_to_drop": self.vars_to_drop_ or [],
+            "selected_count": len(self.selected_features_),
+        }
 
 
 class MutualInformationSelector(BaseFeatureSelector):

@@ -21,7 +21,7 @@ fraud — in energy distribution systems.
 pip install energizados
 energizados init my_project
 cd my_project
-energizados run etls,training
+energizados run etl,train
 ```
 
 ## What's Inside

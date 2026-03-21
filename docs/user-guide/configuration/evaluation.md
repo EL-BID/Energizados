@@ -457,4 +457,4 @@ Actual Fraud        FN     |  TP
 
 ---
 
-← [Configuration: Training](training.md) | [Configuration: Inference](inference.md) →
+← [Configuration: Training](train.md) | [Configuration: Inference](infer.md) →
