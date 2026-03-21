@@ -474,6 +474,125 @@ train:
         assert training_step.ensemble_config["method"] == "stacking"
 
 
+class TestFailedPipelineCleanup:
+    """Tests for cleanup of failed pipeline runs."""
+
+    @pytest.fixture
+    def temp_dir(self):
+        """Create a temporary directory for tests."""
+        temp = Path(tempfile.mkdtemp())
+        yield temp
+        shutil.rmtree(temp, ignore_errors=True)
+
+    def test_cleanup_empty_run_dir_on_failure(self, temp_dir):
+        """Verify that empty run directories are deleted on pipeline failure."""
+        from energizados.core.builders.director import PipelineDirector
+
+        config = {
+            "train": {
+                "enabled": True,
+                "target_column": "target",
+                "models": [
+                    {"type": "lightgbm", "hyperparams": {}, "hyperparam_search": {"enabled": False}}
+                ],
+                "feature_engineering": {"enabled": False},
+                "split": {
+                    "method": "stratified",
+                    "test_size": 0.2,
+                    "val_size": 0.1,
+                },
+                "evaluation": {"enabled": False},
+            }
+        }
+
+        output_dir = temp_dir / "output"
+        output_dir.mkdir()
+
+        # Create director with a specific run name
+        run_name = "failed-run-test"
+        director = PipelineDirector(
+            config=config,
+            config_paths=[],
+            run_name=run_name,
+        )
+
+        # The director creates the run_dir via RunManager
+        # We need to set the run_dir on the RunManager, not on director
+        run_dir = output_dir / run_name
+        director.run_manager._run_dir = run_dir
+
+        # Simulate run directory creation with empty subdirs
+        import os
+
+        os.makedirs(run_dir / "models", exist_ok=True)
+        os.makedirs(run_dir / "reports", exist_ok=True)
+        os.makedirs(run_dir / "config", exist_ok=True)
+
+        # Run cleanup - directory only has empty subdirs, should be deleted
+        director._cleanup_failed_run()
+
+        # Verify directory was deleted
+        assert not run_dir.exists()
+
+    def test_preserve_partial_run_dir_on_failure(self, temp_dir):
+        """Verify that run directories with partial output are preserved."""
+        from energizados.core.builders.director import PipelineDirector
+
+        config = {
+            "train": {
+                "enabled": True,
+                "target_column": "target",
+                "models": [{"type": "lightgbm", "hyperparams": {}}],
+                "feature_engineering": {"enabled": False},
+            }
+        }
+
+        output_dir = temp_dir / "output"
+        output_dir.mkdir()
+
+        run_dir = output_dir / "train-partial-test"
+        run_dir.mkdir()
+
+        # Create some content that would indicate partial completion
+        (run_dir / "models").mkdir()
+        (run_dir / "models" / "model.pkl").touch()  # Simulate saved model
+        (run_dir / "reports").mkdir()
+        (run_dir / "config").mkdir()
+
+        director = PipelineDirector(config=config, config_paths=[])
+        director.run_manager._run_dir = run_dir
+
+        # Run cleanup
+        director._cleanup_failed_run()
+
+        # Verify directory was preserved
+        assert run_dir.exists()
+        assert (run_dir / "models" / "model.pkl").exists()
+
+    def test_cleanup_with_metadata_on_failure(self, temp_dir):
+        """Verify that run directories with metadata are preserved."""
+        from energizados.core.builders.director import PipelineDirector
+
+        config = {"train": {"enabled": True, "target_column": "target"}}
+
+        output_dir = temp_dir / "output"
+        output_dir.mkdir()
+
+        run_dir = output_dir / "train-metadata-test"
+        run_dir.mkdir()
+        (run_dir / "run_metadata.json").touch()  # Simulate metadata
+
+        director = PipelineDirector(config=config, config_paths=[])
+        director.run_manager._run_dir = run_dir
+
+        # Run cleanup
+        director._cleanup_failed_run()
+
+        # Verify directory was preserved
+        assert run_dir.exists()
+        assert (run_dir / "run_metadata.json").exists()
+
+
 @pytest.mark.slow
 class TestEndToEndScenarios:
     """End-to-end tests simulating real use cases."""

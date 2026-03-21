@@ -192,13 +192,64 @@ class PipelineDirector:
         - Copies config files to the run directory
         - Regenerates output/index.html
 
+        If pipeline fails, cleans up empty run directories.
+
         Returns:
             Dict: Final context with pipeline results
         """
         pipeline = self.build()
-        result = pipeline.run()
+
+        try:
+            result = pipeline.run()
+        except Exception:
+            # Clean up empty run directory on failure
+            self._cleanup_failed_run()
+            raise
 
         # Run post-build tasks
         self.run_manager.finalize_run(context=result)
 
         return result
+
+    def _cleanup_failed_run(self) -> None:
+        """
+        Clean up run directory if it's empty after a failed pipeline.
+
+        Removes the run directory only if:
+        - It exists
+        - It contains only empty subdirectories or no files
+        - Useful outputs (models, reports, metadata) were not created
+
+        This prevents orphaned empty directories from failed runs.
+        """
+        run_dir = self.run_manager.run_dir
+        if run_dir is None or not run_dir.exists():
+            return
+
+        # Check if directory has any meaningful content
+        has_models = (run_dir / "models").exists() and any((run_dir / "models").iterdir())
+        has_reports = (run_dir / "reports").exists() and any((run_dir / "reports").rglob("*"))
+        has_metadata = (run_dir / "run_metadata.json").exists()
+        has_config = (run_dir / "config").exists() and any((run_dir / "config").iterdir())
+
+        # Only clean up if NO useful content was created
+        if not has_models and not has_reports and not has_metadata and not has_config:
+            import shutil
+
+            logger.warning(
+                f"Pipeline failed with no output created. Removing empty run directory: {run_dir}"
+            )
+            shutil.rmtree(run_dir)
+        else:
+            # Some files exist - log what was saved before failure
+            logger.warning(
+                f"Pipeline failed. Run directory preserved with partial output: {run_dir}"
+            )
+            if has_models:
+                logger.warning("  -> models/ directory contains files")
+            if has_reports:
+                logger.warning("  -> reports/ directory contains files")
+            if has_metadata:
+                logger.warning("  -> run_metadata.json exists")
+            if has_config:
+                logger.warning("  -> config/ directory contains files")

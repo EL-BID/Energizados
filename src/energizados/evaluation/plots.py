@@ -10,10 +10,13 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import precision_recall_curve, roc_curve
+
+matplotlib.use("Agg")
 
 logger = logging.getLogger(__name__)
 
