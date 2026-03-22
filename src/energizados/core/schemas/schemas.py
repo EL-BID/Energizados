@@ -384,6 +384,30 @@ EDA_OUTPUT_SCHEMA = {
     },
 }
 
+# EDA Outliers Section Schema
+EDA_OUTLIERS_SECTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "enabled": {"type": "boolean", "default": True},
+        "methods": {
+            "type": "array",
+            "items": {"type": "string", "enum": ["iqr", "zscore", "modified_zscore"]},
+            "default": ["iqr", "zscore"],
+        },
+        "thresholds": {
+            "type": "object",
+            "properties": {
+                "iqr": {"type": "number", "default": 1.5},
+                "zscore": {"type": "number", "default": 3.0},
+                "modified_zscore": {"type": "number", "default": 3.5},
+            },
+        },
+        "consumption_patterns": {"type": "boolean", "default": True},
+        "alert_threshold": {"type": "number", "default": 10.0},
+        "detailed_charts": {"type": "boolean", "default": True},
+    },
+}
+
 # EDA Configuration Schema
 EDA_SCHEMA = {
     "type": "object",
@@ -391,7 +415,22 @@ EDA_SCHEMA = {
         "enabled": {"type": "boolean"},
         "column_detection": EDA_COLUMN_DETECTION_SCHEMA,
         "data_sources": EDA_DATA_SOURCE_SCHEMA,
-        "sections": {"type": "object"},
+        "sections": {
+            "type": "object",
+            "properties": {
+                "loading": {"type": "object"},
+                "global_stats": {"type": "object"},
+                "columns": {"type": "object"},
+                "outliers": EDA_OUTLIERS_SECTION_SCHEMA,
+                "target": {"type": "object"},
+                "geospatial": {"type": "object"},
+                "feature_importance": {"type": "object"},
+                "segmentation": {"type": "object"},
+                "related_columns": {"type": "object"},
+                "numeric": {"type": "object"},
+                "categorical": {"type": "object"},
+            },
+        },
         "output": EDA_OUTPUT_SCHEMA,
     },
 }

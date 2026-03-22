@@ -197,7 +197,74 @@ class EDAReportGenerator:
             f.write(html)
 
         logger.info("EDA report saved to: %s", path)
+
+        # Save outlier results as JSON artifact (if outlier data exists)
+        columns = results.get("columns", {})
+        if self._has_outlier_data(columns):
+            self._save_outlier_results_json(results, columns)
+
         return path
+
+    def _save_outlier_results_json(self, results: Dict, columns: Dict) -> str:
+        """
+        Save outlier analysis results as JSON artifact.
+
+        Args:
+            results: Full analysis results dict from DatasetExplorer.run()
+            columns: ColumnExplorer results dict containing outlier data
+
+        Returns:
+            str: Path to saved JSON file
+        """
+        outlier_data = {
+            "timestamp": datetime.now().isoformat(),
+            "dataset_info": {
+                "shape": results.get("global_stats", {}).get("shape", []),
+                "memory_mb": results.get("global_stats", {}).get("memory_mb", 0),
+            },
+            "numeric_outliers": [],
+            "consumption_outliers": columns.get("consumption_outliers", {}),
+        }
+
+        # Collect numeric column outlier data
+        numeric = columns.get("numeric", [])
+        for col_data in numeric:
+            col_name = col_data.get("col", "")
+            outlier_methods = col_data.get("outlier_methods", {})
+
+            if outlier_methods:
+                # Multi-method outlier detection
+                for method_name, method_result in outlier_methods.items():
+                    outlier_data["numeric_outliers"].append(
+                        {
+                            "column": col_name,
+                            "method": method_name,
+                            "outlier_count": method_result.get("outlier_count", 0),
+                            "outlier_pct": method_result.get("outlier_pct", 0.0),
+                            "has_alert": method_result.get("has_alert", False),
+                        }
+                    )
+            else:
+                # Legacy IQR method
+                outlier_pct = col_data.get("outlier_pct", 0.0)
+                if outlier_pct > 0:
+                    outlier_data["numeric_outliers"].append(
+                        {
+                            "column": col_name,
+                            "method": "IQR (legacy)",
+                            "outlier_count": col_data.get("outlier_count", 0),
+                            "outlier_pct": outlier_pct,
+                            "has_alert": outlier_pct > 10.0,
+                        }
+                    )
+
+        # Save to file
+        json_path = str(self.output_dir / "outlier_analysis.json")
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(outlier_data, f, indent=2, ensure_ascii=False, default=str)
+
+        logger.info("Outlier analysis saved to: %s", json_path)
+        return json_path
 
     def _build_html(self, results: Dict, alerts: List[Dict]) -> str:
         """Build complete HTML report string."""
@@ -225,8 +292,11 @@ class EDAReportGenerator:
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # Check if outlier data exists
+        has_outliers = self._has_outlier_data(columns)
+
         # Build sidebar links
-        sidebar_links = self._build_sidebar(geo, segmentation, related_columns)
+        sidebar_links = self._build_sidebar(geo, segmentation, related_columns, has_outliers)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -273,6 +343,8 @@ class EDAReportGenerator:
         <!-- Phase 2: Column analysis -->
         {self._build_columns_section(columns, charts)}
 
+        {self.render_outlier_section(columns, charts) if has_outliers else ""}
+
         <!-- Phase 3: Target variable -->
         {self._build_target_section(target, charts)}
 
@@ -312,7 +384,11 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 </html>"""
 
     def _build_sidebar(
-        self, geo: Dict, segmentation: Dict, related_columns: Optional[Dict] = None
+        self,
+        geo: Dict,
+        segmentation: Dict,
+        related_columns: Optional[Dict] = None,
+        has_outliers: bool = False,
     ) -> str:
         sections = [
             ("resumen", "Executive Summary"),
@@ -322,6 +398,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             ("columnas", "Phase 2: Column Analysis"),
             ("target", "Phase 3: Target Variable"),
         ]
+
+        # Add outlier section if data exists
+        if has_outliers:
+            sections.append(("outliers", "Phase 2.5: Outlier Analysis"))
 
         # Add optional sections
         if geo:
@@ -336,6 +416,28 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 sections.append((f"hier_{safe_id}", f"  → {h_name}"))
 
         return "".join(f'<a href="#{sid}">{label}</a>' for sid, label in sections)
+
+    def _has_outlier_data(self, columns: Dict) -> bool:
+        """Check if outlier analysis data exists in columns results."""
+        if not columns:
+            return False
+
+        # Check numeric columns for outlier data
+        numeric = columns.get("numeric", [])
+        for col_data in numeric:
+            # Check for multi-method outlier detection
+            if col_data.get("outlier_methods"):
+                return True
+            # Check for legacy IQR outlier data
+            if col_data.get("outlier_pct", 0) > 0:
+                return True
+
+        # Check consumption outlier data
+        consumption_outliers = columns.get("consumption_outliers", {})
+        if consumption_outliers:
+            return True
+
+        return False
 
     def _build_executive_summary(
         self,
@@ -1203,4 +1305,281 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <thead><tr>{header}<th>Count</th></tr></thead>
 <tbody>{rows}</tbody>
 </table>
+</div>"""
+
+    # ------------------------------------------------------------------
+    # Outlier analysis section (Phase 2.5)
+    # ------------------------------------------------------------------
+
+    def render_outlier_section(self, columns: Dict, charts: Optional[Dict] = None) -> str:
+        """
+        Render outlier analysis section in HTML.
+
+        This method generates HTML for:
+        1. Summary table of outliers by column and method
+        2. Per-method breakdown for numeric columns
+        3. Consumption outlier summary
+        4. Alert list for high outlier percentages
+
+        Args:
+            columns: ColumnExplorer results dict containing:
+                - numeric: List of numeric column analyses
+                - consumption_outliers: Consumption outlier analysis results
+            charts: Optional dict with outlier visualization charts:
+                - outlier_boxplots: SVG boxplots by column and method
+                - outlier_heatmap: Outlier detection matrix heatmap
+
+        Returns:
+            str: HTML string for outlier analysis section
+        """
+        if not columns:
+            return ""
+
+        numeric = columns.get("numeric", [])
+        consumption_outliers = columns.get("consumption_outliers", {})
+
+        # Build summary table
+        summary_table = self._build_outlier_summary_table(numeric)
+
+        # Build per-method breakdown
+        method_breakdown = self._build_outlier_method_breakdown(numeric)
+
+        # Build consumption outlier summary
+        consumption_summary = self._build_consumption_outlier_summary(consumption_outliers)
+
+        # Get charts
+        outlier_charts = charts.get("outlier_boxplots", "") if charts else ""
+        outlier_heatmap = charts.get("outlier_heatmap", "") if charts else ""
+
+        # Generate alerts for high outlier percentages
+        alerts_html = self._build_outlier_alerts(numeric, consumption_outliers)
+
+        return f"""
+<div class="section" id="outliers">
+    <h2>Outlier Analysis (Phase 2.5)</h2>
+
+    <h3>Outlier Summary by Column</h3>
+    {summary_table}
+
+    {alerts_html}
+
+    {method_breakdown}
+
+    {consumption_summary}
+
+    {f'<div class="chart-container">{outlier_charts}</div>' if outlier_charts else ""}
+    {f'<div class="chart-container">{outlier_heatmap}</div>' if outlier_heatmap else ""}
+</div>"""
+
+    def _build_outlier_summary_table(self, numeric: List[Dict]) -> str:
+        """Build summary table of outliers by column and method."""
+        if not numeric:
+            return "<p><em>No numeric columns with outlier data.</em></p>"
+
+        rows = ""
+        for col_data in numeric:
+            col_name = col_data.get("col", "")
+            outlier_methods = col_data.get("outlier_methods", {})
+
+            if not outlier_methods:
+                # No multi-method outlier detection, use legacy outlier_pct
+                outlier_pct = col_data.get("outlier_pct", 0.0)
+                outlier_count = col_data.get("outlier_count", 0)
+                has_alert = outlier_pct > 10.0  # Default threshold
+                alert_badge = '<span class="badge badge-WARNING">High</span>' if has_alert else ""
+                rows += f"""
+<tr>
+    <td><strong>{col_name}</strong></td>
+    <td>IQR (legacy)</td>
+    <td>{outlier_count:,}</td>
+    <td>{outlier_pct:.2f}%</td>
+    <td>{alert_badge}</td>
+</tr>"""
+            else:
+                # Multi-method outlier detection
+                for method_name, method_result in outlier_methods.items():
+                    outlier_pct = method_result.get("outlier_pct", 0.0)
+                    outlier_count = method_result.get("outlier_count", 0)
+                    has_alert = method_result.get("has_alert", outlier_pct > 10.0)
+                    alert_badge = (
+                        '<span class="badge badge-WARNING">High</span>' if has_alert else ""
+                    )
+                    rows += f"""
+<tr>
+    <td><strong>{col_name}</strong></td>
+    <td>{method_name.capitalize()}</td>
+    <td>{outlier_count:,}</td>
+    <td>{outlier_pct:.2f}%</td>
+    <td>{alert_badge}</td>
+</tr>"""
+
+        return f"""
+<div style="overflow-x:auto;">
+<table class="data-table">
+<thead>
+<tr>
+    <th>Column</th>
+    <th>Method</th>
+    <th>Outlier Count</th>
+    <th>% Outliers</th>
+    <th>Alert</th>
+</tr>
+</thead>
+<tbody>{rows}</tbody>
+</table>
+</div>"""
+
+    def _build_outlier_method_breakdown(self, numeric: List[Dict]) -> str:
+        """Build per-method breakdown for numeric columns."""
+        # Collect statistics by method
+        method_stats: Dict[str, Dict] = {}
+
+        for col_data in numeric:
+            outlier_methods = col_data.get("outlier_methods", {})
+            if not outlier_methods:
+                # Legacy IQR method
+                outlier_pct = col_data.get("outlier_pct", 0.0)
+                if outlier_pct > 0:
+                    if "IQR" not in method_stats:
+                        method_stats["IQR"] = {"total_cols": 0, "total_outliers": 0, "avg_pct": 0.0}
+                    method_stats["IQR"]["total_cols"] += 1
+                    method_stats["IQR"]["total_outliers"] += col_data.get("outlier_count", 0)
+                    method_stats["IQR"]["avg_pct"] += outlier_pct
+            else:
+                for method_name, method_result in outlier_methods.items():
+                    outlier_pct = method_result.get("outlier_pct", 0.0)
+                    if outlier_pct > 0:
+                        if method_name not in method_stats:
+                            method_stats[method_name] = {
+                                "total_cols": 0,
+                                "total_outliers": 0,
+                                "avg_pct": 0.0,
+                            }
+                        method_stats[method_name]["total_cols"] += 1
+                        method_stats[method_name]["total_outliers"] += method_result.get(
+                            "outlier_count", 0
+                        )
+                        method_stats[method_name]["avg_pct"] += outlier_pct
+
+        # Calculate averages
+        for method in method_stats:
+            if method_stats[method]["total_cols"] > 0:
+                method_stats[method]["avg_pct"] /= method_stats[method]["total_cols"]
+
+        if not method_stats:
+            return ""
+
+        rows = ""
+        for method, stats in method_stats.items():
+            rows += f"""
+<tr>
+    <td><strong>{method.upper()}</strong></td>
+    <td>{stats["total_cols"]}</td>
+    <td>{stats["total_outliers"]:,}</td>
+    <td>{stats["avg_pct"]:.2f}%</td>
+</tr>"""
+
+        return f"""
+<h3>Outlier Detection Method Summary</h3>
+<div style="overflow-x:auto;">
+<table class="data-table">
+<thead>
+<tr>
+    <th>Method</th>
+    <th>Columns with Outliers</th>
+    <th>Total Outliers</th>
+    <th>Avg % per Column</th>
+</tr>
+</thead>
+<tbody>{rows}</tbody>
+</table>
+</div>"""
+
+    def _build_consumption_outlier_summary(self, consumption_outliers: Dict) -> str:
+        """Build consumption outlier summary section."""
+        if not consumption_outliers:
+            return ""
+
+        pct_zero_variance = consumption_outliers.get("pct_zero_variance", 0.0)
+        pct_range_outliers = consumption_outliers.get("pct_range_outliers", 0.0)
+        mean_zscore_outlier_pct = consumption_outliers.get("mean_zscore_outlier_pct", 0.0)
+
+        return f"""
+<h3>Consumption Outlier Patterns</h3>
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="value">{pct_zero_variance:.2f}%</div>
+        <div class="label">Zero Variance Rows</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{pct_range_outliers:.2f}%</div>
+        <div class="label">Extreme Range Outliers</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{mean_zscore_outlier_pct:.2f}%</div>
+        <div class="label">Global Mean Outliers</div>
+    </div>
+</div>
+<p style="font-size:13px;color:#666;margin-top:10px;">
+    <strong>Zero Variance:</strong> Rows with suspiciously constant consumption across all periods.<br>
+    <strong>Extreme Range:</strong> Rows with consumption range-to-mean ratio > 5.0.<br>
+    <strong>Global Mean:</strong> Rows with mean consumption z-score > 3.0.
+</p>"""
+
+    def _build_outlier_alerts(self, numeric: List[Dict], consumption_outliers: Dict) -> str:
+        """Build alert list for high outlier percentages."""
+        alerts = []
+
+        # Check numeric columns for high outlier percentages
+        for col_data in numeric:
+            outlier_methods = col_data.get("outlier_methods", {})
+            if not outlier_methods:
+                # Legacy IQR method
+                outlier_pct = col_data.get("outlier_pct", 0.0)
+                if outlier_pct > 10.0:
+                    alerts.append(
+                        f"Column <strong>{col_data.get('col', '')}</strong> has "
+                        f"{outlier_pct:.2f}% outliers (IQR method)."
+                    )
+            else:
+                for method_name, method_result in outlier_methods.items():
+                    if method_result.get("has_alert", False):
+                        alerts.append(
+                            f"Column <strong>{col_data.get('col', '')}</strong> has "
+                            f"{method_result.get('outlier_pct', 0.0):.2f}% outliers "
+                            f"({method_name} method)."
+                        )
+
+        # Check consumption outliers
+        if consumption_outliers:
+            pct_zero_variance = consumption_outliers.get("pct_zero_variance", 0.0)
+            pct_range_outliers = consumption_outliers.get("pct_range_outliers", 0.0)
+            mean_zscore_outlier_pct = consumption_outliers.get("mean_zscore_outlier_pct", 0.0)
+
+            if pct_zero_variance > 10.0:
+                alerts.append(
+                    f"High percentage ({pct_zero_variance:.2f}%) of rows with zero "
+                    f"variance consumption (potential meter tampering)."
+                )
+            if pct_range_outliers > 10.0:
+                alerts.append(
+                    f"High percentage ({pct_range_outliers:.2f}%) of rows with extreme "
+                    f"consumption range outliers (potential data quality issues)."
+                )
+            if mean_zscore_outlier_pct > 10.0:
+                alerts.append(
+                    f"High percentage ({mean_zscore_outlier_pct:.2f}%) of global consumption "
+                    f"outliers (potential fraud)."
+                )
+
+        if not alerts:
+            return ""
+
+        alert_rows = "\n".join(f"<li>{alert}</li>" for alert in alerts)
+        return f"""
+<div style="background:#fff3e0;border-left:4px solid #ff9800;padding:15px;margin:15px 0;border-radius:4px;">
+    <h4 style="margin:0 0 10px 0;color:#e65100;">Outlier Alerts</h4>
+    <ul style="margin:0;padding-left:20px;color:#666;font-size:13px;">
+        {alert_rows}
+    </ul>
 </div>"""

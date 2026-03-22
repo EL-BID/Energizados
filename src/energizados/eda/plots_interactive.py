@@ -1107,3 +1107,305 @@ class EDAInteractivePlots:
         except Exception as e:
             logger.warning("Error generating segment barplot: %s", e)
             return ""
+
+    # ------------------------------------------------------------------
+    # Outlier Analysis Interactive Charts
+    # ------------------------------------------------------------------
+
+    def plotly_outlier_boxplots(
+        self,
+        df: pd.DataFrame,
+        numeric_cols: List[str],
+        outlier_masks: Dict[str, pd.Series],
+        max_cols: int = 12,
+    ) -> str:
+        """
+        Interactive boxplot with hover showing exact values for each numeric column.
+
+        Args:
+            df: Input DataFrame
+            numeric_cols: List of numeric column names
+            outlier_masks: Dict of {col: pd.Series(boolean)} indicating outliers
+            max_cols: Maximum columns to display (for performance)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            # Limit columns for performance
+            display_cols = numeric_cols[:max_cols]
+            n_cols = min(3, len(display_cols))
+            n_rows = (len(display_cols) + n_cols - 1) // n_cols
+
+            fig = make_subplots(
+                rows=n_rows,
+                cols=n_cols,
+                subplot_titles=display_cols,
+                vertical_spacing=0.15,
+                horizontal_spacing=0.1,
+            )
+
+            for i, col in enumerate(display_cols):
+                if col not in df.columns:
+                    continue
+
+                row = i // n_cols + 1
+                col_pos = i % n_cols + 1
+
+                outlier_mask = outlier_masks.get(col, pd.Series(False, index=df.index))
+                clean_data = df[col].dropna()
+
+                # Split into normal and outliers
+                normal_mask = ~outlier_mask.reindex(clean_data.index).fillna(False)
+                normal_values = clean_data[normal_mask].values
+                outlier_values = clean_data[~normal_mask].values
+
+                # Add normal boxplot
+                if len(normal_values) > 0:
+                    fig.add_trace(
+                        go.Box(
+                            y=normal_values,
+                            name=f"{col} - Normal",
+                            marker_color="#2196F3",
+                            boxmean="sd",
+                            showlegend=False,
+                        ),
+                        row=row,
+                        col=col_pos,
+                    )
+
+                # Add outlier boxplot
+                if len(outlier_values) > 0:
+                    fig.add_trace(
+                        go.Box(
+                            y=outlier_values,
+                            name=f"{col} - Outliers",
+                            marker_color="#F44336",
+                            boxmean="sd",
+                            showlegend=False,
+                        ),
+                        row=row,
+                        col=col_pos,
+                    )
+
+                    # Update title with outlier percentage
+                    outlier_pct = (
+                        (outlier_mask.sum() / len(outlier_mask) * 100)
+                        if len(outlier_mask) > 0
+                        else 0
+                    )
+                    fig.layout.annotations[i].text = f"{col}<br>Outliers: {outlier_pct:.1f}%"
+
+            fig.update_layout(
+                title="Outlier Boxplots (Interactive)",
+                template=self.template,
+                height=max(400, n_rows * 300),
+                showlegend=False,
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping interactive outlier boxplots")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating interactive outlier boxplots: %s", e)
+            return ""
+
+    def plotly_outlier_heatmap(
+        self,
+        df: pd.DataFrame,
+        numeric_cols: List[str],
+        outlier_masks: Dict[str, pd.Series],
+        max_rows: int = 100,
+    ) -> str:
+        """
+        Interactive heatmap showing outliers across numeric columns (zoomable).
+
+        Args:
+            df: Input DataFrame
+            numeric_cols: List of numeric column names
+            outlier_masks: Dict of {col: pd.Series(boolean)} indicating outliers
+            max_rows: Maximum rows to display (for performance)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            # Limit to top N rows for performance
+            display_rows = min(max_rows, len(df))
+            sample_df = df.head(display_rows)
+
+            # Create binary matrix: 1 = outlier, 0 = normal
+            outlier_matrix = []
+            for _, row in sample_df.iterrows():
+                row_values = []
+                for col in numeric_cols:
+                    if col in outlier_masks and row.name in outlier_masks[col].index:
+                        row_values.append(1 if outlier_masks[col].loc[row.name] else 0)
+                    else:
+                        row_values.append(0)
+                outlier_matrix.append(row_values)
+
+            fig = go.Figure(
+                data=go.Heatmap(
+                    z=outlier_matrix,
+                    x=numeric_cols,
+                    y=[f"Row {i}" for i in range(display_rows)],
+                    colorscale=[[0, "#2196F3"], [1, "#F44336"]],  # Normal (blue) to Outlier (red)
+                    zmin=0,
+                    zmax=1,
+                    colorbar={
+                        "title": "Outlier",
+                        "tickvals": [0, 1],
+                        "ticktext": ["Normal", "Outlier"],
+                    },
+                    hovertemplate="<b>%{y}</b><br>Column: <b>%{x}</b><br>Status: %{z}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=f"Outlier Heatmap (Top {display_rows} rows) - Zoom/Pan to explore",
+                template=self.template,
+                height=max(400, min(display_rows * 5, 800)),
+                xaxis={"tickangle": -45},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping interactive outlier heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating interactive outlier heatmap: %s", e)
+            return ""
+
+    def plotly_consumption_anomalies(
+        self,
+        df: pd.DataFrame,
+        consumption_cols: List[str],
+        outlier_mask: Optional[pd.Series] = None,
+        target_col: Optional[str] = None,
+        sample_n: int = 500,
+    ) -> str:
+        """
+        Interactive scatter plots of consumption anomalies with linked brushing.
+
+        Args:
+            df: Input DataFrame
+            consumption_cols: List of consumption column names (ordered)
+            outlier_mask: Boolean series indicating outlier rows (optional)
+            target_col: Binary target column for coloring (optional)
+            sample_n: Number of rows to sample (for performance)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            # Sample if too many rows
+            if len(df) > sample_n:
+                sample_df = df.sample(sample_n, random_state=42)
+            else:
+                sample_df = df.copy()
+
+            # Determine color column
+            if target_col and target_col in sample_df.columns:
+                color_col = target_col
+                color_map = {0: "Normal", 1: "Fraud"}
+            elif outlier_mask is not None:
+                color_col = "outlier_status"
+                sample_df = sample_df.copy()
+                sample_df["outlier_status"] = (
+                    outlier_mask.reindex(sample_df.index)
+                    .fillna(False)
+                    .map({False: "Normal", True: "Outlier"})
+                )
+                color_map = None
+            else:
+                color_col = None
+                color_map = None
+                _ = color_map  # noqa: F841
+
+            # Create subplots - one per period
+            display_cols = consumption_cols[:6]  # Limit to 6 periods for readability
+            n_rows = 2
+            n_cols = 3
+
+            fig = make_subplots(
+                rows=n_rows,
+                cols=n_cols,
+                subplot_titles=display_cols,
+                vertical_spacing=0.12,
+                horizontal_spacing=0.1,
+            )
+
+            for i, col in enumerate(display_cols):
+                if col not in sample_df.columns:
+                    continue
+
+                row = i // n_cols + 1
+                col_pos = i % n_cols + 1
+
+                if color_col and color_col in sample_df.columns:
+                    # Separate traces for legend
+                    for val in sample_df[color_col].unique():
+                        subset = sample_df[sample_df[color_col] == val]
+                        color = (
+                            "#F44336"
+                            if val == 1 or val == "Fraud" or val == "Outlier"
+                            else "#2196F3"
+                        )
+                        fig.add_trace(
+                            go.Scatter(
+                                x=range(len(subset)),
+                                y=subset[col],
+                                mode="markers",
+                                name=f"{val}" if i == 0 else None,
+                                marker={"color": color, "opacity": 0.6, "size": 6},
+                                showlegend=(i == 0),
+                                hovertemplate=f"Row: %{{x}}<br>Consumption: %{{y:.2f}}<br>Status: {val}<extra></extra>",
+                            ),
+                            row=row,
+                            col=col_pos,
+                        )
+                else:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=range(len(sample_df)),
+                            y=sample_df[col],
+                            mode="markers",
+                            name="Consumption" if i == 0 else None,
+                            marker={"color": "#2196F3", "opacity": 0.6, "size": 6},
+                            showlegend=(i == 0),
+                            hovertemplate="Row: %{x}<br>Consumption: %{y:.2f}<extra></extra>",
+                        ),
+                        row=row,
+                        col=col_pos,
+                    )
+
+            fig.update_layout(
+                title="Consumption Anomalies by Period (Interactive)",
+                template=self.template,
+                height=max(400, n_rows * 350),
+                hovermode="closest",
+            )
+
+            fig.update_xaxes(title_text="Row Index")
+            fig.update_yaxes(title_text="Consumption")
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping interactive consumption anomalies")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating interactive consumption anomalies: %s", e)
+            return ""

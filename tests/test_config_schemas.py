@@ -172,3 +172,104 @@ class TestConfigSchemas:
 
             errors = validator.validate_config(config)
             assert len(errors) == 0, f"SHAP plot types {plot_types} should be valid, got: {errors}"
+
+    def test_eda_outliers_section_valid(self):
+        """Verify that EDA outliers section configuration is valid."""
+        validator = ConfigValidator()
+
+        config = {
+            "eda": {
+                "enabled": True,
+                "sections": {
+                    "outliers": {
+                        "enabled": True,
+                        "methods": ["iqr", "zscore"],
+                        "thresholds": {
+                            "iqr": 1.5,
+                            "zscore": 3.0,
+                            "modified_zscore": 3.5,
+                        },
+                        "consumption_patterns": True,
+                        "alert_threshold": 10.0,
+                        "detailed_charts": True,
+                    }
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"EDA outliers config should be valid, got: {errors}"
+
+    def test_eda_outliers_all_methods_valid(self):
+        """Verify all supported outlier methods are valid in EDA schema."""
+        validator = ConfigValidator()
+
+        valid_combinations = [
+            ["iqr"],
+            ["zscore"],
+            ["modified_zscore"],
+            ["iqr", "zscore"],
+            ["iqr", "zscore", "modified_zscore"],
+        ]
+
+        for methods in valid_combinations:
+            config = {
+                "eda": {
+                    "enabled": True,
+                    "sections": {
+                        "outliers": {
+                            "enabled": True,
+                            "methods": methods,
+                        }
+                    },
+                }
+            }
+
+            errors = validator.validate_config(config)
+            assert (
+                len(errors) == 0
+            ), f"EDA outliers methods {methods} should be valid, got: {errors}"
+
+    def test_eda_outliers_invalid_method_rejected(self):
+        """Verify that invalid outlier methods are rejected by EDA schema."""
+        validator = ConfigValidator()
+
+        config = {
+            "eda": {
+                "enabled": True,
+                "sections": {
+                    "outliers": {
+                        "enabled": True,
+                        "methods": ["invalid_method"],
+                    }
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for invalid outlier method"
+        assert any("outlier" in str(err).lower() or "method" in str(err).lower() for err in errors)
+
+    def test_eda_outliers_thresholds_valid(self):
+        """Verify that outlier threshold values are validated correctly."""
+        validator = ConfigValidator()
+
+        config = {
+            "eda": {
+                "enabled": True,
+                "sections": {
+                    "outliers": {
+                        "enabled": True,
+                        "thresholds": {
+                            "iqr": 1.5,
+                            "zscore": 3.0,
+                            "modified_zscore": 3.5,
+                        },
+                        "alert_threshold": 10.0,
+                    }
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"EDA outliers thresholds should be valid, got: {errors}"

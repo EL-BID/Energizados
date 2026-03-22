@@ -8,8 +8,10 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
+from energizados.eda._outlier_detector import OutlierDetector
 from energizados.eda.column_explorer import ColumnExplorer
 from energizados.eda.feature_importance import FeatureImportanceAnalyzer
 from energizados.eda.geo_analyzer import GeospatialAnalyzer
@@ -199,6 +201,13 @@ class DatasetExplorer:
             logger.info("Phase 2: Column analysis...")
             columns_results = self._run_column_explorer(df, col_types)
 
+        # --- Phase 2.5: Outlier Analysis (optional) ---
+        outliers_results = {}
+        outliers_cfg = self.sections.get("outliers", {})
+        if outliers_cfg.get("enabled", True):
+            logger.info("Phase 2.5: Outlier analysis...")
+            outliers_results = self._run_outlier_analysis(df, col_types)
+
         # --- Phase 3: Target explorer ---
         target_results = {}
         target_cfg = self.sections.get("target", {})
@@ -264,6 +273,7 @@ class DatasetExplorer:
             "loading": loading_results,
             "global_stats": global_stats,
             "columns": columns_results,
+            "outliers": outliers_results,
             "target": target_results,
             "importance": importance_results,
             "geo": geo_results,
@@ -446,6 +456,166 @@ class DatasetExplorer:
         )
         self._all_alerts.extend(explorer.get_alerts())
         return results
+
+    def _run_outlier_analysis(self, df: pd.DataFrame, col_types: Dict) -> Dict:
+        """Phase 2.5: Run outlier analysis."""
+        outliers_cfg = self.sections.get("outliers", {})
+        methods = outliers_cfg.get("methods", ["iqr", "zscore"])
+        thresholds_cfg = outliers_cfg.get("thresholds", {})
+        consumption_patterns = outliers_cfg.get("consumption_patterns", True)
+        alert_threshold = outliers_cfg.get("alert_threshold", 10.0)
+        outliers_cfg.get("detailed_charts", True)
+
+        # Initialize OutlierDetector with config
+        detector = OutlierDetector(
+            methods=methods,
+            iqr_multiplier=thresholds_cfg.get("iqr", 1.5),
+            zscore_threshold=thresholds_cfg.get("zscore", 3.0),
+            modified_zscore_threshold=thresholds_cfg.get("modified_zscore", 3.5),
+            alert_threshold_pct=alert_threshold,
+        )
+
+        results = {
+            "numeric_outliers": {},
+            "consumption_outliers": {},
+            "alerts": [],
+        }
+
+        # Run outlier detection on all numeric columns
+        numeric_cols = col_types.get("numeric", [])
+        for col in numeric_cols:
+            if col not in df.columns or col == self.target_column:
+                continue
+            try:
+                col_results = detector.detect(df[col])
+                results["numeric_outliers"][col] = col_results
+
+                # Generate alerts for high outlier percentages
+                for method_name, method_result in col_results.items():
+                    if method_result.get("has_alert", False):
+                        alert_msg = (
+                            f"Column '{col}' has {method_result['outlier_pct']:.2f}% outliers "
+                            f"(method: {method_name}, threshold: {alert_threshold}%)"
+                        )
+                        self._add_alert(
+                            code="HIGH_OUTLIER_PCT",
+                            message=alert_msg,
+                            severity="WARNING",
+                            details={
+                                "col": col,
+                                "method": method_name,
+                                "outlier_pct": method_result["outlier_pct"],
+                            },
+                        )
+                        results["alerts"].append(alert_msg)
+            except Exception as e:
+                logger.warning("Error detecting outliers in column '%s': %s", col, e)
+
+        # Run consumption outlier patterns detection
+        if consumption_patterns:
+            consumption_cols = col_types.get("consumption", [])
+            if consumption_cols:
+                try:
+                    consumption_results = self._analyze_consumption_outliers(
+                        df, consumption_cols, alert_threshold
+                    )
+                    results["consumption_outliers"] = consumption_results
+
+                    # Generate alerts for consumption anomalies
+                    if consumption_results.get("pct_zero_variance", 0) > alert_threshold:
+                        alert_msg = (
+                            f"{consumption_results['pct_zero_variance']:.2f}% of rows have zero variance "
+                            f"consumption (suspiciously constant, potential meter tampering)"
+                        )
+                        self._add_alert(
+                            code="HIGH_ZERO_VARIANCE_CONSUMPTION",
+                            message=alert_msg,
+                            severity="WARNING",
+                            details={"pct": consumption_results["pct_zero_variance"]},
+                        )
+                        results["alerts"].append(alert_msg)
+
+                    if consumption_results.get("pct_range_outliers", 0) > alert_threshold:
+                        alert_msg = (
+                            f"{consumption_results['pct_range_outliers']:.2f}% of rows have extreme "
+                            f"consumption range swings (potential data quality issues)"
+                        )
+                        self._add_alert(
+                            code="HIGH_RANGE_OUTLIERS_CONSUMPTION",
+                            message=alert_msg,
+                            severity="WARNING",
+                            details={"pct": consumption_results["pct_range_outliers"]},
+                        )
+                        results["alerts"].append(alert_msg)
+
+                    if consumption_results.get("mean_zscore_outlier_pct", 0) > alert_threshold:
+                        alert_msg = (
+                            f"{consumption_results['mean_zscore_outlier_pct']:.2f}% of rows have "
+                            f"outlier mean consumption (potential fraud)"
+                        )
+                        self._add_alert(
+                            code="HIGH_MEAN_ZSCORE_OUTLIERS_CONSUMPTION",
+                            message=alert_msg,
+                            severity="WARNING",
+                            details={"pct": consumption_results["mean_zscore_outlier_pct"]},
+                        )
+                        results["alerts"].append(alert_msg)
+
+                except Exception as e:
+                    logger.warning("Error analyzing consumption outliers: %s", e)
+
+        return results
+
+    def _analyze_consumption_outliers(
+        self, df: pd.DataFrame, consumption_cols: List, alert_threshold: float
+    ) -> Dict:
+        """
+        Detect consumption-specific anomaly patterns.
+
+        Detects:
+        - Zero variance: rows with std=0 across all periods
+        - Range outliers: rows with extreme range-to-mean ratio
+        - Mean z-score: rows with mean consumption far from global average
+        """
+        import re
+
+        def period_num(col):
+            match = re.match(r"^(\d+)", col)
+            return int(match.group(1)) if match else 0
+
+        # Sort columns by period number descending (12_anterior, 11_anterior, ..., 1_anterior)
+        periods_sorted = sorted(consumption_cols, key=period_num, reverse=True)
+        cons_df = df[periods_sorted].copy()
+        total = len(df)
+
+        # Z-score of row-wise mean (global outlier across all periods)
+        row_means = cons_df.mean(axis=1)
+        global_mean = row_means.mean()
+        global_std = row_means.std()
+        if global_std > 0:
+            mean_zscore = (row_means - global_mean) / global_std
+        else:
+            mean_zscore = pd.Series(0, index=row_means.index)
+        mean_zscore_outliers = (mean_zscore.abs() > 3.0).sum()
+
+        # Variance-based: rows with near-zero variance (suspiciously constant)
+        row_stds = cons_df.std(axis=1)
+        zero_variance_mask = row_stds == 0
+        pct_zero_variance = round(float(zero_variance_mask.sum()) / total * 100, 4)
+
+        # Extreme range: (max - min) / mean — high ratio = suspicious consumption
+        row_ranges = cons_df.max(axis=1) - cons_df.min(axis=1)
+        row_means_safe = row_means.replace(0, np.nan)
+        range_to_mean = row_ranges / row_means_safe
+        range_outliers = (range_to_mean > 5.0).sum()  # High variability
+        pct_range_outliers = round(float(range_outliers) / total * 100, 4)
+
+        return {
+            "pct_zero_variance": pct_zero_variance,
+            "pct_range_outliers": pct_range_outliers,
+            "mean_zscore_outlier_count": int(mean_zscore_outliers),
+            "mean_zscore_outlier_pct": round(float(mean_zscore_outliers) / total * 100, 4),
+        }
 
     def _run_target_explorer(self, df: pd.DataFrame) -> Dict:
         """Phase 3: Run target explorer."""

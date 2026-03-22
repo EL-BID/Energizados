@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- Enhanced outlier analysis in EDA module with multi-method detection (IQR, Z-score, Modified Z-score)
+- `OutlierDetector` class in `energizados.eda._outlier_detector`
+- New outlier visualization plots: boxplots, heatmaps, consumption anomaly scatter
+- Consumption outlier patterns: zero variance, range outliers, mean Z-score
+- Configurable outlier thresholds in `config/eda.yaml`
+- Notebook template: `notebooks/template_outlier_analysis.ipynb`
+
 ### Breaking Changes
 
 #### Config File Renaming

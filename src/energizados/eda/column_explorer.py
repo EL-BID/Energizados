@@ -6,11 +6,13 @@ Phase 2: Per-column analysis for numeric, categorical, temporal and consumption 
 
 import logging
 import math
+import re
 from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from energizados.eda._outlier_detector import OutlierDetector
 from energizados.eda.base import BaseExplorer
 from energizados.eda.utils import compute_iv_woe, cramers_v, ks_statistic
 
@@ -63,6 +65,8 @@ class ColumnExplorer(BaseExplorer):
         cardinality_high = cfg.get("cardinality_high", 100)
         cardinality_low = cfg.get("cardinality_low", 10)
         correlation_threshold = cfg.get("correlation_threshold", 0.95)
+        outlier_methods = cfg.get("outlier_methods", ["iqr", "zscore"])
+        outlier_threshold_pct = cfg.get("outlier_threshold_pct", 10.0)
 
         col_types = col_types or {}
 
@@ -83,8 +87,29 @@ class ColumnExplorer(BaseExplorer):
             if col not in df.columns or col == target_col:
                 continue
             try:
-                analysis = self._analyze_numeric(df, col, target_col)
+                analysis = self._analyze_numeric(
+                    df, col, target_col, outlier_methods=outlier_methods
+                )
                 results["numeric"].append(analysis)
+
+                # Alert for high outlier percentage
+                if outlier_methods and "outlier_methods" in analysis:
+                    for method_name, method_result in analysis["outlier_methods"].items():
+                        if method_result.get("has_alert", False):
+                            self._add_alert(
+                                code="HIGH_OUTLIER_PCT",
+                                message=(
+                                    f"Numeric column '{col}' has {method_result['outlier_pct']:.1f}% "
+                                    f"outliers detected by {method_name} method "
+                                    f"(threshold: {outlier_threshold_pct}%)."
+                                ),
+                                severity="WARNING",
+                                details={
+                                    "col": col,
+                                    "method": method_name,
+                                    "outlier_pct": method_result["outlier_pct"],
+                                },
+                            )
 
                 if analysis["unique_count"] < cardinality_low and analysis["unique_count"] > 1:
                     self._add_alert(
@@ -144,6 +169,51 @@ class ColumnExplorer(BaseExplorer):
                         severity="WARNING",
                         details={"pct_negative": neg_pct},
                     )
+
+                # Consumption outlier analysis
+                consumption_outliers = self._analyze_consumption_outliers(
+                    df, consumption_cols, target_col
+                )
+                results["consumption_outliers"] = consumption_outliers
+
+                # Alert for high zero variance percentage
+                zero_var_pct = consumption_outliers.get("pct_zero_variance", 0)
+                if zero_var_pct > outlier_threshold_pct:
+                    self._add_alert(
+                        code="HIGH_ZERO_VARIANCE_CONSUMPTION",
+                        message=(
+                            f"Zero variance consumption detected in {zero_var_pct:.1f}% of rows. "
+                            "These rows have suspiciously constant consumption patterns."
+                        ),
+                        severity="WARNING",
+                        details={"pct_zero_variance": zero_var_pct},
+                    )
+
+                # Alert for high range outlier percentage
+                range_outlier_pct = consumption_outliers.get("pct_range_outliers", 0)
+                if range_outlier_pct > outlier_threshold_pct:
+                    self._add_alert(
+                        code="HIGH_RANGE_OUTLIERS_CONSUMPTION",
+                        message=(
+                            f"High variability consumption detected in {range_outlier_pct:.1f}% of rows. "
+                            "These rows show extreme consumption swings between periods."
+                        ),
+                        severity="WARNING",
+                        details={"pct_range_outliers": range_outlier_pct},
+                    )
+
+                # Alert for high mean z-score outlier percentage
+                mean_zscore_outlier_pct = consumption_outliers.get("mean_zscore_outlier_pct", 0)
+                if mean_zscore_outlier_pct > outlier_threshold_pct:
+                    self._add_alert(
+                        code="HIGH_MEAN_ZSCORE_OUTLIERS_CONSUMPTION",
+                        message=(
+                            f"Global consumption outliers detected in {mean_zscore_outlier_pct:.1f}% of rows. "
+                            "These rows have mean consumption values far from the global average."
+                        ),
+                        severity="WARNING",
+                        details={"mean_zscore_outlier_pct": mean_zscore_outlier_pct},
+                    )
             except Exception as e:
                 logger.warning("Error analyzing consumption columns: %s", e)
 
@@ -182,8 +252,25 @@ class ColumnExplorer(BaseExplorer):
         """Return list of alerts generated during analysis."""
         return self.alerts
 
-    def _analyze_numeric(self, df: pd.DataFrame, col: str, target_col: Optional[str]) -> Dict:
-        """Compute statistics for a numeric column."""
+    def _analyze_numeric(
+        self,
+        df: pd.DataFrame,
+        col: str,
+        target_col: Optional[str],
+        outlier_methods: Optional[List[str]] = None,
+    ) -> Dict:
+        """Compute statistics for a numeric column.
+
+        Args:
+            df: Input DataFrame
+            col: Column name to analyze
+            target_col: Name of binary target column (optional)
+            outlier_methods: List of outlier detection methods to use. Options: "iqr", "zscore", "modified_zscore".
+                             If None or empty, skip multi-method outlier detection.
+
+        Returns:
+            dict with column statistics and outlier detection results
+        """
         series = df[col].dropna()
         total = len(df)
         null_count = int(df[col].isna().sum())
@@ -263,6 +350,15 @@ class ColumnExplorer(BaseExplorer):
             "negative_pct": round(negative_count / count * 100, 4),
             "cv": round(cv, 6) if cv is not None else None,
         }
+
+        # Multi-method outlier detection (optional)
+        if outlier_methods and len(outlier_methods) > 0:
+            try:
+                detector = OutlierDetector(methods=outlier_methods)
+                outlier_results = detector.detect(df[col])
+                analysis["outlier_methods"] = outlier_results
+            except Exception as e:
+                logger.debug("Multi-method outlier detection failed for '%s': %s", col, e)
 
         # Predictive power metrics (only if target_col provided)
         if target_col and target_col in df.columns:
@@ -531,4 +627,79 @@ class ColumnExplorer(BaseExplorer):
             "pct_constant": pct_constant,
             "pct_abrupt_drop": pct_abrupt_drop,
             "trend_slope": trend_slope,
+        }
+
+    def _analyze_consumption_outliers(
+        self, df: pd.DataFrame, consumption_cols: List[str], target_col: Optional[str]
+    ) -> Dict:
+        """
+        Detect consumption-specific anomaly patterns.
+
+        This method analyzes consumption time series for outlier patterns that indicate
+        potential fraud or data quality issues:
+        - Zero variance: Rows with suspiciously constant consumption across all periods
+        - Range outliers: Rows with extreme consumption swings between periods
+        - Mean z-score: Rows with mean consumption far from the global average
+
+        Args:
+            df: Input DataFrame
+            consumption_cols: List of consumption column names (e.g., ["12_anterior", "11_anterior", ...])
+            target_col: Name of binary target column (optional, for future use)
+
+        Returns:
+            dict with consumption outlier metrics:
+                - pct_zero_variance: Percentage of rows with zero variance across all periods
+                - pct_range_outliers: Percentage of rows with extreme range-to-mean ratio
+                - mean_zscore_outlier_count: Number of rows with mean z-score > 3.0
+                - mean_zscore_outlier_pct: Percentage of rows with mean z-score > 3.0
+        """
+
+        # Sort columns from oldest (highest N) to newest (lowest N)
+        def period_num(col):
+            match = re.match(r"^(\d+)", col)
+            return int(match.group(1)) if match else 0
+
+        periods_sorted = sorted(consumption_cols, key=period_num, reverse=True)
+        cons_df = df[periods_sorted].copy()
+        total = len(df)
+
+        # Z-score of row-wise mean (global outlier across all periods)
+        row_means = cons_df.mean(axis=1)
+        global_mean = row_means.mean()
+        global_std = row_means.std()
+
+        if global_std > 0:
+            mean_zscore = (row_means - global_mean) / global_std
+        else:
+            # All rows have same mean, no outliers
+            mean_zscore = pd.Series(0.0, index=row_means.index)
+            logger.debug("Global std of row means is 0, treating all rows as non-outliers")
+
+        mean_zscore_outlier_mask = mean_zscore.abs() > 3.0
+        mean_zscore_outlier_count = int(mean_zscore_outlier_mask.sum())
+
+        # Variance-based: rows with near-zero variance (suspiciously constant)
+        row_stds = cons_df.std(axis=1)
+        zero_variance_mask = row_stds == 0
+        pct_zero_variance = (
+            round(float(zero_variance_mask.sum()) / total * 100, 4) if total > 0 else 0.0
+        )
+
+        # Extreme range: (max - min) / mean — high ratio = suspicious consumption
+        row_ranges = cons_df.max(axis=1) - cons_df.min(axis=1)
+        row_means_safe = row_means.replace(0, np.nan)
+        range_to_mean = row_ranges / row_means_safe
+        range_outlier_mask = range_to_mean > 5.0  # Threshold: range > 5x mean
+        range_outlier_count = int(range_outlier_mask.sum())
+        pct_range_outliers = (
+            round(float(range_outlier_count) / total * 100, 4) if total > 0 else 0.0
+        )
+
+        return {
+            "pct_zero_variance": pct_zero_variance,
+            "pct_range_outliers": pct_range_outliers,
+            "mean_zscore_outlier_count": mean_zscore_outlier_count,
+            "mean_zscore_outlier_pct": (
+                round(float(mean_zscore_outlier_count) / total * 100, 4) if total > 0 else 0.0
+            ),
         }

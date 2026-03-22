@@ -1,0 +1,101 @@
+# EDA Configuration for Energizados Framework
+# This file configures the Exploratory Data Analysis (EDA) module
+
+enabled: true
+
+# Column detection configuration
+column_detection:
+  id_col: null
+  date_col: null
+  lat_col: null
+  lon_col: null
+  zone_col: null
+  periods_suffix: "_anterior"
+
+# Data sources configuration
+data_sources:
+  primary:
+    path: "data/processed/sample_dataset.parquet"
+    target_col: "target"
+  secondary: {}
+
+# Sections configuration
+sections:
+  # Loading validation (Phase 0)
+  loading:
+    enabled: true
+
+  # Global statistics (Phase 1)
+  global_stats:
+    enabled: true
+
+  # Column analysis (Phase 2)
+  columns:
+    enabled: true
+
+  # Outlier analysis (Phase 2.5)
+  outliers:
+    enabled: true
+    methods: [iqr, zscore]
+    thresholds:
+      iqr: 1.5
+      zscore: 3.0
+      modified_zscore: 3.5
+    consumption_patterns: true
+    alert_threshold: 10
+    detailed_charts: true
+
+  # Target variable analysis (Phase 3)
+  target:
+    enabled: true
+
+  # Geospatial analysis (Phase 4)
+  geospatial:
+    enabled: false
+    invalid_coord_threshold: 0.2
+    country_bounds: null
+    n_clusters: 10
+
+  # Feature importance analysis (Phase 5)
+  feature_importance:
+    enabled: true
+    methods: [iv, ks_chi2, cramers_v, correlation]
+
+  # Segmentation analysis (Phase 6)
+  segmentation:
+    enabled: false
+    min_segment_size: 100
+    segment_drift_threshold: 3.0
+    segment_cols: []
+
+  # Related columns analysis (Phase 7)
+  related_columns:
+    enabled: false
+    sparse_combination_threshold: 10
+    dominant_path_threshold: 0.8
+    target_disparity_zscore: 2.0
+    hierarchies: []
+
+  # Numeric column detailed charts
+  numeric:
+    detailed_charts: false
+
+  # Categorical column detailed charts
+  categorical:
+    detailed_charts: false
+
+# Output configuration
+output:
+  output_dir: "output/eda/"
+  interactive: true
+  static: true
+
+# Thresholds configuration
+thresholds:
+  missing_threshold: 0.5
+  correlation_threshold: 0.95
+  cardinality_high: 100
+  cardinality_low: 10
+  class_imbalance_ratio: 10
+  iv_threshold_weak: 0.02
+  iv_threshold_leakage: 0.8
