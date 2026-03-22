@@ -1698,9 +1698,9 @@ class EDAInteractivePlots:
                 _ = color_map  # noqa: F841
 
             # Create subplots - one per period
-            display_cols = consumption_cols[:6]  # Limit to 6 periods for readability
-            n_rows = 2
+            display_cols = consumption_cols
             n_cols = 3
+            n_rows = (len(display_cols) + n_cols - 1) // n_cols
 
             fig = make_subplots(
                 rows=n_rows,

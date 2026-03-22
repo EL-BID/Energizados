@@ -344,8 +344,13 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
         raise click.Abort()
     except Exception as e:
         print_error(f"Error executing pipeline: {e}")
-        print_info("Tip: Run 'energizados validate <config>' to check")
-        print_info("      your configuration before running")
+        if verbose:
+            from energizados.cli.ui import console
+
+            console.print_exception(show_locals=verbose > 1)
+        else:
+            print_info("Tip: Run 'energizados validate <config>' to check")
+            print_info("      your configuration before running")
         raise click.Abort()
 
 
