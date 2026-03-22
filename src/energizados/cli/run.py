@@ -124,6 +124,11 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         "ETLStep": "etl",
     }
 
+    _LABEL_WIDTH = max(len(v) for v in STEP_NAMES.values())
+
+    def _pad(label: str) -> str:
+        return label.ljust(_LABEL_WIDTH)
+
     STEP_SECTIONS = {
         "ETLStep": "etl",
         "SplitStep": "train",
@@ -178,7 +183,7 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         else:
             label = STEP_NAMES.get(name, name)
             task_id = progress.add_task(
-                f"[yellow]▶ {label}[/]",
+                f"[yellow]▶ {_pad(label)}[/]",
                 total=max(len(step_phases[name]), 1),
             )
             step_task_ids[name] = task_id
@@ -190,12 +195,14 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         try:
             if step_name == "ETLStep" and total_phases is not None:
                 if pct == 0:
-                    task_id = progress.add_task(f"[yellow]▶ {phase}[/]", total=1)
+                    task_id = progress.add_task(f"[yellow]▶ {_pad(phase)}[/]", total=1)
                     etl_sub_tasks[phase] = task_id
                 elif pct == 100:
                     task_id = etl_sub_tasks.get(phase)
                     if task_id is not None:
-                        progress.update(task_id, completed=1, description=f"[green]✓ {phase}[/]")
+                        progress.update(
+                            task_id, completed=1, description=f"[green]✓ {_pad(phase)}[/]"
+                        )
                         progress.stop_task(task_id)
             else:
                 phases = step_phases.get(step_name, [])
@@ -206,7 +213,7 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
                         progress.update(
                             task_id,
                             completed=phase_idx + (pct / 100),
-                            description=f"[yellow]▶ {STEP_NAMES.get(step_name, step_name)}[/] — {phase}",
+                            description=f"[yellow]▶ {_pad(STEP_NAMES.get(step_name, step_name))}[/] — {phase}",
                         )
         except Exception:  # nosec
             pass
@@ -222,7 +229,7 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
                 progress.update(
                     task_id,
                     completed=max(len(phases), 1),
-                    description=f"[green]✓ {STEP_NAMES.get(name, name)}[/]",
+                    description=f"[green]✓ {_pad(STEP_NAMES.get(name, name))}[/]",
                 )
                 progress.stop_task(task_id)
             except Exception:  # nosec
@@ -240,7 +247,9 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         if progress is not None:
             task_id = step_task_ids.get(name)
             if task_id is not None:
-                progress.update(task_id, description=f"[red]✗ {STEP_NAMES.get(name, name)}[/]")
+                progress.update(
+                    task_id, description=f"[red]✗ {_pad(STEP_NAMES.get(name, name))}[/]"
+                )
 
     pipeline.on_step_start = on_step_start
     pipeline.on_step_complete = on_step_complete

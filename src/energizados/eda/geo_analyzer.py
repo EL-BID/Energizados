@@ -182,13 +182,19 @@ class GeospatialAnalyzer(BaseExplorer):
 
         # --- Clustering analysis (only if we have valid coordinates) ---
         if has_lat_lon and coord_quality.get("valid_coords_count", 0) > 10:
-            clustering = self._perform_clustering(df, lat_col, lon_col)
+            clustering = self._perform_clustering(df, lat_col, lon_col, target_col=target_col)
             results["clustering"] = clustering
 
         self.results = results
         return results
 
-    def _perform_clustering(self, df: pd.DataFrame, lat_col: str, lon_col: str) -> Dict:
+    def _perform_clustering(
+        self,
+        df: pd.DataFrame,
+        lat_col: str,
+        lon_col: str,
+        target_col: Optional[str] = None,
+    ) -> Dict:
         """
         Perform K-Means clustering on coordinates.
 
@@ -196,9 +202,12 @@ class GeospatialAnalyzer(BaseExplorer):
             df: Input DataFrame
             lat_col: Latitude column
             lon_col: Longitude column
+            target_col: Binary target column — used to compute fraud rate per cluster
 
         Returns:
-            dict with clustering results
+            dict with keys: method, n_clusters, inertia, cluster_stats
+            Each cluster_stat includes count, pct_total, lat/lon center, and
+            fraud_rate / fraud_count when target_col is provided.
         """
         result = {"method": "kmeans", "n_clusters": 0, "cluster_stats": []}
 
@@ -207,10 +216,14 @@ class GeospatialAnalyzer(BaseExplorer):
             from sklearn.preprocessing import StandardScaler
 
             # Prepare data — force numeric in case lat/lon are stored as strings
-            coord_df = df[[lat_col, lon_col]].copy()
+            cols = [lat_col, lon_col]
+            if target_col and target_col in df.columns:
+                cols.append(target_col)
+
+            coord_df = df[cols].copy()
             coord_df[lat_col] = pd.to_numeric(coord_df[lat_col], errors="coerce")
             coord_df[lon_col] = pd.to_numeric(coord_df[lon_col], errors="coerce")
-            coord_df = coord_df.dropna()
+            coord_df = coord_df.dropna(subset=[lat_col, lon_col])
             coord_df = coord_df[(coord_df[lat_col] != 0) & (coord_df[lon_col] != 0)]
 
             if len(coord_df) < 10:
@@ -218,38 +231,52 @@ class GeospatialAnalyzer(BaseExplorer):
 
             # Scale coordinates (important because lat/lon have different ranges)
             scaler = StandardScaler()
-            coords_scaled = scaler.fit_transform(coord_df)
+            coords_scaled = scaler.fit_transform(coord_df[[lat_col, lon_col]])
 
-            # Determine number of clusters (default: sqrt(n/2))
+            # Determine number of clusters
             n_clusters = self.config.get("n_clusters", 10)
             n_clusters = min(n_clusters, max(3, int(len(coord_df) ** 0.5)))
 
-            # Fit K-Means
             kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-            labels = kmeans.fit_predict(coords_scaled)
+            coord_df["_cluster"] = kmeans.fit_predict(coords_scaled)
 
-            # Compute cluster statistics
-            coord_df["_cluster"] = labels
-
+            total = len(coord_df)
             cluster_stats = []
             for cluster_id in sorted(coord_df["_cluster"].unique()):
                 cluster_data = coord_df[coord_df["_cluster"] == cluster_id]
-                cluster_stats.append(
-                    {
-                        "cluster_id": int(cluster_id),
-                        "count": len(cluster_data),
-                        "lat_center": round(float(cluster_data[lat_col].mean()), 6),
-                        "lon_center": round(float(cluster_data[lon_col].mean()), 6),
-                        "lat_std": round(float(cluster_data[lat_col].std()), 6),
-                        "lon_std": round(float(cluster_data[lon_col].std()), 6),
-                    }
-                )
+                stat: Dict = {
+                    "cluster_id": int(cluster_id),
+                    "count": len(cluster_data),
+                    "pct_total": round(len(cluster_data) / total * 100, 1),
+                    "lat_center": round(float(cluster_data[lat_col].mean()), 4),
+                    "lon_center": round(float(cluster_data[lon_col].mean()), 4),
+                }
+                if target_col and target_col in cluster_data.columns:
+                    target_vals = pd.to_numeric(cluster_data[target_col], errors="coerce").dropna()
+                    stat["fraud_count"] = int(target_vals.sum())
+                    stat["fraud_rate"] = (
+                        round(float(target_vals.mean()), 4) if len(target_vals) > 0 else None
+                    )
+                cluster_stats.append(stat)
+
+            # Sort by fraud_rate descending so highest-risk clusters appear first
+            if cluster_stats and "fraud_rate" in cluster_stats[0]:
+                cluster_stats.sort(key=lambda s: s.get("fraud_rate") or 0, reverse=True)
+
+            # Store per-point assignments for map visualization
+            cluster_points = (
+                coord_df[[lat_col, lon_col, "_cluster"]]
+                .rename(columns={lat_col: "lat", lon_col: "lon", "_cluster": "cluster_id"})
+                .assign(cluster_id=lambda d: d["cluster_id"].astype(int))
+                .to_dict("records")
+            )
 
             result = {
                 "method": "kmeans",
                 "n_clusters": n_clusters,
                 "inertia": round(float(kmeans.inertia_), 4),
                 "cluster_stats": cluster_stats,
+                "cluster_points": cluster_points,
             }
 
         except ImportError:

@@ -145,6 +145,23 @@ details.col-detail .detail-body { padding: 15px; }
 }
 /* ── Footer ───────────────────────────────────────────────────────────── */
 .footer { text-align: center; padding: 20px; color: var(--text-faint); font-size: 0.9em; }
+/* ── Map fullscreen wrapper ───────────────────────────────────────────── */
+.map-wrapper { position: relative; }
+.map-fullscreen-btn {
+    position: absolute; top: 12px; left: 12px; z-index: 500;
+    background: rgba(255,255,255,0.92); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 12px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--text);
+    box-shadow: 0 2px 6px var(--shadow-sm); transition: background 0.15s, color 0.15s;
+    display: flex; align-items: center; gap: 5px;
+}
+.map-fullscreen-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.map-wrapper:fullscreen,
+.map-wrapper:-webkit-full-screen {
+    background: var(--bg); padding: 0;
+}
+.map-wrapper:fullscreen .chart-container,
+.map-wrapper:-webkit-full-screen .chart-container { margin: 0; }
 """
 
 
@@ -330,6 +347,7 @@ class EDAReportGenerator:
     <style>
 {_EDA_CSS}
     </style>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
 <div class="layout">
@@ -1165,17 +1183,97 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             )
 
         clustering_info = ""
-        if clustering.get("cluster_stats"):
+        cluster_stats = clustering.get("cluster_stats", [])
+        if cluster_stats:
+            has_fraud = "fraud_rate" in cluster_stats[0]
+            header = (
+                "<tr><th>#</th><th>Clients</th><th>% Total</th>"
+                + ("<th>Fraud Rate</th><th>Fraud Count</th>" if has_fraud else "")
+                + "<th>Center (lat, lon)</th></tr>"
+            )
+            rows = ""
+            for s in cluster_stats:
+                fraud_cells = ""
+                if has_fraud:
+                    rate = s.get("fraud_rate")
+                    rate_str = f"{rate:.1%}" if rate is not None else "—"
+                    color = ""
+                    if rate is not None and rate > 0.3:
+                        color = ' style="color:#E53935;font-weight:600;"'
+                    fraud_cells = (
+                        f"<td{color}>{rate_str}</td>" f'<td>{s.get("fraud_count", 0):,}</td>'
+                    )
+                rows += (
+                    f"<tr>"
+                    f"<td>{s['cluster_id']}</td>"
+                    f"<td>{s['count']:,}</td>"
+                    f"<td>{s['pct_total']:.1f}%</td>"
+                    f"{fraud_cells}"
+                    f"<td>{s['lat_center']}, {s['lon_center']}</td>"
+                    f"</tr>"
+                )
             clustering_info = f"""
-    <h3>Geographic Clustering</h3>
-    <p>Method: {clustering.get("method", "N/A")}, Clusters: {clustering.get("n_clusters", 0)}</p>
-    """
+    <h3>Geographic Clusters (K-Means, k={clustering.get("n_clusters", 0)})</h3>
+    <table class="data-table">
+        <thead>{header}</thead>
+        <tbody>{rows}</tbody>
+    </table>"""
+
+        map_html = ""
+        if mapbox_chart:
+            map_html = f"""
+<div class="map-wrapper" id="geo-map-wrapper">
+    <button class="map-fullscreen-btn" onclick="geoMapFullscreen()" title="Toggle fullscreen">
+        &#x26F6; Fullscreen
+    </button>
+    <div class="chart-container">{mapbox_chart}</div>
+</div>
+<script>
+(function () {{
+    var GEO_MAP_DEFAULT_HEIGHT = 600;
+
+    function relayoutMap(height, width) {{
+        if (!window.Plotly) return;
+        document.querySelectorAll('#geo-map-wrapper .plotly-graph-div').forEach(function (d) {{
+            var layout = {{height: height}};
+            if (width != null) layout.width = width;
+            Plotly.relayout(d, layout);
+        }});
+    }}
+
+    function onFullscreenChange() {{
+        var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        // Wait for the browser to complete the fullscreen transition before reading dimensions
+        setTimeout(function () {{
+            if (isFs) {{
+                relayoutMap(window.innerHeight, window.innerWidth);
+            }} else {{
+                relayoutMap(GEO_MAP_DEFAULT_HEIGHT, null);
+            }}
+        }}, 100);
+    }}
+
+    window.geoMapFullscreen = function () {{
+        var wrapper = document.getElementById('geo-map-wrapper');
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {{
+            var req = wrapper.requestFullscreen || wrapper.webkitRequestFullscreen;
+            if (req) req.call(wrapper);
+        }} else {{
+            var exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) exit.call(document);
+        }}
+    }};
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+}})();
+</script>"""
 
         return f"""
 <div class="section" id="geo">
     <h2>Phase 4: Geospatial Analysis</h2>
 
-    {f'<div class="chart-container">{mapbox_chart}</div>' if mapbox_chart else ""}
+    {map_html}
 
     <h3>Coordinate Quality</h3>
     <table class="data-table">

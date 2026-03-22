@@ -13,14 +13,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Track if plotlyjs CDN has already been included
-_PLOTLY_JS_INCLUDED = False
-
 
 def _get_plotly_js_args(first: bool = False) -> Dict:
-    """Return Plotly to_html arguments based on whether this is the first chart."""
-    if first:
-        return {"full_html": False, "include_plotlyjs": "cdn"}
+    """Return Plotly to_html arguments. CDN is loaded in the HTML <head>."""
     return {"full_html": False, "include_plotlyjs": False}
 
 
@@ -43,12 +38,10 @@ class EDAInteractivePlots:
     def __init__(self, output_dir: str, template: str = "plotly_white"):
         self.output_dir = Path(output_dir)
         self.template = template
-        self._first_chart = True
 
     def _to_html(self, fig) -> str:
-        """Convert figure to HTML, managing Plotly.js inclusion."""
-        args = _get_plotly_js_args(self._first_chart)
-        self._first_chart = False
+        """Convert figure to HTML. Plotly.js is loaded from CDN in the HTML <head>."""
+        args = _get_plotly_js_args()
         try:
             return fig.to_html(**args)
         except Exception as e:
@@ -591,6 +584,8 @@ class EDAInteractivePlots:
         lat_col: str,
         lon_col: str,
         color_col: Optional[str] = None,
+        id_col: Optional[str] = None,
+        clustering: Optional[Dict] = None,
         title: str = "Geographic Distribution",
     ) -> str:
         """
@@ -600,7 +595,9 @@ class EDAInteractivePlots:
             df: Input DataFrame
             lat_col: Latitude column
             lon_col: Longitude column
-            color_col: Column to use for color (optional, e.g., target or zone)
+            color_col: Column to use for color (optional, e.g., target or zone).
+                       Binary (0/1) columns get semantic colors: blue=0, red=1.
+            id_col: Client ID column shown in hover tooltip (optional)
             title: Chart title
 
         Returns:
@@ -609,9 +606,13 @@ class EDAInteractivePlots:
         try:
             import plotly.express as px
 
-            sub = df[[lat_col, lon_col]].copy()
+            base_cols = [lat_col, lon_col]
             if color_col and color_col in df.columns:
-                sub[color_col] = df[color_col]
+                base_cols.append(color_col)
+            if id_col and id_col in df.columns:
+                base_cols.append(id_col)
+
+            sub = df[base_cols].copy()
 
             # Force numeric types — lat/lon may arrive as object/string from ETL
             sub[lat_col] = pd.to_numeric(sub[lat_col], errors="coerce")
@@ -627,30 +628,66 @@ class EDAInteractivePlots:
             if len(sub) > 5000:
                 sub = sub.sample(5000, random_state=42)
 
+            # Detect binary target (0/1) → semantic colors blue=0, red=1
+            color_discrete_map = None
+            if color_col and color_col in sub.columns:
+                unique_vals = set(sub[color_col].dropna().unique())
+                if unique_vals.issubset({0, 1, 0.0, 1.0, True, False}):
+                    sub[color_col] = sub[color_col].astype(int).astype(str)
+                    color_discrete_map = {"0": "#2196F3", "1": "#E53935"}
+
+            # Count per category (after possible int→str conversion)
+            counts: Optional[pd.Series] = None
+            if color_col and color_col in sub.columns:
+                counts = sub[color_col].value_counts()
+
+            # Build custom_data and hovertemplate for precise tooltip control
+            custom_cols: List[str] = []
+            if id_col and id_col in sub.columns:
+                custom_cols.append(id_col)
+
+            # Always suppress raw lat/lon from auto-tooltip; build explicit template
+            hover_data: dict = {lat_col: False, lon_col: False}
+
+            scatter_kwargs = dict(
+                lat=lat_col,
+                lon=lon_col,
+                color=color_col if color_col else None,
+                hover_data=hover_data,
+                custom_data=custom_cols if custom_cols else None,
+                title=title,
+                height=600,
+            )
+            if color_discrete_map:
+                scatter_kwargs["color_discrete_map"] = color_discrete_map
+            else:
+                scatter_kwargs["color_discrete_sequence"] = px.colors.qualitative.Bold
+
             # Use scatter_map (new API) with fallback to deprecated scatter_mapbox
             try:
-                fig = px.scatter_map(
-                    sub,
-                    lat=lat_col,
-                    lon=lon_col,
-                    color=color_col if color_col else None,
-                    color_discrete_sequence=px.colors.qualitative.Bold,
-                    map_style="open-street-map",
-                    title=title,
-                    height=600,
-                )
+                fig = px.scatter_map(sub, map_style="carto-positron", **scatter_kwargs)
             except AttributeError:
                 # plotly < 5.24 doesn't have scatter_map yet
-                fig = px.scatter_mapbox(
-                    sub,
-                    lat=lat_col,
-                    lon=lon_col,
-                    color=color_col if color_col else None,
-                    color_discrete_sequence=px.colors.qualitative.Bold,
-                    mapbox_style="open-street-map",
-                    title=title,
-                    height=600,
-                )
+                fig = px.scatter_mapbox(sub, mapbox_style="carto-positron", **scatter_kwargs)
+
+            # Inject id_col into hovertemplate for every scatter trace
+            if custom_cols:
+                id_label = id_col or "ID"
+                for trace in fig.data:
+                    existing = getattr(trace, "hovertemplate", None) or ""
+                    trace.hovertemplate = f"<b>{id_label}</b>: %{{customdata[0]}}<br>" + existing
+
+            # Add client counts to legend labels
+            if counts is not None:
+                for trace in fig.data:
+                    n = counts.get(trace.name, 0)
+                    trace.name = f"{trace.name} ({n:,} clients)"
+
+            # Overlay cluster convex hulls + centroids
+            cluster_points = (clustering or {}).get("cluster_points")
+            cluster_stats = (clustering or {}).get("cluster_stats", [])
+            if cluster_points:
+                self._add_cluster_overlay(fig, cluster_points, cluster_stats)
 
             fig.update_layout(
                 template=self.template,
@@ -665,6 +702,170 @@ class EDAInteractivePlots:
         except Exception as e:
             logger.warning("Error generating scatter mapbox: %s", e)
             return ""
+
+    def _add_cluster_overlay(
+        self,
+        fig,
+        cluster_points: List[Dict],
+        cluster_stats: List[Dict],
+    ) -> None:
+        """
+        Add K-Means cluster convex hulls and centroid markers to an existing map figure.
+
+        Hulls are drawn as semi-transparent filled polygons (opacity 0.10) with a
+        visible border, inserted BEFORE the scatter traces so points render on top.
+        Centroids are labeled star markers in a separate trace.
+
+        Args:
+            fig: Plotly figure with scatter_map / scatter_mapbox traces
+            cluster_points: List of {lat, lon, cluster_id} dicts from geo_analyzer
+            cluster_stats: List of cluster stat dicts (for centroid labels and hover)
+        """
+        try:
+            from collections import defaultdict
+
+            import numpy as np
+            import plotly.graph_objects as go
+
+            CLUSTER_COLORS = [
+                "#E91E63",
+                "#9C27B0",
+                "#3F51B5",
+                "#009688",
+                "#FF5722",
+                "#795548",
+                "#607D8B",
+                "#F44336",
+                "#673AB7",
+                "#00BCD4",
+                "#8BC34A",
+                "#FF9800",
+            ]
+
+            # Group points by cluster_id
+            groups: Dict[int, List] = defaultdict(list)
+            for pt in cluster_points:
+                groups[int(pt["cluster_id"])].append((pt["lat"], pt["lon"]))
+
+            stat_by_id = {s["cluster_id"]: s for s in cluster_stats}
+
+            hull_lats: List = []
+            hull_lons: List = []
+            hull_texts: List = []
+            centroid_lats: List = []
+            centroid_lons: List = []
+            centroid_texts: List = []
+            centroid_colors: List = []
+            centroid_labels: List = []
+
+            for cluster_id, pts in sorted(groups.items()):
+                color = CLUSTER_COLORS[cluster_id % len(CLUSTER_COLORS)]
+                pts_arr = np.array(pts)
+
+                stat = stat_by_id.get(cluster_id, {})
+                fraud_str = (
+                    f"<br>Fraud rate: {stat['fraud_rate']:.1%}"
+                    if stat.get("fraud_rate") is not None
+                    else ""
+                )
+                hover = (
+                    f"<b>Cluster {cluster_id}</b><br>"
+                    f"Clients: {stat.get('count', len(pts)):,}"
+                    f"{fraud_str}"
+                )
+
+                # Convex hull vertices (requires ≥3 distinct points)
+                hull_pts = None
+                if len(pts_arr) >= 3:
+                    try:
+                        from scipy.spatial import ConvexHull
+
+                        hull = ConvexHull(pts_arr)
+                        verts = pts_arr[hull.vertices]
+                        hull_pts = np.vstack([verts, verts[0]])  # close polygon
+                    except Exception:  # nosec B110
+                        pass
+
+                if hull_pts is None:
+                    # Fallback: bounding box
+                    lat_min, lat_max = pts_arr[:, 0].min(), pts_arr[:, 0].max()
+                    lon_min, lon_max = pts_arr[:, 1].min(), pts_arr[:, 1].max()
+                    hull_pts = np.array(
+                        [
+                            [lat_min, lon_min],
+                            [lat_max, lon_min],
+                            [lat_max, lon_max],
+                            [lat_min, lon_max],
+                            [lat_min, lon_min],
+                        ]
+                    )
+
+                # Append hull + None separator (disconnects polygons in one trace)
+                hull_lats.extend(hull_pts[:, 0].tolist() + [None])
+                hull_lons.extend(hull_pts[:, 1].tolist() + [None])
+                hull_texts.extend([hover] * len(hull_pts) + [None])
+
+                centroid_lats.append(stat.get("lat_center", float(pts_arr[:, 0].mean())))
+                centroid_lons.append(stat.get("lon_center", float(pts_arr[:, 1].mean())))
+                centroid_texts.append(hover)
+                centroid_colors.append(color)
+                centroid_labels.append(str(cluster_id))
+
+            # Detect API: scatter_map (new) vs scatter_mapbox (legacy)
+            # scatter_map does NOT support fill or marker.line
+            use_mapbox = any(t.type == "scattermapbox" for t in fig.data)
+            TraceType = go.Scattermapbox if use_mapbox else go.Scattermap
+
+            hull_kwargs: Dict = dict(
+                lat=hull_lats,
+                lon=hull_lons,
+                mode="lines",
+                line={"width": 1.5, "color": "rgba(100,100,100,0.45)"},
+                hoverinfo="text",
+                hovertext=hull_texts,
+                name="Clusters",
+                legendgroup="clusters",
+                showlegend=True,
+            )
+            if use_mapbox:
+                hull_kwargs["fill"] = "toself"
+                hull_kwargs["fillcolor"] = "rgba(100,100,100,0.10)"
+
+            centroid_marker: Dict = {
+                "size": 16,
+                "symbol": "star",
+                "color": centroid_colors,
+                "opacity": 0.95,
+            }
+            if use_mapbox:
+                centroid_marker["line"] = {"width": 1.5, "color": "white"}
+
+            centroid_trace = TraceType(
+                lat=centroid_lats,
+                lon=centroid_lons,
+                mode="markers+text",
+                marker=centroid_marker,
+                text=centroid_labels,
+                textposition="middle center",
+                textfont={"size": 8, "color": "white"},
+                hoverinfo="text",
+                hovertext=centroid_texts,
+                name="Cluster centers",
+                legendgroup="clusters",
+                showlegend=True,
+            )
+
+            hull_trace = TraceType(**hull_kwargs)
+
+            # Add traces then move them to the front so scatter points render on top
+            fig.add_trace(hull_trace)
+            fig.add_trace(centroid_trace)
+            # Reorder: last 2 (hull, centroids) → front
+            data = list(fig.data)
+            fig.data = tuple(data[-2:] + data[:-2])
+
+        except Exception as e:
+            logger.warning("Could not add cluster overlay: %s", e)
 
     # ------------------------------------------------------------------
     # Column detail charts (matplotlib/seaborn — embedded as base64 PNG)
@@ -1452,6 +1653,7 @@ class EDAInteractivePlots:
         outlier_mask: Optional[pd.Series] = None,
         target_col: Optional[str] = None,
         sample_n: int = 500,
+        id_col: Optional[str] = None,
     ) -> str:
         """
         Interactive scatter plots of consumption anomalies with linked brushing.
@@ -1462,6 +1664,7 @@ class EDAInteractivePlots:
             outlier_mask: Boolean series indicating outlier rows (optional)
             target_col: Binary target column for coloring (optional)
             sample_n: Number of rows to sample (for performance)
+            id_col: Column name to show as identifier in tooltip (optional)
 
         Returns:
             str: HTML string of the Plotly chart
@@ -1514,6 +1717,9 @@ class EDAInteractivePlots:
                 row = i // n_cols + 1
                 col_pos = i % n_cols + 1
 
+                has_id = id_col and id_col in sample_df.columns
+                id_label = id_col if has_id else None
+
                 if color_col and color_col in sample_df.columns:
                     # Separate traces for legend
                     for val in sample_df[color_col].unique():
@@ -1523,6 +1729,7 @@ class EDAInteractivePlots:
                             if val == 1 or val == "Fraud" or val == "Outlier"
                             else "#2196F3"
                         )
+                        id_prefix = f"<b>{id_label}</b>: %{{customdata[0]}}<br>" if has_id else ""
                         fig.add_trace(
                             go.Scatter(
                                 x=list(range(len(subset))),
@@ -1531,12 +1738,14 @@ class EDAInteractivePlots:
                                 name=f"{val}" if i == 0 else None,
                                 marker={"color": color, "opacity": 0.6, "size": 6},
                                 showlegend=(i == 0),
-                                hovertemplate=f"Row: %{{x}}<br>Consumption: %{{y:.2f}}<br>Status: {val}<extra></extra>",
+                                customdata=(subset[[id_col]].values if has_id else None),
+                                hovertemplate=f"{id_prefix}Row: %{{x}}<br>Consumption: %{{y:.2f}}<br>Status: {val}<extra></extra>",
                             ),
                             row=row,
                             col=col_pos,
                         )
                 else:
+                    id_prefix = f"<b>{id_label}</b>: %{{customdata[0]}}<br>" if has_id else ""
                     fig.add_trace(
                         go.Scatter(
                             x=list(range(len(sample_df))),
@@ -1545,7 +1754,8 @@ class EDAInteractivePlots:
                             name="Consumption" if i == 0 else None,
                             marker={"color": "#2196F3", "opacity": 0.6, "size": 6},
                             showlegend=(i == 0),
-                            hovertemplate="Row: %{x}<br>Consumption: %{y:.2f}<extra></extra>",
+                            customdata=(sample_df[[id_col]].values if has_id else None),
+                            hovertemplate=f"{id_prefix}Row: %{{x}}<br>Consumption: %{{y:.2f}}<extra></extra>",
                         ),
                         row=row,
                         col=col_pos,

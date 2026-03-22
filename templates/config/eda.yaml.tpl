@@ -89,8 +89,7 @@ eda:
     geospatial:
       enabled: false            # Enable if lat_col / lon_col are set
       clustering:
-        method: "kmeans"        # kmeans | dbscan
-        n_clusters: 10
+        n_clusters: 10          # K-Means geographic clusters
       country_bounds: [[-34.8, -74], [5.3, -28]]  # Brazil
     feature_importance:
       enabled: true             # Skipped automatically if target_col is null

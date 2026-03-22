@@ -920,6 +920,7 @@ class DatasetExplorer:
                             outlier_mask=outlier_mask,
                             target_col=self.target_column,
                             sample_n=1000,
+                            id_col=self.id_column,
                         )
                     )
             except Exception as e:
@@ -1056,6 +1057,8 @@ class DatasetExplorer:
                     lat_col=self.lat_column,
                     lon_col=self.lon_column,
                     color_col=color_col,
+                    id_col=self.id_column,
+                    clustering=geo_results.get("clustering", {}),
                     title="Geographic Distribution of Clients",
                 )
             except Exception as e:
