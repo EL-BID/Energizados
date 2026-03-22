@@ -72,7 +72,6 @@ class TestRenderOutlierSection:
 
         html = generator.render_outlier_section(columns, {})
 
-        assert "Outlier Alerts" in html
         assert "high_outlier_col" in html
         assert "15.00%" in html
         assert "badge-WARNING" in html
@@ -99,8 +98,8 @@ class TestRenderOutlierSection:
         assert "Extreme Range Outliers" in html
         assert "Global Mean Outliers" in html
 
-    def test_render_outlier_section_with_consumption_alerts(self):
-        """Test render_outlier_section() with consumption outlier alerts."""
+    def test_render_outlier_section_with_consumption_high_values(self):
+        """Test render_outlier_section() shows high consumption outlier percentages."""
         generator = EDAReportGenerator("output/eda/")
         columns = {
             "numeric": [],
@@ -113,12 +112,10 @@ class TestRenderOutlierSection:
 
         html = generator.render_outlier_section(columns, {})
 
-        assert "Outlier Alerts" in html
+        assert "Consumption Outlier Patterns" in html
         assert "15.00%" in html
         assert "12.00%" in html
         assert "8.00%" in html
-        assert "zero variance consumption" in html.lower()
-        assert "consumption range outliers" in html.lower()
 
     def test_render_outlier_section_with_legacy_iqr_method(self):
         """Test render_outlier_section() with legacy IQR method (no outlier_methods)."""

@@ -68,6 +68,13 @@ class ColumnExplorer(BaseExplorer):
         outlier_methods = cfg.get("outlier_methods", ["iqr", "zscore"])
         outlier_threshold_pct = cfg.get("outlier_threshold_pct", 10.0)
 
+        # Section-level feature flags (passed from dataset_explorer via config dict)
+        numeric_iv_woe = cfg.get("numeric_iv_woe", True)
+        numeric_ks_test = cfg.get("numeric_ks_test", True)
+        numeric_outliers_by_iqr = cfg.get("numeric_outliers_by_iqr", True)
+        categorical_iv_woe = cfg.get("categorical_iv_woe", True)
+        categorical_cramers_v = cfg.get("categorical_cramers_v", True)
+
         col_types = col_types or {}
 
         numeric_cols = col_types.get("numeric", []) + col_types.get("target_candidates", [])
@@ -88,7 +95,12 @@ class ColumnExplorer(BaseExplorer):
                 continue
             try:
                 analysis = self._analyze_numeric(
-                    df, col, target_col, outlier_methods=outlier_methods
+                    df,
+                    col,
+                    target_col,
+                    outlier_methods=outlier_methods if numeric_outliers_by_iqr else [],
+                    compute_iv=numeric_iv_woe,
+                    compute_ks=numeric_ks_test,
                 )
                 results["numeric"].append(analysis)
 
@@ -129,7 +141,13 @@ class ColumnExplorer(BaseExplorer):
             if col not in df.columns or col == target_col:
                 continue
             try:
-                analysis = self._analyze_categorical(df, col, target_col)
+                analysis = self._analyze_categorical(
+                    df,
+                    col,
+                    target_col,
+                    compute_iv=categorical_iv_woe,
+                    compute_cramers_v=categorical_cramers_v,
+                )
                 results["categorical"].append(analysis)
 
                 if analysis["unique_count"] > cardinality_high:
@@ -258,6 +276,8 @@ class ColumnExplorer(BaseExplorer):
         col: str,
         target_col: Optional[str],
         outlier_methods: Optional[List[str]] = None,
+        compute_iv: bool = True,
+        compute_ks: bool = True,
     ) -> Dict:
         """Compute statistics for a numeric column.
 
@@ -267,6 +287,8 @@ class ColumnExplorer(BaseExplorer):
             target_col: Name of binary target column (optional)
             outlier_methods: List of outlier detection methods to use. Options: "iqr", "zscore", "modified_zscore".
                              If None or empty, skip multi-method outlier detection.
+            compute_iv: Whether to compute IV/WoE (default True). Controlled by numeric.iv_woe_binned config flag.
+            compute_ks: Whether to compute KS statistic (default True). Controlled by numeric.ks_test config flag.
 
         Returns:
             dict with column statistics and outlier detection results
@@ -360,27 +382,36 @@ class ColumnExplorer(BaseExplorer):
             except Exception as e:
                 logger.debug("Multi-method outlier detection failed for '%s': %s", col, e)
 
-        # Predictive power metrics (only if target_col provided)
+        # Predictive power metrics (only if target_col provided and flags enabled)
         if target_col and target_col in df.columns:
-            try:
-                iv_result = compute_iv_woe(df, col, target_col, bins=10, is_categorical=False)
-                analysis["iv"] = round(iv_result["iv"], 6)
-            except Exception as e:
-                logger.debug("IV computation failed for '%s': %s", col, e)
-                analysis["iv"] = None
+            if compute_iv:
+                try:
+                    iv_result = compute_iv_woe(df, col, target_col, bins=10, is_categorical=False)
+                    analysis["iv"] = round(iv_result["iv"], 6)
+                except Exception as e:
+                    logger.debug("IV computation failed for '%s': %s", col, e)
+                    analysis["iv"] = None
 
-            try:
-                ks_stat, ks_pval = ks_statistic(df, col, target_col)
-                analysis["ks_stat"] = round(ks_stat, 6)
-                analysis["ks_pval"] = round(ks_pval, 6)
-            except Exception as e:
-                logger.debug("KS computation failed for '%s': %s", col, e)
-                analysis["ks_stat"] = None
-                analysis["ks_pval"] = None
+            if compute_ks:
+                try:
+                    ks_stat, ks_pval = ks_statistic(df, col, target_col)
+                    analysis["ks_stat"] = round(ks_stat, 6)
+                    analysis["ks_pval"] = round(ks_pval, 6)
+                except Exception as e:
+                    logger.debug("KS computation failed for '%s': %s", col, e)
+                    analysis["ks_stat"] = None
+                    analysis["ks_pval"] = None
 
         return analysis
 
-    def _analyze_categorical(self, df: pd.DataFrame, col: str, target_col: Optional[str]) -> Dict:
+    def _analyze_categorical(
+        self,
+        df: pd.DataFrame,
+        col: str,
+        target_col: Optional[str],
+        compute_iv: bool = True,
+        compute_cramers_v: bool = True,
+    ) -> Dict:
         """Compute statistics for a categorical column."""
         series = df[col]
         total = len(df)
@@ -430,21 +461,23 @@ class ColumnExplorer(BaseExplorer):
             "singleton_count": singleton_count,
         }
 
-        # Predictive power metrics
+        # Predictive power metrics (flags controlled by categorical.iv_woe_calculation / cramers_v)
         if target_col and target_col in df.columns:
-            try:
-                iv_result = compute_iv_woe(df, col, target_col, bins=10, is_categorical=True)
-                analysis["iv"] = round(iv_result["iv"], 6)
-            except Exception as e:
-                logger.debug("IV computation failed for '%s': %s", col, e)
-                analysis["iv"] = None
+            if compute_iv:
+                try:
+                    iv_result = compute_iv_woe(df, col, target_col, bins=10, is_categorical=True)
+                    analysis["iv"] = round(iv_result["iv"], 6)
+                except Exception as e:
+                    logger.debug("IV computation failed for '%s': %s", col, e)
+                    analysis["iv"] = None
 
-            try:
-                cv_val = cramers_v(df, col, target_col)
-                analysis["cramers_v"] = round(cv_val, 6)
-            except Exception as e:
-                logger.debug("Cramér's V computation failed for '%s': %s", col, e)
-                analysis["cramers_v"] = None
+            if compute_cramers_v:
+                try:
+                    cv_val = cramers_v(df, col, target_col)
+                    analysis["cramers_v"] = round(cv_val, 6)
+                except Exception as e:
+                    logger.debug("Cramér's V computation failed for '%s': %s", col, e)
+                    analysis["cramers_v"] = None
 
         return analysis
 

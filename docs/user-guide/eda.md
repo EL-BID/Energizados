@@ -85,10 +85,10 @@ Provides an overview of the entire dataset:
 
 Analyzes each column based on its type (numeric, categorical, temporal, or consumption):
 
-- **Numeric columns**: Distribution statistics, outliers (IQR method), histogram/boxplot
+- **Numeric columns**: Distribution statistics, multi-method outlier detection, histogram/boxplot
 - **Categorical columns**: Cardinality, value counts, treemap visualization
 - **Temporal columns**: Date range, distribution over time
-- **Consumption columns**: Specialized anomaly detection for time series patterns
+- **Consumption columns**: Pattern analysis (zeros, negatives, constant values, abrupt drops) — controlled by `sections.outliers.consumption_patterns`
 
 #### Detailed Charts (Optional)
 
@@ -109,6 +109,52 @@ sections:
 
 !!! warning
     Enabling `detailed_charts` with many columns (100+) will significantly increase report generation time. Use it selectively during deep-dive analysis.
+
+### Phase 2.5: Outlier Detection
+
+Performs multi-method outlier detection on **all numeric columns** (including consumption period columns with `_anterior` suffix) and generates domain-specific consumption pattern analysis:
+
+```yaml
+sections:
+  outliers:
+    enabled: true
+    methods:
+      - iqr             # IQR multiplier (default 1.5x)
+      - zscore          # Standard deviations (default 3.0)
+      - modified_zscore # MAD-based threshold (default 3.5)
+    thresholds:
+      iqr: 1.5
+      zscore: 3.0
+      modified_zscore: 3.5
+    consumption_patterns: true  # Analyze consumption columns for fraud patterns
+    alert_threshold: 10         # % of outliers that triggers a WARNING alert
+    max_outlier_values_shown: 20
+    detailed_charts: true       # Generate boxplots and heatmap SVGs
+```
+
+**Detection methods:**
+
+| Method | How it works | Threshold |
+|--------|-------------|-----------|
+| IQR | Values beyond Q1 - 1.5×IQR or Q3 + 1.5×IQR | multiplier |
+| Z-score | Values beyond ±N standard deviations from mean | std deviations |
+| Modified Z-score | Median Absolute Deviation (MAD) based | MAD threshold |
+
+**Consumption patterns** (when `consumption_patterns: true`):
+
+- **Zero Variance Rows**: identical consumption across all periods (potential meter bypass)
+- **Extreme Range Outliers**: rows with consumption range-to-mean ratio > 5.0
+- **Global Mean Outliers**: rows with mean consumption z-score > 3.0
+
+**Report output:**
+
+- Summary table with outlier counts per column and method (with "consumption" badge for period columns)
+- Outlier boxplots and heatmap (SVG, embedded inline)
+- Consumption Outlier Patterns section with 3 key metrics
+- WARNING alerts for columns exceeding `alert_threshold`
+
+!!! note
+    Datasets like CELESC have no traditional numeric columns — all numeric data are consumption period columns (`12_anterior`, `11_anterior`, ...). The outlier section will display these with a green "consumption" badge.
 
 ### Phase 3: Target Variable Analysis
 
@@ -204,9 +250,9 @@ For each hierarchy, the EDA generates:
 
 The EDA module generates:
 
-1. **HTML Report**: `output/eda/eda_report.html` - Self-contained interactive report
+1. **HTML Report**: `output/eda/eda_report.html` - Self-contained interactive report with inline SVG charts
 2. **CSV Exports**: Summary tables exported as CSV files in `output/eda/csv/`
-3. **Plots**: Static plot images in `output/eda/plots/` (if `export_plots: true`)
+3. **JSON Artifact**: `output/eda/outlier_analysis.json` with full outlier detection results
 
 ## Complete Example Configuration
 
@@ -259,9 +305,20 @@ eda:
       iv_woe_binned: true
       outliers_by_iqr: true
       detailed_charts: false
-    consumption:
+    outliers:
       enabled: true
-      anomaly_detection: true
+      methods:
+        - iqr
+        - zscore
+        - modified_zscore
+      thresholds:
+        iqr: 1.5
+        zscore: 3.0
+        modified_zscore: 3.5
+      consumption_patterns: true  # Detects abrupt drops, zeros, negatives, constants
+      alert_threshold: 10         # % of outliers that triggers a WARNING alert
+      max_outlier_values_shown: 20
+      detailed_charts: true       # Generate boxplots and heatmap SVGs
     related_columns:
       enabled: true
       hierarchies:

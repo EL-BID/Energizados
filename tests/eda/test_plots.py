@@ -180,31 +180,25 @@ class TestEDAInteractivePlotsOutlier:
 
         assert isinstance(result, str)
 
-    def test_plotly_outlier_heatmap_returns_html(
+    def test_plotly_outlier_summary_bar_returns_html(
         self, sample_df, tmp_output_dir, sample_outlier_masks
     ):
-        """Test that plotly_outlier_heatmap returns HTML string."""
+        """Test that plotly_outlier_summary_bar returns HTML string."""
         plotter = EDAInteractivePlots(tmp_output_dir)
-        numeric_cols = ["numeric1", "numeric2", "numeric3"]
 
-        result = plotter.plotly_outlier_heatmap(sample_df, numeric_cols, sample_outlier_masks)
+        result = plotter.plotly_outlier_summary_bar(sample_outlier_masks)
 
         assert isinstance(result, str)
         if result:
             assert "<html>" in result or "<div" in result or result == ""
 
-    def test_plotly_outlier_heatmap_max_rows_limit(
-        self, sample_df, tmp_output_dir, sample_outlier_masks
-    ):
-        """Test that plotly_outlier_heatmap respects max_rows parameter."""
+    def test_plotly_outlier_summary_bar_empty(self, tmp_output_dir):
+        """Test that plotly_outlier_summary_bar handles empty masks."""
         plotter = EDAInteractivePlots(tmp_output_dir)
-        numeric_cols = ["numeric1"]
 
-        result = plotter.plotly_outlier_heatmap(
-            sample_df, numeric_cols, sample_outlier_masks, max_rows=50
-        )
+        result = plotter.plotly_outlier_summary_bar({})
 
-        assert isinstance(result, str)
+        assert result == ""
 
     def test_plotly_consumption_anomalies_returns_html(self, sample_df, tmp_output_dir):
         """Test that plotly_consumption_anomalies returns HTML string."""
@@ -280,9 +274,7 @@ class TestPlotEdgeCases:
         interactive_result1 = interactive_plotter.plotly_outlier_boxplots(
             df, ["numeric1"], outlier_masks
         )
-        interactive_result2 = interactive_plotter.plotly_outlier_heatmap(
-            df, ["numeric1"], outlier_masks
-        )
+        interactive_result2 = interactive_plotter.plotly_outlier_summary_bar(outlier_masks)
         interactive_result3 = interactive_plotter.plotly_consumption_anomalies(df, ["1_anterior"])
 
         # All should return expected types without crashing
@@ -303,9 +295,7 @@ class TestPlotEdgeCases:
         interactive_result1 = interactive_plotter.plotly_outlier_boxplots(
             sample_df, ["numeric1"], {}
         )
-        interactive_result2 = interactive_plotter.plotly_outlier_heatmap(
-            sample_df, ["numeric1"], {}
-        )
+        interactive_result2 = interactive_plotter.plotly_outlier_summary_bar({})
 
         # Should handle gracefully
         assert isinstance(static_result1, dict)

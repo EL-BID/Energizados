@@ -200,22 +200,29 @@ class EDAReportGenerator:
 
         # Save outlier results as JSON artifact (if outlier data exists)
         columns = results.get("columns", {})
-        if self._has_outlier_data(columns):
-            self._save_outlier_results_json(results, columns)
+        outliers = results.get("outliers", {})
+        if self._has_outlier_data(columns, outliers):
+            self._save_outlier_results_json(results, columns, outliers)
 
         return path
 
-    def _save_outlier_results_json(self, results: Dict, columns: Dict) -> str:
+    def _save_outlier_results_json(
+        self, results: Dict, columns: Dict, outliers: Optional[Dict] = None
+    ) -> str:
         """
         Save outlier analysis results as JSON artifact.
 
         Args:
             results: Full analysis results dict from DatasetExplorer.run()
             columns: ColumnExplorer results dict containing outlier data
+            outliers: Phase 2.5 outlier results from DatasetExplorer (optional)
 
         Returns:
             str: Path to saved JSON file
         """
+        phase25_numeric = outliers.get("numeric_outliers", {}) if outliers else {}
+        phase25_consumption = outliers.get("consumption_outliers", {}) if outliers else {}
+
         outlier_data = {
             "timestamp": datetime.now().isoformat(),
             "dataset_info": {
@@ -223,40 +230,56 @@ class EDAReportGenerator:
                 "memory_mb": results.get("global_stats", {}).get("memory_mb", 0),
             },
             "numeric_outliers": [],
-            "consumption_outliers": columns.get("consumption_outliers", {}),
+            "consumption_outliers": columns.get("consumption_outliers") or phase25_consumption,
         }
 
-        # Collect numeric column outlier data
-        numeric = columns.get("numeric", [])
-        for col_data in numeric:
-            col_name = col_data.get("col", "")
-            outlier_methods = col_data.get("outlier_methods", {})
+        # Phase 2.5 numeric outliers (prefer these over ColumnExplorer data)
+        for col_name, method_results in phase25_numeric.items():
+            for method_name, method_result in method_results.items():
+                outlier_entry = {
+                    "column": col_name,
+                    "method": method_name,
+                    "outlier_count": method_result.get("outlier_count", 0),
+                    "outlier_pct": method_result.get("outlier_pct", 0.0),
+                    "has_alert": method_result.get("has_alert", False),
+                }
+                if "fences" in method_result:
+                    outlier_entry["fences"] = method_result["fences"]
+                if "mean" in method_result:
+                    outlier_entry["mean"] = method_result["mean"]
+                    outlier_entry["std"] = method_result.get("std")
+                outlier_data["numeric_outliers"].append(outlier_entry)
 
-            if outlier_methods:
-                # Multi-method outlier detection
-                for method_name, method_result in outlier_methods.items():
-                    outlier_data["numeric_outliers"].append(
-                        {
-                            "column": col_name,
-                            "method": method_name,
-                            "outlier_count": method_result.get("outlier_count", 0),
-                            "outlier_pct": method_result.get("outlier_pct", 0.0),
-                            "has_alert": method_result.get("has_alert", False),
-                        }
-                    )
-            else:
-                # Legacy IQR method
-                outlier_pct = col_data.get("outlier_pct", 0.0)
-                if outlier_pct > 0:
-                    outlier_data["numeric_outliers"].append(
-                        {
-                            "column": col_name,
-                            "method": "IQR (legacy)",
-                            "outlier_count": col_data.get("outlier_count", 0),
-                            "outlier_pct": outlier_pct,
-                            "has_alert": outlier_pct > 10.0,
-                        }
-                    )
+        # ColumnExplorer numeric data (only if Phase 2.5 didn't populate)
+        if not phase25_numeric:
+            numeric = columns.get("numeric", [])
+            for col_data in numeric:
+                col_name = col_data.get("col", "")
+                outlier_methods = col_data.get("outlier_methods", {})
+
+                if outlier_methods:
+                    for method_name, method_result in outlier_methods.items():
+                        outlier_data["numeric_outliers"].append(
+                            {
+                                "column": col_name,
+                                "method": method_name,
+                                "outlier_count": method_result.get("outlier_count", 0),
+                                "outlier_pct": method_result.get("outlier_pct", 0.0),
+                                "has_alert": method_result.get("has_alert", False),
+                            }
+                        )
+                else:
+                    outlier_pct = col_data.get("outlier_pct", 0.0)
+                    if outlier_pct > 0:
+                        outlier_data["numeric_outliers"].append(
+                            {
+                                "column": col_name,
+                                "method": "IQR (legacy)",
+                                "outlier_count": col_data.get("outlier_count", 0),
+                                "outlier_pct": outlier_pct,
+                                "has_alert": outlier_pct > 10.0,
+                            }
+                        )
 
         # Save to file
         json_path = str(self.output_dir / "outlier_analysis.json")
@@ -293,7 +316,7 @@ class EDAReportGenerator:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Check if outlier data exists
-        has_outliers = self._has_outlier_data(columns)
+        has_outliers = self._has_outlier_data(columns, results.get("outliers", {}))
 
         # Build sidebar links
         sidebar_links = self._build_sidebar(geo, segmentation, related_columns, has_outliers)
@@ -343,7 +366,7 @@ class EDAReportGenerator:
         <!-- Phase 2: Column analysis -->
         {self._build_columns_section(columns, charts)}
 
-        {self.render_outlier_section(columns, charts) if has_outliers else ""}
+        {self.render_outlier_section(columns, charts, results.get("outliers", {})) if has_outliers else ""}
 
         <!-- Phase 3: Target variable -->
         {self._build_target_section(target, charts)}
@@ -399,9 +422,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             ("target", "Phase 3: Target Variable"),
         ]
 
-        # Add outlier section if data exists
+        # Add outlier section if data exists — insert between Phase 2 and Phase 3
         if has_outliers:
-            sections.append(("outliers", "Phase 2.5: Outlier Analysis"))
+            outlier_idx = next(i for i, (sid, _) in enumerate(sections) if sid == "target")
+            sections.insert(outlier_idx, ("outliers", "Phase 2.5: Outlier Analysis"))
 
         # Add optional sections
         if geo:
@@ -417,27 +441,57 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         return "".join(f'<a href="#{sid}">{label}</a>' for sid, label in sections)
 
-    def _has_outlier_data(self, columns: Dict) -> bool:
-        """Check if outlier analysis data exists in columns results."""
+    def _has_outlier_data(self, columns: Dict, outliers: Optional[Dict] = None) -> bool:
+        """Check if outlier analysis data exists in columns or outliers results."""
         if not columns:
             return False
 
         # Check numeric columns for outlier data
         numeric = columns.get("numeric", [])
         for col_data in numeric:
-            # Check for multi-method outlier detection
             if col_data.get("outlier_methods"):
                 return True
-            # Check for legacy IQR outlier data
             if col_data.get("outlier_pct", 0) > 0:
                 return True
+
+        # Check Phase 2.5 numeric outliers
+        if outliers and outliers.get("numeric_outliers"):
+            return True
+
+        # Check Phase 2.5 consumption column outliers (per-column results)
+        if outliers and outliers.get("consumption_column_outliers"):
+            return True
 
         # Check consumption outlier data
         consumption_outliers = columns.get("consumption_outliers", {})
         if consumption_outliers:
             return True
+        if outliers and outliers.get("consumption_outliers"):
+            return True
 
         return False
+
+    def _merge_outlier_results(self, numeric: List[Dict], numeric_outliers: Dict) -> List[Dict]:
+        """Merge Phase 2.5 outlier results into column data."""
+        outlier_by_col = {}
+        for col_name, method_results in numeric_outliers.items():
+            outlier_by_col[col_name] = method_results
+
+        merged = []
+        for col_data in numeric:
+            col_name = col_data.get("col", "")
+            if col_name in outlier_by_col:
+                merged_col = col_data.copy()
+                merged_col["outlier_methods"] = outlier_by_col[col_name]
+                merged.append(merged_col)
+            else:
+                merged.append(col_data)
+
+        if not merged and outlier_by_col:
+            for col_name, method_results in outlier_by_col.items():
+                merged.append({"col": col_name, "outlier_methods": method_results})
+
+        return merged
 
     def _build_executive_summary(
         self,
@@ -1311,7 +1365,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     # Outlier analysis section (Phase 2.5)
     # ------------------------------------------------------------------
 
-    def render_outlier_section(self, columns: Dict, charts: Optional[Dict] = None) -> str:
+    def render_outlier_section(
+        self, columns: Dict, charts: Optional[Dict] = None, outliers: Optional[Dict] = None
+    ) -> str:
         """
         Render outlier analysis section in HTML.
 
@@ -1328,6 +1384,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             charts: Optional dict with outlier visualization charts:
                 - outlier_boxplots: SVG boxplots by column and method
                 - outlier_heatmap: Outlier detection matrix heatmap
+            outliers: Phase 2.5 outlier results from DatasetExplorer (optional).
+                If provided, supersedes columns' numeric outlier data.
 
         Returns:
             str: HTML string for outlier analysis section
@@ -1337,6 +1395,22 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         numeric = columns.get("numeric", [])
         consumption_outliers = columns.get("consumption_outliers", {})
+        phase25_consumption = outliers.get("consumption_outliers", {}) if outliers else {}
+
+        if outliers and outliers.get("numeric_outliers"):
+            numeric = self._merge_outlier_results(numeric, outliers["numeric_outliers"])
+
+        # Merge consumption column outliers into numeric list for display
+        if outliers and outliers.get("consumption_column_outliers"):
+            consumption_col_outliers = outliers["consumption_column_outliers"]
+            for col_name, method_results in consumption_col_outliers.items():
+                numeric.append(
+                    {"col": col_name, "outlier_methods": method_results, "_is_consumption": True}
+                )
+
+        # Use Phase 2.5 consumption outliers if available
+        if phase25_consumption:
+            consumption_outliers = phase25_consumption
 
         # Build summary table
         summary_table = self._build_outlier_summary_table(numeric)
@@ -1348,27 +1422,28 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         consumption_summary = self._build_consumption_outlier_summary(consumption_outliers)
 
         # Get charts
-        outlier_charts = charts.get("outlier_boxplots", "") if charts else ""
-        outlier_heatmap = charts.get("outlier_heatmap", "") if charts else ""
+        outlier_boxplots_html = charts.get("outlier_boxplots", "") if charts else ""
+        outlier_summary_bar_html = charts.get("outlier_summary_bar", "") if charts else ""
 
-        # Generate alerts for high outlier percentages
-        alerts_html = self._build_outlier_alerts(numeric, consumption_outliers)
+        parts = [
+            f"""<h3>Outlier Summary by Column</h3>
+{summary_table}""",
+        ]
+        if method_breakdown:
+            parts.append(method_breakdown)
+        if consumption_summary:
+            parts.append(consumption_summary)
+        if outlier_summary_bar_html:
+            parts.append(f'<div class="chart-container">{outlier_summary_bar_html}</div>')
+        if outlier_boxplots_html:
+            parts.append(f'<div class="chart-container">{outlier_boxplots_html}</div>')
 
         return f"""
 <div class="section" id="outliers">
     <h2>Outlier Analysis (Phase 2.5)</h2>
 
-    <h3>Outlier Summary by Column</h3>
-    {summary_table}
+    {"".join(parts)}
 
-    {alerts_html}
-
-    {method_breakdown}
-
-    {consumption_summary}
-
-    {f'<div class="chart-container">{outlier_charts}</div>' if outlier_charts else ""}
-    {f'<div class="chart-container">{outlier_heatmap}</div>' if outlier_heatmap else ""}
 </div>"""
 
     def _build_outlier_summary_table(self, numeric: List[Dict]) -> str:
@@ -1379,24 +1454,28 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         rows = ""
         for col_data in numeric:
             col_name = col_data.get("col", "")
+            is_consumption = col_data.get("_is_consumption", False)
+            col_type = (
+                '<span class="badge" style="background:#e8f5e9;color:#2e7d32;">consumption</span>'
+                if is_consumption
+                else ""
+            )
             outlier_methods = col_data.get("outlier_methods", {})
 
             if not outlier_methods:
-                # No multi-method outlier detection, use legacy outlier_pct
                 outlier_pct = col_data.get("outlier_pct", 0.0)
                 outlier_count = col_data.get("outlier_count", 0)
-                has_alert = outlier_pct > 10.0  # Default threshold
+                has_alert = outlier_pct > 10.0
                 alert_badge = '<span class="badge badge-WARNING">High</span>' if has_alert else ""
                 rows += f"""
 <tr>
-    <td><strong>{col_name}</strong></td>
+    <td><strong>{col_name}</strong>{f" {col_type}" if col_type else ""}</td>
     <td>IQR (legacy)</td>
     <td>{outlier_count:,}</td>
     <td>{outlier_pct:.2f}%</td>
     <td>{alert_badge}</td>
 </tr>"""
             else:
-                # Multi-method outlier detection
                 for method_name, method_result in outlier_methods.items():
                     outlier_pct = method_result.get("outlier_pct", 0.0)
                     outlier_count = method_result.get("outlier_count", 0)
@@ -1406,7 +1485,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                     )
                     rows += f"""
 <tr>
-    <td><strong>{col_name}</strong></td>
+    <td><strong>{col_name}</strong>{f" {col_type}" if col_type else ""}</td>
     <td>{method_name.capitalize()}</td>
     <td>{outlier_count:,}</td>
     <td>{outlier_pct:.2f}%</td>
@@ -1425,7 +1504,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     <th>Alert</th>
 </tr>
 </thead>
-<tbody>{rows}</tbody>
+<tbody>
+{rows}
+</tbody>
 </table>
 </div>"""
 

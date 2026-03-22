@@ -206,8 +206,11 @@ class GeospatialAnalyzer(BaseExplorer):
             from sklearn.cluster import KMeans
             from sklearn.preprocessing import StandardScaler
 
-            # Prepare data
-            coord_df = df[[lat_col, lon_col]].dropna()
+            # Prepare data — force numeric in case lat/lon are stored as strings
+            coord_df = df[[lat_col, lon_col]].copy()
+            coord_df[lat_col] = pd.to_numeric(coord_df[lat_col], errors="coerce")
+            coord_df[lon_col] = pd.to_numeric(coord_df[lon_col], errors="coerce")
+            coord_df = coord_df.dropna()
             coord_df = coord_df[(coord_df[lat_col] != 0) & (coord_df[lon_col] != 0)]
 
             if len(coord_df) < 10:
@@ -250,9 +253,9 @@ class GeospatialAnalyzer(BaseExplorer):
             }
 
         except ImportError:
-            logger.debug("scikit-learn not available, skipping clustering")
+            logger.warning("scikit-learn not available, skipping geographic clustering")
         except Exception as e:
-            logger.debug("Clustering failed: %s", e)
+            logger.warning("Geographic clustering failed: %s", e)
 
         return result
 

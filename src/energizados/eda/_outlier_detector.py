@@ -224,6 +224,7 @@ class OutlierDetector:
             "outlier_pct": round(pct, 4),
             "sample_values": sample,
             "has_alert": pct > self.alert_threshold_pct,
+            "mask": mask,
         }
 
         if fences is not None:

@@ -105,6 +105,13 @@ class DatasetExplorer:
         self.output_dir_path = Path(self.output_dir)
         self.output_dir_path.mkdir(parents=True, exist_ok=True)
 
+        # Normalize section key aliases so both old and new config names work:
+        #   "target_analysis" -> "target"
+        #   "data_quality"    -> "global_stats"  (features already in global_stats)
+        #   "missing_values"  -> merged into "global_stats"
+        #   "duplicates"      -> merged into "global_stats"
+        self.sections = self._normalize_section_keys(self.sections)
+
         # Threshold configuration
         thresholds = self._full_config.get("thresholds", {})
         self._thresholds = {
@@ -264,7 +271,14 @@ class DatasetExplorer:
         # --- Generate charts ---
         logger.info("Generating charts...")
         charts = self._generate_charts(
-            df, col_types, target_results, importance_results, global_stats, related_columns_results
+            df,
+            col_types,
+            target_results,
+            importance_results,
+            global_stats,
+            outliers_results,
+            related_columns_results,
+            geo_results,
         )
 
         # --- Generate report ---
@@ -297,6 +311,41 @@ class DatasetExplorer:
     # ------------------------------------------------------------------
     # Private methods
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_section_keys(sections: Dict) -> Dict:
+        """
+        Normalize section key aliases for backward compatibility.
+
+        Supports config keys used in YAML templates that differ from internal keys:
+            "target_analysis" -> "target"
+            "data_quality"    -> "global_stats" (data quality is computed inside global_stats)
+            "missing_values"  -> "global_stats" (missing value stats are part of global_stats)
+            "duplicates"      -> "global_stats" (duplicate counts are part of global_stats)
+
+        The alias is only applied when the canonical key is absent.
+        """
+        normalized = dict(sections)
+
+        # target_analysis -> target
+        if "target_analysis" in normalized and "target" not in normalized:
+            normalized["target"] = normalized.pop("target_analysis")
+        elif "target_analysis" in normalized:
+            normalized.pop("target_analysis")
+
+        # data_quality / missing_values / duplicates -> global_stats
+        for alias in ("data_quality", "missing_values", "duplicates"):
+            if alias in normalized and "global_stats" not in normalized:
+                # Use the first alias found as the global_stats config
+                normalized["global_stats"] = normalized.pop(alias)
+            elif alias in normalized:
+                # Canonical key already exists — merge sub-options, don't overwrite enabled flag
+                alias_cfg = normalized.pop(alias)
+                for k, v in alias_cfg.items():
+                    if k not in normalized["global_stats"]:
+                        normalized["global_stats"][k] = v
+
+        return normalized
 
     def _load_dataset(self) -> Optional[pd.DataFrame]:
         """Load the dataset from parquet or CSV."""
@@ -450,9 +499,22 @@ class DatasetExplorer:
 
     def _run_column_explorer(self, df: pd.DataFrame, col_types: Dict) -> Dict:
         """Phase 2: Run column explorer."""
-        explorer = ColumnExplorer(config=self._thresholds)
+        # Merge section-level flags into the config passed to ColumnExplorer so
+        # that sub-options like iv_woe_calculation, ks_test, cramers_v, etc.
+        # are respected when set to False in the config.
+        numeric_cfg = self.sections.get("numeric", {})
+        categorical_cfg = self.sections.get("categorical", {})
+
+        column_config = dict(self._thresholds)
+        column_config["numeric_iv_woe"] = numeric_cfg.get("iv_woe_binned", True)
+        column_config["numeric_ks_test"] = numeric_cfg.get("ks_test", True)
+        column_config["numeric_outliers_by_iqr"] = numeric_cfg.get("outliers_by_iqr", True)
+        column_config["categorical_iv_woe"] = categorical_cfg.get("iv_woe_calculation", True)
+        column_config["categorical_cramers_v"] = categorical_cfg.get("cramers_v", True)
+
+        explorer = ColumnExplorer(config=column_config)
         results = explorer.analyze(
-            df, target_col=self.target_column, col_types=col_types, config=self._thresholds
+            df, target_col=self.target_column, col_types=col_types, config=column_config
         )
         self._all_alerts.extend(explorer.get_alerts())
         return results
@@ -478,6 +540,7 @@ class DatasetExplorer:
         results = {
             "numeric_outliers": {},
             "consumption_outliers": {},
+            "consumption_column_outliers": {},
             "alerts": [],
         }
 
@@ -510,6 +573,35 @@ class DatasetExplorer:
                         results["alerts"].append(alert_msg)
             except Exception as e:
                 logger.warning("Error detecting outliers in column '%s': %s", col, e)
+
+        # Run outlier detection on consumption period columns
+        consumption_cols = col_types.get("consumption", [])
+        for col in consumption_cols:
+            if col not in df.columns:
+                continue
+            try:
+                col_results = detector.detect(df[col])
+                results["consumption_column_outliers"][col] = col_results
+
+                for method_name, method_result in col_results.items():
+                    if method_result.get("has_alert", False):
+                        alert_msg = (
+                            f"Consumption column '{col}' has {method_result['outlier_pct']:.2f}% outliers "
+                            f"(method: {method_name}, threshold: {alert_threshold}%)"
+                        )
+                        self._add_alert(
+                            code="HIGH_OUTLIER_PCT",
+                            message=alert_msg,
+                            severity="WARNING",
+                            details={
+                                "col": col,
+                                "method": method_name,
+                                "outlier_pct": method_result["outlier_pct"],
+                            },
+                        )
+                        results["alerts"].append(alert_msg)
+            except Exception as e:
+                logger.warning("Error detecting consumption outliers in column '%s': %s", col, e)
 
         # Run consumption outlier patterns detection
         if consumption_patterns:
@@ -643,7 +735,9 @@ class DatasetExplorer:
         target_results: Dict,
         importance_results: Dict,
         global_stats: Dict,
+        outliers_results: Optional[Dict] = None,
         related_columns_results: Optional[Dict] = None,
+        geo_results: Optional[Dict] = None,
     ) -> Dict:
         """Generate all charts (static and interactive)."""
         plots_dir = str(self.output_dir_path / "plots")
@@ -744,6 +838,32 @@ class DatasetExplorer:
                 )
             except Exception as e:
                 logger.warning("Error generating correlation heatmap: %s", e)
+
+        # --- Outlier charts ---
+        outlier_cfg = self.sections.get("outliers", {})
+        if outliers_results and outlier_cfg.get("detailed_charts", True):
+            try:
+                default_method = outlier_cfg.get("methods", ["iqr"])[0]
+
+                # Collect masks — numeric cols first, then consumption cols
+                all_outlier_masks: Dict[str, pd.Series] = {}
+                for source_key in ("numeric_outliers", "consumption_column_outliers"):
+                    for col, method_results in outliers_results.get(source_key, {}).items():
+                        if col in df.columns:
+                            method_data = method_results.get(default_method, {})
+                            if "mask" in method_data:
+                                all_outlier_masks[col] = method_data["mask"]
+
+                if all_outlier_masks:
+                    col_list = list(all_outlier_masks.keys())
+                    charts["outlier_boxplots"] = interactive_plotter.plotly_outlier_boxplots(
+                        df, col_list, all_outlier_masks
+                    )
+                    charts["outlier_summary_bar"] = interactive_plotter.plotly_outlier_summary_bar(
+                        all_outlier_masks
+                    )
+            except Exception as e:
+                logger.warning("Error generating outlier charts: %s", e)
 
         # --- Column detail charts ---
         max_detail = self._full_config.get("visualization", {}).get("max_detail_columns", 30)
@@ -854,6 +974,32 @@ class DatasetExplorer:
 
                 hierarchy_charts[h_name] = h_charts
         charts["hierarchies"] = hierarchy_charts
+
+        # --- Geospatial map ---
+        geo_cfg = self.sections.get("geospatial", {})
+        if (
+            geo_cfg.get("enabled", False)
+            and geo_results
+            and self.lat_column
+            and self.lon_column
+            and self.lat_column in df.columns
+            and self.lon_column in df.columns
+        ):
+            try:
+                color_col = (
+                    self.target_column
+                    if self.target_column and self.target_column in df.columns
+                    else self.zone_column
+                )
+                charts["scatter_mapbox"] = interactive_plotter.scatter_mapbox(
+                    df,
+                    lat_col=self.lat_column,
+                    lon_col=self.lon_column,
+                    color_col=color_col,
+                    title="Geographic Distribution of Clients",
+                )
+            except Exception as e:
+                logger.warning("Error generating scatter mapbox: %s", e)
 
         return charts
 

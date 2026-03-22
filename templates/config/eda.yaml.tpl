@@ -64,9 +64,20 @@ eda:
       iv_woe_binned: true
       outliers_by_iqr: true
       detailed_charts: true        # Per-column collapsible detail charts
-    consumption:
+    outliers:
       enabled: true
-      anomaly_detection: true
+      methods:
+        - iqr             # IQR multiplier (default 1.5x)
+        - zscore          # Standard deviations (default 3.0)
+        - modified_zscore # MAD-based threshold (default 3.5)
+      thresholds:
+        iqr: 1.5
+        zscore: 3.0
+        modified_zscore: 3.5
+      consumption_patterns: true  # Detecta caídas abruptas, ceros, negativos, constantes
+      alert_threshold: 10         # % de outliers que dispara una alerta WARNING
+      max_outlier_values_shown: 20
+      detailed_charts: true       # Genera boxplots y heatmap de outliers
     related_columns:
       enabled: false
       hierarchies: []
