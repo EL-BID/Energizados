@@ -668,6 +668,8 @@ class DatasetExplorer:
         - Zero variance: rows with std=0 across all periods
         - Range outliers: rows with extreme range-to-mean ratio
         - Mean z-score: rows with mean consumption far from global average
+        - Consecutive zeros: rows with 3+ consecutive zero consumption periods
+        - Abrupt drops: rows with >50% drop between consecutive periods
         """
         import re
 
@@ -675,12 +677,10 @@ class DatasetExplorer:
             match = re.match(r"^(\d+)", col)
             return int(match.group(1)) if match else 0
 
-        # Sort columns by period number descending (12_anterior, 11_anterior, ..., 1_anterior)
         periods_sorted = sorted(consumption_cols, key=period_num, reverse=True)
         cons_df = df[periods_sorted].copy()
         total = len(df)
 
-        # Z-score of row-wise mean (global outlier across all periods)
         row_means = cons_df.mean(axis=1)
         global_mean = row_means.mean()
         global_std = row_means.std()
@@ -690,23 +690,44 @@ class DatasetExplorer:
             mean_zscore = pd.Series(0, index=row_means.index)
         mean_zscore_outliers = (mean_zscore.abs() > 3.0).sum()
 
-        # Variance-based: rows with near-zero variance (suspiciously constant)
         row_stds = cons_df.std(axis=1)
         zero_variance_mask = row_stds == 0
         pct_zero_variance = round(float(zero_variance_mask.sum()) / total * 100, 4)
 
-        # Extreme range: (max - min) / mean — high ratio = suspicious consumption
         row_ranges = cons_df.max(axis=1) - cons_df.min(axis=1)
         row_means_safe = row_means.replace(0, np.nan)
         range_to_mean = row_ranges / row_means_safe
-        range_outliers = (range_to_mean > 5.0).sum()  # High variability
+        range_outliers = (range_to_mean > 5.0).sum()
         pct_range_outliers = round(float(range_outliers) / total * 100, 4)
+
+        # Consecutive zeros: 3+ consecutive periods with zero consumption
+        is_zero = (cons_df == 0).astype(int)
+        max_consec = pd.Series(0, index=df.index)
+        for i in range(len(periods_sorted)):
+            for j in range(i + 1, len(periods_sorted)):
+                window = is_zero.iloc[:, i : j + 1]
+                consecutive = window.min(axis=1) == 1
+                max_consec = pd.concat([max_consec, consecutive], axis=1).max(axis=1)
+        consec_zeros_mask = max_consec >= 3
+        pct_consec_zeros = round(float(consec_zeros_mask.sum()) / total * 100, 4)
+
+        # Abrupt drops: >50% drop between consecutive periods
+        abrupt_drop_mask = pd.Series(False, index=df.index)
+        for i in range(len(periods_sorted) - 1):
+            curr = cons_df[periods_sorted[i]].fillna(0)
+            prev = cons_df[periods_sorted[i + 1]].fillna(0)
+            valid = (prev > 0) & (curr >= 0)
+            drop_ratio = (prev - curr) / prev
+            abrupt_drop_mask |= valid & (drop_ratio > 0.5)
+        pct_abrupt_drop = round(float(abrupt_drop_mask.sum()) / total * 100, 4)
 
         return {
             "pct_zero_variance": pct_zero_variance,
             "pct_range_outliers": pct_range_outliers,
             "mean_zscore_outlier_count": int(mean_zscore_outliers),
             "mean_zscore_outlier_pct": round(float(mean_zscore_outliers) / total * 100, 4),
+            "pct_consec_zeros": pct_consec_zeros,
+            "pct_abrupt_drop": pct_abrupt_drop,
         }
 
     def _run_target_explorer(self, df: pd.DataFrame) -> Dict:
@@ -843,16 +864,23 @@ class DatasetExplorer:
         outlier_cfg = self.sections.get("outliers", {})
         if outliers_results and outlier_cfg.get("detailed_charts", True):
             try:
-                default_method = outlier_cfg.get("methods", ["iqr"])[0]
+                methods = outlier_cfg.get("methods", ["iqr"])
 
                 # Collect masks — numeric cols first, then consumption cols
                 all_outlier_masks: Dict[str, pd.Series] = {}
+                multi_method_masks: Dict[str, Dict[str, pd.Series]] = {}
                 for source_key in ("numeric_outliers", "consumption_column_outliers"):
                     for col, method_results in outliers_results.get(source_key, {}).items():
                         if col in df.columns:
-                            method_data = method_results.get(default_method, {})
-                            if "mask" in method_data:
-                                all_outlier_masks[col] = method_data["mask"]
+                            col_masks = {}
+                            for method_name in methods:
+                                method_data = method_results.get(method_name, {})
+                                if "mask" in method_data:
+                                    col_masks[method_name] = method_data["mask"]
+                                    if method_name == methods[0]:
+                                        all_outlier_masks[col] = method_data["mask"]
+                            if col_masks:
+                                multi_method_masks[col] = col_masks
 
                 if all_outlier_masks:
                     col_list = list(all_outlier_masks.keys())
@@ -860,7 +888,39 @@ class DatasetExplorer:
                         df, col_list, all_outlier_masks
                     )
                     charts["outlier_summary_bar"] = interactive_plotter.plotly_outlier_summary_bar(
-                        all_outlier_masks
+                        multi_method_masks
+                    )
+                    charts["outlier_heatmap"] = interactive_plotter.outlier_heatmap(
+                        all_outlier_masks, max_rows=500, max_cols=20
+                    )
+
+                # Consumption anomalies scatter chart
+                consumption_cols = col_types.get("consumption", [])
+                if consumption_cols:
+                    import re
+
+                    def period_num(c):
+                        m = re.match(r"^(\d+)", c)
+                        return int(m.group(1)) if m else 0
+
+                    periods_sorted = sorted(consumption_cols, key=period_num, reverse=True)
+                    cons_df = df[periods_sorted].copy()
+
+                    # Detect outlier mask for zero variance rows (potential tampering)
+                    consumption_anomalies_data = outliers_results.get("consumption_outliers", {})
+                    outlier_mask = None
+                    if consumption_anomalies_data.get("pct_zero_variance", 0) > 0:
+                        row_stds = cons_df.std(axis=1)
+                        outlier_mask = row_stds == 0
+
+                    charts["consumption_anomalies"] = (
+                        interactive_plotter.plotly_consumption_anomalies(
+                            df,
+                            consumption_cols,
+                            outlier_mask=outlier_mask,
+                            target_col=self.target_column,
+                            sample_n=1000,
+                        )
                     )
             except Exception as e:
                 logger.warning("Error generating outlier charts: %s", e)

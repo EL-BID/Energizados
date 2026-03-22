@@ -1394,7 +1394,6 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             return ""
 
         numeric = columns.get("numeric", [])
-        consumption_outliers = columns.get("consumption_outliers", {})
         phase25_consumption = outliers.get("consumption_outliers", {}) if outliers else {}
 
         if outliers and outliers.get("numeric_outliers"):
@@ -1408,22 +1407,26 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                     {"col": col_name, "outlier_methods": method_results, "_is_consumption": True}
                 )
 
-        # Use Phase 2.5 consumption outliers if available
-        if phase25_consumption:
-            consumption_outliers = phase25_consumption
-
         # Build summary table
         summary_table = self._build_outlier_summary_table(numeric)
 
         # Build per-method breakdown
         method_breakdown = self._build_outlier_method_breakdown(numeric)
 
-        # Build consumption outlier summary
-        consumption_summary = self._build_consumption_outlier_summary(consumption_outliers)
+        # Merge Phase 2 and Phase 2.5 consumption data, preserving Phase 2 abrupt_drop
+        phase2_consumption = columns.get("consumption_outliers", {})
+        merged_consumption = dict(phase2_consumption)
+        for k, v in phase25_consumption.items():
+            if k == "pct_abrupt_drop" and k in merged_consumption and merged_consumption[k] > 0:
+                continue
+            merged_consumption[k] = v
 
-        # Get charts
+        consumption_summary = self._build_consumption_outlier_summary(merged_consumption)
+
         outlier_boxplots_html = charts.get("outlier_boxplots", "") if charts else ""
         outlier_summary_bar_html = charts.get("outlier_summary_bar", "") if charts else ""
+        outlier_heatmap_html = charts.get("outlier_heatmap", "") if charts else ""
+        consumption_anomalies_html = charts.get("consumption_anomalies", "") if charts else ""
 
         parts = [
             f"""<h3>Outlier Summary by Column</h3>
@@ -1431,12 +1434,16 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         ]
         if method_breakdown:
             parts.append(method_breakdown)
-        if consumption_summary:
-            parts.append(consumption_summary)
         if outlier_summary_bar_html:
             parts.append(f'<div class="chart-container">{outlier_summary_bar_html}</div>')
         if outlier_boxplots_html:
             parts.append(f'<div class="chart-container">{outlier_boxplots_html}</div>')
+        if outlier_heatmap_html:
+            parts.append(f'<div class="chart-container">{outlier_heatmap_html}</div>')
+        if consumption_summary:
+            parts.append(consumption_summary)
+        if consumption_anomalies_html:
+            parts.append(f'<div class="chart-container">{consumption_anomalies_html}</div>')
 
         return f"""
 <div class="section" id="outliers">
@@ -1584,13 +1591,23 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         pct_zero_variance = consumption_outliers.get("pct_zero_variance", 0.0)
         pct_range_outliers = consumption_outliers.get("pct_range_outliers", 0.0)
         mean_zscore_outlier_pct = consumption_outliers.get("mean_zscore_outlier_pct", 0.0)
+        pct_consec_zeros = consumption_outliers.get("pct_consec_zeros", 0.0)
+        pct_abrupt_drop = consumption_outliers.get("pct_abrupt_drop", 0.0)
 
         return f"""
-<h3>Consumption Outlier Patterns</h3>
+<h3>Consumption Outlier Patterns (Fraud Detection)</h3>
 <div class="stats-grid">
     <div class="stat-card">
         <div class="value">{pct_zero_variance:.2f}%</div>
         <div class="label">Zero Variance Rows</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{pct_consec_zeros:.2f}%</div>
+        <div class="label">Consecutive Zeros (3+)</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{pct_abrupt_drop:.2f}%</div>
+        <div class="label">Abrupt Drops (&gt;50%)</div>
     </div>
     <div class="stat-card">
         <div class="value">{pct_range_outliers:.2f}%</div>
@@ -1602,9 +1619,11 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     </div>
 </div>
 <p style="font-size:13px;color:#666;margin-top:10px;">
-    <strong>Zero Variance:</strong> Rows with suspiciously constant consumption across all periods.<br>
-    <strong>Extreme Range:</strong> Rows with consumption range-to-mean ratio > 5.0.<br>
-    <strong>Global Mean:</strong> Rows with mean consumption z-score > 3.0.
+    <strong>Zero Variance:</strong> Rows with suspiciously constant consumption (potential meter tampering).<br>
+    <strong>Consecutive Zeros:</strong> Rows with 3+ consecutive periods with zero consumption.<br>
+    <strong>Abrupt Drops:</strong> Rows where consumption dropped &gt;50% between consecutive periods.<br>
+    <strong>Extreme Range:</strong> Rows with consumption range-to-mean ratio &gt; 5.0 (data quality).<br>
+    <strong>Global Mean:</strong> Rows with mean consumption z-score &gt; 3.0 (potential fraud).
 </p>"""
 
     def _build_outlier_alerts(self, numeric: List[Dict], consumption_outliers: Dict) -> str:
@@ -1631,9 +1650,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                             f"({method_name} method)."
                         )
 
-        # Check consumption outliers
         if consumption_outliers:
             pct_zero_variance = consumption_outliers.get("pct_zero_variance", 0.0)
+            pct_consec_zeros = consumption_outliers.get("pct_consec_zeros", 0.0)
+            pct_abrupt_drop = consumption_outliers.get("pct_abrupt_drop", 0.0)
             pct_range_outliers = consumption_outliers.get("pct_range_outliers", 0.0)
             mean_zscore_outlier_pct = consumption_outliers.get("mean_zscore_outlier_pct", 0.0)
 
@@ -1641,6 +1661,16 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 alerts.append(
                     f"High percentage ({pct_zero_variance:.2f}%) of rows with zero "
                     f"variance consumption (potential meter tampering)."
+                )
+            if pct_consec_zeros > 10.0:
+                alerts.append(
+                    f"High percentage ({pct_consec_zeros:.2f}%) of rows with 3+ consecutive "
+                    f"zero consumption periods (potential meter tampering)."
+                )
+            if pct_abrupt_drop > 10.0:
+                alerts.append(
+                    f"High percentage ({pct_abrupt_drop:.2f}%) of rows with abrupt consumption "
+                    f"drops &gt;50% (potential fraud or billing irregularities)."
                 )
             if pct_range_outliers > 10.0:
                 alerts.append(

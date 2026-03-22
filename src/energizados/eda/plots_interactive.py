@@ -1129,25 +1129,112 @@ class EDAInteractivePlots:
     # Outlier Analysis Interactive Charts
     # ------------------------------------------------------------------
 
+    def outlier_heatmap(
+        self,
+        outlier_masks: Dict[str, pd.Series],
+        max_rows: int = 500,
+        max_cols: int = 20,
+    ) -> str:
+        """
+        Binary heatmap showing outlier detection results per column and row.
+
+        Each cell = 1 if that row's value in that column was flagged as an outlier
+        by the IQR method (default), 0 otherwise. Useful to spot rows that are
+        flagged across many columns (global anomalies) and columns that flag many
+        rows (systematic outlier sources).
+
+        Args:
+            outlier_masks: Dict of {col_name: boolean pd.Series} — True = outlier
+            max_rows: Maximum rows to display (sampled, for performance). Default 500.
+            max_cols: Maximum columns to display. Default 20.
+
+        Returns:
+            str: HTML string of the Plotly heatmap
+        """
+        try:
+            import numpy as np
+            import plotly.graph_objects as go
+
+            if not outlier_masks:
+                return ""
+
+            cols = list(outlier_masks.keys())[:max_cols]
+
+            # Build a DataFrame of outlier flags
+            masks = []
+            labels = []
+            for col in cols:
+                s = outlier_masks[col]
+                masks.append(s.astype(int).values)
+                labels.append(col)
+
+            matrix = np.array(masks, dtype=float).T  # shape: (rows, cols)
+
+            total_rows = matrix.shape[0]
+            if total_rows > max_rows:
+                np.random.seed(42)
+                idx = np.random.choice(total_rows, max_rows, replace=False)
+                matrix = matrix[idx]
+            else:
+                idx = np.arange(total_rows)
+
+            heatmap = go.Heatmap(
+                z=matrix,
+                x=cols,
+                y=[f"Row {i}" for i in idx],
+                colorscale=[
+                    [0.0, "#E8F5E9"],
+                    [1.0, "#E53935"],
+                ],
+                colorbar=dict(
+                    title="Outlier",
+                    tickvals=[0, 1],
+                    ticktext=["Normal", "Outlier"],
+                ),
+                showscale=True,
+                hovertemplate="<b>%{y}</b><br>Column: %{x}<br>Status: %{z:text}<extra></extra>",
+                text=[["Outlier" if v == 1 else "Normal" for v in row] for row in matrix],
+            )
+
+            fig = go.Figure(data=[heatmap])
+            fig.update_layout(
+                title=dict(text="Outlier Detection Heatmap (IQR Method)", font=dict(size=15)),
+                template=self.template,
+                height=max(350, min(len(idx) * 4 + 80, 700)),
+                xaxis=dict(tickangle=-35, side="bottom"),
+                yaxis=dict(autorange="reversed", showticklabels=False, ticks=""),
+                margin=dict(l=20, r=20, t=60, b=120),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping outlier heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating outlier heatmap: %s", e)
+            return ""
+
     def plotly_outlier_boxplots(
         self,
         df: pd.DataFrame,
         numeric_cols: List[str],
         outlier_masks: Dict[str, pd.Series],
-        max_cols: int = 20,
+        max_cols: int = 12,
     ) -> str:
         """
         Interactive violin + box chart per column, outlier points overlaid in red.
 
         Each column becomes one violin+box showing the full distribution, with
         detected outlier points jittered on top in red. Hover shows value and
-        outlier status. Columns truncated to max_cols for performance.
+        outlier status. Columns are sorted by outlier % and limited to max_cols
+        for performance. Data is sampled to max 2000 rows per column.
 
         Args:
             df: Input DataFrame
             numeric_cols: List of numeric column names
             outlier_masks: Dict of {col: pd.Series(boolean)} indicating outliers
-            max_cols: Maximum columns to display (default 20)
+            max_cols: Maximum columns to display (default 12, sorted by outlier %)
 
         Returns:
             str: HTML string of the Plotly chart
@@ -1155,21 +1242,37 @@ class EDAInteractivePlots:
         try:
             import plotly.graph_objects as go
 
-            display_cols = numeric_cols[:max_cols]
+            # Sort by outlier % descending and take top N
+            col_pcts = []
+            for col in numeric_cols:
+                if col not in df.columns:
+                    continue
+                mask = outlier_masks.get(col, pd.Series(False, index=df.index))
+                total = len(mask)
+                n = int(mask.sum())
+                pct = n / total * 100 if total > 0 else 0.0
+                col_pcts.append((pct, col))
+
+            col_pcts.sort(reverse=True)
+            display_cols = [c for _, c in col_pcts[:max_cols]]
+
             fig = go.Figure()
+            sample_size = min(2000, len(df))
 
             for col in display_cols:
                 if col not in df.columns:
                     continue
 
-                clean_data = df[col].dropna()
-                outlier_mask = outlier_masks.get(col, pd.Series(False, index=df.index))
+                # Sample data for performance
+                df_sample = df.sample(sample_size, random_state=42) if len(df) > sample_size else df
+                clean_data = df_sample[col].dropna()
+                outlier_mask = outlier_masks.get(col, pd.Series(False, index=df_sample.index))
                 is_outlier = outlier_mask.reindex(clean_data.index).fillna(False)
                 outlier_pct = is_outlier.sum() / len(is_outlier) * 100 if len(is_outlier) > 0 else 0
 
                 label = f"{col}<br>({outlier_pct:.1f}%)"
 
-                # Violin + box for all data
+                # Violin + box for sampled data
                 fig.add_trace(
                     go.Violin(
                         y=clean_data.values,
@@ -1188,7 +1291,6 @@ class EDAInteractivePlots:
                 # Outlier points on top
                 outlier_vals = clean_data[is_outlier]
                 if len(outlier_vals) > 0:
-                    # Sample for large datasets
                     sample = (
                         outlier_vals
                         if len(outlier_vals) <= 200
@@ -1207,9 +1309,11 @@ class EDAInteractivePlots:
                     )
 
             fig.update_layout(
-                title=dict(text="Outlier Distribution by Column", font=dict(size=15)),
+                title=dict(
+                    text="Outlier Distribution by Column (Top N by % Outliers)", font=dict(size=15)
+                ),
                 template=self.template,
-                height=max(450, 350 + len(display_cols) * 10),
+                height=max(400, 350 + len(display_cols) * 35),
                 yaxis=dict(title="Value", zeroline=False),
                 xaxis=dict(tickangle=-35),
                 margin=dict(l=60, r=30, t=60, b=120),
@@ -1228,16 +1332,17 @@ class EDAInteractivePlots:
 
     def plotly_outlier_summary_bar(
         self,
-        outlier_masks: Dict[str, pd.Series],
-        methods: Optional[List[str]] = None,
+        multi_method_masks: Dict[str, Dict[str, pd.Series]],
     ) -> str:
         """
-        Horizontal bar chart showing % of outliers per column, grouped by detection method.
+        Horizontal grouped bar chart showing % of outliers per column,
+        grouped by detection method (IQR, Z-score, Modified Z-score).
+
+        Accepts Dict[col -> {method -> mask}] format where each column can have
+        results from multiple methods. Each method gets its own bar segment.
 
         Args:
-            outlier_masks: Dict of {col: pd.Series(boolean)} indicating outliers per column
-                           (uses the default/first method mask)
-            methods: Optional list of method names corresponding to each mask (for legend)
+            multi_method_masks: Dict of {col: {method: boolean pd.Series}}
 
         Returns:
             str: HTML string of the Plotly chart
@@ -1245,37 +1350,64 @@ class EDAInteractivePlots:
         try:
             import plotly.graph_objects as go
 
-            if not outlier_masks:
+            if not multi_method_masks:
                 return ""
 
-            cols = list(outlier_masks.keys())
-            pcts = []
-            counts = []
+            cols = list(multi_method_masks.keys())
+            method_names = []
             for col in cols:
-                mask = outlier_masks[col]
-                total = len(mask)
-                n = int(mask.sum())
-                pcts.append(round(n / total * 100, 2) if total > 0 else 0.0)
-                counts.append(n)
+                for m in multi_method_masks[col]:
+                    if m not in method_names:
+                        method_names.append(m)
 
-            # Sort by pct descending
-            sorted_pairs = sorted(zip(pcts, counts, cols), reverse=True)
-            pcts_s, counts_s, cols_s = zip(*sorted_pairs) if sorted_pairs else ([], [], [])
+            if not method_names:
+                return ""
 
-            colors = ["#E53935" if p >= 10 else "#FB8C00" if p >= 5 else "#43A047" for p in pcts_s]
+            method_colors = {"iqr": "#2196F3", "zscore": "#FF9800", "modified_zscore": "#9C27B0"}
+            default_colors = ["#2196F3", "#FF9800", "#9C27B0", "#4CAF50", "#F44336"]
+            method_color_map = {
+                m: method_colors.get(m.lower(), default_colors[i % len(default_colors)])
+                for i, m in enumerate(method_names)
+            }
 
-            fig = go.Figure(
-                go.Bar(
-                    x=list(pcts_s),
-                    y=list(cols_s),
-                    orientation="h",
-                    marker_color=colors,
-                    text=[f"{p:.1f}% ({c:,})" for p, c in zip(pcts_s, counts_s)],
-                    textposition="outside",
-                    hovertemplate="<b>%{y}</b><br>Outliers: %{x:.2f}%<br>Count: %{customdata:,}<extra></extra>",
-                    customdata=list(counts_s),
+            pct_data = {}
+            count_data = {}
+            for col in cols:
+                pcts_col = []
+                counts_col = []
+                for method in method_names:
+                    mask = multi_method_masks[col].get(method)
+                    if mask is not None:
+                        total = len(mask)
+                        n = int(mask.sum())
+                        pcts_col.append(round(n / total * 100, 2) if total > 0 else 0.0)
+                        counts_col.append(n)
+                    else:
+                        pcts_col.append(0.0)
+                        counts_col.append(0)
+                pct_data[col] = pcts_col
+                count_data[col] = counts_col
+
+            cols_sorted = sorted(cols, key=lambda c: max(pct_data.get(c, [0])), reverse=True)
+
+            fig = go.Figure()
+            for i, method in enumerate(method_names):
+                pcts = [pct_data[c][i] for c in cols_sorted]
+                fig.add_trace(
+                    go.Bar(
+                        name=method.replace("_", " ").title(),
+                        x=pcts,
+                        y=cols_sorted,
+                        orientation="h",
+                        marker_color=method_color_map.get(
+                            method, default_colors[i % len(default_colors)]
+                        ),
+                        text=[f"{p:.1f}%" if p > 0 else "" for p in pcts],
+                        textposition="outside",
+                        hovertemplate=f"<b>{{=y}}</b><br>Method: {method}<br>Outliers: %{{x:.2f}}%<extra></extra>",
+                        offsetgroup=str(i),
+                    )
                 )
-            )
 
             fig.add_vline(
                 x=10,
@@ -1287,12 +1419,21 @@ class EDAInteractivePlots:
             )
 
             fig.update_layout(
-                title=dict(text="Outlier % by Column (IQR method)", font=dict(size=15)),
+                title=dict(text="Outlier % by Column and Method", font=dict(size=15)),
                 template=self.template,
-                xaxis=dict(title="% Outliers", range=[0, max(max(pcts_s) * 1.25, 15)]),
+                xaxis=dict(title="% Outliers", range=[0, 25]),
                 yaxis=dict(autorange="reversed"),
-                height=max(350, len(cols_s) * 28 + 120),
+                barmode="group",
+                height=max(350, len(cols_sorted) * 28 + 120),
                 margin=dict(l=20, r=80, t=60, b=50),
+                legend=dict(
+                    title="Method",
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                ),
             )
 
             return self._to_html(fig)
@@ -1384,7 +1525,7 @@ class EDAInteractivePlots:
                         )
                         fig.add_trace(
                             go.Scatter(
-                                x=range(len(subset)),
+                                x=list(range(len(subset))),
                                 y=subset[col],
                                 mode="markers",
                                 name=f"{val}" if i == 0 else None,
@@ -1398,7 +1539,7 @@ class EDAInteractivePlots:
                 else:
                     fig.add_trace(
                         go.Scatter(
-                            x=range(len(sample_df)),
+                            x=list(range(len(sample_df))),
                             y=sample_df[col],
                             mode="markers",
                             name="Consumption" if i == 0 else None,
