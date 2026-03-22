@@ -20,6 +20,7 @@ import logging
 import re
 
 import numpy as np
+from imblearn.combine import SMOTETomek
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.pipeline import Pipeline, make_pipeline
 from imblearn.under_sampling import RandomUnderSampler
@@ -113,6 +114,9 @@ class LGBMModel:
         elif self.sampling_method == "undersample":
             under = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(under, lgbm_model_search)
+        elif self.sampling_method == "smotetomek":
+            smt = SMOTETomek(sampling_strategy=self.sampling_th, random_state=40)
+            return make_pipeline(smt, lgbm_model_search)
         else:
             return make_pipeline(lgbm_model_search)
 
@@ -261,7 +265,7 @@ class CATModel:
             search_hip: If True, run hyperparameter search before training.
             sampling_th: Sampling ratio for the sampler.
             preprocesor_num: Unused legacy parameter.
-            sampling_method: Sampling strategy ('over', 'under', or other for no sampling).
+            sampling_method: Sampling strategy ('over', 'under', 'smotetomek', or other for no sampling).
             n_iter: Number of iterations for RandomizedSearchCV.
             cv: Number of cross-validation folds.
             class_weight: Class weights for CatBoost (dict like {0: 1, 1: 10} or "balanced").
@@ -310,6 +314,9 @@ class CATModel:
         elif self.sampling_method == "undersample":
             under = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(under, cb_model_search)
+        elif self.sampling_method == "smotetomek":
+            smt = SMOTETomek(sampling_strategy=self.sampling_th, random_state=40)
+            return make_pipeline(smt, cb_model_search)
         else:
             return make_pipeline(cb_model_search)
 
@@ -339,9 +346,9 @@ class CATModel:
             .columns.tolist()
         )
 
-        if self.sampling_method not in ["oversample", "undersample"]:
+        if self.sampling_method not in ["oversample", "undersample", "smotetomek"]:
             logger.warning(
-                "sampling_method '%s' is not one of ['over', 'under']."
+                "sampling_method '%s' is not one of ['over', 'under', 'smotetomek']."
                 " No resampling will be applied.",
                 self.sampling_method,
             )
@@ -474,6 +481,8 @@ class NNModel:
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
         elif self.sampling_method == "undersample":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
+        elif self.sampling_method == "smotetomek":
+            ramdom_s = SMOTETomek(sampling_strategy=self.sampling_th, random_state=40)
         else:
             ramdom_s = None
 
@@ -656,6 +665,8 @@ class LSTMNNModel:
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
         elif self.sampling_method == "undersample":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
+        elif self.sampling_method == "smotetomek":
+            ramdom_s = SMOTETomek(sampling_strategy=self.sampling_th, random_state=40)
         else:
             ramdom_s = None
 

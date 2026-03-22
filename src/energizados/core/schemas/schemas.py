@@ -130,9 +130,10 @@ MODEL_CONFIG_SCHEMA = {
                 "enabled": {"type": "boolean"},
                 "method": {
                     "type": "string",
-                    "enum": ["smote", "undersample", "oversample", "none"],
+                    "enum": ["over", "undersample", "smotetomek", "none"],
                 },
                 "strategy": {"type": "string"},
+                "threshold": {"type": "number"},
             },
         },
         "hyperparam_search": {
@@ -226,6 +227,38 @@ TRAINING_SCHEMA = {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Column names to compute per-segment evaluation metrics",
+                },
+                "shap": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Enable SHAP value computation and plots",
+                            "default": False,
+                        },
+                        "max_samples": {
+                            "type": "integer",
+                            "description": "Maximum number of samples for SHAP computation (background + test)",
+                            "minimum": 50,
+                            "default": 500,
+                        },
+                        "top_n_features": {
+                            "type": "integer",
+                            "description": "Number of top features to display in SHAP plots",
+                            "minimum": 1,
+                            "default": 20,
+                        },
+                        "plot_types": {
+                            "type": "array",
+                            "description": "Which SHAP plot types to generate",
+                            "items": {
+                                "type": "string",
+                                "enum": ["summary", "bar"],
+                            },
+                            "default": ["summary", "bar"],
+                        },
+                    },
+                    "additionalProperties": False,
                 },
             },
         },

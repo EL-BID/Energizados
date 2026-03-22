@@ -7,6 +7,7 @@ before analysis and modeling.
 
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
+    ConsumptionPatterns,
     ExtraVars,
     MinMaxScalerRow,
     ToDummy,
@@ -23,6 +24,7 @@ __all__ = [
     "MinMaxScalerRow",
     "TsfelVars",
     "ExtraVars",
+    "ConsumptionPatterns",
     # Utility functions
     "fill_empty_values_cycle",
     "fill_empty_values_str",

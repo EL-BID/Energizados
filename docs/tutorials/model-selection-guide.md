@@ -83,7 +83,7 @@ Consider LSTM when:
 2.1 **Improve LightGBM**:
    - Tune hyperparameters (`num_leaves`, `learning_rate`, `min_child_samples`)
    - Add more features (consumption volatility, sudden drops, geographic features)
-   - Try different sampling strategies (undersample vs oversample vs SMOTE)
+    - Try different sampling strategies (over vs undersample vs smotetomek)
 
 2.2 **Try CatBoost**:
    - Keep the same features and sampling strategy

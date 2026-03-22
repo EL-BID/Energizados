@@ -149,6 +149,21 @@
   - AUC, Precision, Recall, F1 per segment value
   - Interactive Plotly chart + heatmap-colored HTML table
   - Configured via `evaluation.segment_columns` in train.yaml
+- **SMOTETomek Sampling**: New sampling method combining SMOTE (oversampling) with Tomek links cleaning
+  - Added `smotetomek` to `sampling.method` enum in configuration schema
+  - Supports threshold parameter for class imbalance handling
+  - Available for all ML models: LightGBM, CatBoost, Neural Networks, LSTM
+
+### Fixed
+- **Schema Validation Completeness**:
+  - Fixed `MODEL_CONFIG_SCHEMA.sampling.method` enum to match actual implementation
+  - Corrected method names: `"over"` (not `"oversample"`), removed non-existent `"smote"`
+  - Validated sampling methods: `["over", "undersample", "smotetomek", "none"]`
+  - Added `threshold` property to sampling schema
+  - Added `shap` configuration to `TRAINING_SCHEMA.evaluation` section
+  - Added comprehensive test suite in `tests/test_config_schemas.py` (7 tests)
+  - Updated `train.yaml.tpl` template with SHAP configuration example
+  - Updated documentation (architecture.md, train.md, model-selection-guide.md) with correct method names
 
 ---
 

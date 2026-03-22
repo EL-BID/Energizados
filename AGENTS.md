@@ -29,6 +29,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **Decision rule**: If you can write the exact text you expect to find → `Grep`. If you need to describe the intent in plain English → `colgrep`.
   - **Never** call `grep`, `rg`, or `find` as Bash commands — use the `Grep` tool or `colgrep` instead.
 
+- **ALWAYS search Engram memory FIRST before starting work:**
+  - At the start of each session or when the user mentions a feature, bug, or past work:
+    1. Call `mem_context` to check recent session history
+    2. If not found, call `mem_search` with relevant keywords
+    3. If you find a match, use `mem_get_observation` for full content
+  - **Why**: Avoid repeating work, discover past decisions/bugs, understand context
+  - **When to search**: 
+    - User's FIRST message references the project or a feature
+    - Starting work on something that might have been done before
+    - User asks to "remember", "recall", "recordar", "acordate"
+    - Any mention of "qué hicimos" or "what did we do"
+  - **Project name**: Use "Energizados" (with capital E) for `project` parameter in mem searches
+
 ## Project Overview
 
 Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, Neural Networks, LSTM).
@@ -368,6 +381,7 @@ training:
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features_names_path` (str, default=None), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
+| `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior") |
 
 **Global Transformers:**
 
@@ -392,6 +406,13 @@ preprocessing:
         num_periodos: 6
     - extra_vars:
         num_periodos: 12
+
+    # Patrones de consumo específicos para detección de fraude
+    # Genera features como: diff ratios, min_max_ratio, zscore, zero_ratio,
+    # slope_normalized, consistency_score, drastic_changes_count
+    - consumption_patterns:
+        num_periodos: 12
+        periods_suffix: "_anterior"
 
     # Custom class para transformers globales
     - custom_class: "preprocessing.CustomGlobalTransformer"

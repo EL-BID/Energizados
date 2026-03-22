@@ -16,6 +16,7 @@ from energizados.feature_engineering.base import BaseFeatureEngineering
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
+    ConsumptionPatterns,
     ExtraVars,
     TeEncoder,
     ToDummy,
@@ -74,6 +75,10 @@ def _build_transformer_from_config(
             },
         ),
         "extra_vars": (ExtraVars, {"num_periodos": 3, "periods_suffix": "_anterior"}),
+        "consumption_patterns": (
+            ConsumptionPatterns,
+            {"num_periodos": 12, "periods_suffix": "_anterior"},
+        ),
     }
 
     if transform_name not in transformer_map:

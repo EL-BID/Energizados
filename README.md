@@ -11,11 +11,16 @@
 
 ## ✨ Features
 
-- **ETL Framework**: Multi-source data processing with dependencies via YAML configuration
-- **ML Models**: LightGBM, CatBoost, Neural Networks, LSTM, and ensemble methods
-- **EDA Module**: Interactive HTML reports for exploratory data analysis
-- **CLI Tools**: Complete command-line interface for pipeline orchestration
-- **SHAP Explainability**: Model interpretability via SHAP values for regulatory compliance
+| Capability | Details |
+|-------------|---------|
+| **ETL Framework** | Multi-source data processing with concat/merge modes and dependency management via YAML |
+| **ML Models** | LightGBM, CatBoost, Neural Networks, LSTM, + ensemble (stacking/soft voting) |
+| **Preprocessing** | Target encoding, one-hot, ordinal, cardinality reduction, tsfel time-series features |
+| **Feature Selection** | Boruta, correlation-based, constant-value selectors |
+| **EDA Module** | Interactive HTML reports with IV/KS/Cramér's V analysis and segment drift detection |
+| **CLI Tools** | `energizados init`, `run`, `validate`, `eda` commands for pipeline orchestration |
+| **Explainability** | SHAP values for model interpretability and regulatory compliance |
+| **Inference** | Production-ready inference pipeline with batch processing support |
 
 ## 🚀 Quick Start
 

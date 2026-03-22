@@ -124,6 +124,11 @@ train:
             num_periodos: 12
             periods_suffix: *period_suffix
 
+        # Domain-specific consumption patterns for fraud detection
+        # - consumption_patterns:
+        #     num_periodos: 12
+        #     periods_suffix: *period_suffix
+
       #   # Option: Custom class for global transformers
       #   - custom_class: "preprocessing.CustomGlobalTransformer"
       #     params:
@@ -206,7 +211,7 @@ train:
       # Class balancing: choose ONE of sampling or class_weight
       # Option 1: Sampling (resamples the data)
       sampling:
-        method: "undersample"  # Options: oversample, undersample, none
+        method: "undersample"  # Options: over, undersample, smotetomek, none
         threshold: 0.5
 
       # Option 2: Class weights (balances via internal model weights)
@@ -253,14 +258,14 @@ train:
   # models:
   #   - type: "neural_network"
   #     sampling:
-  #       method: "undersample"
+  #       method: "smotetomek"
   #       threshold: 0.5
 
   # ----- Example: LSTM (for sequential consumption data) -----
   # models:
   #   - type: "lstm"
   #     sampling:
-  #       method: "undersample"
+  #       method: "smotetomek"
   #       threshold: 0.5
 
   # ----- Example: Simple Trend (rule-based, no ML) -----
@@ -366,3 +371,10 @@ train:
     #     # capacity: 200   # maximum alerts per period
     #     # For precision_recall (guaranteed minimum recall):
     #     # min_recall: 0.80
+
+    # SHAP model explainability (feature importance and attribution)
+    # shap:
+    #   enabled: true
+    #   max_samples: 500      # Max samples for SHAP computation (controls compute time)
+    #   top_n_features: 20    # Number of top features in SHAP plots
+    #   plot_types: [summary, bar]  # Plot types: summary (beeswarm) and/or bar (importance)

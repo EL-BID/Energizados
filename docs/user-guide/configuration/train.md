@@ -386,7 +386,7 @@ These models work directly on raw consumption columns without preprocessing:
 models:
   - type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
     sampling:
-      method: "undersample"  # oversample, undersample, none
+      method: "undersample"  # over, undersample, smotetomek, none
       threshold: 0.5
     hyperparams:
       num_leaves: 31
@@ -404,7 +404,7 @@ models:
 |-----------|------|---------|-------------|
 | `type` | string | - | Model type: `lightgbm`, `catboost`, `neural_network`, `lstm`, `simple_trend`, `simple_constant` |
 | `sampling` | dict | - | Sampling configuration (ML models only) |
-| `sampling.method` | string | `"none"` | `oversample`, `undersample`, `none` |
+| `sampling.method` | string | `"none"` | `over`, `undersample`, `smotetomek`, `none` |
 | `sampling.threshold` | float | `0.5` | Threshold for undersampling |
 | `hyperparams` | dict | - | Model hyperparameters (ML models only) |
 | `hyperparam_search` | dict | - | Hyperparameter search configuration (ML models only) |
@@ -420,7 +420,7 @@ models:
 models:
   - type: "lightgbm"
     sampling:
-      method: "undersample"  # oversample, undersample, none
+      method: "undersample"  # over, undersample, smotetomek, none
       threshold: 0.5
     hyperparams:
       num_leaves: 31

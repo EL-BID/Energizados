@@ -135,6 +135,37 @@ mi_proyecto/
 | `core/utils/import_utils.py` | Dynamic class loading with security allowlist |
 | `core/utils/secure_pickle.py` | Pickle serialization with SHA-256 verification |
 
+### Configuration Schema Module
+
+| Module | Responsibility |
+|---------|---------------|
+| `core/schemas/schemas.py` | JSON Schema definitions for ETL, training, evaluation, and inference configurations |
+| `core/schemas/config_validator.py` | `ConfigValidator` class for validating YAML configs against JSON schemas |
+
+**Key Schemas:**
+
+| Schema | Description |
+|--------|-------------|
+| `ETL_SCHEMA` | Validates ETL configuration (input/output, custom_class, dependencies) |
+| `SPLIT_SCHEMA` | Validates data split configuration (method, train/val/test periods, groups) |
+| `FEATURE_ENGINEERING_SCHEMA` | Validates preprocessing and feature selection steps |
+| `MODEL_CONFIG_SCHEMA` | Validates model configuration (type, sampling, hyperparams, hyperparam_search) |
+| `ENSEMBLE_SCHEMA` | Validates ensemble configuration (method, meta_learner, weights) |
+| `EVALUATION_SCHEMA` | Validates evaluation configuration (metrics, calibration, shap, segment_columns) |
+| `INFERENCE_SCHEMA` | Validates inference configuration (input/output, threshold) |
+
+**Sampling Methods Validated:**
+- `over` — increases minority class samples (RandomOverSampler)
+- `undersample` — reduces majority class samples (RandomUnderSampler)
+- `smotetomek` — combines SMOTE oversampling with Tomek links cleaning (SMOTETomek)
+- `none` — disable class balancing
+
+**SHAP Configuration Validated:**
+- `enabled` — enable/disable SHAP value computation
+- `max_samples` — maximum samples for SHAP computation (default: 500)
+- `top_n_features` — number of top features to display (default: 20)
+- `plot_types` — which plots to generate: `["summary", "bar"]`
+
 ### Pipeline Builders Module
 
 The `core/builders/` module implements the **Builder pattern** for constructing pipeline steps from YAML configuration.
@@ -266,7 +297,7 @@ Feature Engineering (config/train.yaml → feature_engineering)
 Feature Engineering Pipeline (saved as .pkl)
     ↓
 Model Training (config/train.yaml → models)
-    ├── Sampling (undersample/oversample/none)
+    ├── Sampling (over/undersample/smotetomek/none)
     ├── Hyperparameter Search (optional)
     └── Model Fitting
     ↓
@@ -462,7 +493,7 @@ training:
   models:
     - type: "lightgbm"  # or "catboost", "neural_network", "lstm"
       sampling:
-        method: "undersample"  # or "oversample", "none"
+        method: "undersample"  # or "over", "smotetomek", "none"
         threshold: 0.5
       hyperparams:
         n_estimators: 1000

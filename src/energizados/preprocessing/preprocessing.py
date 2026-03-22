@@ -10,6 +10,7 @@ Classes:
 - MinMaxScalerRow: Applies Min-Max transformation to matrix rows.
 - TsfelVars: Calculates features using tsfel library.
 - ExtraVars: Creates additional features based on previous values.
+- ConsumptionPatterns: Generates domain-specific fraud detection features.
 
 Functions:
 - fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent
@@ -904,8 +905,96 @@ def fill_empty_values_numeric(df, cols, numeric_value):
         numeric_value: Numeric value to use as fill.
 
     Returns:
-        pd.DataFrame: DataFrame with nulls in the specified columns replaced by numeric_value.
+        pd.DataFrame: DataFrame with nulls in specified columns replaced by numeric_value.
     """
     for x in cols:
         df.loc[:, x] = df[x].fillna(numeric_value)
     return df
+
+
+class ConsumptionPatterns(BaseEstimator, TransformerMixin):
+    """
+    Transformer that generates domain-specific features for electricity fraud detection.
+
+    This transformer creates features designed to capture fraudulent consumption patterns
+    such as abrupt drops, constant consumption, zero consumption, and drastic changes.
+
+    Parameters:
+    - periods_suffix: str, suffix of consumption columns (default="_anterior").
+    - num_periodos: int, number of consumption periods (default=12).
+    """
+
+    def __init__(self, periods_suffix: str = "_anterior", num_periodos: int = 12):
+        self.periods_suffix = periods_suffix
+        self.num_periodos = num_periodos
+
+    def fit(self, X, y=None):
+        """No-op fit. ConsumptionPatterns is stateless.
+
+        Args:
+            X: Input DataFrame (not used).
+            y: Ignored. Kept for API compatibility.
+
+        Returns:
+            self: Returns the transformer unchanged.
+        """
+        return self
+
+    def transform(self, X):
+        """Generate consumption pattern features and append to DataFrame.
+
+        Args:
+            X: Input DataFrame with consumption columns (e.g., '12_anterior', ..., '1_anterior').
+
+        Returns:
+            pd.DataFrame: Original DataFrame with new consumption pattern features appended.
+        """
+        df = X.copy()
+
+        # 1. Diff ratios between consecutive periods (captures abrupt drops)
+        for i in range(self.num_periodos, 1, -1):
+            current = f"{i}{self.periods_suffix}"
+            prev = f"{i - 1}{self.periods_suffix}"
+            df[f"diff_{i}_{i - 1}"] = np.where(df[prev] > 0, df[current] / df[prev], 0)
+
+        # 2. Min-max ratio (variability)
+        df[f"min_max_ratio_{self.num_periodos}"] = np.where(
+            df[f"max_cons{self.num_periodos}"] > 0,
+            df[f"min_cons{self.num_periodos}"] / df[f"max_cons{self.num_periodos}"],
+            0,
+        )
+
+        # 3. Z-score of mean consumption (outliers)
+        mean_col = f"mean_{self.num_periodos}"
+        std_col = f"std_cons{self.num_periodos}"
+        mean_global = df[mean_col].mean()
+        std_global = df[std_col].mean()
+        df[f"zscore_mean_{self.num_periodos}"] = np.where(
+            df[std_col] > 0, (df[mean_col] - mean_global) / std_global, 0
+        )
+
+        # 4. Zero ratio (proportion of months with zero consumption)
+        zero_col = f"cant_ceros_{self.num_periodos}"
+        df[f"zero_ratio_{self.num_periodos}"] = df[zero_col] / self.num_periodos
+
+        # 5. Slope normalized by mean (trend relative to average)
+        slope_col = f"slope_{self.num_periodos}"
+        df[f"slope_normalized_{self.num_periodos}"] = np.where(
+            df[mean_col] > 0, df[slope_col] / df[mean_col], 0
+        )
+
+        # 6. Consistency score (low variability = suspicious)
+        df[f"consistency_score_{self.num_periodos}"] = np.where(
+            df[std_col] > 0, df[mean_col] / df[std_col], df[mean_col]
+        )
+
+        # 7. Drastic changes count (changes >50%)
+        changes = []
+        for i in range(self.num_periodos, 1, -1):
+            current = f"{i}{self.periods_suffix}"
+            prev = f"{i - 1}{self.periods_suffix}"
+            change = np.abs(df[current] - df[prev]) / (df[prev] + 1e-6)
+            changes.append(change > 0.5)
+        df[f"drastic_changes_count_{self.num_periodos}"] = np.sum(changes, axis=0)
+
+        return df
