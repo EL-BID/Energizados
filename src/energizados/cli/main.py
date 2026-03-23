@@ -333,8 +333,17 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
                 validate_config(config_paths, verbose=verbose > 0)
             return
 
-        # Execute complete pipeline
-        execute_pipeline(config_paths, run_name=name)
+        # Execute complete pipeline.
+        # If all configs share the same step type (e.g. train_01,train_02),
+        # run them as sequential independent executions instead of merging,
+        # because merging would overwrite the first config with the second.
+        from energizados.cli.run import all_same_step_type
+
+        if all_same_step_type(config_paths):
+            for single_path in config_paths:
+                execute_pipeline([single_path], run_name=name)
+        else:
+            execute_pipeline(config_paths, run_name=name)
 
     except ConfigResolutionError as e:
         print_error(str(e))

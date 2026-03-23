@@ -501,3 +501,136 @@ train:
                         assert isinstance(result, dict)
             finally:
                 os.chdir(old_cwd)
+
+
+class TestSameStepTypeDetection:
+    """Tests for same-step-type detection (train_01, train_02 sequential runs)."""
+
+    def test_all_same_step_type_train(self):
+        """Multiple train_* configs are detected as same type."""
+        from energizados.cli.run import all_same_step_type
+
+        assert all_same_step_type(["/p/train_01_baseline.yaml", "/p/train_02_lgbm.yaml"]) is True
+
+    def test_all_same_step_type_etl(self):
+        """Multiple etl_* configs are detected as same type."""
+        from energizados.cli.run import all_same_step_type
+
+        assert all_same_step_type(["/p/etl_raw.yaml", "/p/etl_clean.yaml"]) is True
+
+    def test_mixed_types_not_same(self):
+        """etl + train are NOT the same type."""
+        from energizados.cli.run import all_same_step_type
+
+        assert all_same_step_type(["/p/etl.yaml", "/p/train.yaml"]) is False
+
+    def test_single_config_not_same(self):
+        """Single config always returns False."""
+        from energizados.cli.run import all_same_step_type
+
+        assert all_same_step_type(["/p/train_01.yaml"]) is False
+
+    def test_unknown_prefix_not_same(self):
+        """Unknown prefixes return False."""
+        from energizados.cli.run import all_same_step_type
+
+        assert all_same_step_type(["/p/custom_a.yaml", "/p/custom_b.yaml"]) is False
+
+
+class TestGetStepType:
+    """Tests for _get_step_type prefix matching."""
+
+    def test_exact_match(self):
+        from energizados.cli.run import _get_step_type
+
+        assert _get_step_type("train") == "train"
+        assert _get_step_type("etl") == "etl"
+        assert _get_step_type("eda") == "eda"
+
+    def test_prefix_underscore(self):
+        from energizados.cli.run import _get_step_type
+
+        assert _get_step_type("train_01_baseline") == "train"
+        assert _get_step_type("train_02_lgbm_no_fe") == "train"
+        assert _get_step_type("etl_raw") == "etl"
+
+    def test_prefix_dash(self):
+        from energizados.cli.run import _get_step_type
+
+        assert _get_step_type("train-v2") == "train"
+
+    def test_unknown(self):
+        from energizados.cli.run import _get_step_type
+
+        assert _get_step_type("my_custom") is None
+        assert _get_step_type("training") is None  # 'training' != 'train' exact, no separator
+
+
+class TestSequentialSameTypeExecution:
+    """Tests that same-type configs run execute_pipeline once per config."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    def test_same_type_configs_run_sequentially(self):
+        """train_01,train_02 must call execute_pipeline twice, not once."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "train_01_baseline.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "train_02_lgbm.yaml").write_text("training:\n  enabled: false\n")
+
+            old_cwd = os.getcwd()
+            call_args = []
+
+            def mock_execute(config_paths, run_name=None):
+                call_args.append(list(config_paths))
+                return {}
+
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.execute_pipeline", side_effect=mock_execute):
+                    result = self.runner.invoke(cli, ["run", "train_01_baseline,train_02_lgbm"])
+                    assert result.exit_code == 0, result.output
+                    # Must have been called twice, once per config
+                    assert len(call_args) == 2
+                    assert call_args[0][0].endswith("train_01_baseline.yaml")
+                    assert call_args[1][0].endswith("train_02_lgbm.yaml")
+            finally:
+                os.chdir(old_cwd)
+
+    def test_mixed_types_run_once_merged(self):
+        """etl,train must call execute_pipeline once with both paths."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "etl.yaml").write_text(
+                "etl:\n  sample:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n"
+            )
+            (config_dir / "train.yaml").write_text("training:\n  enabled: false\n")
+
+            old_cwd = os.getcwd()
+            call_args = []
+
+            def mock_execute(config_paths, run_name=None):
+                call_args.append(list(config_paths))
+                return {}
+
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.execute_pipeline", side_effect=mock_execute):
+                    result = self.runner.invoke(cli, ["run", "etl,train"])
+                    assert result.exit_code == 0, result.output
+                    # Must have been called once with both paths merged
+                    assert len(call_args) == 1
+                    assert len(call_args[0]) == 2
+            finally:
+                os.chdir(old_cwd)

@@ -114,12 +114,53 @@ DEFAULT_STEP_ORDER = [
 ]
 
 
+_CONFIG_TO_STEPS = {
+    "etl": ["ETLStep"],
+    "eda": ["EDAStep"],
+    "train": ["SplitStep", "TrainingStep", "EvaluationStep"],
+    "split": ["SplitStep"],
+    "evaluation": ["EvaluationStep"],
+    "infer": ["InferenceStep"],
+}
+
+
+def _get_step_type(config_name: str) -> Optional[str]:
+    """
+    Return the step type for a config name, using prefix matching.
+
+    Examples:
+        "train"              -> "train"
+        "train_01_baseline"  -> "train"
+        "etl_raw"            -> "etl"
+        "my_custom"          -> None
+    """
+    name = config_name.lower()
+    for prefix in _CONFIG_TO_STEPS:
+        if name == prefix or name.startswith(prefix + "_") or name.startswith(prefix + "-"):
+            return prefix
+    return None
+
+
+def all_same_step_type(config_paths: List[str]) -> bool:
+    """
+    Return True if all configs share the same step type and there are multiple configs.
+
+    Used to detect "run train_01,train_02" (sequential runs) vs "etl,train" (merge).
+    """
+    if len(config_paths) <= 1:
+        return False
+    types = [_get_step_type(Path(p).stem) for p in config_paths]
+    return len(set(types)) == 1 and types[0] is not None
+
+
 def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
     """
     Determine the execution order based on user-specified config names.
 
     If user specifies multiple configs (e.g., "etl,eda,train"), execute them
     in that exact order. If only one config, execute just that config's steps.
+
+    Uses prefix matching so "train_01_baseline" resolves to the "train" steps.
 
     Args:
         pipeline: The Pipeline object with steps
@@ -128,21 +169,11 @@ def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
     Returns:
         List of step class names in execution order
     """
-    # Map config names to step types
-    config_to_steps = {
-        "etl": ["ETLStep"],
-        "eda": ["EDAStep"],
-        "train": ["SplitStep", "TrainingStep", "EvaluationStep"],
-        "split": ["SplitStep"],
-        "evaluation": ["EvaluationStep"],
-        "infer": ["InferenceStep"],
-    }
-
     # Build execution order from user's config order
     user_order = []
     for config_name in config_names:
-        config_lower = config_name.lower()
-        steps = config_to_steps.get(config_lower, [])
+        step_type = _get_step_type(config_name)
+        steps = _CONFIG_TO_STEPS.get(step_type, []) if step_type else []
         for step in steps:
             if step not in user_order:
                 user_order.append(step)
