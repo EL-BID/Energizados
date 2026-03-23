@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- Population segmentation analysis in EDA module: Detects multiple distinct populations in numeric distributions
+- `PopulationAnalyzer` class in `energizados.eda._population_segmenter`
+- Population analysis HTML report section with table showing: Range, Percentile, Row count, Interpretation
+- Detected jumps table showing significant distribution breaks (percentile range, value change, ratio)
+- Configurable population analysis in `config/eda.yaml`: percentile_step, jump_ratio_threshold, max_populations, min_population_pct
+- 28 unit tests for PopulationAnalyzer covering: initialization, detection logic, edge cases, interpretation
 - Enhanced outlier analysis in EDA module with multi-method detection (IQR, Z-score, Modified Z-score)
 - `OutlierDetector` class in `energizados.eda._outlier_detector`
 - New outlier visualization plots: boxplots, heatmaps, consumption anomaly scatter

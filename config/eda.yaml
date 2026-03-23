@@ -45,6 +45,16 @@ sections:
     alert_threshold: 10
     detailed_charts: true
 
+    # Population segmentation analysis (NEW)
+    population_analysis:
+      enabled: true
+      percentile_step: 0.5
+      jump_ratio_threshold: 5.0
+      max_populations: 5
+      min_population_pct: 0.5
+      # Additional columns to analyze (besides consumption columns)
+      additional_columns: []
+
   # Target variable analysis (Phase 3)
   target:
     enabled: true

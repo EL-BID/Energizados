@@ -778,8 +778,34 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         temporal = columns.get("temporal", [])
         consumption = columns.get("consumption", {})
 
-        # Numeric table
-        numeric_html = self._build_numeric_table(numeric)
+        # Create consumption column stats for numeric section
+        # Consumption columns are technically numeric, so include them in numeric table
+        consumption_stats = []
+        if consumption:
+            for period_stat in consumption.get("stats_by_period", []):
+                col_name = period_stat.get("period", "")
+                # Transform consumption stats to numeric table format
+                consumption_stats.append(
+                    {
+                        "col": col_name,
+                        "count": period_stat.get("mean", 0),  # Not exact, but for display
+                        "null_pct": period_stat.get("nulls_pct", 0),
+                        "mean": period_stat.get("mean", 0),
+                        "std": period_stat.get("std", 0),
+                        "min": period_stat.get("min", 0),
+                        "max": period_stat.get("max", 0),
+                        "p50": period_stat.get("mean", 0),  # Use mean as approximation
+                        "outlier_pct": 0,  # Not available at this level
+                        "skewness": "—",  # Not available
+                        "consumption": True,
+                    }
+                )
+
+        # Merge numeric and consumption columns
+        numeric_with_consumption = numeric + consumption_stats
+
+        # Numeric table (includes consumption columns)
+        numeric_html = self._build_numeric_table(numeric_with_consumption)
         # Categorical table
         categorical_html = self._build_categorical_table(categorical)
         # Temporal table
@@ -792,7 +818,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         # Column detail charts (collapsible)
         column_details = charts.get("column_details", {})
         numeric_details = self._build_column_details(
-            [d.get("col", "") for d in numeric], column_details, "Numeric"
+            [d.get("col", "") for d in numeric_with_consumption], column_details, "Numeric"
         )
         categorical_details = self._build_column_details(
             [d.get("col", "") for d in categorical], column_details, "Categorical"
@@ -805,7 +831,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <div class="section" id="columnas">
     <h2>Phase 2: Column Analysis</h2>
 
-    <h3>Numeric Variables ({len(numeric)})</h3>
+    <h3>Numeric Variables ({len(numeric_with_consumption)})</h3>
     {numeric_html}
     {numeric_details}
 
@@ -839,9 +865,15 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 else ""
             )
             null_color = "color:#f44336;" if (d.get("null_pct", 0) or 0) > 30 else ""
+            is_consumption = d.get("consumption", False)
+            consumption_badge = (
+                '<span class="badge" style="background:#e8f5e9;color:#2e7d32;">consumption</span>'
+                if is_consumption
+                else ""
+            )
             rows += f"""
 <tr>
-    <td><strong>{d.get("col", "")}</strong></td>
+    <td><strong>{d.get("col", "")}</strong>{f" {consumption_badge}" if consumption_badge else ""}</td>
     <td>{d.get("count", 0):,}</td>
     <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
     <td>{d.get("mean", "—")}</td>
@@ -1200,9 +1232,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                     color = ""
                     if rate is not None and rate > 0.3:
                         color = ' style="color:#E53935;font-weight:600;"'
-                    fraud_cells = (
-                        f"<td{color}>{rate_str}</td>" f'<td>{s.get("fraud_count", 0):,}</td>'
-                    )
+                    fraud_cells = f"<td{color}>{rate_str}</td><td>{s.get('fraud_count', 0):,}</td>"
                 rows += (
                     f"<tr>"
                     f"<td>{s['cluster_id']}</td>"
@@ -1521,6 +1551,17 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         consumption_summary = self._build_consumption_outlier_summary(merged_consumption)
 
+        # Build population analysis table (if available)
+        population_analysis = outliers.get("population_analysis", {}) if outliers else {}
+        population_tables = ""
+        if population_analysis:
+            for col_name, pop_data in population_analysis.items():
+                if pop_data.get("has_multiple_populations", False):
+                    population_tables += f"""
+<h3>Population Segmentation: {col_name}</h3>
+{self._build_population_analysis_table(col_name, pop_data)}
+"""
+
         outlier_boxplots_html = charts.get("outlier_boxplots", "") if charts else ""
         outlier_summary_bar_html = charts.get("outlier_summary_bar", "") if charts else ""
         outlier_heatmap_html = charts.get("outlier_heatmap", "") if charts else ""
@@ -1540,6 +1581,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             parts.append(f'<div class="chart-container">{outlier_heatmap_html}</div>')
         if consumption_summary:
             parts.append(consumption_summary)
+        if population_tables:
+            parts.append(population_tables)
         if consumption_anomalies_html:
             parts.append(f'<div class="chart-container">{consumption_anomalies_html}</div>')
 
@@ -1614,6 +1657,111 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 </tbody>
 </table>
 </div>"""
+
+    def _build_population_analysis_table(self, col_name: str, pop_data: Dict) -> str:
+        """
+        Build population analysis table for a numeric column.
+
+        Generates a table showing the detected populations with their ranges,
+        percentile ranges, row counts, and interpretations.
+
+        Args:
+            col_name: Name of the column being analyzed
+            pop_data: Population analysis results from PopulationAnalyzer
+
+        Returns:
+            str: HTML string for the population analysis table
+        """
+        populations = pop_data.get("populations", [])
+        jumps = pop_data.get("jumps", [])
+
+        if not populations:
+            return "<p><em>No populations detected.</em></p>"
+
+        # Build table rows
+        rows = ""
+        for pop in populations:
+            range_min, range_max = pop.get("range", (0, 0))
+            percentile_range = pop.get("percentile_range", "")
+            row_count = pop.get("row_count", 0)
+            pct_rows = pop.get("pct_rows", 0.0)
+            interpretation = pop.get("interpretation", "")
+
+            # Format range
+            if range_min == 0 and range_max > 0:
+                range_str = f"0 – {range_max:,.0f}"
+            elif range_max == float("inf"):
+                range_str = f">{range_min:,.0f}"
+            else:
+                range_str = f"{range_min:,.0f} – {range_max:,.0f}"
+
+            # Format row count with percentage
+            if pct_rows > 0.5:
+                row_str = f"{row_count:,} ({pct_rows:.1f}%)"
+            else:
+                row_str = f"{row_count:,}"
+
+            rows += f"""
+<tr>
+    <td><strong>{range_str}</strong></td>
+    <td>{percentile_range}</td>
+    <td>{row_str}</td>
+    <td>{interpretation}</td>
+</tr>"""
+
+        # Add jump information if available
+        jump_info = ""
+        if jumps:
+            jump_rows = ""
+            for jump in jumps[:5]:  # Show top 5 jumps
+                p_from = jump.get("from_percentile", 0)
+                p_to = jump.get("to_percentile", 0)
+                v_from = jump.get("from_value", 0)
+                v_to = jump.get("to_value", 0)
+                ratio = jump.get("ratio", 0)
+
+                jump_rows += f"""
+<tr>
+    <td>P{p_from:g} → P{p_to:g}</td>
+    <td>{v_from:,.0f} → {v_to:,.0f}</td>
+    <td>{ratio}x</td>
+</tr>"""
+
+            jump_info = f"""
+<h4>Detected Jumps (Significant Distribution Breaks)</h4>
+<div style="overflow-x:auto;">
+<table class="data-table">
+<thead>
+<tr>
+    <th>Percentile Range</th>
+    <th>Value Change</th>
+    <th>Ratio</th>
+</tr>
+</thead>
+<tbody>
+{jump_rows}
+</tbody>
+</table>
+</div>"""
+
+        return f"""
+<div style="overflow-x:auto;">
+<table class="data-table">
+<thead>
+<tr>
+    <th>Rango</th>
+    <th>Percentil</th>
+    <th>Filas</th>
+    <th>Interpretación</th>
+</tr>
+</thead>
+<tbody>
+{rows}
+</tbody>
+</table>
+</div>
+{jump_info}
+"""
 
     def _build_outlier_method_breakdown(self, numeric: List[Dict]) -> str:
         """Build per-method breakdown for numeric columns."""

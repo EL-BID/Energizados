@@ -119,7 +119,20 @@ etl:
   #   depends_on:
   #     - "merge_dataset"
   #
-  # # ETL 6: Quick testing with sample
+  # # ETL 6: Clip outliers - remove data reading errors from consumption columns
+  # # Run this AFTER your main ETL and BEFORE training to clean extreme values
+  # clip_outliers:
+  #   enabled: false
+  #   description: "Clip extreme consumption values (data reading errors)"
+  #   input: "data/processed/celesc_dataset.parquet"
+  #   output: "data/processed/celesc_dataset_clipped.parquet"
+  #   custom_class: "energizados.etl.pipeline.ClipOutliersETL"
+  #   params:
+  #     threshold: 100000          # values above this are clipped
+  #     periods_suffix: "_anterior"  # auto-detects *_anterior columns
+  #   depends_on: []
+  #
+  # # ETL 7: Quick testing with sample
   # # Use 'sample' to read only N rows - useful for development and debugging
   # quick_test:
   #   enabled: false

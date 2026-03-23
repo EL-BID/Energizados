@@ -8,6 +8,7 @@ and optional target-encoded categorical features using IBGE shapefiles via geobr
 import logging
 import math
 import warnings
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -99,29 +100,6 @@ UF_TO_REGIAO = {
     "SC": "Sul",
 }
 
-# State centroids (approximate, for distance calculations)
-STATE_CENTROIDS = {uf: capital for uf, capital in STATE_CAPITALS.items()}
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate the Haversine distance in kilometers between two points.
-
-    Args:
-        lat1: Latitude of point 1.
-        lon1: Longitude of point 1.
-        lat2: Latitude of point 2.
-        lon2: Longitude of point 2.
-
-    Returns:
-        float: Distance in kilometers.
-    """
-    R = 6371.0  # Earth radius in km
-    lat1_r, lon1_r, lat2_r, lon2_r = map(math.radians, [lat1, lon1, lat2, lon2])
-    dlat = lat2_r - lat1_r
-    dlon = lon2_r - lon1_r
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_r) * math.cos(lat2_r) * math.sin(dlon / 2) ** 2
-    return R * 2 * math.asin(math.sqrt(a))
-
 
 def haversine_vectorized(
     lats: np.ndarray, lons: np.ndarray, lat_ref: float, lon_ref: float
@@ -148,23 +126,47 @@ def haversine_vectorized(
     return R * 2 * np.arcsin(np.sqrt(a))
 
 
+_IBGE_YEAR = 2020
+
+
+def _resolve_cache_file(cache_dir: Optional[str], filename: str) -> Optional[Path]:
+    """Return a Path for ``filename`` inside ``cache_dir``, or None if no cache_dir."""
+    if cache_dir is None:
+        return None
+    return Path(cache_dir) / filename
+
+
 class _IBGEGeocoder:
     """Caches IBGE municipal boundaries and performs spatial joins.
 
     Uses geobr to load Brazilian municipal boundaries and provides
     point-in-polygon lookups via geopandas spatial index.
+
+    Supports two caching layers:
+    - In-memory (class-level): avoids reloading within the same process.
+    - Disk (optional): avoids re-downloading across executions. Controlled
+      by the ``cache_dir`` parameter passed to each load method.
     """
 
     _municipios_cache = None
     _uf_cache = None
-    _regiao_cache = None
 
     @classmethod
-    def _load_municipios(cls):
-        """Load and cache IBGE municipal boundaries."""
+    def _load_municipios(cls, cache_dir: Optional[str] = None):
+        """Load IBGE municipal boundaries, using disk cache when available."""
         if cls._municipios_cache is not None:
             return cls._municipios_cache
 
+        cache_file = _resolve_cache_file(cache_dir, f"ibge_municipios_{_IBGE_YEAR}.parquet")
+
+        if cache_file is not None and cache_file.exists():
+            logger.info("Loading IBGE municipal boundaries from disk cache...")
+            import geopandas as gpd
+
+            gdf = gpd.read_parquet(cache_file)
+            cls._municipios_cache = gdf
+            return gdf
+
         try:
             import geobr
         except ImportError:
@@ -172,23 +174,40 @@ class _IBGEGeocoder:
                 "geobr is required for GeoFeatures. Install it with: pip install geobr"
             )
 
-        logger.info("Loading IBGE municipal boundaries (first time, may take a minute)...")
+        logger.info("Downloading IBGE municipal boundaries (first time, may take a minute)...")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            gdf = geobr.read_municipality(year=2020)
-        # Reproject to WGS84 if needed
+            gdf = geobr.read_municipality(year=_IBGE_YEAR)
         if gdf.crs is not None and gdf.crs.to_epsg() != 4326:
             gdf = gdf.to_crs(epsg=4326)
 
+        if cache_file is not None:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            import geopandas as gpd
+
+            gdf.to_parquet(cache_file)
+            logger.info(f"Saved {len(gdf)} municipalities to disk cache: {cache_file}")
+        else:
+            logger.info(f"Loaded {len(gdf)} municipalities")
+
         cls._municipios_cache = gdf
-        logger.info(f"Loaded {len(gdf)} municipalities")
         return gdf
 
     @classmethod
-    def _load_ufs(cls):
-        """Load and cache IBGE state boundaries."""
+    def _load_ufs(cls, cache_dir: Optional[str] = None):
+        """Load IBGE state boundaries, using disk cache when available."""
         if cls._uf_cache is not None:
             return cls._uf_cache
+
+        cache_file = _resolve_cache_file(cache_dir, f"ibge_states_{_IBGE_YEAR}.parquet")
+
+        if cache_file is not None and cache_file.exists():
+            logger.info("Loading IBGE state boundaries from disk cache...")
+            import geopandas as gpd
+
+            gdf = gpd.read_parquet(cache_file)
+            cls._uf_cache = gdf
+            return gdf
 
         try:
             import geobr
@@ -197,20 +216,27 @@ class _IBGEGeocoder:
                 "geobr is required for GeoFeatures. Install it with: pip install geobr"
             )
 
-        logger.info("Loading IBGE state boundaries...")
+        logger.info("Downloading IBGE state boundaries...")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            gdf = geobr.read_state(year=2020)
+            gdf = geobr.read_state(year=_IBGE_YEAR)
         if gdf.crs is not None and gdf.crs.to_epsg() != 4326:
             gdf = gdf.to_crs(epsg=4326)
+
+        if cache_file is not None:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            import geopandas as gpd
+
+            gdf.to_parquet(cache_file)
+            logger.info(f"Saved state boundaries to disk cache: {cache_file}")
 
         cls._uf_cache = gdf
         return gdf
 
     @classmethod
     def geocode_points(
-        cls, lats: np.ndarray, lons: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        cls, lats: np.ndarray, lons: np.ndarray, cache_dir: Optional[str] = None
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Geocode arrays of lat/lon points to municipal, state, and region info.
 
         Args:
@@ -218,13 +244,13 @@ class _IBGEGeocoder:
             lons: Array of longitudes.
 
         Returns:
-            Tuple of (municipio_names, uf_codes, uf_names, regiao_names) arrays.
-            Unmatched points get "desconhecido".
+            Tuple of (municipio_names, uf_codes, regiao_names) arrays.
+            Unmatched points get "sin_dato".
         """
         import geopandas as gpd
         from shapely.geometry import Point
 
-        gdf = cls._load_municipios()
+        gdf = cls._load_municipios(cache_dir)
 
         # Create GeoDataFrame of points
         points = [Point(lon, lat) for lat, lon in zip(lats, lons)]
@@ -240,15 +266,14 @@ class _IBGEGeocoder:
             predicate="within",
         )
 
-        municipio = joined["name_muni"].fillna("desconhecido").values
-        uf = joined["abbrev_state"].fillna("XX").values
-        uf_name = np.array(
-            [UF_TO_REGIAO.get(u, "desconhecido") if u != "XX" else "desconhecido" for u in uf]
-        )
-        # Map UF to regiao
-        regiao = np.array([UF_TO_REGIAO.get(u, "desconhecido") for u in uf])
+        # Points on polygon borders can match multiple municipalities — keep first match only.
+        joined = joined[~joined.index.duplicated(keep="first")]
 
-        return municipio, uf, uf_name, regiao
+        municipio = joined["name_muni"].fillna("sin_dato").values
+        uf = joined["abbrev_state"].fillna("XX").values
+        regiao = np.array([UF_TO_REGIAO.get(u, "sin_dato") for u in uf])
+
+        return municipio, uf, regiao
 
 
 class GeoFeatures(BaseEstimator, TransformerMixin):
@@ -279,7 +304,12 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         Available: sao_paulo, rio_de_janeiro, brasilia, salvador, belo_horizonte,
         fortaleza, recife, curitiba, manaus, porto_alegre.
     include_coords : bool
-        Include raw normalized lat/lon as features (default: False).
+        Replace lat/lon columns with normalized versions geo_lat_norm and geo_lon_norm (default: False).
+    cache_dir : str or None
+        Directory to store downloaded IBGE shapefiles as parquet files. If set,
+        the first run saves the files to disk and subsequent runs load from
+        there instead of re-downloading via geobr. Recommended: ".cache/ibge".
+        If None (default), data is only cached in memory for the current process.
 
     YAML configuration example:
     ---------------------------
@@ -299,6 +329,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
               - rio_de_janeiro
               - brasilia
             include_coords: false
+            cache_dir: ".cache/ibge"
     """
 
     def __init__(
@@ -311,6 +342,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         include_distances: bool = True,
         distance_cities: Optional[List[str]] = None,
         include_coords: bool = False,
+        cache_dir: Optional[str] = None,
     ):
         self.lat_col = lat_col
         self.lon_col = lon_col
@@ -326,13 +358,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
             "belo_horizonte",
         ]
         self.include_coords = include_coords
-
-        # Validate city names
-        for city in self.distance_cities:
-            if city not in REFERENCE_CITIES:
-                raise ValueError(
-                    f"Unknown city '{city}'. Available: {list(REFERENCE_CITIES.keys())}"
-                )
+        self.cache_dir = cache_dir
 
     def fit(self, X: pd.DataFrame, y: pd.Series = None) -> "GeoFeatures":
         """Learn target encoding mappings from training data.
@@ -344,21 +370,24 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         Returns:
             self: The fitted transformer.
         """
+        # Validate city names (here instead of __init__ to be sklearn-compatible)
+        for city in self.distance_cities:
+            if city not in REFERENCE_CITIES:
+                raise ValueError(
+                    f"Unknown city '{city}'. Available: {list(REFERENCE_CITIES.keys())}"
+                )
+
         # Geocode all training points to learn the mapping
-        lats = X[self.lat_col].values
-        lons = X[self.lon_col].values
+        lats = X[self.lat_col].values.astype(float)
+        lons = X[self.lon_col].values.astype(float)
 
         # Handle null coordinates
-        valid_mask = ~(pd.isna(lats) | pd.isna(lons))
+        valid_mask = ~(np.isnan(lats) | np.isnan(lons))
 
         if self.include_hierarchy or self.include_target_encoding:
-            self.municipio_names_, self.uf_codes_, self.uf_names_, self.regiao_names_ = (
-                _IBGEGeocoder.geocode_points(lats[valid_mask], lons[valid_mask])
+            self.municipio_names_, self.uf_codes_, self.regiao_names_ = (
+                _IBGEGeocoder.geocode_points(lats[valid_mask], lons[valid_mask], self.cache_dir)
             )
-
-            # Build lookup for valid indices
-            self._valid_indices_ = np.where(valid_mask)[0]
-            self._n_rows_ = len(X)
 
             # Fit target encoding if enabled and y is provided
             if self.include_target_encoding and y is not None:
@@ -420,17 +449,18 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         # Handle nulls: fill with sentinel, will be handled after geocoding
         valid_mask = ~(np.isnan(lats) | np.isnan(lons))
 
-        # 1. Geographic hierarchy
-        if self.include_hierarchy or self.include_target_encoding:
-            # Geocode points not seen in fit (test data)
-            geocoded = _IBGEGeocoder.geocode_points(lats[valid_mask], lons[valid_mask])
-            geo_municipio, geo_uf, geo_uf_name, geo_regiao = geocoded
+        # 1. Geographic hierarchy + distances (both may need estado_arr)
+        if self.include_hierarchy or self.include_target_encoding or self.include_distances:
+            geocoded = _IBGEGeocoder.geocode_points(
+                lats[valid_mask], lons[valid_mask], self.cache_dir
+            )
+            geo_municipio, geo_uf, geo_regiao = geocoded
 
             # Build full arrays (NaN for invalid points)
             n = len(df)
-            estado_arr = np.full(n, "desconhecido", dtype=object)
-            municipio_arr = np.full(n, "desconhecido", dtype=object)
-            regiao_arr = np.full(n, "desconhecido", dtype=object)
+            estado_arr = np.full(n, "sin_dato", dtype=object)
+            municipio_arr = np.full(n, "sin_dato", dtype=object)
+            regiao_arr = np.full(n, "sin_dato", dtype=object)
 
             estado_arr[valid_mask] = geo_uf
             municipio_arr[valid_mask] = geo_municipio
@@ -460,17 +490,16 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         if self.include_distances:
             # Distance to state capital
             df["geo_dist_capital_estado"] = self._compute_capital_distances(lats, lons, estado_arr)
-            # Distance to state centroid
-            df["geo_dist_centro_estado"] = self._compute_centroid_distances(lats, lons, estado_arr)
             # Distance to reference cities
             for city_name in self.distance_cities:
                 city_lat, city_lon = REFERENCE_CITIES[city_name]
                 df[f"geo_dist_{city_name}"] = haversine_vectorized(lats, lons, city_lat, city_lon)
 
-        # 4. Raw coordinates
+        # 4. Raw coordinates (normalized, drop originals)
         if self.include_coords:
             df["geo_lat_norm"] = (lats - self.lat_mean_) / self.lat_std_
             df["geo_lon_norm"] = (lons - self.lon_mean_) / self.lon_std_
+            df = df.drop(columns=[self.lat_col, self.lon_col])
 
         return df
 
@@ -492,24 +521,4 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
             mask = estados == uf
             if mask.any():
                 distances[mask] = haversine_vectorized(lats[mask], lons[mask], cap_lat, cap_lon)
-        return distances
-
-    def _compute_centroid_distances(
-        self, lats: np.ndarray, lons: np.ndarray, estados: np.ndarray
-    ) -> np.ndarray:
-        """Compute distance to state centroid for each point.
-
-        Args:
-            lats: Latitude array.
-            lons: Longitude array.
-            estados: UF code array.
-
-        Returns:
-            np.ndarray: Distances in km (NaN for unknown state).
-        """
-        distances = np.full(len(lats), np.nan)
-        for uf, (cent_lat, cent_lon) in STATE_CENTROIDS.items():
-            mask = estados == uf
-            if mask.any():
-                distances[mask] = haversine_vectorized(lats[mask], lons[mask], cent_lat, cent_lon)
         return distances

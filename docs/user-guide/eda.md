@@ -153,6 +153,58 @@ sections:
 - Consumption Outlier Patterns section with 3 key metrics
 - WARNING alerts for columns exceeding `alert_threshold`
 
+**Population Segmentation** (NEW):
+
+When `population_analysis: enabled: true`, the EDA module detects **multiple distinct populations** within a single distribution by identifying significant jumps between consecutive percentiles. This is particularly useful for detecting:
+
+- **Multiple data sources**: Different segments of customers mixed together
+- **Data quality issues**: Errors that create artificial populations (e.g., extreme values)
+- **Business insights**: Distinct customer behaviors (e.g., residential vs industrial)
+
+```yaml
+sections:
+  outliers:
+    population_analysis:
+      enabled: true
+      percentile_step: 0.5      # Step size for percentile calculation (0.1-1.0)
+      jump_ratio_threshold: 5.0  # Minimum ratio to detect a "jump" (2.0+)
+      max_populations: 5          # Maximum populations to detect (2-10)
+      min_population_pct: 0.5    # Minimum % of rows for a population (0.1-10.0)
+      # Additional columns to analyze (besides consumption columns)
+      # additional_columns: ["feature_1", "feature_2"]
+```
+
+**How it works:**
+
+1. **Dense percentile calculation**: Calculates percentiles at `percentile_step` intervals (default: every 0.5%)
+2. **Jump detection**: Identifies where the ratio between consecutive percentiles exceeds `jump_ratio_threshold` (default: 5.0x)
+3. **Population segmentation**: Groups data into populations based on detected jump points
+4. **Interpretation generation**: Creates human-readable descriptions including:
+   - Position in distribution (Lower tail / Middle range / Upper tail)
+   - Population size (Majority / Secondary / Minor)
+   - Target rate (if `target_col` is set)
+
+**Report output:**
+
+For each column with multiple populations detected, the EDA report generates:
+
+- **Population table**: Showing range, percentile, row count, and interpretation
+- **Detected jumps table**: Showing percentile ranges, value changes, and ratios
+
+!!! example
+    For consumption data with 3 populations:
+    - **Population 1** (0–21,000, 92%): "Lower tail | Majority | High target rate (5.84%)"
+    - **Population 2** (21k–100k, 5%): "Middle range | Secondary | Low target rate (0.52%)"
+    - **Population 3** (>100k, 3%): "Upper tail | Minor | (wide range) | Low target rate (0.00%)"
+
+    The jump from P97.5 (21k) to P100 (100k+) with a ratio >5x indicates the upper population is likely **data errors or extreme outliers**, not legitimate high-value customers.
+
+!!! tip
+    Adjust `jump_ratio_threshold` to be more sensitive (lower value) or less sensitive (higher value) depending on your data:
+    - **2.0–3.0**: Highly sensitive — detects more, smaller populations
+    - **5.0–10.0**: Balanced — recommended for most datasets
+    - **10.0+**: Less sensitive — only detects very extreme populations
+
 !!! note
     Datasets like CELESC have no traditional numeric columns — all numeric data are consumption period columns (`12_anterior`, `11_anterior`, ...). The outlier section will display these with a green "consumption" badge.
 
@@ -312,13 +364,22 @@ eda:
         - zscore
         - modified_zscore
       thresholds:
-        iqr: 1.5
-        zscore: 3.0
-        modified_zscore: 3.5
+        iqr:1.5
+        zscore:3.0
+        modified_zscore:3.5
       consumption_patterns: true  # Detects abrupt drops, zeros, negatives, constants
       alert_threshold: 10         # % of outliers that triggers a WARNING alert
       max_outlier_values_shown: 20
       detailed_charts: true       # Generate boxplots and heatmap SVGs
+
+      # Population segmentation analysis
+      population_analysis:
+        enabled: true
+        percentile_step: 0.5      # Step size for percentile calculation
+        jump_ratio_threshold: 5.0  # Minimum ratio to detect a "jump"
+        max_populations: 5          # Maximum populations to detect
+        min_population_pct: 0.5    # Minimum % of rows for a population
+        # additional_columns: ["feature_1", "feature_2"]  # Optional: extra columns
     related_columns:
       enabled: true
       hierarchies:

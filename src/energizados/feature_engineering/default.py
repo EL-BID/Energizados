@@ -17,6 +17,7 @@ from energizados.preprocessing.geo_features import GeoFeatures
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
+    ClipOutliers,
     ConsumptionPatterns,
     ExtraVars,
     TeEncoder,
@@ -64,6 +65,10 @@ def _build_transformer_from_config(
         "minmax_scaler_row": (MinMaxScalerRow, {"feature_range": (0, 1)}),
         "cast_dtype": (CastDtype, {"dtype": "float32"}),
         # Global transformers (don't require column name)
+        "clip_outliers": (
+            ClipOutliers,
+            {"threshold": 100_000, "columns": None, "periods_suffix": "_anterior"},
+        ),
         "tsfel_vars": (
             TsfelVars,
             {

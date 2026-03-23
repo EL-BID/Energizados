@@ -625,8 +625,8 @@ class EDAInteractivePlots:
                 return ""
 
             # Sample if too many points
-            if len(sub) > 5000:
-                sub = sub.sample(5000, random_state=42)
+            if len(sub) > 10000:
+                sub = sub.sample(10000, random_state=42)
 
             # Detect binary target (0/1) → semantic colors blue=0, red=1
             color_discrete_map = None

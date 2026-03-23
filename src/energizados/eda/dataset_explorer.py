@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from energizados.eda._outlier_detector import OutlierDetector
+from energizados.eda._population_segmenter import PopulationAnalyzer
 from energizados.eda.column_explorer import ColumnExplorer
 from energizados.eda.feature_importance import FeatureImportanceAnalyzer
 from energizados.eda.geo_analyzer import GeospatialAnalyzer
@@ -656,6 +657,34 @@ class DatasetExplorer:
                 except Exception as e:
                     logger.warning("Error analyzing consumption outliers: %s", e)
 
+        # Run population segmentation analysis
+        population_cfg = outliers_cfg.get("population_analysis", {})
+        if population_cfg.get("enabled", False):
+            try:
+                population_results = self._analyze_populations(df, col_types, population_cfg)
+                results["population_analysis"] = population_results
+
+                # Generate alerts for multiple populations
+                for col_name, pop_data in population_results.items():
+                    if pop_data.get("has_multiple_populations", False):
+                        n_pops = len(pop_data.get("populations", []))
+                        alert_msg = (
+                            f"Column '{col_name}' has {n_pops} distinct populations. "
+                            f"This may indicate multiple data sources or data quality issues."
+                        )
+                        self._add_alert(
+                            code="MULTIPLE_POPULATIONS",
+                            message=alert_msg,
+                            severity="INFO",
+                            details={
+                                "col": col_name,
+                                "n_populations": n_pops,
+                            },
+                        )
+                        results["alerts"].append(alert_msg)
+            except Exception as e:
+                logger.warning("Error analyzing populations: %s", e)
+
         return results
 
     def _analyze_consumption_outliers(
@@ -729,6 +758,75 @@ class DatasetExplorer:
             "pct_consec_zeros": pct_consec_zeros,
             "pct_abrupt_drop": pct_abrupt_drop,
         }
+
+    def _analyze_populations(self, df: pd.DataFrame, col_types: Dict, population_cfg: Dict) -> Dict:
+        """
+        Analyze numeric columns for multiple distinct populations.
+
+        Detects significant jumps in the percentile distribution to identify
+        multiple populations (e.g., normal, high-value outliers, data errors).
+
+        Args:
+            df: DataFrame to analyze
+            col_types: Column type classification dict
+            population_cfg: Population analysis configuration from YAML
+
+        Returns:
+            dict mapping column name to population analysis results
+        """
+        # Get configuration
+        percentile_step = population_cfg.get("percentile_step", 0.5)
+        jump_ratio_threshold = population_cfg.get("jump_ratio_threshold", 5.0)
+        max_populations = population_cfg.get("max_populations", 5)
+        min_population_pct = population_cfg.get("min_population_pct", 0.5)
+
+        # Columns to analyze (consumption + optional additional columns)
+        consumption_cols = col_types.get("consumption", [])
+        additional_cols = population_cfg.get("additional_columns", [])
+
+        # Dedupe and filter to existing columns
+        cols_to_analyze = list(set(consumption_cols + additional_cols))
+        cols_to_analyze = [col for col in cols_to_analyze if col in df.columns]
+
+        if not cols_to_analyze:
+            logger.info("No columns configured for population analysis")
+            return {}
+
+        # Initialize PopulationAnalyzer
+        analyzer = PopulationAnalyzer(
+            percentile_step=percentile_step,
+            jump_ratio_threshold=jump_ratio_threshold,
+            max_populations=max_populations,
+            min_population_pct=min_population_pct,
+        )
+
+        results = {}
+        target = df[self.target_column] if self.target_column else None
+
+        for col in cols_to_analyze:
+            try:
+                col_results = analyzer.analyze(df[col], target=target)
+
+                # Store clean results (remove large internal data structures)
+                results[col] = {
+                    "populations": col_results.get("populations", []),
+                    "jumps": col_results.get("jumps", []),
+                    "has_multiple_populations": col_results.get("has_multiple_populations", False),
+                }
+
+                # Log summary
+                n_pops = len(col_results.get("populations", []))
+                if n_pops > 1:
+                    logger.info(
+                        "Column '%s': %d populations detected (jump_threshold=%.1fx)",
+                        col,
+                        n_pops,
+                        jump_ratio_threshold,
+                    )
+            except Exception as e:
+                logger.warning("Error analyzing populations in column '%s': %s", col, e)
+
+        return results
 
     def _run_target_explorer(self, df: pd.DataFrame) -> Dict:
         """Phase 3: Run target explorer."""

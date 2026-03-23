@@ -230,7 +230,7 @@ training:
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
-| `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features_names_path` (str, default=None), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
+| `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=None — inline `{domain: [names]}` selection; if null uses all domains and logs the list), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
 
 ## Global Transformers
@@ -248,7 +248,15 @@ training:
         # Time series feature extraction
         - tsfel_vars:
             num_periodos: 12
-            features_names_path: null
+            features:
+              statistical:
+                - Mean
+                - Standard deviation
+                - Max
+                - Min
+              temporal:
+                - Slope
+                - Zero crossing rate
             periods_suffix: "_anterior"
 
         # Statistical features for different time windows

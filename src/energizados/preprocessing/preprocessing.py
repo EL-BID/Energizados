@@ -11,6 +11,7 @@ Classes:
 - TsfelVars: Calculates features using tsfel library.
 - ExtraVars: Creates additional features based on previous values.
 - ConsumptionPatterns: Generates domain-specific fraud detection features.
+- ClipOutliers: Clips extreme values in consumption columns (data reading errors).
 
 Functions:
 - fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent
@@ -479,6 +480,7 @@ class TsfelVars(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         features_names_path=None,
+        features=None,
         num_periodos=12,
         periods_suffix: str = "_anterior",
         n_jobs: int = 1,
@@ -487,10 +489,33 @@ class TsfelVars(BaseEstimator, TransformerMixin):
     ):
         self.num_periodos = num_periodos
         self.features_names_path = features_names_path
+        self.features = features
         self.periods_suffix = periods_suffix
         self.n_jobs = n_jobs
         self.chunk_size = chunk_size
         self.cache_dir = cache_dir
+        self._features_logged = False
+
+    @staticmethod
+    def _format_features_yaml(stat_cols, temp_cols):
+        """Format tsfel output columns as a YAML features block for copy-paste.
+
+        Strips the '0_' channel prefix tsfel adds to column names.
+        """
+
+        def strip_prefix(col):
+            return col[2:] if col.startswith("0_") else col
+
+        lines = ["  tsfel_vars:", "    features:"]
+        if stat_cols:
+            lines.append("      statistical:")
+            for col in stat_cols:
+                lines.append(f"        - {strip_prefix(col)}")
+        if temp_cols:
+            lines.append("      temporal:")
+            for col in temp_cols:
+                lines.append(f"        - {strip_prefix(col)}")
+        return "\n".join(lines)
 
     def obtener_cols_anterior(self, num_cols=12):
         """Build consumption column names in chronological order.
@@ -549,7 +574,37 @@ class TsfelVars(BaseEstimator, TransformerMixin):
             return memory.cache(self._compute)
         return self._compute
 
-    def _compute(self, df_values, df_indices, cols, cfg_domain=None, cfg_json_path=None):
+    @staticmethod
+    def _build_cfg_from_features(features_dict):
+        """Build a tsfel config dict from a {domain: [feature_names]} mapping.
+
+        Args:
+            features_dict: dict like {"statistical": ["Mean", "Std"], "temporal": ["Slope"]}.
+
+        Returns:
+            dict: tsfel config ready to pass to time_series_features_extractor.
+
+        Raises:
+            ValueError: if a feature name is not found in its domain.
+        """
+        tsfel = _get_tsfel()
+        result = {}
+        for domain, names in features_dict.items():
+            full_cfg = tsfel.get_features_by_domain(domain)
+            result[domain] = {}
+            for name in names:
+                if name not in full_cfg[domain]:
+                    available = list(full_cfg[domain].keys())
+                    raise ValueError(
+                        f"Feature '{name}' not found in tsfel domain '{domain}'. "
+                        f"Available: {available}"
+                    )
+                result[domain][name] = full_cfg[domain][name]
+        return result
+
+    def _compute(
+        self, df_values, df_indices, cols, cfg_domain=None, cfg_json_path=None, cfg_features=None
+    ):
         """
         Core computation, separated to allow caching with joblib.Memory.
 
@@ -559,9 +614,13 @@ class TsfelVars(BaseEstimator, TransformerMixin):
             cols: column names (to reconstruct DataFrame).
             cfg_domain: tsfel domain name ('statistical', 'temporal', etc.).
             cfg_json_path: path to tsfel config JSON (mutually exclusive with cfg_domain).
+            cfg_features: pre-built tsfel config dict (mutually exclusive with the above).
         """
         tsfel = _get_tsfel()
-        if cfg_json_path is not None:
+        if cfg_features is not None:
+            cfg = cfg_features
+            desc = "tsfel_features"
+        elif cfg_json_path is not None:
             cfg = tsfel.get_features_by_domain(json_path=cfg_json_path)
             desc = "tsfel_json"
         else:
@@ -667,7 +726,17 @@ class TsfelVars(BaseEstimator, TransformerMixin):
                 f"tsfel skipped, features set to 0."
             )
 
-        if self.features_names_path is not None:
+        if self.features is not None:
+            cfg = self._build_cfg_from_features(self.features)
+            df_tsfel = cached_compute(
+                X_variable[cols_anterior].values,
+                X_variable.index.tolist(),
+                cols_anterior,
+                cfg_features=cfg,
+            )
+            df_tsfel = df_tsfel.set_index("index")
+            tsfel_cols = df_tsfel.columns.tolist()
+        elif self.features_names_path is not None:
             df_tsfel = cached_compute(
                 X_variable[cols_anterior].values,
                 X_variable.index.tolist(),
@@ -692,6 +761,16 @@ class TsfelVars(BaseEstimator, TransformerMixin):
             df_tsfel = pd.merge(df_result_stat, df_result_temporal, how="inner", on="index")
             df_tsfel = df_tsfel.set_index("index")
             tsfel_cols = df_tsfel.columns.tolist()
+            stat_cols = [c for c in df_result_stat.columns if c != "index"]
+            temp_cols = [c for c in df_result_temporal.columns if c != "index"]
+            if not self._features_logged:
+                logger.info(
+                    "TsfelVars: generated %d features from all domains. "
+                    "Copy-paste into YAML to reuse:\n%s",
+                    len(tsfel_cols),
+                    self._format_features_yaml(stat_cols, temp_cols),
+                )
+                self._features_logged = True
 
         # Add constant rows back with 0 for all tsfel features
         if n_constant > 0 and tsfel_cols:
@@ -996,5 +1075,84 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
             change = np.abs(df[current] - df[prev]) / (df[prev] + 1e-6)
             changes.append(change > 0.5)
         df[f"drastic_changes_count_{self.num_periodos}"] = np.sum(changes, axis=0)
+
+        return df
+
+
+class ClipOutliers(BaseEstimator, TransformerMixin):
+    """Clips extreme values in consumption columns to a configurable threshold.
+
+    Designed to remove data reading errors (e.g., values of 10^16 kWh) that
+    distort feature engineering and model training. Values above the threshold
+    are replaced with the threshold value.
+
+    Parameters:
+    - threshold: float, maximum allowed value (default=100_000).
+    - columns: list[str] or None, columns to clip. If None, auto-detects
+      columns matching ``*{periods_suffix}`` pattern.
+    - periods_suffix: str, suffix for auto-detection (default="_anterior").
+    """
+
+    def __init__(
+        self,
+        threshold: float = 100_000,
+        columns: list = None,
+        periods_suffix: str = "_anterior",
+    ):
+        self.threshold = threshold
+        self.columns = columns
+        self.periods_suffix = periods_suffix
+
+    def _resolve_columns(self, X):
+        """Return the list of columns to clip."""
+        if self.columns is not None:
+            return [c for c in self.columns if c in X.columns]
+        return [c for c in X.columns if c.endswith(self.periods_suffix)]
+
+    def fit(self, X, y=None):
+        """Log how many values exceed the threshold (no state to learn).
+
+        Args:
+            X: Input DataFrame.
+            y: Ignored.
+
+        Returns:
+            self
+        """
+        cols = self._resolve_columns(X)
+        if cols:
+            n_exceed = (X[cols] > self.threshold).sum().sum()
+            n_total = X[cols].size
+            logger.info(
+                f"ClipOutliers: {n_exceed:,} values exceed threshold "
+                f"{self.threshold:,.0f} across {len(cols)} columns "
+                f"({n_exceed / n_total * 100:.2f}% of cells)"
+            )
+        return self
+
+    def transform(self, X):
+        """Clip values above threshold.
+
+        Args:
+            X: Input DataFrame with consumption columns.
+
+        Returns:
+            pd.DataFrame: DataFrame with extreme values clipped.
+        """
+        df = X.copy()
+        cols = self._resolve_columns(df)
+
+        if not cols:
+            logger.warning("ClipOutliers: no columns matched — returning data unchanged")
+            return df
+
+        n_clipped = (df[cols] > self.threshold).sum().sum()
+        df[cols] = df[cols].clip(upper=self.threshold)
+
+        if n_clipped > 0:
+            logger.info(
+                f"ClipOutliers: clipped {n_clipped:,} values to {self.threshold:,.0f} "
+                f"in {len(cols)} columns"
+            )
 
         return df

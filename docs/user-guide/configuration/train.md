@@ -208,18 +208,61 @@ Available per-column transformations:
 
 Global transformers act on the entire dataset and generate new features. They are executed AFTER column-based preprocessing.
 
+#### clip_outliers
+
+Clips extreme values in consumption columns to a configurable threshold. Use this to remove data reading errors (e.g., values of 10^16 kWh) before any feature extraction. Should be the **first** global transformer in the list.
+
+```yaml
+- clip_outliers:
+    threshold: 100000
+    periods_suffix: "_anterior"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `threshold` | float | `100000` | Maximum allowed value — values above this are replaced with the threshold |
+| `columns` | list | `null` | Explicit list of columns to clip. If null, auto-detects columns ending with `periods_suffix` |
+| `periods_suffix` | string | `"_anterior"` | Suffix for auto-detection of consumption columns |
+
 #### tsfel_vars
 
 Time series feature extraction using the tsfel library.
 
+Use `features` to select specific features inline in YAML (recommended). If omitted, all domains are extracted and the full feature list is logged at INFO level so you can copy-paste it into future configs.
+
 ```yaml
+# Recommended: inline feature selection
 - tsfel_vars:
     num_periodos: 12
-    features_names_path: null  # or path to JSON with custom config
+    features:
+      statistical:
+        - Mean
+        - Standard deviation
+        - Max
+        - Min
+        - Median
+        - Skewness
+        - Kurtosis
+        - Mean absolute deviation
+      temporal:
+        - Autocorrelation
+        - Mean absolute diff
+        - Median absolute diff
+        - Slope
+        - Zero crossing rate
     periods_suffix: "_anterior"
     n_jobs: -1        # -1 = all cores, 1 = sequential
     chunk_size: 500   # rows per chunk per worker
-    cache_dir: null   # e.g.: ".cache/tsfel" to cache on disk
+    cache_dir: ".cache/tsfel"  # recommended for iterative runs
+
+# Alternative: all features (logs the list for copy-paste)
+- tsfel_vars:
+    num_periodos: 12
+    periods_suffix: "_anterior"
+    n_jobs: -1
+    cache_dir: ".cache/tsfel"
 ```
 
 **Parameters:**
@@ -227,11 +270,13 @@ Time series feature extraction using the tsfel library.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `num_periodos` | int | `12` | Number of time series columns |
-| `features_names_path` | string | `null` | Path to JSON with custom feature configuration |
+| `features` | dict | `null` | Inline feature selection: `{domain: [name, ...]}`. If null, all domains are used and the list is logged at INFO. |
 | `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
 | `n_jobs` | int | `1` | Number of parallel jobs (1 = sequential) |
 | `chunk_size` | int | `500` | Rows per chunk per worker |
-| `cache_dir` | string | `null` | Directory to cache tsfel results |
+| `cache_dir` | string | `null` | Directory to cache tsfel results (recommended) |
+
+Available domains: `statistical`, `temporal`, `spectral`. Feature names within each domain must match the tsfel 0.1.9+ API (e.g. `Standard deviation`, not `Std`). Run without `features` once to get the full logged list.
 
 #### extra_vars
 
@@ -249,6 +294,65 @@ Statistical features for different time windows.
 |-----------|------|---------|-------------|
 | `num_periodos` | int | `3` | Number of time series columns |
 | `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
+
+#### consumption_patterns
+
+Domain-specific fraud detection features derived from the consumption time series.
+
+```yaml
+- consumption_patterns:
+    num_periodos: 12
+    periods_suffix: "_anterior"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `num_periodos` | int | `12` | Number of time series columns |
+| `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
+
+**Generated features:** diff ratios, min/max ratio, z-score, zero ratio, slope (normalized), consistency score, drastic changes count.
+
+#### geo_features
+
+Geographic features derived from latitude/longitude coordinates using IBGE shapefiles (via `geobr`).
+
+```yaml
+- geo_features:
+    lat_col: "latitud"
+    lon_col: "longitud"
+    include_hierarchy: true       # geo_estado, geo_municipio, geo_regiao
+    include_target_encoding: true # target-encoded versions of hierarchy cols
+    te_w: 20                      # smoothing weight for target encoding
+    include_distances: true       # haversine distances to reference cities
+    distance_cities:
+      - sao_paulo
+      - rio_de_janeiro
+      - brasilia
+    include_coords: false         # keep original lat/lon in output
+    cache_dir: ".cache/ibge"      # persist IBGE shapefiles to disk (avoids re-download)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `lat_col` | string | `"latitud"` | Latitude column name |
+| `lon_col` | string | `"longitud"` | Longitude column name |
+| `include_hierarchy` | bool | `true` | Add `geo_estado`, `geo_municipio`, `geo_regiao` columns |
+| `include_target_encoding` | bool | `true` | Add target-encoded versions of hierarchy columns |
+| `te_w` | int | `20` | Smoothing weight for target encoding |
+| `include_distances` | bool | `true` | Add haversine distance to each city in `distance_cities` |
+| `distance_cities` | list | `null` | Reference cities to compute distances to (see below) |
+| `include_coords` | bool | `false` | Keep original `lat_col`/`lon_col` in output |
+| `cache_dir` | string | `null` | Directory to cache IBGE shapefiles on disk (e.g. `".cache/ibge"`). First run downloads and saves; subsequent runs load from disk. If `null`, data is only cached in memory for the current process. |
+
+**Available cities for `distance_cities`:**
+
+`sao_paulo`, `rio_de_janeiro`, `brasilia`, `salvador`, `belo_horizonte`, `fortaleza`, `recife`, `curitiba`, `manaus`, `porto_alegre`, `florianopolis`, `blumenau`, `joinville`, `criciuma`, `chapeco`, `itajai`, `lages`
+
+> **Note:** `geo_features` requires the `geobr` package. On first use, shapefiles are downloaded from IBGE and cached by `geobr`. Set `cache_dir` to also persist the processed GeoDataFrame to disk — this avoids re-loading the shapefile on every execution (recommended for iterative runs).
 
 #### Custom Global Transformer
 
@@ -298,11 +402,26 @@ feature_engineering:
       # Time series feature extraction with tsfel
       - tsfel_vars:
           num_periodos: 12
-          features_names_path: null
+          features:
+            statistical:
+              - Mean
+              - Standard deviation
+              - Max
+              - Min
+              - Median
+              - Skewness
+              - Kurtosis
+              - Mean absolute deviation
+            temporal:
+              - Autocorrelation
+              - Mean absolute diff
+              - Median absolute diff
+              - Slope
+              - Zero crossing rate
           periods_suffix: "_anterior"
           n_jobs: -1
           chunk_size: 500
-          cache_dir: null
+          cache_dir: ".cache/tsfel"
 
       # Statistical features for different time windows
       - extra_vars:

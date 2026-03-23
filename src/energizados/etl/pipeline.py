@@ -1,7 +1,8 @@
 """Pipeline ETL Module for Multi-Source Data Processing.
 
-This module provides the SourceETL class for processing one or multiple
-data sources, supporting both concatenation and merge operations.
+This module provides ETL classes for data processing:
+- SourceETL: Concatenation and merge operations on multiple sources.
+- ClipOutliersETL: Clips extreme values in numeric columns (data reading errors).
 """
 
 import logging
@@ -311,3 +312,127 @@ class SourceETL(BaseETL):
 
         except Exception as e:
             raise ETLError(f"Error saving '{self.name}': {str(e)}")
+
+
+class ClipOutliersETL(BaseETL):
+    """ETL that clips extreme values in numeric columns.
+
+    Reads a dataset, clips values above a threshold in specified columns
+    (or auto-detected consumption columns), and saves the result.
+    Designed to remove data reading errors before feature engineering.
+
+    Args:
+        name: ETL name.
+        input_paths: List with path(s) to input file(s).
+        output_path: Path to save clipped dataset.
+        threshold: Maximum allowed value (default: 100_000).
+        columns: Explicit list of columns to clip. If None, auto-detects
+            columns matching ``*{periods_suffix}``.
+        periods_suffix: Suffix for auto-detection (default: "_anterior").
+        **kwargs: Additional parameters.
+
+    Example YAML:
+        .. code-block:: yaml
+
+            clip_outliers:
+              enabled: true
+              input: "data/processed/dataset.parquet"
+              output: "data/processed/dataset_clipped.parquet"
+              custom_class: "energizados.etl.pipeline.ClipOutliersETL"
+              params:
+                threshold: 100000
+                periods_suffix: "_anterior"
+    """
+
+    def __init__(
+        self,
+        name: str,
+        input_paths: List[str],
+        output_path: Optional[str] = None,
+        threshold: float = 100_000,
+        columns: Optional[List[str]] = None,
+        periods_suffix: str = "_anterior",
+        **kwargs,
+    ):
+        self.name = name
+        self.input_paths = input_paths
+        self.output_path = output_path
+        self.threshold = threshold
+        self.columns = columns
+        self.periods_suffix = periods_suffix
+        self.kwargs = kwargs
+
+    def _resolve_columns(self, df: pd.DataFrame) -> List[str]:
+        """Return columns to clip: explicit list or auto-detected by suffix."""
+        if self.columns is not None:
+            return [c for c in self.columns if c in df.columns]
+        return [c for c in df.columns if c.endswith(self.periods_suffix)]
+
+    def extract(self) -> pd.DataFrame:
+        """Read input file."""
+        if not self.input_paths:
+            raise ETLError(f"ClipOutliersETL '{self.name}': input_paths is empty")
+
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        path = self.input_paths[0]
+        validate_no_traversal(path, label=f"ETL '{self.name}' input")
+        source_file = Path(path)
+
+        if not source_file.exists():
+            raise ETLError(f"File not found: {path}")
+
+        if source_file.suffix in [".parquet", ".pq"]:
+            df = pd.read_parquet(path)
+        elif source_file.suffix == ".csv":
+            df = pd.read_csv(path)
+        else:
+            raise ETLError(f"Unsupported format: {source_file.suffix}")
+
+        logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
+        return df
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clip values above threshold in target columns."""
+        df = df.copy()
+        cols = self._resolve_columns(df)
+
+        if not cols:
+            logger.warning(
+                f"ClipOutliersETL '{self.name}': no columns matched — " "returning data unchanged"
+            )
+            return df
+
+        # Log per-column stats before clipping
+        for col in cols:
+            n = (df[col] > self.threshold).sum()
+            if n > 0:
+                logger.info(
+                    f"  • {col}: {n:,} values exceed {self.threshold:,.0f} "
+                    f"(max: {df[col].max():,.0f})"
+                )
+
+        n_total = (df[cols] > self.threshold).sum().sum()
+        df[cols] = df[cols].clip(upper=self.threshold)
+        logger.info(
+            f"  ✓ Clipped {n_total:,} values to {self.threshold:,.0f} " f"in {len(cols)} columns"
+        )
+
+        return df
+
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        """Save clipped dataset."""
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        validate_no_traversal(path, label=f"ETL '{self.name}' output")
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if output_path.suffix in [".parquet", ".pq"]:
+            df.to_parquet(path, index=False)
+        elif output_path.suffix == ".csv":
+            df.to_csv(path, index=False)
+        else:
+            df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
+
+        logger.info(f"  ✓ Saved {len(df)} records to '{path}'")

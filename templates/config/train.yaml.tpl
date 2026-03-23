@@ -104,30 +104,72 @@ train:
 
       # Global transformers
       global_transformers:
+        # Clip extreme consumption values (data reading errors)
+        # Should run BEFORE other global transformers to clean input data
+        # - clip_outliers:
+        #     threshold: 100000          # values above this are clipped
+        #     periods_suffix: *period_suffix  # auto-detects columns matching *_anterior
+
         # Time series feature extraction with tsfel
+        # Specify features inline (recommended) or omit to use all domains.
+        # When omitted, generated feature names are logged at INFO level for copy-paste.
         # - tsfel_vars:
         #     num_periodos: 12
-        #     features_names_path: null  # or path to JSON with custom configuration
+        #     features:                   # optional: inline feature selection
+        #       statistical:
+        #         - Mean
+        #         - Standard deviation
+        #         - Max
+        #         - Min
+        #         - Median
+        #         - Skewness
+        #         - Kurtosis
+        #         - Mean absolute deviation
+        #       temporal:
+        #         - Autocorrelation
+        #         - Mean absolute diff
+        #         - Median absolute diff
+        #         - Slope
+        #         - Zero crossing rate
         #     periods_suffix: *period_suffix
         #     n_jobs: -1        # -1 = all cores, 1 = sequential (default)
         #     chunk_size: 500   # rows per chunk per worker
         #     cache_dir: null   # e.g.: ".cache/tsfel" to cache on disk
 
         # Statistical features for different time windows
-        - extra_vars:
-            num_periodos: 3
-            periods_suffix: *period_suffix
-        - extra_vars:
-            num_periodos: 6
-            periods_suffix: *period_suffix
-        - extra_vars:
-            num_periodos: 12
-            periods_suffix: *period_suffix
+        # - extra_vars:
+        #     num_periodos: 3
+        #     periods_suffix: *period_suffix
+        # - extra_vars:
+        #     num_periodos: 6
+        #     periods_suffix: *period_suffix
+        # - extra_vars:
+        #     num_periodos: 12
+        #     periods_suffix: *period_suffix
 
         # Domain-specific consumption patterns for fraud detection
         # - consumption_patterns:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
+
+        # Geographic features from lat/lon (uses IBGE shapefiles via geobr)
+        # Generates: geo_estado, geo_municipio, geo_regiao + target encoding + distances
+        # Available distance_cities: sao_paulo, rio_de_janeiro, brasilia, salvador,
+        #   belo_horizonte, fortaleza, recife, curitiba, manaus, porto_alegre,
+        #   florianopolis, blumenau, joinville, criciuma, chapeco, itajai, lages
+        # - geo_features:
+        #     lat_col: "latitud"
+        #     lon_col: "longitud"
+        #     include_hierarchy: true       # geo_estado, geo_municipio, geo_regiao
+        #     include_target_encoding: true # target-encoded versions of hierarchy cols
+        #     te_w: 20                      # smoothing weight for target encoding
+        #     include_distances: true       # distances to reference cities
+        #     distance_cities:
+        #       - sao_paulo
+        #       - rio_de_janeiro
+        #       - brasilia
+        #     include_coords: false         # keep lat/lon in output
+        #     cache_dir: ".cache/ibge"      # persist IBGE shapefiles to disk (avoids re-download)
 
       #   # Option: Custom class for global transformers
       #   - custom_class: "preprocessing.CustomGlobalTransformer"

@@ -7,9 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never load in context the following directories and their files:
   - `node_modules/`
   - `htmlcov/`
-  - `.proyects/`
   - `.plans/`
-  - `notebooks/`
 - Update CLAUDE.md and all documentation if necessary.
 - Check and fix tests.
 - Check pre-commit rules and ensure controls pass.
@@ -379,10 +377,11 @@ training:
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
-| `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features_names_path` (str, default=None), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
+| `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=None — inline `{domain: [names]}` selection; if null uses all domains and logs the list at INFO), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
 | `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior") |
-| `geo_features` | Geographic features from lat/lon: estado, município, região, distances to capitals/cities, target encoding | `lat_col` (str), `lon_col` (str), `include_hierarchy` (bool), `include_target_encoding` (bool), `te_w` (int), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool) |
+| `geo_features` | Geographic features from lat/lon: estado, município, região, distances to capitals/cities, target encoding | `lat_col` (str), `lon_col` (str), `include_hierarchy` (bool), `include_target_encoding` (bool), `te_w` (int), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str, default=None — persist IBGE shapefiles to disk to avoid re-downloading across runs) |
+| `clip_outliers` | Clips extreme values in consumption columns (data reading errors) — run FIRST in global_transformers | `threshold` (float, default=100000), `columns` (list, default=None — auto-detects `*_anterior`), `periods_suffix` (str, default="_anterior") |
 
 **Global Transformers:**
 
@@ -394,6 +393,11 @@ preprocessing:
     # ... column-based preprocessing
 
   global_transformers:
+    # Clip extreme values FIRST (removes data reading errors like 10^16 kWh)
+    - clip_outliers:
+        threshold: 100000
+        periods_suffix: "_anterior"
+
     # Extracción de features de series temporales con tsfel
     - tsfel_vars:
         num_periodos: 12
@@ -429,6 +433,7 @@ preprocessing:
           - rio_de_janeiro
           - brasilia
         include_coords: false
+        cache_dir: ".cache/ibge"  # persist IBGE shapefiles to disk (avoids re-download)
 
     # Custom class para transformers globales
     - custom_class: "preprocessing.CustomGlobalTransformer"
@@ -464,6 +469,7 @@ Additional ETL examples are provided (commented out) in the template:
 **Key ETL Classes:**
 - `BaseETL`: Abstract base class for all ETL implementations
 - `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
+- `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
 - `ETLOrchestrator`: Manages execution order based on dependencies
 - `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Available for manual use in custom ETLs.
 

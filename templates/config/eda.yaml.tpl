@@ -78,6 +78,16 @@ eda:
       alert_threshold: 10         # % de outliers que dispara una alerta WARNING
       max_outlier_values_shown: 20
       detailed_charts: true       # Genera boxplots y heatmap de outliers
+
+      # Population segmentation analysis (NEW)
+      population_analysis:
+        enabled: true
+        percentile_step: 0.5      # Step size for percentile calculation (0.1-1.0)
+        jump_ratio_threshold: 5.0  # Minimum ratio to detect a "jump" (2.0+)
+        max_populations: 5          # Maximum populations to detect (2-10)
+        min_population_pct: 0.5    # Minimum % of rows for a population (0.1-10.0)
+        # Additional columns to analyze (besides consumption columns)
+        # additional_columns: ["feature_1", "feature_2"]
     related_columns:
       enabled: false
       hierarchies: []
