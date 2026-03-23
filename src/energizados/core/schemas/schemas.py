@@ -179,10 +179,27 @@ ENSEMBLE_SCHEMA = {
         "method": {"type": "string", "enum": ["soft_voting", "stacking", "weighted_voting"]},
         "weights": {"type": "array", "items": {"type": "number"}},
         "meta_learner": {
-            "type": "string",
-            "enum": ["logistic_regression", "random_forest", "gradient_boosting"],
+            "oneOf": [
+                {
+                    "type": "string",
+                    "enum": ["logistic_regression", "random_forest", "gradient_boosting"],
+                },
+                {
+                    "type": "object",
+                    "required": ["type"],
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["logistic_regression", "random_forest", "gradient_boosting"],
+                        },
+                        "params": {"type": "object"},
+                    },
+                    "additionalProperties": False,
+                },
+            ]
         },
         "cv": {"type": "integer"},
+        "use_val_as_oof": {"type": "boolean"},
     },
 }
 

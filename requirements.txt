@@ -16,3 +16,6 @@ tqdm>=4.64.0
 unidecode~=1.4.0
 matplotlib>=3.5.0
 seaborn>=0.11.2
+geopandas>=0.14.0
+geobr>=0.2.0
+shapely>=2.0.0

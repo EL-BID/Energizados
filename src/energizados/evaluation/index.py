@@ -42,12 +42,22 @@ class RunIndexGenerator:
         """
         runs = []
 
-        for run_dir in sorted(output_dir.glob("train-*/"), reverse=True):
+        for run_dir in sorted(output_dir.glob("*/"), reverse=True):
             if not run_dir.is_dir():
                 continue
 
-            json_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
-            html_path = run_dir / "reports" / "evaluation" / "evaluation_report.html"
+            eval_dir = run_dir / "reports" / "evaluation"
+            json_path = eval_dir / "evaluation_report.json"
+            html_path = eval_dir / "evaluation_report.html"
+            comparison_json = eval_dir / "comparison.json"
+            comparison_html = eval_dir / "comparison.html"
+
+            # Multi-model run: no top-level evaluation_report.json, but comparison.json exists
+            if not json_path.exists() and comparison_json.exists():
+                run_info = self._parse_comparison_run(run_dir, comparison_json, comparison_html)
+                if run_info:
+                    runs.append(run_info)
+                continue
 
             if not json_path.exists():
                 logger.warning(f"No evaluation report found in {run_dir.name}, skipping.")
@@ -83,6 +93,59 @@ class RunIndexGenerator:
             )
 
         return runs
+
+    def _parse_comparison_run(
+        self, run_dir: Path, comparison_json: Path, comparison_html: Path
+    ) -> Optional[Dict]:
+        """
+        Parses a multi-model run from comparison.json.
+
+        Reads the best model (ranking[0]) metrics and links to comparison.html.
+        """
+        try:
+            with open(comparison_json) as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Could not read comparison report from {run_dir.name}: {e}")
+            return None
+
+        ranking = data.get("ranking", [])
+        models = data.get("models", {})
+
+        if not ranking or not models:
+            logger.warning(f"Empty comparison report in {run_dir.name}, skipping.")
+            return None
+
+        best_model_name = ranking[0]
+        best_model = models.get(best_model_name, {})
+        metrics = best_model.get("metrics", {})
+
+        model_names = ", ".join(ranking)
+        model_type = f"ensemble ({model_names})"
+
+        relative_link = None
+        if comparison_html.exists():
+            relative_link = f"{run_dir.name}/reports/evaluation/comparison.html"
+
+        # Infer timestamp from directory mtime as fallback
+        try:
+            mtime = comparison_json.stat().st_mtime
+            timestamp = datetime.fromtimestamp(mtime).strftime("%Y-%m-%dT%H:%M:%S")
+        except OSError:
+            timestamp = ""
+
+        return {
+            "run_name": run_dir.name,
+            "timestamp": timestamp,
+            "model_type": model_type,
+            "auc": metrics.get("auc"),
+            "f1": metrics.get("f1"),
+            "precision": metrics.get("precision"),
+            "recall": metrics.get("recall"),
+            "accuracy": metrics.get("accuracy"),
+            "threshold": metrics.get("threshold"),
+            "html_link": relative_link,
+        }
 
     def generate_index_html(self, output_dir: Path) -> Optional[Path]:
         """

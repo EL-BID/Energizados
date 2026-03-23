@@ -5,6 +5,7 @@ This module provides transformers and utilities for data preprocessing
 before analysis and modeling.
 """
 
+from energizados.preprocessing.geo_features import GeoFeatures
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     ConsumptionPatterns,
@@ -25,6 +26,7 @@ __all__ = [
     "TsfelVars",
     "ExtraVars",
     "ConsumptionPatterns",
+    "GeoFeatures",
     # Utility functions
     "fill_empty_values_cycle",
     "fill_empty_values_str",

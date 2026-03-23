@@ -382,6 +382,7 @@ training:
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features_names_path` (str, default=None), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
 | `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior") |
+| `geo_features` | Geographic features from lat/lon: estado, município, região, distances to capitals/cities, target encoding | `lat_col` (str), `lon_col` (str), `include_hierarchy` (bool), `include_target_encoding` (bool), `te_w` (int), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool) |
 
 **Global Transformers:**
 
@@ -413,6 +414,21 @@ preprocessing:
     - consumption_patterns:
         num_periodos: 12
         periods_suffix: "_anterior"
+
+    # Features geográficas a partir de lat/long (usa shapefiles IBGE)
+    # Genera: geo_estado, geo_municipio, geo_regiao + target encoding + distancias
+    - geo_features:
+        lat_col: "latitud"
+        lon_col: "longitud"
+        include_hierarchy: true
+        include_target_encoding: true
+        te_w: 20
+        include_distances: true
+        distance_cities:
+          - sao_paulo
+          - rio_de_janeiro
+          - brasilia
+        include_coords: false
 
     # Custom class para transformers globales
     - custom_class: "preprocessing.CustomGlobalTransformer"
