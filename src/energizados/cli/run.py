@@ -99,7 +99,7 @@ CONFIG_TO_STEP = {
     "eda": "EDAStep",
     "train": "TrainingStep",  # train includes split + training + evaluation
     "split": "SplitStep",
-    "evaluation": "EvaluationStep",
+    "evaluation": "DefaultEvaluator",
     "infer": "InferenceStep",
 }
 
@@ -108,7 +108,7 @@ DEFAULT_STEP_ORDER = [
     "ETLStep",
     "SplitStep",
     "TrainingStep",
-    "EvaluationStep",
+    "DefaultEvaluator",
     "InferenceStep",
     "EDAStep",
 ]
@@ -117,9 +117,9 @@ DEFAULT_STEP_ORDER = [
 _CONFIG_TO_STEPS = {
     "etl": ["ETLStep"],
     "eda": ["EDAStep"],
-    "train": ["SplitStep", "TrainingStep", "EvaluationStep"],
+    "train": ["SplitStep", "TrainingStep", "DefaultEvaluator"],
     "split": ["SplitStep"],
-    "evaluation": ["EvaluationStep"],
+    "evaluation": ["DefaultEvaluator"],
     "infer": ["InferenceStep"],
 }
 
@@ -151,6 +151,40 @@ def all_same_step_type(config_paths: List[str]) -> bool:
         return False
     types = [_get_step_type(Path(p).stem) for p in config_paths]
     return len(set(types)) == 1 and types[0] is not None
+
+
+def split_configs_by_type(
+    config_paths: List[str],
+) -> tuple[List[str], List[List[str]]]:
+    """
+    Split configs into shared (one per step type) and repeated (multiple per type) groups.
+
+    Returns (shared, repeated_runs):
+    - shared: paths where the step type appears exactly once — run together once
+    - repeated_runs: one [path] per config for step types that appear more than once
+
+    Examples:
+        [etl, train]                   → shared=[etl, train],  repeated=[]
+        [train_01, train_02]           → shared=[],            repeated=[[train_01], [train_02]]
+        [etl, eda, train_01, train_02] → shared=[etl, eda],    repeated=[[train_01], [train_02]]
+        [etl, train_01, train_02]      → shared=[etl],         repeated=[[train_01], [train_02]]
+    """
+    groups: Dict[str, List[str]] = {}
+    for path in config_paths:
+        step_type = _get_step_type(Path(path).stem) or Path(path).stem
+        groups.setdefault(step_type, []).append(path)
+
+    shared: List[str] = []
+    repeated_runs: List[List[str]] = []
+
+    for paths in groups.values():
+        if len(paths) == 1:
+            shared.extend(paths)
+        else:
+            for path in paths:
+                repeated_runs.append([path])
+
+    return shared, repeated_runs
 
 
 def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
@@ -230,7 +264,7 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     STEP_PHASES = {
         "SplitStep": ["analyzing", "splitting", "saving"],
         "TrainingStep": ["loading", "feature_engineering", "training", "evaluation"],
-        "EvaluationStep": ["evaluating", "generating_report"],
+        "DefaultEvaluator": ["evaluating", "generating_report"],
         "InferenceStep": ["loading_model", "predicting", "saving"],
         "EDAStep": ["analyzing_data", "generating_report"],
     }
@@ -238,8 +272,7 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     STEP_NAMES = {
         "SplitStep": "split",
         "TrainingStep": "train",
-        "DefaultEvaluator": "evaluator",
-        "EvaluationStep": "evaluation",
+        "DefaultEvaluator": "evaluation",
         "InferenceStep": "inference",
         "EDAStep": "eda",
         "ETLStep": "etl",
@@ -255,7 +288,6 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
         "SplitStep": "train",
         "TrainingStep": "train",
         "DefaultEvaluator": "train",
-        "EvaluationStep": "evaluation",
         "InferenceStep": "inference",
         "EDAStep": "eda",
     }
@@ -488,7 +520,7 @@ def execute_step(
         "etl": "ETLStep",
         "split": "SplitStep",
         "train": "TrainingStep",
-        "evaluation": "EvaluationStep",
+        "evaluation": "DefaultEvaluator",
         "infer": "InferenceStep",
     }
 

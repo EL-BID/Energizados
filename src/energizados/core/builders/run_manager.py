@@ -75,7 +75,8 @@ class RunManager:
         else:
             # Use timestamp with collision handling
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            auto_run_name = f"train-{timestamp}"
+            prefix = self._get_train_config_name() or "train"
+            auto_run_name = f"{prefix}-{timestamp}"
             run_dir = base / auto_run_name
 
             # Handle timestamp collisions atomically (avoid TOCTOU race)
@@ -98,6 +99,14 @@ class RunManager:
         logger.info(f"Training run directory: {run_dir}")
         self._run_dir = run_dir
         return run_dir
+
+    def _get_train_config_name(self) -> Optional[str]:
+        """Return the stem of the first train config path, or None if not found."""
+        for path in self.config_paths:
+            stem = Path(path).stem.lower()
+            if stem == "train" or stem.startswith("train_") or stem.startswith("train-"):
+                return Path(path).stem
+        return None
 
     def copy_configs_to_run_dir(self):
         """Copies the config files used for this run into the run directory."""

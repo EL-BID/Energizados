@@ -334,14 +334,23 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
             return
 
         # Execute complete pipeline.
-        # If all configs share the same step type (e.g. train_01,train_02),
-        # run them as sequential independent executions instead of merging,
-        # because merging would overwrite the first config with the second.
-        from energizados.cli.run import all_same_step_type
+        # When a step type appears more than once (e.g. train_01,train_02),
+        # merging would overwrite the first config with the second.
+        # Strategy:
+        #   - shared configs (one per step type) → single merged run
+        #   - repeated configs (same step type > 1) → one run each
+        # Examples:
+        #   etl,train              → one merged run  (no repeated types)
+        #   train_01,train_02      → run train_01, then run train_02
+        #   etl,eda,train_01,train_02 → run etl+eda once, then train_01, then train_02
+        from energizados.cli.run import split_configs_by_type
 
-        if all_same_step_type(config_paths):
-            for single_path in config_paths:
-                execute_pipeline([single_path], run_name=name)
+        shared, repeated_runs = split_configs_by_type(config_paths)
+        if repeated_runs:
+            if shared:
+                execute_pipeline(shared, run_name=name)
+            for per_run_paths in repeated_runs:
+                execute_pipeline(per_run_paths, run_name=name)
         else:
             execute_pipeline(config_paths, run_name=name)
 

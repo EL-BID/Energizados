@@ -566,6 +566,45 @@ class TestGetStepType:
         assert _get_step_type("training") is None  # 'training' != 'train' exact, no separator
 
 
+class TestSplitConfigsByType:
+    """Tests for split_configs_by_type — the core dispatch logic."""
+
+    def test_no_repeated_types(self):
+        from energizados.cli.run import split_configs_by_type
+
+        shared, repeated = split_configs_by_type(["/p/etl.yaml", "/p/train.yaml"])
+        assert len(shared) == 2
+        assert repeated == []
+
+    def test_all_same_type(self):
+        from energizados.cli.run import split_configs_by_type
+
+        shared, repeated = split_configs_by_type(["/p/train_01.yaml", "/p/train_02.yaml"])
+        assert shared == []
+        assert len(repeated) == 2
+
+    def test_mixed_with_repeated(self):
+        from energizados.cli.run import split_configs_by_type
+
+        shared, repeated = split_configs_by_type(
+            ["/p/etl.yaml", "/p/eda.yaml", "/p/train_01.yaml", "/p/train_02.yaml"]
+        )
+        assert len(shared) == 2
+        shared_stems = {Path(p).stem for p in shared}
+        assert shared_stems == {"etl", "eda"}
+        assert len(repeated) == 2
+
+    def test_etl_with_repeated_trains(self):
+        from energizados.cli.run import split_configs_by_type
+
+        shared, repeated = split_configs_by_type(
+            ["/p/etl.yaml", "/p/train_01.yaml", "/p/train_02.yaml"]
+        )
+        assert len(shared) == 1
+        assert Path(shared[0]).stem == "etl"
+        assert len(repeated) == 2
+
+
 class TestSequentialSameTypeExecution:
     """Tests that same-type configs run execute_pipeline once per config."""
 
@@ -632,5 +671,47 @@ class TestSequentialSameTypeExecution:
                     # Must have been called once with both paths merged
                     assert len(call_args) == 1
                     assert len(call_args[0]) == 2
+            finally:
+                os.chdir(old_cwd)
+
+    def test_etl_eda_two_trains(self):
+        """etl,eda,train_01,train_02 → shared run etl+eda, then train_01, then train_02."""
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "etl.yaml").write_text(
+                "etl:\n  s:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n"
+            )
+            (config_dir / "eda.yaml").write_text("eda:\n  enabled: false\n")
+            (config_dir / "train_01_baseline.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "train_02_lgbm.yaml").write_text("training:\n  enabled: false\n")
+
+            old_cwd = os.getcwd()
+            call_args = []
+
+            def mock_execute(config_paths, run_name=None):
+                call_args.append(list(config_paths))
+                return {}
+
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.execute_pipeline", side_effect=mock_execute):
+                    result = self.runner.invoke(
+                        cli, ["run", "etl,eda,train_01_baseline,train_02_lgbm"]
+                    )
+                    assert result.exit_code == 0, result.output
+                    # 3 calls: [etl+eda], [train_01], [train_02]
+                    assert len(call_args) == 3
+                    # First call: shared (etl + eda)
+                    assert len(call_args[0]) == 2
+                    shared_stems = {Path(p).stem for p in call_args[0]}
+                    assert shared_stems == {"etl", "eda"}
+                    # Second and third: one train each
+                    assert call_args[1][0].endswith("train_01_baseline.yaml")
+                    assert call_args[2][0].endswith("train_02_lgbm.yaml")
             finally:
                 os.chdir(old_cwd)
