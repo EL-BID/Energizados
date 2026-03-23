@@ -493,7 +493,7 @@ training:
   models:
     - type: "lightgbm"  # or "catboost", "neural_network", "lstm"
       sampling:
-        method: "undersample"  # or "over", "smotetomek", "none"
+        method: "undersample"  # or "oversample", "smotetomek", "none"
         threshold: 0.5
       hyperparams:
         n_estimators: 1000

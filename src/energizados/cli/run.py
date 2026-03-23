@@ -72,6 +72,88 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
     return merged_config
 
 
+def _get_config_names_from_paths(config_paths: List[str]) -> List[str]:
+    """
+    Extract config names from file paths, preserving order.
+
+    Example:
+        ['/path/to/config/etl.yaml', '/path/to/config/eda.yaml'] -> ['etl', 'eda']
+
+    Args:
+        config_paths: List of config file paths
+
+    Returns:
+        List of config names (without .yaml extension), in order
+    """
+    names = []
+    for path in config_paths:
+        # Get the filename without extension
+        name = Path(path).stem
+        names.append(name)
+    return names
+
+
+# Mapping from config names to step class names
+CONFIG_TO_STEP = {
+    "etl": "ETLStep",
+    "eda": "EDAStep",
+    "train": "TrainingStep",  # train includes split + training + evaluation
+    "split": "SplitStep",
+    "evaluation": "EvaluationStep",
+    "infer": "InferenceStep",
+}
+
+# Default order of steps in the pipeline (when user doesn't specify order)
+DEFAULT_STEP_ORDER = [
+    "ETLStep",
+    "SplitStep",
+    "TrainingStep",
+    "EvaluationStep",
+    "InferenceStep",
+    "EDAStep",
+]
+
+
+def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
+    """
+    Determine the execution order based on user-specified config names.
+
+    If user specifies multiple configs (e.g., "etl,eda,train"), execute them
+    in that exact order. If only one config, execute just that config's steps.
+
+    Args:
+        pipeline: The Pipeline object with steps
+        config_names: List of config names in order specified by user
+
+    Returns:
+        List of step class names in execution order
+    """
+    # Map config names to step types
+    config_to_steps = {
+        "etl": ["ETLStep"],
+        "eda": ["EDAStep"],
+        "train": ["SplitStep", "TrainingStep", "EvaluationStep"],
+        "split": ["SplitStep"],
+        "evaluation": ["EvaluationStep"],
+        "infer": ["InferenceStep"],
+    }
+
+    # Build execution order from user's config order
+    user_order = []
+    for config_name in config_names:
+        config_lower = config_name.lower()
+        steps = config_to_steps.get(config_lower, [])
+        for step in steps:
+            if step not in user_order:
+                user_order.append(step)
+
+    # If we couldn't map any configs, fall back to pipeline's default order
+    if not user_order:
+        return [step.__class__.__name__ for step in pipeline.steps]
+
+    return user_order
+
+
 def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Executes the complete pipeline from YAML configuration(s).
@@ -98,11 +180,19 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     # Merge configurations
     merged_config = merge_configs(config_paths)
 
+    # Get config names in order (for sequential execution order)
+    # This preserves the order specified by user: "etl,eda,train" -> ["etl", "eda", "train"]
+    config_names = _get_config_names_from_paths(config_paths)
+
     # Build pipeline (don't run yet)
     builder = ConfigPipelineBuilder(
         config=merged_config, config_paths=list(config_paths), run_name=run_name
     )
     pipeline = builder.build()
+
+    # Determine execution order: use user-specified order if multiple configs
+    # Otherwise use default pipeline order
+    execution_order = _determine_execution_order(pipeline, config_names)
 
     # Define phases for each step type
     # Note: ETLStep uses dynamic phases based on ETL names (handled in on_step_start)
@@ -255,6 +345,17 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     pipeline.on_step_complete = on_step_complete
     pipeline.on_step_error = on_step_error
     pipeline.on_phase_update = on_phase_update
+
+    # Filter and reorder steps based on user-specified execution order
+    filtered_steps = []
+    for step_class_name in execution_order:
+        for step in pipeline.steps:
+            if step.__class__.__name__ == step_class_name:
+                filtered_steps.append(step)
+                break
+
+    # Replace pipeline steps with filtered/ordered list
+    pipeline.steps = filtered_steps
 
     try:
         result = pipeline.run()

@@ -108,7 +108,7 @@ class LGBMModel:
         )
         if self.class_weight is not None:
             return make_pipeline(lgbm_model_search)
-        if self.sampling_method == "over":
+        if self.sampling_method == "oversample":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, lgbm_model_search)
         elif self.sampling_method == "undersample":
@@ -308,7 +308,7 @@ class CATModel:
         )
         if self.class_weight is not None:
             return make_pipeline(cb_model_search)
-        if self.sampling_method == "over":
+        if self.sampling_method == "oversample":
             over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
             return make_pipeline(over, cb_model_search)
         elif self.sampling_method == "undersample":
@@ -348,7 +348,7 @@ class CATModel:
 
         if self.sampling_method not in ["oversample", "undersample", "smotetomek"]:
             logger.warning(
-                "sampling_method '%s' is not one of ['over', 'under', 'smotetomek']."
+                "sampling_method '%s' is not one of ['oversample', 'undersample', 'smotetomek']."
                 " No resampling will be applied.",
                 self.sampling_method,
             )
@@ -477,7 +477,7 @@ class NNModel:
 
         pipe_spent = Pipeline([("scaler", MinMaxScalerRow())])
 
-        if self.sampling_method == "over":
+        if self.sampling_method == "oversample":
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
         elif self.sampling_method == "undersample":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
@@ -661,7 +661,7 @@ class LSTMNNModel:
 
         pipe_spent = Pipeline([("scaler", MinMaxScalerRow())])
 
-        if self.sampling_method == "over":
+        if self.sampling_method == "oversample":
             ramdom_s = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
         elif self.sampling_method == "undersample":
             ramdom_s = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)

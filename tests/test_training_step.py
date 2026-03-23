@@ -158,9 +158,9 @@ class TestPrepareModelParams:
 
     def test_sampling_config_extracted(self):
         step = self._step()
-        cfg = {"type": "lightgbm", "sampling": {"method": "over", "threshold": 0.3}}
+        cfg = {"type": "lightgbm", "sampling": {"method": "oversample", "threshold": 0.3}}
         params = step._prepare_model_params(cfg, self._X())
-        assert params["sampling_method"] == "over"
+        assert params["sampling_method"] == "oversample"
         assert params["sampling_th"] == 0.3
         assert "sampling" not in params
 

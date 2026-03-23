@@ -130,7 +130,7 @@ MODEL_CONFIG_SCHEMA = {
                 "enabled": {"type": "boolean"},
                 "method": {
                     "type": "string",
-                    "enum": ["over", "undersample", "smotetomek", "none"],
+                    "enum": ["oversample", "undersample", "smotetomek", "none"],
                 },
                 "strategy": {"type": "string"},
                 "threshold": {"type": "number"},

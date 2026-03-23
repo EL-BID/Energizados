@@ -171,8 +171,8 @@
 ### Fixed
 - **Schema Validation Completeness**:
   - Fixed `MODEL_CONFIG_SCHEMA.sampling.method` enum to match actual implementation
-  - Corrected method names: `"over"` (not `"oversample"`), removed non-existent `"smote"`
-  - Validated sampling methods: `["over", "undersample", "smotetomek", "none"]`
+  - Corrected method names: `"oversample"` (not `"over"`), removed non-existent `"smote"`
+  - Validated sampling methods: `["oversample", "undersample", "smotetomek", "none"]`
   - Added `threshold` property to sampling schema
   - Added `shap` configuration to `TRAINING_SCHEMA.evaluation` section
   - Added comprehensive test suite in `tests/test_config_schemas.py` (7 tests)

@@ -40,14 +40,14 @@ class TestNNModelAdapter:
             spents_names=spents_names,
             search_hip=True,
             sampling_th=0.3,
-            sampling_method="over",
+            sampling_method="oversample",
         )
 
         assert adapter.features_names == features_names
         assert adapter.spents_names == spents_names
         assert adapter.search_hip is True
         assert adapter.sampling_th == 0.3
-        assert adapter.sampling_method == "over"
+        assert adapter.sampling_method == "oversample"
 
     def test_adapter_fit_sets_fitted(self, nn_adapter_data):
         """Test that fit() sets is_fitted_ to True."""

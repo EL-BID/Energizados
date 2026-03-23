@@ -31,7 +31,7 @@ class TestConfigSchemas:
         """Verify all supported sampling methods are valid in schema."""
         validator = ConfigValidator()
 
-        valid_methods = ["over", "undersample", "smotetomek", "none"]
+        valid_methods = ["oversample", "undersample", "smotetomek", "none"]
 
         for method in valid_methods:
             config = {

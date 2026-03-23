@@ -253,7 +253,7 @@ train:
       # Class balancing: choose ONE of sampling or class_weight
       # Option 1: Sampling (resamples the data)
       sampling:
-        method: "undersample"  # Options: over, undersample, smotetomek, none
+        method: "undersample"  # Options: oversample, undersample, smotetomek, none
         threshold: 0.5
 
       # Option 2: Class weights (balances via internal model weights)

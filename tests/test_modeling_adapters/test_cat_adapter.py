@@ -39,7 +39,7 @@ class TestCATModelAdapter:
             hyperparams=hyperparams,
             search_hip=True,
             sampling_th=0.3,
-            sampling_method="over",
+            sampling_method="oversample",
             n_iter=100,
             cv=5,
             class_weight="balanced",
@@ -49,7 +49,7 @@ class TestCATModelAdapter:
         assert adapter.hyperparams == hyperparams
         assert adapter.search_hip is True
         assert adapter.sampling_th == 0.3
-        assert adapter.sampling_method == "over"
+        assert adapter.sampling_method == "oversample"
         assert adapter.n_iter == 100
         assert adapter.cv == 5
         assert adapter.class_weight == "balanced"
