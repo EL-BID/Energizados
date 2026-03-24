@@ -1,5 +1,6 @@
 """Config resolver for CLI - resolves config names to file paths."""
 
+import fnmatch
 from pathlib import Path
 from typing import List
 
@@ -49,9 +50,10 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
             "Example: 'energizados run etl' or 'energizados run etl,train'"
         )
 
-    # Discover config directory only if needed (non-passthrough names)
+    # Discover config directory only if needed (non-passthrough names or wildcards)
     has_passthrough = any("/" in n or n.endswith((".yaml", ".yml")) for n in names)
-    if not has_passthrough or config_path:
+    has_wildcard = any(_is_wildcard(n) for n in names)
+    if not has_passthrough or has_wildcard or config_path:
         config_dir = _discover_config_dir(config_path)
     else:
         # Use default config dir if it exists, otherwise will be set per-name
@@ -61,7 +63,7 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
     # Resolve each name
     resolved_paths = []
     for name in names:
-        # Passthrough paths don't need config_dir
+        # Passthrough paths (contain '/' or end with .yaml/.yml)
         if "/" in name or name.endswith((".yaml", ".yml")):
             path = Path(name)
             if not path.is_absolute():
@@ -70,6 +72,14 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
                 available = _list_available_configs(config_dir) if config_dir else []
                 raise ConfigResolutionError(name, str(config_dir or "."), available)
             resolved_paths.append(str(path.absolute()))
+        elif _is_wildcard(name):
+            # Wildcard patterns (e.g. "train_01*", "train_*_baseline")
+            if config_dir is None:
+                raise FileNotFoundError(
+                    "No config/ directory found. Use --config-path to specify location."
+                )
+            matches = _resolve_wildcard(name, config_dir)
+            resolved_paths.extend(matches)
         else:
             # Non-passthrough names need config_dir
             if config_dir is None:
@@ -88,6 +98,38 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
             resolved_paths.append(str(path))
 
     return resolved_paths
+
+
+def _is_wildcard(name: str) -> bool:
+    """Return True if name contains glob wildcard characters."""
+    return any(c in name for c in ("*", "?", "["))
+
+
+def _resolve_wildcard(pattern: str, config_dir: Path) -> List[str]:
+    """
+    Expand a wildcard pattern against config_dir, returning sorted absolute paths.
+
+    The pattern is matched against config stems (filenames without .yaml).
+    For example, "train_01*" matches train_01_baseline.yaml, train_01_lgbm.yaml, etc.
+
+    Args:
+        pattern: Glob pattern (e.g. "train_01*", "train_*")
+        config_dir: Directory to search
+
+    Returns:
+        Sorted list of absolute path strings for all matching configs
+
+    Raises:
+        ConfigResolutionError: If no files match the pattern
+    """
+    all_yamls = sorted(config_dir.glob("*.yaml")) + sorted(config_dir.glob("*.yml"))
+    matches = [p for p in all_yamls if fnmatch.fnmatch(p.stem, pattern)]
+
+    if not matches:
+        available = _list_available_configs(config_dir)
+        raise ConfigResolutionError(pattern, str(config_dir), available)
+
+    return [str(p.absolute()) for p in sorted(matches)]
 
 
 def _resolve_single(name: str, config_dir: Path) -> Path:
