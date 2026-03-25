@@ -445,6 +445,9 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         df = X.copy()
         lats = df[self.lat_col].values.astype(float)
         lons = df[self.lon_col].values.astype(float)
+        # Ensure lat/lon are float in the output (source may be object dtype)
+        df[self.lat_col] = lats
+        df[self.lon_col] = lons
 
         # Handle nulls: fill with sentinel, will be handled after geocoding
         valid_mask = ~(np.isnan(lats) | np.isnan(lons))
@@ -485,6 +488,8 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
                         df[te_col] = np.array(
                             [mapping.get(v, global_mean) for v in geo_values], dtype=float
                         )
+                # Drop raw string hierarchy columns — replaced by *_prob float columns
+                df = df.drop(columns=["geo_estado", "geo_municipio", "geo_regiao"], errors="ignore")
 
         # 3. Distance features
         if self.include_distances:

@@ -152,6 +152,14 @@ class TrainingStep(PipelineStep):
             X_test = test_df.drop(columns=[self.target_column])
             y_test = test_df[self.target_column]  # noqa: F841
 
+        datetime_cols = X_train.select_dtypes(include=["datetime64", "datetimetz"]).columns.tolist()
+        if datetime_cols:
+            logger.info(f"Dropping datetime columns before feature engineering: {datetime_cols}")
+            X_train = X_train.drop(columns=datetime_cols)
+            X_val = X_val.drop(columns=datetime_cols)
+            if X_test is not None:
+                X_test = X_test.drop(columns=datetime_cols)
+
         self._report_phase(context, "loading", 10)
 
         # Phase B: Feature Engineering — fit ONCE on train

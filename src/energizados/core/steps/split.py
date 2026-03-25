@@ -408,9 +408,21 @@ class SplitStep(PipelineStep):
         Returns:
             bool: True if ``input_path`` exists on disk or ``etl_results`` is
                 present in context.
+
+        Raises:
+            StepValidationError: If ``input_path`` is set but the file does not exist.
         """
         if self.input_path:
-            return Path(self.input_path).exists()
+            if not Path(self.input_path).exists():
+                from energizados.core.exceptions import StepValidationError
+
+                raise StepValidationError(
+                    f"Input dataset not found: '{self.input_path}'\n\n"
+                    "Run the ETL pipeline first to generate the dataset:\n\n"
+                    "  energizados run etl",
+                    step="SplitStep",
+                )
+            return True
         return "etl_results" in context
 
     def get_required_keys(self) -> list:

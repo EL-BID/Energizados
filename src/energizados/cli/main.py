@@ -291,6 +291,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
         execute_step,
     )
     from energizados.cli.ui import print_error, print_info, print_success
+    from energizados.core.exceptions import StepValidationError
 
     try:
         # Resolve config names to paths
@@ -359,6 +360,20 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
         raise click.Abort()
     except FileNotFoundError as e:
         print_error(str(e))
+        raise click.Abort()
+    except StepValidationError as e:
+        from rich.panel import Panel
+
+        from energizados.cli.ui import console
+
+        console.print(
+            Panel(
+                str(e),
+                title="[bold red]✗  Dataset not found[/]",
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
         raise click.Abort()
     except Exception as e:
         print_error(f"Error executing pipeline: {e}")

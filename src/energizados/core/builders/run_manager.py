@@ -101,10 +101,14 @@ class RunManager:
         return run_dir
 
     def _get_train_config_name(self) -> Optional[str]:
-        """Return the stem of the first train config path, or None if not found."""
+        """Return the stem of the first non-etl/eda/infer config path, or None if not found."""
+        skip_prefixes = ("etl", "eda", "infer")
         for path in self.config_paths:
             stem = Path(path).stem.lower()
-            if stem == "train" or stem.startswith("train_") or stem.startswith("train-"):
+            if not any(
+                stem == p or stem.startswith(f"{p}_") or stem.startswith(f"{p}-")
+                for p in skip_prefixes
+            ):
                 return Path(path).stem
         return None
 

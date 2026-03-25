@@ -1019,6 +1019,30 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         """
         return self
 
+    def _get_cons_cols(self):
+        """Return consumption column names in reverse chronological order."""
+        return [f"{i}{self.periods_suffix}" for i in range(self.num_periodos, 0, -1)]
+
+    def _ensure_stat_columns(self, df):
+        """Compute ExtraVars-style stat columns if they are absent (self-contained fallback)."""
+        n = str(self.num_periodos)
+        cols = self._get_cons_cols()
+
+        if f"max_cons{n}" not in df.columns:
+            df[f"max_cons{n}"] = df[cols].max(axis=1)
+        if f"min_cons{n}" not in df.columns:
+            df[f"min_cons{n}"] = df[cols].min(axis=1)
+        if f"mean_{n}" not in df.columns:
+            df[f"mean_{n}"] = df[cols].mean(axis=1)
+        if f"std_cons{n}" not in df.columns:
+            df[f"std_cons{n}"] = df[cols].std(axis=1)
+        if f"cant_ceros_{n}" not in df.columns:
+            df[f"cant_ceros_{n}"] = (df[cols] == 0.0).sum(axis=1)
+        if f"slope_{n}" not in df.columns:
+            xs = np.arange(len(cols))
+            df[f"slope_{n}"] = df[cols].apply(lambda row: np.polyfit(xs, row.values, 1)[0], axis=1)
+        return df
+
     def transform(self, X):
         """Generate consumption pattern features and append to DataFrame.
 
@@ -1029,6 +1053,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
             pd.DataFrame: Original DataFrame with new consumption pattern features appended.
         """
         df = X.copy()
+        df = self._ensure_stat_columns(df)
 
         # 1. Diff ratios between consecutive periods (captures abrupt drops)
         for i in range(self.num_periodos, 1, -1):

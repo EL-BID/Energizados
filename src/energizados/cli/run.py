@@ -168,21 +168,28 @@ def split_configs_by_type(
         [train_01, train_02]           → shared=[],            repeated=[[train_01], [train_02]]
         [etl, eda, train_01, train_02] → shared=[etl, eda],    repeated=[[train_01], [train_02]]
         [etl, train_01, train_02]      → shared=[etl],         repeated=[[train_01], [train_02]]
+        [exp03, exp04]                 → shared=[],            repeated=[[exp03], [exp04]]
+        [etl, exp03, exp04]            → shared=[etl],         repeated=[[exp03], [exp04]]
     """
     groups: Dict[str, List[str]] = {}
     for path in config_paths:
-        step_type = _get_step_type(Path(path).stem) or Path(path).stem
-        groups.setdefault(step_type, []).append(path)
+        step_type = _get_step_type(Path(path).stem)
+        # Unknown types use the stem as key so each gets its own group
+        groups.setdefault(step_type if step_type is not None else Path(path).stem, []).append(path)
 
     shared: List[str] = []
     repeated_runs: List[List[str]] = []
 
-    for paths in groups.values():
-        if len(paths) == 1:
-            shared.extend(paths)
-        else:
+    for step_type_key, paths in groups.items():
+        # Configs with unknown step type (not etl/eda/train/etc.) always run individually
+        is_unknown_type = (
+            _get_step_type(step_type_key) is None and step_type_key not in _CONFIG_TO_STEPS
+        )
+        if is_unknown_type or len(paths) > 1:
             for path in paths:
                 repeated_runs.append([path])
+        else:
+            shared.extend(paths)
 
     return shared, repeated_runs
 
