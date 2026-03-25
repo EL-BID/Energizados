@@ -24,6 +24,7 @@ class EvaluationBuilder(StepBuilder):
         self,
         config: Dict[str, Any],
         output_dir: Optional[str] = None,
+        experiment_description: Optional[str] = None,
     ):
         """
         Initialize the builder with configuration.
@@ -31,9 +32,11 @@ class EvaluationBuilder(StepBuilder):
         Args:
             config: The evaluation configuration
             output_dir: Optional output directory override
+            experiment_description: Free-text description of the experiment (from train.description)
         """
         super().__init__(config)
         self.output_dir = output_dir
+        self.experiment_description = experiment_description
 
     def build(self) -> Optional[PipelineStep]:
         """
@@ -74,6 +77,7 @@ class EvaluationBuilder(StepBuilder):
             calibration_config=eval_config.get("calibration"),
             shap_config=eval_config.get("shap"),
             segment_columns=eval_config.get("segment_columns"),
+            experiment_description=self.experiment_description,
         )
 
     def is_enabled(self) -> bool:

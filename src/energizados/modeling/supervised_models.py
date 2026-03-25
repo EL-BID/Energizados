@@ -364,9 +364,11 @@ class CATModel:
                 pipe_preproceso_model,
             )
 
+        _catboost_logging_params = {"verbose", "logging_level", "verbose_eval", "silent"}
         params = {
             (key if key.startswith("catboostclassifier__") else "catboostclassifier__" + key): value
             for key, value in self.hyperparams.items()
+            if key not in _catboost_logging_params
         }
         fit_params = {
             "eval_set": [(df_val[self.cols_for_model], y_val)],

@@ -9,6 +9,9 @@
 train:
   enabled: true
 
+  description:  |
+  This experiment allows...
+
   # Input from ETL
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"

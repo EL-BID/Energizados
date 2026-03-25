@@ -283,11 +283,14 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     def _pad(label: str) -> str:
         return label.ljust(_LABEL_WIDTH)
 
+    # Use the first config name as the section label for training steps
+    # so the Rule shows "train_01_baseline" instead of just "train"
+    training_section = config_names[0] if config_names else "train"
     STEP_SECTIONS = {
         "ETLStep": "etl",
-        "SplitStep": "train",
-        "TrainingStep": "train",
-        "DefaultEvaluator": "train",
+        "SplitStep": training_section,
+        "TrainingStep": training_section,
+        "DefaultEvaluator": training_section,
         "InferenceStep": "inference",
         "EDAStep": "eda",
     }
@@ -431,6 +434,9 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
     if builder._director.run_manager._run_dir is not None:
         builder._copy_configs_to_run_dir()
         builder._generate_index_html()
+        index_path = builder._director.run_manager._run_dir.parent / "index.html"
+        if index_path.exists():
+            console.print(f"\n[dim]Index updated → {index_path}[/]")
 
     _print_metrics_summary(result)
 

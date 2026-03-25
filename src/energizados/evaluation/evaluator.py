@@ -65,6 +65,7 @@ class DefaultEvaluator(PipelineStep):
         calibration_config: Optional[Dict] = None,
         val_predictions_path: Optional[str] = None,
         shap_config: Optional[Dict] = None,
+        experiment_description: Optional[str] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -89,6 +90,7 @@ class DefaultEvaluator(PipelineStep):
         self.calibration_config = calibration_config
         self.val_predictions_path = val_predictions_path
         self._shap_config = shap_config
+        self.experiment_description = experiment_description
 
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
@@ -444,6 +446,7 @@ class DefaultEvaluator(PipelineStep):
                     plots_interactive=plots_interactive if plots_interactive else None,
                     threshold_metrics=threshold_metrics,
                     segment_metrics=segment_metrics if segment_metrics else None,
+                    experiment_description=self.experiment_description,
                 )
                 report_paths["html"] = html_path
 

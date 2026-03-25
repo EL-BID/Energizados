@@ -163,7 +163,10 @@ class PipelineDirector:
             eval_output_dir = (
                 str(self._run_dir / "reports" / "evaluation") if self._run_dir else None
             )
-            eval_builder = EvaluationBuilder(eval_config, eval_output_dir)
+            experiment_description = self.config.get("train", {}).get("description")
+            eval_builder = EvaluationBuilder(
+                eval_config, eval_output_dir, experiment_description=experiment_description
+            )
             eval_step = eval_builder.build()
             if eval_step is not None:
                 pipeline.add_step(eval_step)

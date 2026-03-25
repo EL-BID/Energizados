@@ -45,6 +45,7 @@ class ReportGenerator:
         plots_interactive: Optional[Dict[str, str]] = None,
         threshold_metrics: Optional[Dict] = None,
         segment_metrics: Optional[Dict] = None,
+        experiment_description: Optional[str] = None,
     ) -> str:
         """
         Generates HTML report with results.
@@ -59,6 +60,7 @@ class ReportGenerator:
             plots_interactive: Dict of plot_name -> HTML string of interactive Plotly chart (optional)
             threshold_metrics: Dict with threshold sweep data (optional)
             segment_metrics: Dict mapping column -> segment_value -> metrics (optional)
+            experiment_description: Free-text description of the experiment (optional)
 
         Returns:
             str: Path where report was saved
@@ -72,6 +74,7 @@ class ReportGenerator:
             plots_interactive=plots_interactive,
             threshold_metrics=threshold_metrics,
             segment_metrics=segment_metrics,
+            experiment_description=experiment_description,
         )
 
         path = save_path or str(self.output_dir / "evaluation_report.html")
@@ -148,6 +151,7 @@ class ReportGenerator:
         plots_interactive: Optional[Dict[str, str]] = None,
         threshold_metrics: Optional[Dict] = None,
         segment_metrics: Optional[Dict] = None,
+        experiment_description: Optional[str] = None,
     ) -> str:
         """Builds HTML content of the report."""
         # Convert file paths to relative names so the HTML works from the report directory
@@ -216,6 +220,7 @@ class ReportGenerator:
                 <button class="dark-toggle" id="dark-toggle-btn">☾ Dark</button>
                 <h1>Model Evaluation Report</h1>
                 <p>Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+                {self._build_description_html(experiment_description)}
             </div>
 
             <div class="section" id="section-metrics">
@@ -335,6 +340,15 @@ class ReportGenerator:
 </body>
 </html>
 """
+
+    def _build_description_html(self, description: Optional[str]) -> str:
+        """Renders the experiment description banner if present."""
+        if not description:
+            return ""
+        escaped = (
+            description.strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        )
+        return f'<p class="experiment-description">{escaped}</p>'
 
     def _build_sidebar(
         self,

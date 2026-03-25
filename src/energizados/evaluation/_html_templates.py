@@ -168,6 +168,16 @@ body {
 }
 .header h1 { margin: 0; font-size: 2.2em; }
 .header p { margin: 10px 0 0 0; opacity: 0.9; }
+.experiment-description {
+    margin-top: 16px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.15);
+    border-left: 4px solid rgba(255,255,255,0.6);
+    border-radius: 4px;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+    opacity: 1 !important;
+}
 /* ── Sections ─────────────────────────────────────────────────────────── */
 .section {
     background: var(--surface);
