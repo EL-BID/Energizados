@@ -444,3 +444,42 @@ etl:
             assert "new.data.custom_etl.CustomETL" not in etl_yaml
             assert "_new.data" not in etl_yaml
             assert "_old.data" not in etl_yaml
+
+
+class TestTemplateResolution:
+    """Tests that templates are resolvable from within the installed package."""
+
+    def test_get_template_path_resolves_inside_package(self):
+        """Verify that _get_template_path points inside the installed package, not the repo root."""
+        from energizados.cli.init import _get_template_path
+
+        path = _get_template_path("config/etl.yaml.tpl")
+        assert path.exists(), f"Template not found at {path}"
+        assert "src/energizados/templates" in str(path) or "energizados/templates" in str(path)
+
+    def test_all_expected_templates_exist(self):
+        """Verify that all templates required by init are present in the package."""
+        from energizados.cli.init import _get_template_path
+
+        required = [
+            "config/etl.yaml.tpl",
+            "config/train.yaml.tpl",
+            "config/infer.yaml.tpl",
+            "src/data/custom_etl.py.tpl",
+            "src/features/custom_selector.py.tpl",
+            "src/models/custom_model.py.tpl",
+            "src/inference/custom_inference.py.tpl",
+            "src/utils/helpers.py.tpl",
+            "src/run/00_etl.py.tpl",
+            "src/run/01_eda.py.tpl",
+            "src/run/02_training.py.tpl",
+            "src/run/03_inference.py.tpl",
+            "README.md.tpl",
+            "requirements.txt.tpl",
+            "docs/project_docs.md.tpl",
+            ".gitignore.tpl",
+            "data/raw/sample_dataset.parquet",
+        ]
+        for tpl in required:
+            path = _get_template_path(tpl)
+            assert path.exists(), f"Missing template: {tpl} (expected at {path})"

@@ -67,7 +67,7 @@ def _get_template_path(template_name: str) -> Path:
     Returns:
         Path to the template file in the templates directory.
     """
-    return Path(__file__).parent.parent.parent.parent / "templates" / template_name
+    return Path(__file__).parent.parent / "templates" / template_name
 
 
 def _load_template(template_name: str) -> str:
@@ -280,11 +280,7 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
     # Copy example dataset if it exists (only for new projects, not copies)
     if source_name is None:
         source_dataset = (
-            Path(__file__).parent.parent.parent.parent
-            / "templates"
-            / "data"
-            / "raw"
-            / "sample_dataset.parquet"
+            Path(__file__).parent.parent / "templates" / "data" / "raw" / "sample_dataset.parquet"
         )
         if source_dataset.exists():
             import shutil

@@ -9,8 +9,8 @@
 train:
   enabled: true
 
-  description:  |
-  This experiment allows...
+  description: |
+    This experiment allows.
 
   # Input from ETL
   input_path: "data/processed/sample_dataset.parquet"
@@ -57,7 +57,7 @@ train:
       enabled: true
       output_parquet: "data/processed/feat/preprocessing.parquet"
 
-      drop_columns: [index, fecha_inspeccion]  # columns to exclude from model
+      drop_columns: [index]  # columns to exclude from model
 
       # Option 1: Use per-column configuration with built-in transformers
       columns:
