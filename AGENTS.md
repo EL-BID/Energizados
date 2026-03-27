@@ -288,7 +288,7 @@ training:
     # Para stratified_time (split temporal dentro de cada cluster geográfico):
     # method: "stratified_time"
     # date_column: "fecha_inspeccion"
-    # cluster_column: "geo_cluster"   # requiere GeoClusterETL ejecutado previamente
+    # cluster_column: "geo_cluster"   # requiere GeoFeaturesETL ejecutado previamente
     # test_size: 0.15
     # val_size: 0.15
 
@@ -386,7 +386,7 @@ training:
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=None — inline `{domain: [names]}` selection; if null uses all domains and logs the list at INFO), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
 | `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior") |
-| `geo_features` | Geographic features from lat/lon: estado, município, região, distances to capitals/cities, target encoding | `lat_col` (str), `lon_col` (str), `include_hierarchy` (bool), `include_target_encoding` (bool), `te_w` (int), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str, default=None — persist IBGE shapefiles to disk to avoid re-downloading across runs) |
+| `geo_features` | **Moved to ETL** — use `GeoFeaturesETL` in `etl.yaml`. For target encoding of geographic columns only, use `GeoFeatures` via `custom_class`. | — |
 | `clip_outliers` | Clips extreme values in consumption columns (data reading errors) — run FIRST in global_transformers | `threshold` (float, default=100000), `columns` (list, default=None — auto-detects `*_anterior`), `periods_suffix` (str, default="_anterior") |
 
 **Global Transformers:**
@@ -476,7 +476,7 @@ Additional ETL examples are provided (commented out) in the template:
 - `BaseETL`: Abstract base class for all ETL implementations
 - `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
 - `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
-- `GeoClusterETL`: Assigns geographic cluster labels via KMeans on lat/lon coordinates. Appends a `geo_cluster` (int) column. Run after the main ETL and before training so the column is available for `stratified_time` splits. Points with missing/zero coords get label `-1`. `custom_class: "energizados.etl.pipeline.GeoClusterETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`.
+- `GeoFeaturesETL`: Adds geographic features from lat/lon coordinates. Appends `geo_cluster` (int, KMeans), IBGE hierarchy (`geo_estado`, `geo_municipio`, `geo_regiao`), and haversine distance columns. Run after the main dataset ETL and before training. Required if using `stratified_time` split. Points with invalid/zero coords get `geo_cluster=-1` and `"sin_dato"` for hierarchy. `custom_class: "energizados.etl.pipeline.GeoFeaturesETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`, `include_hierarchy` (bool), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str).
 - `ETLOrchestrator`: Manages execution order based on dependencies
 - `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Available for manual use in custom ETLs.
 
