@@ -97,6 +97,7 @@ def test_output_saved_to_disk(tmp_path):
     assert "geo_cluster" in loaded.columns
 
 
+@pytest.mark.xfail(reason="GeoClusterETL removed in Task 2", strict=True)
 def test_geo_cluster_not_in_pipeline_imports():
     """GeoClusterETL must not exist anymore."""
     import energizados.etl.pipeline as m

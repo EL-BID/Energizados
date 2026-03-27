@@ -672,6 +672,7 @@ class GeoFeaturesETL(BaseETL):
         self.distance_cities = distance_cities
         self.include_coords = include_coords
         self.cache_dir = cache_dir
+        self.kwargs = kwargs
 
     def extract(self) -> pd.DataFrame:
         """Read input file."""
@@ -694,7 +695,7 @@ class GeoFeaturesETL(BaseETL):
         else:
             raise ETLError(f"Unsupported format: {source_file.suffix}")
 
-        logger.info("  • Read %d records from '%s'", len(df), source_file.name)
+        logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
         return df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -743,6 +744,11 @@ class GeoFeaturesETL(BaseETL):
             n_valid,
             invalid_count,
         )
+        for cluster_id in sorted(set(labels[valid_mask])):
+            count = int((labels == cluster_id).sum())
+            logger.info(
+                "    Cluster %d: %d records (%.1f%%)", cluster_id, count, count / len(df) * 100
+            )
 
         # --- Geographic hierarchy and distances ---
         if self.include_hierarchy or self.include_distances:
@@ -778,4 +784,4 @@ class GeoFeaturesETL(BaseETL):
         else:
             df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
-        logger.info("  ✓ Saved %d records to '%s'", len(df), path)
+        logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
