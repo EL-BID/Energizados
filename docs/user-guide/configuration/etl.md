@@ -362,6 +362,74 @@ etl:
     depends_on: ["consumos_all", "clientes"]
 ```
 
+## GeoFeaturesETL
+
+Adds geographic features from latitude/longitude coordinates. Combines KMeans geographic
+clustering, IBGE administrative hierarchy, and haversine distance features in a single ETL step.
+Run after the main dataset-building ETL and before training.
+
+**Generated columns:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `geo_cluster` | int | KMeans cluster label (−1 for invalid/zero coordinates) |
+| `geo_estado` | str | Brazilian state (UF) from IBGE spatial join |
+| `geo_municipio` | str | Municipality from IBGE spatial join |
+| `geo_regiao` | str | Macro region (Norte, Nordeste, Sudeste, Sul, Centro-Oeste) |
+| `geo_dist_capital_estado` | float | Haversine distance to state capital (km) |
+| `geo_dist_{city}` | float | Haversine distance to each city in `distance_cities` (km) |
+
+> Unmatched coordinates (outside Brazil or with invalid values) get `"sin_dato"` for
+> hierarchy columns and `−1` for `geo_cluster`.
+
+```yaml
+geo_features:
+  enabled: true
+  input: "@dataset_builder"
+  output: "data/processed/dataset_with_geo.parquet"
+  custom_class: "energizados.etl.pipeline.GeoFeaturesETL"
+  params:
+    lat_col: "latitude"
+    lon_col: "longitude"
+    n_clusters: 10
+    random_state: 42
+    include_hierarchy: true
+    include_distances: true
+    distance_cities:
+      - sao_paulo
+      - rio_de_janeiro
+      - brasilia
+    include_coords: false
+    cache_dir: ".cache/ibge"
+  depends_on: [dataset_builder]
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `lat_col` | string | `"latitud"` | Latitude column name |
+| `lon_col` | string | `"longitud"` | Longitude column name |
+| `n_clusters` | int | `10` | Number of KMeans geographic clusters |
+| `random_state` | int | `42` | Random seed for KMeans |
+| `include_hierarchy` | bool | `true` | Add IBGE hierarchy columns |
+| `include_distances` | bool | `true` | Add distance-to-city columns |
+| `distance_cities` | list | top-5 | Cities for distance calculation (see available list below) |
+| `include_coords` | bool | `false` | Keep original lat/lon columns in output |
+| `cache_dir` | string | `null` | Directory to persist IBGE shapefiles on disk |
+
+**Available cities for `distance_cities`:**
+
+`sao_paulo`, `rio_de_janeiro`, `brasilia`, `salvador`, `belo_horizonte`, `fortaleza`,
+`recife`, `curitiba`, `manaus`, `porto_alegre`, `florianopolis`, `blumenau`, `joinville`,
+`criciuma`, `chapeco`, `itajai`, `lages`
+
+> **Note:** `include_hierarchy` and `include_distances` require the `geobr` package.
+> Set `cache_dir` to avoid re-downloading IBGE shapefiles on every run (recommended).
+
+**Relationship with `stratified_time` split:** the `geo_cluster` column produced by this ETL
+is required when using `method: stratified_time` in `train.yaml`.
+
 ## Custom ETL Classes
 
 To create a custom ETL, implement the `BaseETL` interface in `src/data/custom_etl.py`:

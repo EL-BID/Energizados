@@ -314,45 +314,13 @@ Domain-specific fraud detection features derived from the consumption time serie
 
 **Generated features:** diff ratios, min/max ratio, z-score, zero ratio, slope (normalized), consistency score, drastic changes count.
 
-#### geo_features
+#### geo_features (moved to ETL)
 
-Geographic features derived from latitude/longitude coordinates using IBGE shapefiles (via `geobr`).
+Geographic features (hierarchy, distances, clustering) are now configured as an ETL step
+using `GeoFeaturesETL` in `etl.yaml`. See [ETL configuration → GeoFeaturesETL](etl.md#geofeaturesletl).
 
-```yaml
-- geo_features:
-    lat_col: "latitud"
-    lon_col: "longitud"
-    include_hierarchy: true       # geo_estado, geo_municipio, geo_regiao
-    include_target_encoding: true # target-encoded versions of hierarchy cols
-    te_w: 20                      # smoothing weight for target encoding
-    include_distances: true       # haversine distances to reference cities
-    distance_cities:
-      - sao_paulo
-      - rio_de_janeiro
-      - brasilia
-    include_coords: false         # keep original lat/lon in output
-    cache_dir: ".cache/ibge"      # persist IBGE shapefiles to disk (avoids re-download)
-```
-
-**Parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `lat_col` | string | `"latitud"` | Latitude column name |
-| `lon_col` | string | `"longitud"` | Longitude column name |
-| `include_hierarchy` | bool | `true` | Add `geo_estado`, `geo_municipio`, `geo_regiao` columns |
-| `include_target_encoding` | bool | `true` | Add target-encoded versions of hierarchy columns |
-| `te_w` | int | `20` | Smoothing weight for target encoding |
-| `include_distances` | bool | `true` | Add haversine distance to each city in `distance_cities` |
-| `distance_cities` | list | `null` | Reference cities to compute distances to (see below) |
-| `include_coords` | bool | `false` | Keep original `lat_col`/`lon_col` in output |
-| `cache_dir` | string | `null` | Directory to cache IBGE shapefiles on disk (e.g. `".cache/ibge"`). First run downloads and saves; subsequent runs load from disk. If `null`, data is only cached in memory for the current process. |
-
-**Available cities for `distance_cities`:**
-
-`sao_paulo`, `rio_de_janeiro`, `brasilia`, `salvador`, `belo_horizonte`, `fortaleza`, `recife`, `curitiba`, `manaus`, `porto_alegre`, `florianopolis`, `blumenau`, `joinville`, `criciuma`, `chapeco`, `itajai`, `lages`
-
-> **Note:** `geo_features` requires the `geobr` package. On first use, shapefiles are downloaded from IBGE and cached by `geobr`. Set `cache_dir` to also persist the processed GeoDataFrame to disk — this avoids re-loading the shapefile on every execution (recommended for iterative runs).
+To apply **target encoding** of geographic columns (e.g. `geo_estado_prob`), use
+`GeoFeatures` directly via `custom_class` in `global_transformers`.
 
 #### Custom Global Transformer
 
