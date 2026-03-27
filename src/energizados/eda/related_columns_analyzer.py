@@ -143,7 +143,9 @@ class RelatedColumnsAnalyzer(BaseExplorer):
         if target_col and target_col in df.columns:
             sub_target = df[columns + [target_col]].dropna()
             if len(sub_target) > 0:
-                target_cross = sub_target.groupby(columns)[target_col].agg(["mean", "count"])
+                target_cross = sub_target.groupby(columns, observed=True)[target_col].agg(
+                    ["mean", "count"]
+                )
                 target_cross = target_cross.reset_index()
                 target_cross.columns = list(columns) + ["target_rate", "count"]
                 result["target_rates"] = target_cross.head(200).to_dict("records")
@@ -151,7 +153,9 @@ class RelatedColumnsAnalyzer(BaseExplorer):
                 # Heatmap data: if 2+ columns, create pivot of first two
                 if len(columns) >= 2:
                     try:
-                        pivot = sub_target.groupby([columns[0], columns[1]])[target_col].mean()
+                        pivot = sub_target.groupby([columns[0], columns[1]], observed=True)[
+                            target_col
+                        ].mean()
                         result["target_heatmap"] = pivot.unstack(fill_value=0)
                     except Exception as e:
                         logger.debug("Error creating target heatmap pivot: %s", e)

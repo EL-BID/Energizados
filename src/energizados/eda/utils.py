@@ -137,7 +137,9 @@ def compute_iv_woe(
         return empty_result
 
     if is_categorical:
-        grouped = sub.groupby(feature_col)[target_col].agg(["sum", "count"]).reset_index()
+        grouped = (
+            sub.groupby(feature_col, observed=True)[target_col].agg(["sum", "count"]).reset_index()
+        )
         grouped.columns = ["bin", "events", "count"]
     else:
         # Quantile-based binning for numeric

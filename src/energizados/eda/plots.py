@@ -207,7 +207,7 @@ class EDAStaticPlots:
                 # Compute fraud rate per category
                 fraud_rate = (
                     sub[sub[col].isin(top_cats.index)]
-                    .groupby(col)[target_col]
+                    .groupby(col, observed=True)[target_col]
                     .mean()
                     .reindex(top_cats.index)
                     .fillna(0)

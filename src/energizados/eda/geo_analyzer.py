@@ -152,7 +152,7 @@ class GeospatialAnalyzer(BaseExplorer):
 
             # Target rate by zone
             if target_col and target_col in df.columns:
-                zone_target_rate = df.groupby(zone_col)[target_col].mean()
+                zone_target_rate = df.groupby(zone_col, observed=True)[target_col].mean()
                 target_by_zone = {
                     str(k): round(float(v), 6)
                     for k, v in zone_target_rate.items()

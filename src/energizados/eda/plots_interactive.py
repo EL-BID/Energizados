@@ -1047,7 +1047,7 @@ class EDAInteractivePlots:
             if len(sub) == 0:
                 return ""
 
-            grouped = sub.groupby(col)[target_col].agg(["mean", "count"])
+            grouped = sub.groupby(col, observed=True)[target_col].agg(["mean", "count"])
             grouped = grouped.sort_values("mean", ascending=False).head(top_n)
             rates = (grouped["mean"] * 100).round(2)
             median_rate = float(rates.median())
