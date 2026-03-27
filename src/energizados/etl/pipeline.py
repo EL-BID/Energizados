@@ -587,3 +587,195 @@ class GeoClusterETL(BaseETL):
             df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
         logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
+
+
+class GeoFeaturesETL(BaseETL):
+    """ETL that adds geographic features and cluster labels from lat/lon coordinates.
+
+    Combines geographic clustering (KMeans → ``geo_cluster`` column) with IBGE
+    geographic hierarchy (``geo_estado``, ``geo_municipio``, ``geo_regiao``) and
+    optional distance features. Target encoding is intentionally excluded — run it
+    in feature engineering where the train/val/test split is already in place.
+
+    Run this ETL after the main dataset-building ETL and before training.
+
+    Args:
+        name: ETL name.
+        input_paths: List with one path to the input file.
+        output_path: Path to save the enriched dataset.
+        lat_col: Latitude column name (default: ``"latitud"``).
+        lon_col: Longitude column name (default: ``"longitud"``).
+        n_clusters: Number of geographic KMeans clusters (default: ``10``).
+        random_state: Random seed for KMeans (default: ``42``).
+        include_hierarchy: Add ``geo_estado``, ``geo_municipio``, ``geo_regiao``
+            columns via IBGE spatial join (default: ``True``).
+        include_distances: Add haversine distance columns to reference cities
+            (default: ``True``).
+        distance_cities: List of city names for distance calculation. If ``None``,
+            uses the top-5 default. Available cities: sao_paulo, rio_de_janeiro,
+            brasilia, salvador, belo_horizonte, fortaleza, recife, curitiba,
+            manaus, porto_alegre, florianopolis, blumenau, joinville, criciuma,
+            chapeco, itajai, lages.
+        include_coords: Keep original lat/lon columns in output (default: ``False``).
+        cache_dir: Directory to persist IBGE shapefiles on disk (default: ``None``).
+        **kwargs: Additional parameters (ignored).
+
+    Example YAML:
+
+    .. code-block:: yaml
+
+        geo_features:
+          enabled: true
+          input: "@dataset_builder"
+          output: "data/processed/dataset_with_geo.parquet"
+          custom_class: "energizados.etl.pipeline.GeoFeaturesETL"
+          params:
+            lat_col: "latitude"
+            lon_col: "longitude"
+            n_clusters: 10
+            include_hierarchy: true
+            include_distances: true
+            distance_cities:
+              - sao_paulo
+              - rio_de_janeiro
+              - brasilia
+            include_coords: false
+            cache_dir: ".cache/ibge"
+          depends_on: [dataset_builder]
+    """
+
+    def __init__(
+        self,
+        name: str,
+        input_paths: List[str],
+        output_path: Optional[str] = None,
+        lat_col: str = "latitud",
+        lon_col: str = "longitud",
+        n_clusters: int = 10,
+        random_state: int = 42,
+        include_hierarchy: bool = True,
+        include_distances: bool = True,
+        distance_cities: Optional[List[str]] = None,
+        include_coords: bool = False,
+        cache_dir: Optional[str] = None,
+        **kwargs,
+    ):
+        self.name = name
+        self.input_paths = input_paths
+        self.output_path = output_path
+        self.lat_col = lat_col
+        self.lon_col = lon_col
+        self.n_clusters = n_clusters
+        self.random_state = random_state
+        self.include_hierarchy = include_hierarchy
+        self.include_distances = include_distances
+        self.distance_cities = distance_cities
+        self.include_coords = include_coords
+        self.cache_dir = cache_dir
+
+    def extract(self) -> pd.DataFrame:
+        """Read input file."""
+        if not self.input_paths:
+            raise ETLError(f"GeoFeaturesETL '{self.name}': input_paths is empty")
+
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        path = self.input_paths[0]
+        validate_no_traversal(path, label=f"ETL '{self.name}' input")
+        source_file = Path(path)
+
+        if not source_file.exists():
+            raise ETLError(f"File not found: {path}")
+
+        if source_file.suffix in [".parquet", ".pq"]:
+            df = pd.read_parquet(path)
+        elif source_file.suffix == ".csv":
+            df = pd.read_csv(path)
+        else:
+            raise ETLError(f"Unsupported format: {source_file.suffix}")
+
+        logger.info("  • Read %d records from '%s'", len(df), source_file.name)
+        return df
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Append geo_cluster and optional geographic feature columns."""
+        import numpy as np
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+
+        df = df.copy()
+
+        if self.lat_col not in df.columns or self.lon_col not in df.columns:
+            raise ETLError(
+                f"GeoFeaturesETL '{self.name}': columns '{self.lat_col}' or "
+                f"'{self.lon_col}' not found. Available: {list(df.columns)}"
+            )
+
+        lats = pd.to_numeric(df[self.lat_col], errors="coerce").values
+        lons = pd.to_numeric(df[self.lon_col], errors="coerce").values
+        valid_mask = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
+
+        n_valid = int(valid_mask.sum())
+        if n_valid < 10:
+            raise ETLError(
+                f"GeoFeaturesETL '{self.name}': only {n_valid} valid coordinates found. "
+                "Need at least 10 to fit clusters."
+            )
+
+        # --- Geographic clustering ---
+        coords = np.column_stack([lats[valid_mask], lons[valid_mask]])
+        n_clusters = min(self.n_clusters, n_valid)
+
+        scaler = StandardScaler()
+        coords_scaled = scaler.fit_transform(coords)
+
+        kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=10)
+        kmeans.fit(coords_scaled)
+
+        labels = np.full(len(df), -1, dtype=int)
+        labels[valid_mask] = kmeans.predict(coords_scaled)
+        df["geo_cluster"] = labels
+
+        invalid_count = int((~valid_mask).sum())
+        logger.info(
+            "  ✓ GeoFeaturesETL: %d clusters fitted on %d valid coordinates (%d → label -1)",
+            n_clusters,
+            n_valid,
+            invalid_count,
+        )
+
+        # --- Geographic hierarchy and distances ---
+        if self.include_hierarchy or self.include_distances:
+            from energizados.preprocessing.geo_features import GeoFeatures
+
+            transformer = GeoFeatures(
+                lat_col=self.lat_col,
+                lon_col=self.lon_col,
+                include_hierarchy=self.include_hierarchy,
+                include_target_encoding=False,
+                include_distances=self.include_distances,
+                distance_cities=self.distance_cities,
+                include_coords=self.include_coords,
+                cache_dir=self.cache_dir,
+            )
+            df = transformer.fit_transform(df)
+            logger.info("  ✓ GeoFeaturesETL: geographic features added")
+
+        return df
+
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        """Save enriched dataset."""
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        validate_no_traversal(path, label=f"ETL '{self.name}' output")
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if output_path.suffix in [".parquet", ".pq"]:
+            df.to_parquet(path, index=False)
+        elif output_path.suffix == ".csv":
+            df.to_csv(path, index=False)
+        else:
+            df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
+
+        logger.info("  ✓ Saved %d records to '%s'", len(df), path)
