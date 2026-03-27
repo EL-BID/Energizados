@@ -165,24 +165,9 @@ train:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
 
-        # Geographic features from lat/lon (uses IBGE shapefiles via geobr)
-        # Generates: geo_estado, geo_municipio, geo_regiao + target encoding + distances
-        # Available distance_cities: sao_paulo, rio_de_janeiro, brasilia, salvador,
-        #   belo_horizonte, fortaleza, recife, curitiba, manaus, porto_alegre,
-        #   florianopolis, blumenau, joinville, criciuma, chapeco, itajai, lages
-        # - geo_features:
-        #     lat_col: "latitud"
-        #     lon_col: "longitud"
-        #     include_hierarchy: true       # geo_estado, geo_municipio, geo_regiao
-        #     include_target_encoding: true # target-encoded versions of hierarchy cols
-        #     te_w: 20                      # smoothing weight for target encoding
-        #     include_distances: true       # distances to reference cities
-        #     distance_cities:
-        #       - sao_paulo
-        #       - rio_de_janeiro
-        #       - brasilia
-        #     include_coords: false         # keep lat/lon in output
-        #     cache_dir: ".cache/ibge"      # persist IBGE shapefiles to disk (avoids re-download)
+        # Geographic features (geo_cluster, hierarchy, distances) are now configured
+        # as an ETL step in etl.yaml using GeoFeaturesETL.
+        # For target encoding of geographic columns, use GeoFeatures via custom_class.
 
       #   # Option: Custom class for global transformers
       #   - custom_class: "preprocessing.CustomGlobalTransformer"

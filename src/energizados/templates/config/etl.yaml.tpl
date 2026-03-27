@@ -132,20 +132,29 @@ etl:
   #     periods_suffix: "_anterior"  # auto-detects *_anterior columns
   #   depends_on: []
   #
-  # # ETL 7: Geographic clustering - assigns geo_cluster column via KMeans on lat/lon.
+  # # ETL 7: Geographic features - clusters + IBGE hierarchy + distances from lat/lon.
   # # Run AFTER your main ETL and BEFORE training.
-  # # Required if using method: "stratified_time" in split config.
-  # geo_cluster:
+  # # Generates: geo_cluster (int), geo_estado, geo_municipio, geo_regiao, geo_dist_* columns.
+  # # geo_cluster is required if using method: "stratified_time" in split config.
+  # geo_features:
   #   enabled: false
-  #   description: "Assign geographic clusters for stratified temporal split"
+  #   description: "Geographic features: clusters, hierarchy and distances from lat/lon"
   #   input: "data/processed/sample_dataset.parquet"
-  #   output: "data/processed/sample_dataset_with_clusters.parquet"
-  #   custom_class: "energizados.etl.pipeline.GeoClusterETL"
+  #   output: "data/processed/sample_dataset_with_geo.parquet"
+  #   custom_class: "energizados.etl.pipeline.GeoFeaturesETL"
   #   params:
-  #     n_clusters: 10        # number of geographic clusters
-  #     lat_col: "latitude"   # latitude column name
-  #     lon_col: "longitude"  # longitude column name
+  #     lat_col: "latitude"          # latitude column name
+  #     lon_col: "longitude"         # longitude column name
+  #     n_clusters: 10               # number of geographic KMeans clusters
   #     random_state: 42
+  #     include_hierarchy: true      # geo_estado, geo_municipio, geo_regiao (IBGE)
+  #     include_distances: true      # haversine distances to reference cities
+  #     distance_cities:             # available: sao_paulo, rio_de_janeiro, brasilia,
+  #       - sao_paulo                #   salvador, belo_horizonte, fortaleza, recife,
+  #       - rio_de_janeiro           #   curitiba, manaus, porto_alegre, florianopolis,
+  #       - brasilia                 #   blumenau, joinville, criciuma, chapeco, itajai, lages
+  #     include_coords: false        # keep original lat/lon in output
+  #     cache_dir: ".cache/ibge"     # persist IBGE shapefiles to disk (avoids re-download)
   #   depends_on: []
   #
   # # ETL 8: Quick testing with sample
