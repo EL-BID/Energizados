@@ -22,11 +22,13 @@ class SplitStep(PipelineStep):
     """
     Divide the dataset into train/val/test.
 
-    Supports four split methods:
+    Supports five split methods:
     - stratified: Maintains target proportion
     - random: Simple random split
     - time_series: Based on time periods
     - group_based: Groups rows by group_column, ensures no group leaks across splits
+    - stratified_time: Time split within each cluster — guarantees temporal order
+      per cluster while ensuring all clusters appear in train/val/test
 
     Args:
         input_path: Path to the full dataset
@@ -61,6 +63,7 @@ class SplitStep(PipelineStep):
         splits_dir: str = "data/splits/",
         method: str = "stratified",
         group_column: Optional[str] = None,
+        cluster_column: Optional[str] = None,
         date_column: Optional[str] = None,
         train_period: Optional[list] = None,
         val_period: Optional[list] = None,
@@ -76,6 +79,7 @@ class SplitStep(PipelineStep):
         self.splits_dir = Path(splits_dir)
         self.method = method
         self.group_column = group_column
+        self.cluster_column = cluster_column
         self.date_column = date_column
         self.train_period = train_period
         self.val_period = val_period
@@ -88,6 +92,24 @@ class SplitStep(PipelineStep):
             raise ValueError(
                 "SplitStep with method='time_series' requires 'date_column'. "
                 "Add date_column to your split configuration."
+            )
+
+    def _validate_stratified_time_config(self, df: pd.DataFrame) -> None:
+        """Validate stratified_time-specific config. Raises ValueError if invalid."""
+        if not self.date_column:
+            raise ValueError(
+                "SplitStep with method='stratified_time' requires 'date_column'. "
+                "Add date_column to your split configuration."
+            )
+        if not self.cluster_column:
+            raise ValueError(
+                "SplitStep with method='stratified_time' requires 'cluster_column'. "
+                "Add cluster_column to your split configuration (e.g. 'geo_cluster')."
+            )
+        if self.cluster_column not in df.columns:
+            raise ValueError(
+                f"Cluster column '{self.cluster_column}' not found in dataset. "
+                f"Run the geo_cluster global transformer first to generate this column."
             )
 
     def _validate_group_config(self, df: pd.DataFrame) -> None:
@@ -258,6 +280,33 @@ class SplitStep(PipelineStep):
                 {"train": train_df, "val": val_df, "test": test_df}, self.target_column
             )
 
+        # Stratified time split: temporal split within each cluster
+        elif self.method == "stratified_time":
+            self._validate_stratified_time_config(df)
+            df[self.date_column] = pd.to_datetime(df[self.date_column])
+            train_parts, val_parts, test_parts = [], [], []
+
+            for cluster_id, group in df.groupby(self.cluster_column):
+                group = group.sort_values(self.date_column)
+                n = len(group)
+                n_test = max(1, int(n * self.test_size))
+                n_val = max(1, int(n * self.val_size))
+
+                if n < 10:
+                    logger.warning(
+                        "Cluster '%s' has only %d rows — val/test splits will be very small.",
+                        cluster_id,
+                        n,
+                    )
+
+                train_parts.append(group.iloc[: n - n_val - n_test])
+                val_parts.append(group.iloc[n - n_val - n_test : n - n_test])
+                test_parts.append(group.iloc[n - n_test :])
+
+            train_df = pd.concat(train_parts).reset_index(drop=True)
+            val_df = pd.concat(val_parts).reset_index(drop=True)
+            test_df = pd.concat(test_parts).reset_index(drop=True)
+
         # Random/stratified split
         else:
             # Separate X and y
@@ -325,6 +374,12 @@ class SplitStep(PipelineStep):
             metadata["train_dates"] = self._get_date_range(train_df, self.date_column)
             metadata["val_dates"] = self._get_date_range(val_df, self.date_column)
             metadata["test_dates"] = self._get_date_range(test_df, self.date_column)
+        elif self.method == "stratified_time":
+            metadata["date_column"] = self.date_column
+            metadata["cluster_column"] = self.cluster_column
+            metadata["n_clusters"] = int(df[self.cluster_column].nunique())
+            metadata["test_size"] = self.test_size
+            metadata["val_size"] = self.val_size
         elif self.method == "group_based":
             metadata["group_column"] = self.group_column
             metadata["n_groups_total"] = df[self.group_column].nunique()

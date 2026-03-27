@@ -273,7 +273,7 @@ training:
   # output_base_dir: "output"  # override opcional; cada run genera output/train-YYYYMMDD_HHMM/
 
   split:
-    method: "time_series"  # Opciones: stratified, random, time_series
+    method: "time_series"  # Opciones: stratified, random, time_series, group_based, stratified_time
     # Para time_series:
     date_column: "fecha_inspeccion"
     train_period: ["2010-01-01", "2017-08-01"]
@@ -285,6 +285,12 @@ training:
     # test_size: 0.2
     # val_size: 0.1
     # random_state: 42
+    # Para stratified_time (split temporal dentro de cada cluster geográfico):
+    # method: "stratified_time"
+    # date_column: "fecha_inspeccion"
+    # cluster_column: "geo_cluster"   # requiere GeoClusterETL ejecutado previamente
+    # test_size: 0.15
+    # val_size: 0.15
 
   feature_engineering:
     enabled: true
@@ -470,6 +476,7 @@ Additional ETL examples are provided (commented out) in the template:
 - `BaseETL`: Abstract base class for all ETL implementations
 - `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
 - `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
+- `GeoClusterETL`: Assigns geographic cluster labels via KMeans on lat/lon coordinates. Appends a `geo_cluster` (int) column. Run after the main ETL and before training so the column is available for `stratified_time` splits. Points with missing/zero coords get label `-1`. `custom_class: "energizados.etl.pipeline.GeoClusterETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`.
 - `ETLOrchestrator`: Manages execution order based on dependencies
 - `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Available for manual use in custom ETLs.
 

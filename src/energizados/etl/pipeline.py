@@ -3,6 +3,7 @@
 This module provides ETL classes for data processing:
 - SourceETL: Concatenation and merge operations on multiple sources.
 - ClipOutliersETL: Clips extreme values in numeric columns (data reading errors).
+- GeoClusterETL: Adds a geo_cluster column via KMeans on lat/lon coordinates.
 """
 
 import logging
@@ -422,6 +423,156 @@ class ClipOutliersETL(BaseETL):
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """Save clipped dataset."""
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        validate_no_traversal(path, label=f"ETL '{self.name}' output")
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if output_path.suffix in [".parquet", ".pq"]:
+            df.to_parquet(path, index=False)
+        elif output_path.suffix == ".csv":
+            df.to_csv(path, index=False)
+        else:
+            df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
+
+        logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
+
+
+class GeoClusterETL(BaseETL):
+    """ETL that assigns geographic cluster labels via KMeans on lat/lon coordinates.
+
+    Reads a dataset, fits a KMeans model on valid coordinates, appends a
+    ``geo_cluster`` integer column, and saves the result. Run this ETL after
+    the main dataset-building ETL and before training, so that the cluster
+    column is available for ``stratified_time`` splits.
+
+    Points with missing or zero coordinates are assigned label ``-1``.
+
+    Args:
+        name: ETL name.
+        input_paths: List with path to the input file (single file).
+        output_path: Path to save the enriched dataset.
+        n_clusters: Number of geographic clusters (default: 10).
+        lat_col: Name of the latitude column (default: "latitud").
+        lon_col: Name of the longitude column (default: "longitud").
+        random_state: Random seed for KMeans (default: 42).
+        **kwargs: Additional parameters.
+
+    Example YAML:
+        .. code-block:: yaml
+
+            geo_cluster:
+              enabled: true
+              input: "@sample"
+              output: "data/processed/dataset_with_clusters.parquet"
+              custom_class: "energizados.etl.pipeline.GeoClusterETL"
+              params:
+                n_clusters: 10
+                lat_col: "latitud"
+                lon_col: "longitud"
+              depends_on: [sample]
+    """
+
+    def __init__(
+        self,
+        name: str,
+        input_paths: List[str],
+        output_path: Optional[str] = None,
+        n_clusters: int = 10,
+        lat_col: str = "latitud",
+        lon_col: str = "longitud",
+        random_state: int = 42,
+        **kwargs,
+    ):
+        self.name = name
+        self.input_paths = input_paths
+        self.output_path = output_path
+        self.n_clusters = n_clusters
+        self.lat_col = lat_col
+        self.lon_col = lon_col
+        self.random_state = random_state
+        self.kwargs = kwargs
+
+    def extract(self) -> pd.DataFrame:
+        """Read input file."""
+        if not self.input_paths:
+            raise ETLError(f"GeoClusterETL '{self.name}': input_paths is empty")
+
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        path = self.input_paths[0]
+        validate_no_traversal(path, label=f"ETL '{self.name}' input")
+        source_file = Path(path)
+
+        if not source_file.exists():
+            raise ETLError(f"File not found: {path}")
+
+        if source_file.suffix in [".parquet", ".pq"]:
+            df = pd.read_parquet(path)
+        elif source_file.suffix == ".csv":
+            df = pd.read_csv(path)
+        else:
+            raise ETLError(f"Unsupported format: {source_file.suffix}")
+
+        logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
+        return df
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Fit KMeans on lat/lon and append ``geo_cluster`` column."""
+        import numpy as np
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+
+        df = df.copy()
+
+        if self.lat_col not in df.columns or self.lon_col not in df.columns:
+            raise ETLError(
+                f"GeoClusterETL '{self.name}': columns '{self.lat_col}' or "
+                f"'{self.lon_col}' not found. Available: {list(df.columns)}"
+            )
+
+        lats = pd.to_numeric(df[self.lat_col], errors="coerce").values
+        lons = pd.to_numeric(df[self.lon_col], errors="coerce").values
+        valid_mask = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
+
+        n_valid = int(valid_mask.sum())
+        if n_valid < 10:
+            raise ETLError(
+                f"GeoClusterETL '{self.name}': only {n_valid} valid coordinates found. "
+                "Need at least 10 to fit clusters."
+            )
+
+        coords = np.column_stack([lats[valid_mask], lons[valid_mask]])
+        n_clusters = min(self.n_clusters, n_valid)
+
+        scaler = StandardScaler()
+        coords_scaled = scaler.fit_transform(coords)
+
+        kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=10)
+        kmeans.fit(coords_scaled)
+
+        labels = np.full(len(df), -1, dtype=int)
+        labels[valid_mask] = kmeans.predict(coords_scaled)
+        df["geo_cluster"] = labels
+
+        invalid_count = int((~valid_mask).sum())
+        logger.info(
+            "  ✓ GeoCluster: %d clusters fitted on %d valid coordinates (%d assigned label -1)",
+            n_clusters,
+            n_valid,
+            invalid_count,
+        )
+        for cluster_id in sorted(set(labels[valid_mask])):
+            count = int((labels == cluster_id).sum())
+            logger.info(
+                "    Cluster %d: %d records (%.1f%%)", cluster_id, count, count / len(df) * 100
+            )
+
+        return df
+
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        """Save enriched dataset."""
         from energizados.core.utils.secure_pickle import validate_no_traversal
 
         validate_no_traversal(path, label=f"ETL '{self.name}' output")

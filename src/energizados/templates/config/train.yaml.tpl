@@ -25,7 +25,7 @@ train:
   # Split Configuration
   # ============================================
   split:
-    method: "time_series"  # Options: stratified, random, time_series, group_based
+    method: "time_series"  # Options: stratified, random, time_series, group_based, stratified_time
 
     # For stratified/random methods:
     # test_size: 0.2
@@ -42,6 +42,16 @@ train:
     # with the same group value in the same split):
     # group_column: "customer_id"  # Column to group by (required for group_based)
     # Note: Proportions apply at group level, not row level
+
+    # For stratified_time method (temporal split within each geographic cluster):
+    # Ensures all clusters appear in train/val/test while preserving temporal order.
+    # Requires GeoClusterETL to have been run first (generates the geo_cluster column).
+    # method: "stratified_time"
+    # date_column: "fecha_inspeccion"
+    # cluster_column: "geo_cluster"
+    # test_size: 0.15
+    # val_size: 0.15
+    # input_path: "data/processed/sample_dataset_with_clusters.parquet"
 
     # Save splits for reproducibility
     save_splits: true

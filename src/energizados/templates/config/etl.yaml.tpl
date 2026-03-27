@@ -124,15 +124,31 @@ etl:
   # clip_outliers:
   #   enabled: false
   #   description: "Clip extreme consumption values (data reading errors)"
-  #   input: "data/processed/celesc_dataset.parquet"
-  #   output: "data/processed/celesc_dataset_clipped.parquet"
+  #   input: "data/processed/sample_dataset.parquet"
+  #   output: "data/processed/sample_dataset_clipped.parquet"
   #   custom_class: "energizados.etl.pipeline.ClipOutliersETL"
   #   params:
   #     threshold: 100000          # values above this are clipped
   #     periods_suffix: "_anterior"  # auto-detects *_anterior columns
   #   depends_on: []
   #
-  # # ETL 7: Quick testing with sample
+  # # ETL 7: Geographic clustering - assigns geo_cluster column via KMeans on lat/lon.
+  # # Run AFTER your main ETL and BEFORE training.
+  # # Required if using method: "stratified_time" in split config.
+  # geo_cluster:
+  #   enabled: false
+  #   description: "Assign geographic clusters for stratified temporal split"
+  #   input: "data/processed/sample_dataset.parquet"
+  #   output: "data/processed/sample_dataset_with_clusters.parquet"
+  #   custom_class: "energizados.etl.pipeline.GeoClusterETL"
+  #   params:
+  #     n_clusters: 10        # number of geographic clusters
+  #     lat_col: "latitude"   # latitude column name
+  #     lon_col: "longitude"  # longitude column name
+  #     random_state: 42
+  #   depends_on: []
+  #
+  # # ETL 8: Quick testing with sample
   # # Use 'sample' to read only N rows - useful for development and debugging
   # quick_test:
   #   enabled: false
