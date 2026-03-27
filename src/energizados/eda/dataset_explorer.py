@@ -1191,7 +1191,7 @@ class DatasetExplorer:
         geo_thresholds = {
             "invalid_coord_threshold": cfg.get("invalid_coord_threshold", 0.2),
             "country_bounds": cfg.get("country_bounds"),
-            "n_clusters": cfg.get("n_clusters", 10),
+            "n_clusters": cfg.get("clustering", {}).get("n_clusters", 10),
         }
         analyzer = GeospatialAnalyzer(config=geo_thresholds)
         results = analyzer.analyze(
