@@ -13,7 +13,6 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 from energizados.feature_engineering.base import BaseFeatureEngineering
-from energizados.preprocessing.geo_features import GeoFeatures
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
@@ -84,25 +83,6 @@ def _build_transformer_from_config(
         "consumption_patterns": (
             ConsumptionPatterns,
             {"num_periodos": 12, "periods_suffix": "_anterior"},
-        ),
-        "geo_features": (
-            GeoFeatures,
-            {
-                "lat_col": "latitud",
-                "lon_col": "longitud",
-                "include_hierarchy": True,
-                "include_target_encoding": True,
-                "te_w": 20,
-                "include_distances": True,
-                "distance_cities": [
-                    "sao_paulo",
-                    "rio_de_janeiro",
-                    "brasilia",
-                    "salvador",
-                    "belo_horizonte",
-                ],
-                "include_coords": False,
-            },
         ),
     }
 
