@@ -73,7 +73,7 @@ def _build_train_config(
                 "val_size": 0.15,
                 "random_state": 42,
                 "save_splits": True,
-                "splits_dir": "data/splits/",
+                "splits_dir": "data/temp/splits/",
             },
             "feature_engineering": {
                 "enabled": True,
@@ -194,7 +194,7 @@ class TestPhaseContracts:
     def test_split_output_no_leakage(self, pipeline_run):
         """Split outputs exist, have target, and row counts sum correctly."""
         _, _, project_dir = pipeline_run
-        splits_dir = project_dir / "data" / "splits"
+        splits_dir = project_dir / "data" / "temp" / "splits"
 
         split_files = list(splits_dir.glob("*.parquet"))
         assert len(split_files) >= 2, "At least train and val splits should exist"

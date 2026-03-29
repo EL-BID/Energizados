@@ -209,7 +209,7 @@ def e2e_synthetic_dataset():
 @pytest.fixture
 def e2e_project_dir(tmp_path, e2e_synthetic_dataset):
     """Create a temporary project directory structure for E2E tests."""
-    for subdir in ["data/raw", "data/processed", "data/splits", "output", "config"]:
+    for subdir in ["data/raw", "data/processed", "data/temp/splits", "output", "config"]:
         (tmp_path / subdir).mkdir(parents=True, exist_ok=True)
 
     e2e_synthetic_dataset.to_parquet(tmp_path / "data/raw/test_dataset.parquet", index=False)

@@ -13,6 +13,7 @@ import pytest
 from energizados.cli.config_resolver import (
     ConfigResolutionError,
     _discover_config_dir,
+    _is_passthrough,
     _list_available_configs,
     _resolve_single,
     resolve_configs,
@@ -158,6 +159,71 @@ class TestConfigResolver:
             assert len(result) == 1
             assert result[0] == str(config_file.absolute())
 
+    def test_resolve_subdirectory_config(self):
+        """Verify that 'v0/etl' resolves to config/v0/etl.yaml."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "config"
+            subdir = config_dir / "v0"
+            subdir.mkdir(parents=True)
+            (subdir / "etl.yaml").touch()
+
+            result = resolve_configs("v0/etl", config_dir)
+            assert len(result) == 1
+            assert result[0] == str((subdir / "etl.yaml").absolute())
+
+    def test_resolve_subdirectory_comma_separated(self):
+        """Verify that 'v0/etl,v0/train' resolves both from subdirectory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "config"
+            subdir = config_dir / "v0"
+            subdir.mkdir(parents=True)
+            (subdir / "etl.yaml").touch()
+            (subdir / "train.yaml").touch()
+
+            result = resolve_configs("v0/etl,v0/train", config_dir)
+            assert len(result) == 2
+            assert result[0] == str((subdir / "etl.yaml").absolute())
+            assert result[1] == str((subdir / "train.yaml").absolute())
+
+    def test_resolve_subdirectory_mixed_with_root(self):
+        """Verify mixing root and subdirectory configs."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "config"
+            config_dir.mkdir()
+            (config_dir / "etl.yaml").touch()
+            subdir = config_dir / "v0"
+            subdir.mkdir()
+            (subdir / "train.yaml").touch()
+
+            result = resolve_configs("etl,v0/train", config_dir)
+            assert len(result) == 2
+            assert result[0] == str((config_dir / "etl.yaml").absolute())
+            assert result[1] == str((subdir / "train.yaml").absolute())
+
+    def test_resolve_subdirectory_wildcard(self):
+        """Verify that 'v0/train*' expands wildcard in subdirectory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "config"
+            subdir = config_dir / "v0"
+            subdir.mkdir(parents=True)
+            (subdir / "train_01.yaml").touch()
+            (subdir / "train_02.yaml").touch()
+            (subdir / "etl.yaml").touch()
+
+            result = resolve_configs("v0/train*", config_dir)
+            assert len(result) == 2
+            assert "train_01" in result[0]
+            assert "train_02" in result[1]
+
+    def test_resolve_subdirectory_nonexistent_raises_error(self):
+        """Verify that nonexistent subdirectory config raises error."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir) / "config"
+            config_dir.mkdir()
+
+            with pytest.raises(ConfigResolutionError, match="Config 'v0/missing' not found"):
+                resolve_configs("v0/missing", config_dir)
+
     def test_resolve_nonexistent_name_raises_error(self):
         """Verify that nonexistent config name raises ConfigResolutionError."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -264,6 +330,39 @@ class TestListAvailableConfigs:
         result = _list_available_configs(Path("/nonexistent"))
         assert result == []
 
+    def test_list_includes_subdirectory_configs(self):
+        """Verify that configs in subdirectories are listed with prefix."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "etl.yaml").touch()
+            subdir = Path(tmpdir) / "v0"
+            subdir.mkdir()
+            (subdir / "train.yaml").touch()
+
+            result = _list_available_configs(Path(tmpdir))
+            assert "etl" in result
+            assert "v0/train" in result
+
+
+class TestIsPassthrough:
+    """Tests for _is_passthrough function."""
+
+    def test_absolute_path_is_passthrough(self):
+        assert _is_passthrough("/abs/path/config.yaml") is True
+
+    def test_yaml_extension_is_passthrough(self):
+        assert _is_passthrough("config.yaml") is True
+        assert _is_passthrough("config.yml") is True
+
+    def test_relative_yaml_with_slash_is_passthrough(self):
+        assert _is_passthrough("subdir/config.yaml") is True
+
+    def test_plain_name_is_not_passthrough(self):
+        assert _is_passthrough("etl") is False
+
+    def test_subdirectory_name_is_not_passthrough(self):
+        assert _is_passthrough("v0/etl") is False
+        assert _is_passthrough("experiments/v1/train") is False
+
 
 class TestResolveSingle:
     """Tests for _resolve_single function."""
@@ -309,6 +408,17 @@ class TestResolveSingle:
             # so we pass "etl" (without extension)
             result = _resolve_single("etl", config_dir)
             assert result == (config_dir / "etl.yaml").absolute()
+
+    def test_resolve_single_subdirectory(self):
+        """Verify resolving a name with subdirectory prefix."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            subdir = config_dir / "v0"
+            subdir.mkdir()
+            (subdir / "etl.yaml").touch()
+
+            result = _resolve_single("v0/etl", config_dir)
+            assert result == (subdir / "etl.yaml").absolute()
 
     def test_resolve_single_nonexistent_raises_error(self):
         """Verify that nonexistent name raises ConfigResolutionError."""

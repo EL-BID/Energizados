@@ -287,7 +287,7 @@ Processed Data (data/processed/)
     ↓
 Split (config/train.yaml → split section)
     ↓
-Train/Val/Test Splits (data/splits/)
+Train/Val/Test Splits (data/temp/splits/)
     ↓
 Feature Engineering (config/train.yaml → feature_engineering)
     ├── Preprocessing (column-level transformers)

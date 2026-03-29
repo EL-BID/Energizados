@@ -212,7 +212,13 @@ class ETLOrchestrator:
                             f"ETL '{etl_name}' references disabled ETL '{ref_etl}', skipping its output"
                         )
                         continue
-                    resolved_paths.append(ref_config["output"])
+                    ref_output = ref_config.get("output")
+                    if not ref_output:
+                        raise ETLDependencyError(
+                            f"ETL '{etl_name}' references '{ref_etl}' via @, "
+                            f"but '{ref_etl}' has no output path"
+                        )
+                    resolved_paths.append(ref_output)
                 else:
                     raise ETLDependencyError(f"ETL '{etl_name}' references unknown ETL '{ref_etl}'")
 
@@ -250,7 +256,7 @@ class ETLOrchestrator:
             etl_class = import_class(config["custom_class"])
             params = config.get("params", {})
             input_paths = self.resolve_input_paths(etl_name)
-            output_path = config["output"]
+            output_path = config.get("output")
 
             # Pass name and paths as standard parameters
             params["name"] = etl_name
@@ -301,7 +307,9 @@ class ETLOrchestrator:
             if len(input_paths) > 3:
                 logger.info(f"  ... and {len(input_paths) - 3} more")
 
-            logger.info(f"Output: {etl_config['output']}")
+            output_path = etl_config.get("output")
+            if output_path:
+                logger.info(f"Output: {output_path}")
 
             # Verify dependencies
             deps = etl_config.get("depends_on", [])
@@ -315,7 +323,7 @@ class ETLOrchestrator:
                 if self.on_etl_start:
                     self.on_etl_start(etl_name, i, len(self.execution_order))
                 try:
-                    result = etl.run(output_path=etl_config["output"])
+                    result = etl.run(output_path=etl_config.get("output"))
                     self.results[etl_name] = result
                     logger.info(f"✓ {etl_name} completed ({len(result)} rows)")
                     if self.on_etl_complete:
@@ -364,6 +372,8 @@ class ETLOrchestrator:
                 input_str = raw_input
 
             lines.append(f"   Input:  {input_str}")
-            lines.append(f"   Output: {config['output']}")
+            output = config.get("output")
+            if output:
+                lines.append(f"   Output: {output}")
 
         return "\n".join(lines)

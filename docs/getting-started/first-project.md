@@ -40,7 +40,7 @@ Let's explore the project structure:
 
 - **`data/processed/`**: Where ETL outputs and processed data will be saved.
 
-- **`data/splits/`**: Where train/val/test split files will be stored.
+- **`data/temp/splits/`**: Where train/val/test split files will be stored.
 
 ### Output Directory (`output/`)
 
@@ -113,7 +113,7 @@ split:
   val_period: ["2017-09-01", "2017-12-31"]
   test_period: ["2018-01-01"]
   save_splits: true
-  splits_dir: "data/splits/"
+  splits_dir: "data/temp/splits/"
 ```
 
 **Feature Engineering:**

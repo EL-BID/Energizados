@@ -172,7 +172,7 @@ def _create_directory_structure(project_path: Path) -> None:
     - tests/: Test files
     - docs/: Documentation
     - config/: Configuration files
-    - data/: Raw, processed, and splits subdirectories
+    - data/: Raw, processed, and temp subdirectories
     - output/: Training outputs
     - notebooks/: Jupyter notebooks
 
@@ -197,7 +197,7 @@ def _create_directory_structure(project_path: Path) -> None:
         # Data
         project_path / "data" / "raw",
         project_path / "data" / "processed",
-        project_path / "data" / "splits",
+        project_path / "data" / "temp" / "splits",
         # Training outputs (organized by run)
         project_path / "output",
         # Notebooks
@@ -274,7 +274,8 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
     # .gitkeep files to keep empty directories in git
     (project_path / "data" / "raw" / ".gitkeep").write_text("")
     (project_path / "data" / "processed" / ".gitkeep").write_text("")
-    (project_path / "data" / "splits" / ".gitkeep").write_text("")
+    (project_path / "data" / "temp" / ".gitkeep").write_text("")
+    (project_path / "data" / "temp" / "splits" / ".gitkeep").write_text("")
     (project_path / "output" / ".gitkeep").write_text("")
 
     # Copy example dataset if it exists (only for new projects, not copies)

@@ -2,44 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Agent Rules (Always Apply)
-
-- Never load in context the following directories and their files:
-  - `node_modules/`
-  - `htmlcov/`
-  - `.plans/`
-- Update CLAUDE.md and all documentation if necessary.
-- Check and fix tests.
-- Check pre-commit rules and ensure controls pass.
-- Do NOT use `print` for logging. Use the Python `logging` module instead.
-- **Code search rules — `Grep` tool vs `colgrep`:**
-  - Use the **`Grep` tool** (ripgrep) when you know **exactly** what to look for:
-    - Exact function/class/variable name: `Grep pattern="class EnsembleModel"`
-    - Exact string or import: `Grep pattern="from energizados.modeling"`
-    - Regex over a known pattern: `Grep pattern="def fit\(self"`
-    - Counting occurrences or listing files: use `output_mode="count"` or `"files_with_matches"`
-    - Searching within 2–3 specific files you already have open
-  - Use **`colgrep`** (semantic grep) when you know **what the code does** but not its exact name:
-    - Concept-based search: `colgrep "error handling logic"` or `colgrep "resampling for class imbalance"`
-    - Discovering where a behavior lives without knowing the symbol name
-    - Hybrid mode when you have both a concept and a known token: `colgrep "feature importance ranking" -e "def "`
-    - Exploring unfamiliar areas of the codebase before diving in
-  - **Decision rule**: If you can write the exact text you expect to find → `Grep`. If you need to describe the intent in plain English → `colgrep`.
-  - **Never** call `grep`, `rg`, or `find` as Bash commands — use the `Grep` tool or `colgrep` instead.
-
-- **ALWAYS search Engram memory FIRST before starting work:**
-  - At the start of each session or when the user mentions a feature, bug, or past work:
-    1. Call `mem_context` to check recent session history
-    2. If not found, call `mem_search` with relevant keywords
-    3. If you find a match, use `mem_get_observation` for full content
-  - **Why**: Avoid repeating work, discover past decisions/bugs, understand context
-  - **When to search**: 
-    - User's FIRST message references the project or a feature
-    - Starting work on something that might have been done before
-    - User asks to "remember", "recall", "recordar", "acordate"
-    - Any mention of "qué hicimos" or "what did we do"
-  - **Project name**: Use "Energizados" (with capital E) for `project` parameter in mem searches
-
 ## Project Overview
 
 Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, Neural Networks, LSTM).
@@ -169,7 +131,8 @@ mi_proyecto/
 ├── data/
 │   ├── raw/               # Input data (includes sample_dataset.parquet)
 │   ├── processed/         # ETL outputs and feature engineering results
-│   └── splits/            # Train/val/test splits
+│   └── temp/              # Temporary files
+│       └── splits/        # Train/val/test splits
 ├── docs/
 │   └── project_docs.md
 ├── output/                # Training run outputs (auto-created per run)
@@ -280,7 +243,7 @@ training:
     val_period: ["2017-09-01", "2017-12-31"]
     test_period: ["2018-01-01"]
     save_splits: true
-    splits_dir: "data/splits/"
+    splits_dir: "data/temp/splits/"
     # Para stratified/random:
     # test_size: 0.2
     # val_size: 0.1
@@ -477,6 +440,7 @@ Additional ETL examples are provided (commented out) in the template:
 - `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
 - `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
 - `GeoFeaturesETL`: Adds geographic features from lat/lon coordinates. Appends `geo_cluster` (int, KMeans), IBGE hierarchy (`geo_estado`, `geo_municipio`, `geo_regiao`), and haversine distance columns. Run after the main dataset ETL and before training. Required if using `stratified_time` split. Points with invalid/zero coords get `geo_cluster=-1` and `"sin_dato"` for hierarchy. `custom_class: "energizados.etl.pipeline.GeoFeaturesETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`, `include_hierarchy` (bool), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str).
+- `CleanFilesETL`: Deletes files listed in the `input` field. Useful for removing intermediate outputs after the pipeline completes. Supports `@etl_name` references, glob patterns, and direct paths in `input`. Does not produce a dataset — returns an empty DataFrame so the orchestrator tracks it normally in the DAG. `custom_class: "energizados.etl.pipeline.CleanFilesETL"`. Params: `missing_ok` (bool, default: `True` — silently skips missing files). The `output` field is optional (no file is written).
 - `ETLOrchestrator`: Manages execution order based on dependencies
 - `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Available for manual use in custom ETLs.
 
@@ -595,3 +559,10 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 ### Language Context
 
 The project documentation and comments are in English. The codebase uses Spanish variable names for features (e.g., `actividad`, `tipo_tarifa`, `zona`) but English for class/method names.
+
+## Agent Rules (Always Apply)
+
+- Update CLAUDE.md and all documentation if necessary.
+- Check and fix tests.
+- Check pre-commit rules and ensure controls pass.
+- Do NOT use `print` for logging. Use the Python `logging` module instead.

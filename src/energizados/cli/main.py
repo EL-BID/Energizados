@@ -261,10 +261,14 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
 
     CONFIGS is a comma-separated list of config names or paths.
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
+    Subdirectory paths (e.g. "v0/etl") resolve relative to config_dir.
 
     Examples:
         energizados run etl                            # Run config/etl.yaml
         energizados run etl,train                      # Merge and run both configs
+        energizados run v0/etl                         # Run config/v0/etl.yaml
+        energizados run v0/etl,v0/train                # Run from subdirectory
+        energizados run v0/train*                      # Wildcard in subdirectory
         energizados run eda                             # Run config/eda.yaml
         energizados run --config-path /custom etl       # Use /custom/etl.yaml
         energizados run /abs/path/custom.yaml            # Use absolute path directly
@@ -411,10 +415,12 @@ def validate(ctx, configs, config_path, verbose):
 
     CONFIGS is a comma-separated list of config names or paths.
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
+    Subdirectory paths (e.g. "v0/etl") resolve relative to config_dir.
 
     Examples:
         energizados validate etl                     # Validate config/etl.yaml
         energizados validate etl,train              # Validate both configs
+        energizados validate v0/etl                  # Validate config/v0/etl.yaml
         energizados validate eda                     # Validate config/eda.yaml
         energizados validate etl -v                 # Validate with INFO level logging
         energizados validate etl -vv                # Validate with DEBUG level logging

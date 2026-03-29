@@ -48,7 +48,7 @@ class SplitStep(PipelineStep):
         >>> split_step = SplitStep(
         ...     input_path="data/processed/dataset.parquet",
         ...     target_column="target",
-        ...     splits_dir="data/splits/"
+        ...     splits_dir="data/temp/splits/"
         ... )
         >>> result = split_step.run()
     """
@@ -60,7 +60,7 @@ class SplitStep(PipelineStep):
         test_size: float = 0.2,
         val_size: float = 0.1,
         random_state: int = 42,
-        splits_dir: str = "data/splits/",
+        splits_dir: str = "data/temp/splits/",
         method: str = "stratified",
         group_column: Optional[str] = None,
         cluster_column: Optional[str] = None,

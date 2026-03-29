@@ -41,7 +41,7 @@ class TestInitCommand:
             assert (project_path / "config").exists()
             assert (project_path / "data" / "raw").exists()
             assert (project_path / "data" / "processed").exists()
-            assert (project_path / "data" / "splits").exists()
+            assert (project_path / "data" / "temp" / "splits").exists()
             assert (project_path / "output").exists()
             assert (project_path / "notebooks").exists()
             assert (project_path / "src" / "run").exists()

@@ -383,7 +383,7 @@ class TrainingStep(PipelineStep):
         )
 
         # Save val predictions
-        val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/splits")
+        val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/temp/splits")
         val_pred_path = val_pred_dir / "val_predictions.parquet"
         val_predictions = pd.DataFrame(
             {"y_true": y_val.values, "y_proba": val_proba},

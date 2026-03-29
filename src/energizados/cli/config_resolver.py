@@ -25,13 +25,18 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
     Resolve comma-separated config names to full file paths.
 
     Resolution rules (in order):
-    1. If name contains '/' or ends with .yaml/.yml → passthrough as-is
-    2. Strip .yaml/.yml if present, append .yaml
-    3. Look in config_dir (default ./config/, override via --config-path)
-    4. If not found → error with available configs
+    1. Absolute path or ends with .yaml/.yml → passthrough as-is
+    2. Contains '/' without .yaml/.yml → subdirectory relative to config_dir
+    3. Strip .yaml/.yml if present, append .yaml
+    4. Look in config_dir (default ./config/, override via --config-path)
+    5. If not found → error with available configs
+
+    Subdirectory examples:
+        "v0/etl"       → config/v0/etl.yaml
+        "v0/train*"    → config/v0/train*.yaml (wildcard)
 
     Args:
-        configs_str: Comma-separated names or paths (e.g. "etl,train")
+        configs_str: Comma-separated names or paths (e.g. "etl,train" or "v0/etl")
         config_path: Override config directory. Default: ./config/
 
     Returns:
@@ -51,9 +56,8 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
         )
 
     # Discover config directory only if needed (non-passthrough names or wildcards)
-    has_passthrough = any("/" in n or n.endswith((".yaml", ".yml")) for n in names)
-    has_wildcard = any(_is_wildcard(n) for n in names)
-    if not has_passthrough or has_wildcard or config_path:
+    needs_config_dir = any(not _is_passthrough(n) for n in names)
+    if needs_config_dir or config_path:
         config_dir = _discover_config_dir(config_path)
     else:
         # Use default config dir if it exists, otherwise will be set per-name
@@ -63,8 +67,8 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
     # Resolve each name
     resolved_paths = []
     for name in names:
-        # Passthrough paths (contain '/' or end with .yaml/.yml)
-        if "/" in name or name.endswith((".yaml", ".yml")):
+        # Passthrough paths (absolute or ends with .yaml/.yml)
+        if _is_passthrough(name):
             path = Path(name)
             if not path.is_absolute():
                 path = Path.cwd() / path
@@ -73,7 +77,7 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
                 raise ConfigResolutionError(name, str(config_dir or "."), available)
             resolved_paths.append(str(path.absolute()))
         elif _is_wildcard(name):
-            # Wildcard patterns (e.g. "train_01*", "train_*_baseline")
+            # Wildcard patterns (e.g. "train_01*", "v0/train*")
             if config_dir is None:
                 raise FileNotFoundError(
                     "No config/ directory found. Use --config-path to specify location."
@@ -81,7 +85,7 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
             matches = _resolve_wildcard(name, config_dir)
             resolved_paths.extend(matches)
         else:
-            # Non-passthrough names need config_dir
+            # Config names (plain or with subdirectory) need config_dir
             if config_dir is None:
                 # Check for default config directory
                 default_config = Path.cwd() / "config"
@@ -100,6 +104,11 @@ def resolve_configs(configs_str: str, config_path: str | None = None) -> List[st
     return resolved_paths
 
 
+def _is_passthrough(name: str) -> bool:
+    """Return True if name should be used as a literal file path (not resolved via config_dir)."""
+    return Path(name).is_absolute() or name.endswith((".yaml", ".yml"))
+
+
 def _is_wildcard(name: str) -> bool:
     """Return True if name contains glob wildcard characters."""
     return any(c in name for c in ("*", "?", "["))
@@ -110,10 +119,14 @@ def _resolve_wildcard(pattern: str, config_dir: Path) -> List[str]:
     Expand a wildcard pattern against config_dir, returning sorted absolute paths.
 
     The pattern is matched against config stems (filenames without .yaml).
-    For example, "train_01*" matches train_01_baseline.yaml, train_01_lgbm.yaml, etc.
+    Supports subdirectory patterns like "v0/train*".
+
+    For example:
+        "train_01*"  matches config/train_01_baseline.yaml
+        "v0/train*"  matches config/v0/train_01.yaml, config/v0/train_02.yaml
 
     Args:
-        pattern: Glob pattern (e.g. "train_01*", "train_*")
+        pattern: Glob pattern (e.g. "train_01*", "v0/train_*")
         config_dir: Directory to search
 
     Returns:
@@ -122,8 +135,17 @@ def _resolve_wildcard(pattern: str, config_dir: Path) -> List[str]:
     Raises:
         ConfigResolutionError: If no files match the pattern
     """
-    all_yamls = sorted(config_dir.glob("*.yaml")) + sorted(config_dir.glob("*.yml"))
-    matches = [p for p in all_yamls if fnmatch.fnmatch(p.stem, pattern)]
+    # Split subdirectory prefix from the filename pattern
+    pattern_path = Path(pattern)
+    search_dir = config_dir / pattern_path.parent
+    file_pattern = pattern_path.name
+
+    if not search_dir.exists():
+        available = _list_available_configs(config_dir)
+        raise ConfigResolutionError(pattern, str(config_dir), available)
+
+    all_yamls = sorted(search_dir.glob("*.yaml")) + sorted(search_dir.glob("*.yml"))
+    matches = [p for p in all_yamls if fnmatch.fnmatch(p.stem, file_pattern)]
 
     if not matches:
         available = _list_available_configs(config_dir)
@@ -136,16 +158,16 @@ def _resolve_single(name: str, config_dir: Path) -> Path:
     """
     Resolve one config name to a path.
 
-    This function assumes the name does NOT contain '/' and does NOT end with
-    .yaml/.yml (those are handled as passthrough in resolve_configs).
+    Handles plain names ("etl") and subdirectory names ("v0/etl").
+    Passthrough paths (absolute or ending in .yaml/.yml) are handled by the caller.
 
     Rules (in order):
     1. Strip .yaml/.yml suffix if present, append .yaml
-    2. Look up in config_dir
+    2. Look up in config_dir (supports subdirectory paths like "v0/etl")
     3. Error with available list
 
     Args:
-        name: Config name (not a path, passthrough handled by caller)
+        name: Config name, optionally with subdirectory prefix (e.g. "etl", "v0/etl")
         config_dir: Directory to search for config files
 
     Returns:
@@ -205,21 +227,22 @@ def _discover_config_dir(config_path: str | None) -> Path:
 
 def _list_available_configs(config_dir: Path) -> List[str]:
     """
-    List .yaml/.yml files in config_dir, return stems.
+    List .yaml/.yml files in config_dir (including subdirectories), return relative stems.
 
     Args:
         config_dir: Directory to search for config files
 
     Returns:
-        List of config names (without .yaml extension)
+        List of config names (without .yaml extension), including subdir prefix
     """
     if not config_dir.exists():
         return []
 
     configs = []
-    for path in config_dir.glob("*.yaml"):
-        configs.append(path.stem)
-    for path in config_dir.glob("*.yml"):
-        configs.append(path.stem)
+    for pattern in ("**/*.yaml", "**/*.yml"):
+        for path in config_dir.glob(pattern):
+            rel = path.relative_to(config_dir)
+            # Show as "subdir/name" for subdirectories, "name" for root
+            configs.append(str(rel.with_suffix("")))
 
     return sorted(configs)

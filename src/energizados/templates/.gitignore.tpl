@@ -40,6 +40,9 @@ data/external/*
 !data/external/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/temp/*
+!data/temp/.gitkeep
+!data/temp/splits/.gitkeep
 # Training run outputs (each run gets its own dir)
 output/train-*/
 !output/.gitkeep

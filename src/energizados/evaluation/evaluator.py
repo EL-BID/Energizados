@@ -43,7 +43,7 @@ class DefaultEvaluator(PipelineStep):
 
     Example:
         >>> evaluator = DefaultEvaluator(
-        ...     input_path="data/splits/test.parquet",
+        ...     input_path="data/temp/splits/test.parquet",
         ...     model_path="models/trained/model.pkl"
         ... )
         >>> result = evaluator.run(context)

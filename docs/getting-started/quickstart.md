@@ -72,7 +72,7 @@ fraud_detection/
 - `config/`: All pipeline configuration in YAML files
 - `data/raw/`: Place your raw input data here (sample dataset included)
 - `data/processed/`: ETL outputs and processed data
-- `data/splits/`: Train/validation/test split files
+- `data/temp/splits/`: Train/validation/test split files
 - `output/`: Training results, models, and reports (auto-generated)
 - `notebooks/`: Jupyter notebooks for interactive exploration
 - `src/`: Custom components (ETLs, models, features, inference)

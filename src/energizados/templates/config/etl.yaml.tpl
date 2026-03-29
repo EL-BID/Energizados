@@ -169,3 +169,24 @@ etl:
   #     mode: "concat"
   #     sample: 1000  # Read only 1000 rows for fast iteration
   #   depends_on: []
+  #
+  # # ETL 9: Clean intermediate files after pipeline completion
+  # # Use this to free disk space by removing intermediate outputs.
+  # # List files to delete in 'input' — supports direct paths, @etl_name
+  # # references, and glob patterns (e.g. "data/processed/tmp_*.parquet").
+  # # 'output' is a placeholder; no file is actually written.
+  # # Set missing_ok: false to fail loudly if a file was not produced.
+  # clean_files:
+  #   enabled: false
+  #   description: "Remove intermediate outputs after pipeline completes"
+  #   input:
+  #     - "@consumos"                         # reference to another ETL's output
+  #     - "@clientes"
+  #     - "data/processed/dataset_mergeado.parquet"   # direct path
+  #     # - "data/processed/tmp_*.parquet"    # glob pattern also supported
+  #   output: "data/processed/.clean_done"
+  #   custom_class: "energizados.etl.pipeline.CleanFilesETL"
+  #   params:
+  #     missing_ok: true   # silently skip files that don't exist
+  #   depends_on:
+  #     - sample           # run last — after all ETLs that produce the files above

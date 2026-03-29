@@ -55,7 +55,7 @@ train:
 
     # Save splits for reproducibility
     save_splits: true
-    splits_dir: "data/splits/"
+    splits_dir: "data/temp/splits/"
 
   # ============================================
   # Feature Engineering Configuration

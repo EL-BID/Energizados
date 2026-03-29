@@ -116,7 +116,7 @@ split:
   val_period: ["2017-09-01", "2017-12-31"]
   test_period: ["2018-01-01"]
   save_splits: true
-  splits_dir: "data/splits/"
+  splits_dir: "data/temp/splits/"
 ```
 
 **Parameters:**
@@ -129,11 +129,12 @@ split:
 | `val_period` | list | - | Start and end dates for validation `[start, end]` |
 | `test_period` | list | - | Start date for test set (or `[start, end]`) |
 | `save_splits` | boolean | `false` | Whether to save split indices to disk |
-| `splits_dir` | string | `"data/splits/"` | Directory to save split files |
+| `splits_dir` | string | `"data/temp/splits/"` | Directory to save split files |
 
-#### Group-based Split
+**group_based split**
 
-Splits data ensuring that all rows sharing the same group value (e.g., all readings for a given customer) land in exactly one split. Prevents data leakage when multiple rows per entity exist in the dataset.
+Split by groups to prevent data leakage. All rows with the same group value
+(e.g., `customer_id`) are kept in the same split.
 
 ```yaml
 split:
@@ -143,7 +144,7 @@ split:
   val_size: 0.1
   random_state: 42
   save_splits: true
-  splits_dir: "data/splits/"
+  splits_dir: "data/temp/splits/"
 ```
 
 **Parameters:**
@@ -156,7 +157,7 @@ split:
 | `val_size` | float | `0.1` | Approximate proportion of **groups** for validation set |
 | `random_state` | int | `42` | Random seed for reproducibility |
 | `save_splits` | boolean | `true` | Whether to save split parquet files to disk |
-| `splits_dir` | string | `"data/splits/"` | Directory to save split files |
+| `splits_dir` | string | `"data/temp/splits/"` | Directory to save split files |
 
 **Important:** Proportions apply at the **group level**, not the row level. Because groups may differ in size, row-level proportions may deviate from the requested `test_size`/`val_size`. This is inherent to group-aware splitting.
 

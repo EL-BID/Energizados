@@ -68,7 +68,7 @@ class SplitBuilder(StepBuilder):
             test_size=split_config.get("test_size", 0.2),
             val_size=split_config.get("val_size", 0.1),
             random_state=split_config.get("random_state", 42),
-            splits_dir=split_config.get("splits_dir", "data/splits/"),
+            splits_dir=split_config.get("splits_dir", "data/temp/splits/"),
             method=split_config.get("method", "stratified"),
             group_column=split_config.get("group_column"),
             date_column=split_config.get("date_column"),

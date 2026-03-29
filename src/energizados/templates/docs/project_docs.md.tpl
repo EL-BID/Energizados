@@ -15,7 +15,8 @@ Briefly describe the purpose and objectives of this project.
 ├── data/
 │   ├── raw/               # Raw data (immutable)
 │   ├── processed/         # Processed data
-│   └── splits/            # Train/val/test splits
+│   └── temp/              # Temporary files
+│       └── splits/        # Train/val/test splits
 ├── docs/                   # Project documentation
 ├── models/
 │   └── trained/           # Trained model files

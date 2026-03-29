@@ -4,6 +4,7 @@ This module provides ETL classes for data processing:
 - SourceETL: Concatenation and merge operations on multiple sources.
 - ClipOutliersETL: Clips extreme values in numeric columns (data reading errors).
 - GeoFeaturesETL: Adds geo_cluster + geographic hierarchy and distance features.
+- CleanFilesETL: Deletes specified files (e.g. intermediate outputs after pipeline).
 """
 
 import logging
@@ -437,6 +438,104 @@ class ClipOutliersETL(BaseETL):
             df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
         logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
+
+
+class CleanFilesETL(BaseETL):
+    """ETL that deletes files listed in ``input``.
+
+    The files to delete are specified in the YAML ``input`` field — the same
+    field used by every other ETL. This means you can use:
+
+    - Direct paths: ``"data/processed/consumos.parquet"``
+    - References to other ETL outputs: ``"@consumos"`` (resolved by the orchestrator)
+    - Glob patterns: ``"data/processed/intermediates/*.parquet"``
+
+    This ETL does not read or produce a dataset — it overrides ``run()``
+    directly and returns an empty DataFrame so the orchestrator can track
+    it normally in the DAG.
+
+    Args:
+        name: ETL name.
+        input_paths: Resolved list of file paths to delete (injected by the
+            orchestrator from the ``input`` field after resolving ``@refs`` and globs).
+        missing_ok: If True (default), silently skip files that don't exist.
+            If False, raise an error for missing files.
+        output_path: Optional — no file is written. Can be omitted from YAML.
+        **kwargs: Additional parameters (ignored).
+
+    Example YAML:
+
+    .. code-block:: yaml
+
+        clean_files:
+          enabled: true
+          description: "Elimina archivos intermedios después del pipeline"
+          input:
+            - "@maestros"
+            - "@consumos"
+            - "@inspecciones"
+            - "data/processed/celesc_dataset.parquet"
+          custom_class: "energizados.etl.pipeline.CleanFilesETL"
+          params:
+            missing_ok: true
+          depends_on:
+            - geo_features
+    """
+
+    def __init__(
+        self,
+        name: str,
+        input_paths: Optional[List[str]] = None,
+        output_path: Optional[str] = None,
+        missing_ok: bool = True,
+        **kwargs,
+    ):
+        self.name = name
+        self.input_paths = input_paths or []
+        self.output_path = output_path
+        self.missing_ok = missing_ok
+        self.kwargs = kwargs
+
+    def run(self, output_path: Optional[str] = None) -> pd.DataFrame:  # type: ignore[override]
+        """Delete all files in input_paths and return an empty DataFrame."""
+        deleted, skipped, failed = 0, 0, []
+
+        for file_path in self.input_paths:
+            path = Path(file_path)
+            if not path.exists():
+                if self.missing_ok:
+                    logger.info(f"  • Skipped (not found): '{file_path}'")
+                    skipped += 1
+                else:
+                    raise ETLError(f"CleanFilesETL '{self.name}': file not found: '{file_path}'")
+                continue
+
+            try:
+                path.unlink()
+                logger.info(f"  • Deleted: '{file_path}'")
+                deleted += 1
+            except OSError as e:
+                failed.append(file_path)
+                logger.error(f"  ✗ Could not delete '{file_path}': {e}")
+
+        if failed:
+            raise ETLError(
+                f"CleanFilesETL '{self.name}': failed to delete {len(failed)} file(s): {failed}"
+            )
+
+        logger.info(f"  ✓ CleanFilesETL: {deleted} deleted, {skipped} skipped")
+        return pd.DataFrame()
+
+    # --- BaseETL abstract method stubs (never called — run() is overridden) ---
+
+    def extract(self) -> pd.DataFrame:
+        raise NotImplementedError("CleanFilesETL does not use extract()")
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError("CleanFilesETL does not use transform()")
+
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        raise NotImplementedError("CleanFilesETL does not use load()")
 
 
 class GeoFeaturesETL(BaseETL):

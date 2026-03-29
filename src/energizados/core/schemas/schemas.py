@@ -9,7 +9,7 @@ ETL_SCHEMA = {
     "type": "object",
     "additionalProperties": {
         "type": "object",
-        "required": ["input", "output"],
+        "required": ["input"],
         "properties": {
             "enabled": {"type": "boolean", "default": True},
             "description": {"type": "string"},
