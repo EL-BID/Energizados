@@ -12,6 +12,18 @@ En nuestras pruebas, Energizados se evaluó en dos conjuntos de datos proveídos
 
 Entre otras cosas que se pueden observar en esta etapa es la proporción de usuario fraudulentos y no fraudulentos. En este tipo de problemas es común tener clases desbalanceadas, por lo general la proporción de usuarios fraudulentos no supera el 10%.
 
+### ***Partición de datos***
+
+Previo a la construcción de modelos, se particiona el conjunto de datos en entrenamiento, validación y test utilizando un **split temporal** basado en la columna `fecha_inspeccion`. Esta estrategia respeta el orden cronológico de los datos, evitando la fuga de información futura hacia el entrenamiento:
+
+| Conjunto | Período | Cantidad de registros | % de fraudulentos |
+| :--- | :--- | :--- | :--- |
+| Entrenamiento | < 2017-08-01 | 26.533 | 6,41% |
+| Validación | 2017-09-01 a 2017-12-31 | 4.323 | 5,39% |
+| Test | >= 2018-01-01 | 9.995 | 4,87% |
+
+Se observa que la proporción de fraudulentos disminuye levemente en los períodos más recientes, lo cual es una consideración importante al momento de evaluar el rendimiento del modelo.
+
 ### ***Etapa 2 : Construcción de modelos***
 
 En esta etapa primeramente se evaluaron modelos simples o modelos baselines para luego desarrollar modelos más complejos.
@@ -104,7 +116,7 @@ La red neuronal multicapa es una red donde todas las señales van en una misma d
 En lo que respecta a la problemática de detección de fraude, las entradas son las variables con sus respectivos pre-procesamientos descritos en las secciones anteriores y la capa de salida nos da la probabilidad de que un usuario esté cometiendo fraude.
 
 <div>
-    <img src="img/multicapa.png" width="40%" height="40%">
+    <img src="../docs/assets/multicapa.png" width="40%" height="40%">
 </div>
 
 __Concatenación LSTM - Multicapa__
@@ -119,8 +131,10 @@ En lo que respecta al problema abordado, los consumos de energía mensuales de l
 En la siguiente figura se observa como se combinó una red lstm con una red multicapa para la detección de fraudes.
 
 <div>
-    <img src="img/LSTM.png" width="40%" height="40%">
+    <img src="../docs/assets/LSTM.png" width="40%" height="40%">
 </div>
+
+> **Nota:** Estos modelos no se ejecutan en la notebook paso a paso, pero están disponibles a través del framework y pueden ser utilizados en el pipeline de entrenamiento configurando `type: "neural_network"` o `type: "lstm"` en `config/train.yaml`.
 
 ### ***Etapa 3 : Evaluación de modelos***
 
@@ -137,8 +151,10 @@ Esta curva tiene en el eje-y la medida TPR (True Positive Rate) y en el eje-x la
 - FPR = FP / (FP+TN)
 
 <div>
-    <img src="img/roc_curve.png" width="20%" height="20%">
+    <img src="../docs/assets/roc_curve.png" width="20%" height="20%">
 </div>
+
+**Resultado del modelo LGBM en test:** AUC = 0.764
 
 
 ## Guía de usuario 
@@ -146,8 +162,8 @@ Esta curva tiene en el eje-y la medida TPR (True Positive Rate) y en el eje-x la
 Para hacer un demostración del uso de Energizados, compartimos un conjunto de datos anonimizado. El dataset está conformado de la siguiente manera.
 
 - __Cantidad de registros__ : 42500
-- __Cantidad de columnas__ : 19
-- __% de fraudulentos__ : 5.8 %
+- __Cantidad de columnas__ : 20
+- __% de fraudulentos__ : 5.88 %
 
 Descripción de las columnas:
 
