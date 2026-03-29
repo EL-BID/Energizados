@@ -123,7 +123,7 @@ def test_schema_period_string_rejected():
 # =============================================================================
 
 
-def test_time_series_missing_date_column(sample_parquet):
+def test_time_series_missing_date_column(sample_parquet, tmp_path):
     """date_column=None must raise ValueError with descriptive message."""
     split_step = SplitStep(
         input_path=sample_parquet,
@@ -133,6 +133,7 @@ def test_time_series_missing_date_column(sample_parquet):
         train_period=["2020-01-01", "2022-06-30"],
         test_period=["2023-07-01", "2024-12-31"],
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     with pytest.raises(ValueError) as excinfo:
         split_step.execute({})
@@ -140,7 +141,7 @@ def test_time_series_missing_date_column(sample_parquet):
     assert "time_series" in str(excinfo.value).lower()
 
 
-def test_time_series_happy_path(sample_parquet, caplog):
+def test_time_series_happy_path(sample_parquet, tmp_path, caplog):
     """Non-overlapping, non-empty periods must produce correct splits without warnings."""
     split_step = SplitStep(
         input_path=sample_parquet,
@@ -151,6 +152,7 @@ def test_time_series_happy_path(sample_parquet, caplog):
         val_period=["2022-07-01", "2023-06-30"],
         test_period=["2023-07-01", "2024-12-31"],
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     with caplog.at_level(logging.WARNING):
         result = split_step.execute({})
@@ -166,7 +168,7 @@ def test_time_series_happy_path(sample_parquet, caplog):
     assert "splits_dir" in result
 
 
-def test_time_series_empty_val_warns(sample_parquet, caplog):
+def test_time_series_empty_val_warns(sample_parquet, tmp_path, caplog):
     """val_period=None must log WARNING about empty val split and complete execution."""
     split_step = SplitStep(
         input_path=sample_parquet,
@@ -177,6 +179,7 @@ def test_time_series_empty_val_warns(sample_parquet, caplog):
         val_period=None,
         test_period=["2023-07-01", "2024-12-31"],
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     with caplog.at_level(logging.WARNING):
         result = split_step.execute({})
@@ -193,7 +196,7 @@ def test_time_series_empty_val_warns(sample_parquet, caplog):
     assert "test_path" in result
 
 
-def test_time_series_overlap_warns(sample_parquet, caplog):
+def test_time_series_overlap_warns(sample_parquet, tmp_path, caplog):
     """Overlapping train/val periods must log WARNING with both split names and row count."""
     split_step = SplitStep(
         input_path=sample_parquet,
@@ -204,6 +207,7 @@ def test_time_series_overlap_warns(sample_parquet, caplog):
         val_period=["2022-06-01", "2023-06-30"],  # Overlaps: 2022-06-01 to 2022-06-30
         test_period=["2023-07-01", "2024-12-31"],
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     with caplog.at_level(logging.WARNING):
         result = split_step.execute({})
@@ -256,7 +260,7 @@ def test_schema_group_based_rejected_without_column():
     assert "group_column" in str(excinfo.value).lower()
 
 
-def test_group_based_missing_column_error(grouped_parquet):
+def test_group_based_missing_column_error(grouped_parquet, tmp_path):
     """group_column not in DataFrame must raise ValueError."""
     split_step = SplitStep(
         input_path=grouped_parquet,
@@ -267,6 +271,7 @@ def test_group_based_missing_column_error(grouped_parquet):
         val_size=0.1,
         random_state=42,
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     with pytest.raises(ValueError) as excinfo:
         split_step.execute({})
@@ -378,7 +383,7 @@ def test_group_based_metadata_contract(grouped_parquet, tmp_path):
     )
 
 
-def test_group_based_class_imbalance_warning(grouped_parquet, caplog):
+def test_group_based_class_imbalance_warning(grouped_parquet, tmp_path, caplog):
     """Skewed group distribution should trigger class imbalance warning."""
     # Create a dataset with extreme class imbalance per group
     # 4 groups total: 3 groups all positive (1), 1 group all negative (0)
@@ -404,6 +409,7 @@ def test_group_based_class_imbalance_warning(grouped_parquet, caplog):
         val_size=0.25,
         random_state=42,
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
 
     with caplog.at_level(logging.WARNING):
@@ -422,7 +428,7 @@ def test_group_based_class_imbalance_warning(grouped_parquet, caplog):
 # =============================================================================
 
 
-def test_stratified_regression(sample_parquet):
+def test_stratified_regression(sample_parquet, tmp_path):
     """Stratified split must still work and maintain target proportions."""
     split_step = SplitStep(
         input_path=sample_parquet,
@@ -432,6 +438,7 @@ def test_stratified_regression(sample_parquet):
         val_size=0.1,
         random_state=42,
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     result = split_step.execute({})
 
@@ -449,7 +456,7 @@ def test_stratified_regression(sample_parquet):
     validate_no_traversal(result["test_path"], label="test_path")
 
 
-def test_random_regression(sample_parquet):
+def test_random_regression(sample_parquet, tmp_path):
     """Random split must still work and produce correct sizes."""
     split_step = SplitStep(
         input_path=sample_parquet,
@@ -459,6 +466,7 @@ def test_random_regression(sample_parquet):
         val_size=0.1,
         random_state=42,
         save_splits=False,
+        splits_dir=str(tmp_path / "splits"),
     )
     result = split_step.execute({})
 

@@ -7,20 +7,22 @@
 [![License](https://img.shields.io/badge/license-BID-blue.svg)](LICENSE.md)
 [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](docs/)
 
-**Energizados** is a machine learning framework for detecting non-technical losses (electricity theft) in energy distribution networks. It provides a complete pipeline from ETL processing through model training, evaluation, and inference.
+**Energizados** is a machine learning framework for detecting non-technical losses (electricity theft) in energy
+distribution networks. It provides a complete pipeline from ETL processing through model training, evaluation, and
+inference.
 
 ## ✨ Features
 
-| Capability | Details |
-|-------------|---------|
-| **ETL Framework** | Multi-source data processing with concat/merge modes and dependency management via YAML |
-| **ML Models** | LightGBM, CatBoost, Neural Networks, LSTM, + ensemble (stacking/soft voting) |
-| **Preprocessing** | Target encoding, one-hot, ordinal, cardinality reduction, tsfel time-series features |
-| **Feature Selection** | Boruta, correlation-based, constant-value selectors |
-| **EDA Module** | Interactive HTML reports with IV/KS/Cramér's V analysis and segment drift detection |
-| **CLI Tools** | `energizados init`, `run`, `validate`, `eda` commands for pipeline orchestration |
-| **Explainability** | SHAP values for model interpretability and regulatory compliance |
-| **Inference** | Production-ready inference pipeline with batch processing support |
+| Capability            | Details                                                                                 |
+|-----------------------|-----------------------------------------------------------------------------------------|
+| **ETL Framework**     | Multi-source data processing with concat/merge modes and dependency management via YAML |
+| **ML Models**         | LightGBM, CatBoost, Neural Networks, LSTM, + ensemble (stacking/soft voting)            |
+| **Preprocessing**     | Target encoding, one-hot, ordinal, cardinality reduction, tsfel time-series features    |
+| **Feature Selection** | Boruta, correlation-based, constant-value selectors                                     |
+| **EDA Module**        | Interactive HTML reports with IV/KS/Cramér's V analysis and segment drift detection     |
+| **CLI Tools**         | `energizados init`, `run`, `validate`, `eda` commands for pipeline orchestration        |
+| **Explainability**    | SHAP values for model interpretability and regulatory compliance                        |
+| **Inference**         | Production-ready inference pipeline with batch processing support                       |
 
 ## 🚀 Quick Start
 
@@ -48,7 +50,11 @@ Licensed under the BID License - see [LICENSE.md](LICENSE.md) for details.
 
 ## Limitation of Liability
 
-The IDB shall not be liable under any circumstances for any damage or compensation, whether moral or proprietary; direct or indirect; incidental or special; or consequential, whether foreseen or unforeseen, that may arise:
-i. Under any theory of liability, whether by contract, infringement of intellectual property rights, negligence or under any other theory; and/or
-ii. From the use of the Digital Tool, including, but not limited to, potential defects in the Digital Tool, or the loss or inaccuracy of data of any kind. The foregoing includes expenses or damages associated with communication failures and/or computer failures related to the use of the Digital Tool.
+The IDB shall not be liable under any circumstances for any damage or compensation, whether moral or proprietary; direct
+or indirect; incidental or special; or consequential, whether foreseen or unforeseen, that may arise:
+i. Under any theory of liability, whether by contract, infringement of intellectual property rights, negligence or under
+any other theory; and/or
+ii. From the use of the Digital Tool, including, but not limited to, potential defects in the Digital Tool, or the loss
+or inaccuracy of data of any kind. The foregoing includes expenses or damages associated with communication failures
+and/or computer failures related to the use of the Digital Tool.
 

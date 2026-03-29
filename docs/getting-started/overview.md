@@ -56,21 +56,19 @@ More complex models trained on labeled data:
 
 5. **Models available**:
 
-| Model                          | Description                                                                                                                            |
-|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| **LightGBM**                   | Gradient boosting with tree-based learners. Fast, memory-efficient, handles missing values natively                                    |
-| **CatBoost**                   | Gradient boosting with native categorical feature support                                                                              |
-| **Feedforward Neural Network** | Multilayer perceptron (feedforward). Inputs are preprocessed categorical + scaled consumption features — see diagram below            |
-| **LSTM + Feedforward**         | Combines an LSTM (for sequential consumption patterns) with a dense network for categorical features — see diagram below               |
-| **Ensemble**                   | Combines multiple base models via soft voting or stacking with a meta-learner                                                          |
+**LightGBM** — A gradient boosting model that builds an ensemble of decision trees iteratively: each new tree focuses on the cases where the previous one performed worst. It is fast, memory-efficient, and handles missing values natively.
 
-**Feedforward Neural Network:**
+**Feedforward Neural Network** — A multilayer network where all signals flow in one direction (input → hidden layers → output). Each neuron is connected to the next layer via learnable weights. The inputs are preprocessed categorical features concatenated with row-scaled consumption values.
 
 ![Feedforward Neural Network](../assets/multicapa.png)
 
-**LSTM + Feedforward:**
+**LSTM + Feedforward** — Combines a recurrent LSTM branch (which processes the 12-month consumption series as a sequence, retaining temporal memory) with a dense branch for categorical features. Both branches are concatenated before the output layer.
 
 ![LSTM + Feedforward](../assets/LSTM.png)
+
+**CatBoost** — Gradient boosting with native support for categorical features, no manual encoding required.
+
+**Ensemble** — Combines multiple base models via soft voting (weighted average of probabilities) or stacking (a meta-learner trained on base model predictions).
 
 ### Stage 3 — Model Evaluation
 

@@ -1,53 +1,8 @@
-
-
-
-### Nota
-
-El **modo notebook** (original) continúa funcionando sin cambios. Ver [Notebook Paso a Paso](notebooks/ejecucion_paso_paso.ipynb).
-
 ***
 <div id='insignias' />
-<a target="_blank" href="https://colab.research.google.com/github/EL-BID/Energiza2Cod4Dev/blob/master/notebooks/colab_ejecucion_paso_paso.ipynb">
+<a target="_blank" href="https://colab.research.google.com/github/EL-BID/Energiza2Cod4Dev/blob/master/notebooks/step_by_step_notebook.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
-
-Este proyecto presenta una guía para la detección de robo eléctrico basado en el aprendizaje automático supervisado utilizando una biblioteca de extracción de variables de series temporales junto con algoritmos de boosting y redes neuronales.
-
-Ver [Notebook Paso a Paso](https://github.com/EL-BID/Energiza2Cod4Dev/blob/master/notebooks/ejecucion_paso_paso.ipynb)
-
-***
-<div id='índice' />
-
-## Índice
-
-* [Título](#Título-e-imagen-de-portada)
-
-* [Insignias](#insignias)
-
-* [Índice](#índice)
-
-* [Descripción del proyecto](#descripción-del-proyecto)
-
-* [Guía de instalación](#configuracion-ambiente)
-
-* [Guía de usuario](#demostracion-del-proyecto)
-
-* [Licencia](#licencia)
-
-* [Limitación de responsabilidades](#limitación-de-responsabilidades)
-
-
-***
-<div id='descripción-del-proyecto' />
-
-## Descripción del Proyecto
-“Energizados” es un proyecto construido para mostrar cómo con el uso de aprendizaje automático se puede ayudar a detectar y disminuir las pérdidas no técnicas reduciendo tiempos de regularización e incrementando la precisión de identificación de fraudes.
-
-El marco de detección de pérdidas no técnicas “Energizados” se puede dividir en 3 grandes etapas. La etapa de preprocesamiento de datos, la etapa de construcción de modelos simples basados en reglas o modelos baselines, luego el desarrollo de modelos más complejos como los supervisados y finalmente la etapa de evaluación de modelos.
-
-<div style="width: 1000px; height: 600px;">
-    <img src="img/Pryecto-Energiza2_V23.png" width="100%" height="100%">
-</div>
 
 ### ***Etapa 1 : Preprocesamiento de datos / Exploración / Entendimiento***
 
@@ -185,51 +140,6 @@ Esta curva tiene en el eje-y la medida TPR (True Positive Rate) y en el eje-x la
     <img src="img/roc_curve.png" width="20%" height="20%">
 </div>
 
-***
-
-<div id='configuracion-ambiente' />
-
-## Guía de instalación
-
-El proyecto contiene la siguiente estructura de carpetas:
-~~~
-Energizado:
-    |--- datos
-    |--- notebooks
-    |--- src :
-    |        |--- modeling
-    |        |--- preprocessing
-    |        |--- helper
-~~~
-
-- datos :  contiene el conjunto de datos para poder ejecutar el código.
-- notebooks : contiene las notebooks de ejecución. Existen dos notebooks una para ser ejecutada en Google-Colab y la otra para ejecutar en un entorno local.
-- src : contiene los módulos python que dan soporte al proyecto.
-
-Como se mencionó existen dos notebooks para poder ejecutar el marco de detección de pérdidas no técnicas en la distribución de energía. 
-
-Si se quiere ejecutar el proyecto en Google-Colab seguir las instrucciones dentro de la notebook para colab.
-
-Si se quiere ejecutar en un entorno local, seguir los siguientes pasos:
-
-1. Tener instalada alguna distribución de Python 3.6 o superior.
-
-2. Tener instalado jupyter lab.
-
-3. Descarga/clonar el proyecto de github.
-
-4. Lanzar jupyter lab ``` jupyter lab  ```
-
-5. Posicionarse en la carpeta del proyecto.
-
-6. Abrir un consola de comando en el entorno de jupyter lab.
-
-7. Instalar los requerimientos utilizando ``` pip install -r requirements.txt  ```
-
-
-***
-
-<div id='demostracion-del-proyecto' />
 
 ## Guía de usuario 
 
@@ -251,24 +161,4 @@ Descripción de las columnas:
 | Zona | Indica la ubicación geográfica a la que pertenece el usuario | Categoría | 38 |
 | Target | Indica si el consumidor es fraudulento o no | Numérica | 0 - 1 |
 | Fecha inspección | Indica la fecha en que se inspeccionó al usuario| Fecha | - |
-
-Luego pare ver el código del marco de desarrollo funcionando compartimos una notebook donde se puede ir ejecutando paso a paso el proceso. 
-
-Ver [Notebook Paso a Paso](https://github.com/EL-BID/Energiza2Cod4Dev/blob/master/notebooks/ejecucion_paso_paso.ipynb)
-
-
-***
-
-<div id='licencia' />
-
-## Licencia 
-
-El siguiente proyecto ha sido financiado por el BID. Ver la siguiente licencia [LICENCIA](https://github.com/EL-BID/Plantilla-de-repositorio/blob/master/LICENSE.md)
-
-
-***
-
-<div id='limitación-de-responsabilidades' />
-
-
 

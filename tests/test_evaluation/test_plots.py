@@ -154,12 +154,12 @@ class TestPlotGeneratorInitialization:
             finally:
                 os.chdir(original_cwd)
 
-    def test_matplotlib_style(self):
+    def test_matplotlib_style(self, temp_dir):
         """Verify that matplotlib default style is used."""
         import matplotlib.pyplot as plt
 
         original_style = plt.rcParams.copy()
-        PlotGenerator("temp_plots")
+        PlotGenerator(str(temp_dir / "style_plots"))
         # Style should be 'default'
         assert "font.family" in plt.rcParams
         # Restore

@@ -592,6 +592,7 @@ class TestPipelineConfigParsing:
                     "train": {
                         "enabled": True,
                         "target_column": "target",
+                        "output_base_dir": str(temp_dir / "output"),
                         "models": [{"type": "lightgbm", "hyperparams": {}}],
                         "feature_engineering": {"enabled": False},
                     }
@@ -618,6 +619,7 @@ class TestPipelineConfigParsing:
                 {
                     "train": {
                         "enabled": True,
+                        "output_base_dir": str(temp_dir / "output"),
                         "models": [{"type": "lightgbm"}, {"type": "catboost"}],
                         "ensemble": {"method": "soft_voting", "weights": [0.6, 0.4]},
                         "feature_engineering": {"enabled": False},
@@ -644,6 +646,7 @@ class TestPipelineConfigParsing:
                 {
                     "train": {
                         "enabled": True,
+                        "output_base_dir": str(temp_dir / "output"),
                         "models": [{"type": "lightgbm"}],
                         "feature_engineering": {"enabled": False},
                     }

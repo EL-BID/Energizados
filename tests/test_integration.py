@@ -378,13 +378,15 @@ class TestTrainingConfigIntegration:
         from energizados.core.pipeline import ConfigPipelineBuilder, Pipeline
 
         config_file = tmp_path / "training_single.yaml"
-        config_file.write_text("""
+        output_base = str(tmp_path / "output")
+        config_file.write_text(f"""
 train:
   enabled: true
   target_column: target
+  output_base_dir: "{output_base}"
   models:
     - type: lightgbm
-      hyperparams: {}
+      hyperparams: {{}}
       hyperparam_search:
         enabled: false
   feature_engineering:
@@ -401,19 +403,21 @@ train:
         from energizados.core.pipeline import ConfigPipelineBuilder, Pipeline
 
         config_file = tmp_path / "training_ensemble.yaml"
-        config_file.write_text("""
+        output_base = str(tmp_path / "output")
+        config_file.write_text(f"""
 training:
   enabled: true
   target_column: target
+  output_base_dir: "{output_base}"
   models:
     - name: lgbm
       type: lightgbm
-      hyperparams: {}
-      hyperparam_search: {enabled: false}
+      hyperparams: {{}}
+      hyperparam_search: {{enabled: false}}
     - name: cat
       type: catboost
-      hyperparams: {}
-      hyperparam_search: {enabled: false}
+      hyperparams: {{}}
+      hyperparam_search: {{enabled: false}}
   ensemble:
     method: soft_voting
     weights: [0.6, 0.4]
@@ -430,12 +434,14 @@ training:
         from energizados.core.steps.training import TrainingStep
 
         config_file = tmp_path / "cfg.yaml"
-        config_file.write_text("""
+        output_base = str(tmp_path / "output")
+        config_file.write_text(f"""
 train:
   enabled: true
+  output_base_dir: "{output_base}"
   models:
     - type: lightgbm
-      hyperparams: {}
+      hyperparams: {{}}
   feature_engineering:
     enabled: false
 """)
@@ -453,9 +459,11 @@ train:
         from energizados.core.steps.training import TrainingStep
 
         config_file = tmp_path / "cfg2.yaml"
-        config_file.write_text("""
+        output_base = str(tmp_path / "output")
+        config_file.write_text(f"""
 train:
   enabled: true
+  output_base_dir: "{output_base}"
   models:
     - type: lightgbm
     - type: catboost
