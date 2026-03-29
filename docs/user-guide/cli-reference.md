@@ -46,7 +46,9 @@ Executes a pipeline from YAML configuration files.
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
 - `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
-- `--name, -n`: Custom run directory name (replaces if exists). Without this, auto-generated timestamp is used (e.g., `train-20260318_2209`). Only alphanumeric, dashes, and underscores allowed.
+- `--name, -n`: Custom run directory name. Without this, auto-generated timestamp is used (e.g., `train-20260318_2209`). Only alphanumeric, dashes, and underscores allowed.
+- `--overwrite, -o`: Overwrite existing output directory if it exists
+- `--log-file, -l`: Save logs to a file (e.g., `output/run.log`)
 
 ### Config Name Resolution
 
@@ -90,6 +92,13 @@ energizados run train -n experimento-v2       # Replaces if already exists
 
 # Run with wildcard config names
 energizados run train_01* -v                  # All configs matching pattern
+
+# Overwrite existing output directory
+energizados run train -o                       # Overwrite if exists
+
+# Save logs to file
+energizados run train -l output/run.log        # Save logs to file
+energizados run train -o -l output/run.log      # Combine options
 
 # Run EDA
 energizados run eda

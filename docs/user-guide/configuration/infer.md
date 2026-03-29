@@ -29,14 +29,20 @@ infer:
 | `enabled` | boolean | Whether to execute inference |
 | `input_path` | string | Path to input data (parquet or CSV) |
 | `output_path` | string | Path where predictions will be saved |
-| `model_path` | string | Path to trained model file |
-| `feature_engineering_path` | string | Path to feature engineering pipeline |
 
 ## Optional Fields
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `threshold` | float | `0.5` | Decision threshold (0.0 to 1.0) |
+| `model_path` | string | auto-detected | Path to trained model file. If omitted, auto-detects from latest training run. |
+| `feature_engineering_path` | string | auto-detected | Path to feature engineering pipeline. If omitted, auto-detects from same run as model. |
+| `output_base_dir` | string | `"output"` | Base directory to search for latest training run |
+| `output_include_input` | bool | `false` | Include original input columns in output |
+| `output_format` | string | `"csv"` | Output format: `"csv"` or `"parquet"` |
+| `columns_filter` | dict | `null` | Filter rows by column values BEFORE feature engineering |
+| `contratos_list` | list | `null` | Score only specific contracts from a list |
+| `output_columns` | list | `null` | Select specific columns for output |
 
 ---
 
@@ -50,6 +56,22 @@ The inference process follows these steps:
 4. **Generate Predictions**: Applies the model to the transformed data
 5. **Apply Threshold**: Converts probability scores to binary predictions (fraud/non-fraud)
 6. **Save Results**: Writes predictions to `output_path`
+
+> **Note:** The template ships with `enabled: false`. You must set `enabled: true` to run inference. Model paths are auto-detected from the latest training run if not specified.
+
+### Auto-Detect Model
+
+If you omit `model_path` and `feature_engineering_path`, the system will automatically detect the latest training run:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  # model_path and feature_engineering_path are auto-detected
+  # from output/train-YYYYMMDD_HHMM/
+  threshold: 0.5
+```
 
 ### Single Model Inference
 
@@ -216,6 +238,52 @@ infer:
 ```
 
 Then run for each month, updating paths accordingly.
+
+### Inference with Filters (Optimization)
+
+Filter records BEFORE feature engineering to avoid expensive operations like tsfel on records you don't need:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  
+  # Filter BEFORE feature engineering (optimization)
+  columns_filter:
+    zona: ["FLORIANOPOLIS", "PALHOCA"]
+  contratos_list:
+    - 12345
+    - 67890
+```
+
+### Inference with Custom Output Columns
+
+Select specific columns for the output CSV:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  
+  # Include input columns in output
+  output_include_input: true
+  
+  # Select specific columns for output
+  output_columns:
+    - cliente
+    - actividad
+    - zona
+    - prediction
+    - probability
+```
 
 ---
 

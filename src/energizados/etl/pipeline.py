@@ -7,6 +7,7 @@ This module provides ETL classes for data processing:
 - CleanFilesETL: Deletes specified files (e.g. intermediate outputs after pipeline).
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -24,16 +25,17 @@ class SourceETL(BaseETL):
     """ETL to process one or multiple data sources.
 
     This class processes data from one or several files and generates processed output.
-    Supports two operating modes:
+    Supports three operating modes:
 
     - **concat**: Concatenates multiple dataframes vertically (default)
     - **merge**: Joins multiple dataframes horizontally using merge_config
+    - **incremental**: Processes only new/pending files based on state tracking
 
     Args:
         name: Name of the source (e.g.: 'consumos', 'inspecciones', 'clientes').
         input_paths: List with paths to raw data files.
         output_path: Path to save processed data.
-        mode: Processing mode ('concat' or 'merge'). Default: 'concat'.
+        mode: Processing mode ('concat', 'merge', or 'incremental'). Default: 'concat'.
         merge_config: Configuration for merge (required if mode='merge').
             Ex: {'how': 'left', 'on': 'id_cliente'}
             Options: how ('left', 'right', 'inner', 'outer'), on (column),
@@ -46,6 +48,20 @@ class SourceETL(BaseETL):
         sample: Optional number of rows to sample from input data.
             If specified, reads only this many rows (uses random_state=42 for reproducibility).
             If None (default), reads all data.
+        partition_by: Optional list of columns for Hive-style partitioning.
+            Example: ['year', 'month'] → writes to output_path/year=YYYY/month=MM/
+            The DataFrame must contain these columns.
+        overwrite: If False (default), skips files that already exist in output.
+            If True, overwrites existing files.
+        state_file: Path to JSON file that tracks processed files.
+            Used in incremental mode to detect pending files.
+            If None, uses '<output_path>.state.json' by default.
+        raw_glob: Glob pattern to find raw input files (e.g., 'data/raw/*.csv').
+            Used in incremental mode to discover new files.
+            If specified, input_paths is ignored in incremental mode.
+        processed_glob: Glob pattern to find already processed files.
+            Used in incremental mode to detect what's already done.
+            If specified alongside raw_glob, compares both to find pending files.
         **kwargs: Additional parameters.
 
     Example:
@@ -84,12 +100,41 @@ class SourceETL(BaseETL):
         ...     sample=1000,  # Read only 1000 rows for quick testing
         ... )
         >>> df = etl.run('data/sample.parquet')
+
+    Example with incremental mode (monthly processing):
+        >>> etl = SourceETL(
+        ...     name='consumos_monthly',
+        ...     mode='incremental',
+        ...     raw_glob='data/raw/consumos_*.csv',
+        ...     output_path='data/processed/consumos.parquet',
+        ...     partition_by=['year', 'month'],
+        ...     overwrite=False,
+        ...     state_file='data/processed/.consumos_state.json',
+        ... )
+        >>> df = etl.run()
+
+    Example YAML configuration:
+        .. code-block:: yaml
+
+            consumos_incremental:
+              enabled: true
+              description: "Procesa solo archivos de consumos nuevos每月"
+              raw_glob: "data/raw/consumos_*.csv"
+              output: "data/processed/consumos.parquet"
+              custom_class: "energizados.etl.pipeline.SourceETL"
+              params:
+                mode: "incremental"
+                partition_by:
+                  - year
+                  - month
+                overwrite: false
+                state_file: "data/processed/.consumos_state.json"
     """
 
     def __init__(
         self,
         name: str,
-        input_paths: List[str],
+        input_paths: Optional[List[str]] = None,
         output_path: Optional[str] = None,
         mode: str = "concat",
         merge_config: Optional[Dict[str, Any]] = None,
@@ -98,10 +143,15 @@ class SourceETL(BaseETL):
         output_params: Optional[Dict[str, Any]] = None,
         transform_fn: Optional[Any] = None,
         sample: Optional[int] = None,
+        partition_by: Optional[List[str]] = None,
+        overwrite: bool = False,
+        state_file: Optional[str] = None,
+        raw_glob: Optional[str] = None,
+        processed_glob: Optional[str] = None,
         **kwargs,
     ):
         self.name = name
-        self.input_paths = input_paths
+        self.input_paths = input_paths or []
         self.output_path = output_path
         self.mode = mode.lower() if mode else "concat"
         self.merge_config = merge_config
@@ -109,6 +159,11 @@ class SourceETL(BaseETL):
         self.input_params = input_params or {}
         self.output_params = output_params or {}
         self.sample = sample
+        self.partition_by = partition_by
+        self.overwrite = overwrite
+        self.state_file = state_file
+        self.raw_glob = raw_glob
+        self.processed_glob = processed_glob
         self.kwargs = kwargs
 
         # Load transform_fn if provided
@@ -128,8 +183,8 @@ class SourceETL(BaseETL):
                 )
 
         # Validate mode
-        if self.mode not in ("concat", "merge"):
-            raise ValueError(f"Mode must be 'concat' or 'merge', not '{self.mode}'")
+        if self.mode not in ("concat", "merge", "incremental"):
+            raise ValueError(f"Mode must be 'concat', 'merge', or 'incremental', not '{self.mode}'")
 
         # Validate merge_config if mode is merge
         if self.mode == "merge" and not self.merge_config:
@@ -138,6 +193,23 @@ class SourceETL(BaseETL):
                 "(e.g.: {'how': 'left', 'on': 'id_cliente'})"
             )
 
+        # Validate incremental mode requirements
+        if self.mode == "incremental":
+            if not self.raw_glob and not self.input_paths:
+                raise ValueError(
+                    f"SourceETL '{self.name}': mode='incremental' requires "
+                    "either 'raw_glob' or 'input_paths'"
+                )
+            if not self.output_path:
+                raise ValueError(
+                    f"SourceETL '{self.name}': mode='incremental' requires 'output_path'"
+                )
+
+        # Initialize state for incremental mode
+        self._state: Dict[str, Any] = {}
+        if self.mode == "incremental" and self.state_file:
+            self._load_state()
+
     def extract(self) -> pd.DataFrame:
         """
         Extracts data from specified sources.
@@ -145,6 +217,7 @@ class SourceETL(BaseETL):
         Processes all input_paths according to configured mode:
         - concat: Concatenates all dataframes vertically
         - merge: Joins horizontally according to merge_config
+        - incremental: Processes only pending files based on state tracking
 
         Returns:
             pd.DataFrame: Combined raw data
@@ -152,6 +225,11 @@ class SourceETL(BaseETL):
         Raises:
             ETLError: If data cannot be read
         """
+        # Handle incremental mode separately
+        if self.mode == "incremental":
+            return self._extract_incremental()
+
+        # Original logic for concat/merge modes
         if not self.input_paths:
             raise ETLError(f"SourceETL '{self.name}': input_paths is empty")
 
@@ -195,6 +273,160 @@ class SourceETL(BaseETL):
             logger.info(f"  ✓ Merged {len(dataframes)} files: {len(result)} records")
 
         return result
+
+    def _extract_incremental(self) -> pd.DataFrame:
+        """Extract data in incremental mode - only process pending files."""
+        import glob as glob_module
+
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        # Determine input files to process
+        if self.raw_glob:
+            # Use glob pattern to discover raw files
+            raw_files = sorted(glob_module.glob(self.raw_glob))
+            if not raw_files:
+                logger.info(f"  • No files found matching glob: '{self.raw_glob}'")
+                return pd.DataFrame()
+            logger.info(f"  • Found {len(raw_files)} files matching raw_glob")
+
+            # Determine which files are pending
+            pending_files = self._get_pending_files(raw_files)
+
+            if not pending_files:
+                logger.info("  ✓ All files already processed (no pending files)")
+                return pd.DataFrame()
+
+            logger.info(f"  • Processing {len(pending_files)} pending file(s)")
+            input_paths = pending_files
+        else:
+            # Use input_paths directly (backward compatibility)
+            input_paths = self.input_paths
+
+        # Read pending files
+        dataframes = []
+        processed_files = []
+
+        for path in input_paths:
+            validate_no_traversal(path, label=f"ETL '{self.name}' incremental input")
+            source_file = Path(path)
+
+            if not source_file.exists():
+                logger.warning(f"  • Skipping (not found): '{path}'")
+                continue
+
+            # Check if already processed (unless overwrite is True)
+            if not self.overwrite and self._is_file_processed(path):
+                logger.info(f"  • Skipping (already processed): '{source_file.name}'")
+                continue
+
+            try:
+                if source_file.suffix == ".csv":
+                    df = pd.read_csv(path, **self.input_params)
+                elif source_file.suffix in [".parquet", ".pq"]:
+                    df = pd.read_parquet(path)
+                elif source_file.suffix in [".xlsx", ".xls"]:
+                    df = pd.read_excel(path)
+                else:
+                    logger.warning(f"  • Skipping (unsupported format): '{source_file.suffix}'")
+                    continue
+
+                dataframes.append(df)
+                processed_files.append(path)
+                logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
+
+            except Exception as e:
+                logger.error(f"  ✗ Error reading '{path}': {str(e)}")
+                continue
+
+        if not dataframes:
+            logger.info("  ✓ No new data to process")
+            return pd.DataFrame()
+
+        # Concatenate all pending data
+        result = pd.concat(dataframes, axis=0, ignore_index=True)
+        logger.info(f"  ✓ Incremental extract: {len(result)} records from {len(dataframes)} files")
+
+        # Update state with processed files
+        for path in processed_files:
+            self._mark_file_processed(path)
+
+        self._save_state()
+        return result
+
+    def _get_pending_files(self, raw_files: List[str]) -> List[str]:
+        """Determine which files are pending based on state and processed_glob."""
+        import glob as glob_module
+
+        if self.processed_glob:
+            # Use processed_glob to find already processed files
+            processed_files = set(glob_module.glob(self.processed_glob))
+            # Also include files from state
+            state_files = set(self._state.get("processed_files", []))
+            all_processed = processed_files | state_files
+
+            pending = [f for f in raw_files if f not in all_processed]
+            logger.info(f"  • Found {len(all_processed)} already processed, {len(pending)} pending")
+            return pending
+        else:
+            # Use state file only
+            pending = []
+            for f in raw_files:
+                if not self._is_file_processed(f):
+                    pending.append(f)
+            return pending
+
+    def _is_file_processed(self, file_path: str) -> bool:
+        """Check if a file has been processed according to state."""
+        processed = self._state.get("processed_files", [])
+        # Check by exact path or by filename
+        return file_path in processed or Path(file_path).name in processed
+
+    def _mark_file_processed(self, file_path: str) -> None:
+        """Mark a file as processed in state."""
+        if "processed_files" not in self._state:
+            self._state["processed_files"] = []
+
+        if file_path not in self._state["processed_files"]:
+            self._state["processed_files"].append(file_path)
+
+    def _load_state(self) -> None:
+        """Load state from state_file."""
+        import json
+
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        if not self.state_file:
+            return
+
+        validate_no_traversal(self.state_file, label=f"ETL '{self.name}' state file")
+        state_path = Path(self.state_file)
+
+        if state_path.exists():
+            try:
+                with open(state_path, "r") as f:
+                    self._state = json.load(f)
+                processed_count = len(self._state.get("processed_files", []))
+                logger.info(f"  • Loaded state: {processed_count} processed files tracked")
+            except Exception as e:
+                logger.warning(f"  • Could not load state file: {e}")
+                self._state = {}
+        else:
+            self._state = {}
+
+    def _save_state(self) -> None:
+        """Save state to state_file."""
+        if not self.state_file or not self._state:
+            return
+
+        state_path = Path(self.state_file)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with open(state_path, "w") as f:
+                json.dump(self._state, f, indent=2)
+            logger.debug(f"  • State saved to '{self.state_file}'")
+        except Exception as e:
+            logger.warning(f"  • Could not save state file: {e}")
 
     def _merge_dataframes(self, dataframes: List[pd.DataFrame]) -> pd.DataFrame:
         """
@@ -289,6 +521,10 @@ class SourceETL(BaseETL):
         """
         Saves the transformed data.
 
+        Supports Hive-style partitioned output when partition_by is configured.
+        In incremental mode with partition_by, writes each unique partition
+        combination to its own subdirectory (e.g., year=2024/month=03/).
+
         Args:
             df: Transformed DataFrame
             path: Output path
@@ -301,19 +537,105 @@ class SourceETL(BaseETL):
 
             validate_no_traversal(path, label=f"ETL '{self.name}' output")
             output_path = Path(path)
+
+            # Handle incremental mode with overwrite check
+            if self.mode == "incremental" and not self.overwrite:
+                if output_path.exists():
+                    logger.info(f"  • Skipping save (already exists and overwrite=False): '{path}'")
+                    return
+                # For partitioned output, check if any partition exists
+                if self.partition_by and output_path.exists():
+                    logger.info(
+                        f"  • Skipping save (partition exists and overwrite=False): '{path}'"
+                    )
+                    return
+
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            if output_path.suffix == ".parquet" or output_path.suffix == ".pq":
-                df.to_parquet(path, index=False)
-            elif output_path.suffix == ".csv":
-                df.to_csv(path, index=False, **self.output_params)
+            # Handle Hive-style partitioned output
+            if self.partition_by:
+                self._save_partitioned(df, path)
             else:
-                df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
+                # Standard single-file output
+                if output_path.suffix == ".parquet" or output_path.suffix == ".pq":
+                    df.to_parquet(path, index=False)
+                elif output_path.suffix == ".csv":
+                    df.to_csv(path, index=False, **self.output_params)
+                else:
+                    df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
-            logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
+                logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
 
         except Exception as e:
             raise ETLError(f"Error saving '{self.name}': {str(e)}")
+
+    def _save_partitioned(self, df: pd.DataFrame, base_path: str) -> None:
+        """
+        Save DataFrame with Hive-style partitioning.
+
+        Writes each unique combination of partition columns to its own
+        subdirectory (e.g., base_path/year=2024/month=03/file.parquet).
+
+        Args:
+            df: DataFrame to save
+            base_path: Base output path
+        """
+        import pandas.api.types as pdt
+
+        # Validate partition columns exist
+        missing_cols = [c for c in self.partition_by if c not in df.columns]
+        if missing_cols:
+            raise ETLError(
+                f"SourceETL '{self.name}': partition_by columns not found in DataFrame: {missing_cols}"
+            )
+
+        # Convert partition columns to string (required for Hive partitioning)
+        df_partitioned = df.copy()
+        for col in self.partition_by:
+            # Convert to string representation
+            if pdt.is_integer_dtype(df_partitioned[col]):
+                df_partitioned[col] = df_partitioned[col].astype(str)
+            else:
+                df_partitioned[col] = (
+                    df_partitioned[col].astype(str).str.replace("/", "-", regex=False)
+                )
+
+        # Get unique partition combinations
+        partition_groups = df_partitioned.groupby(self.partition_by, sort=False)
+
+        total_records = 0
+        for partition_values, group_df in partition_groups:
+            # Build partition path (e.g., base_path/year=2024/month=03/)
+            if isinstance(partition_values, tuple):
+                partition_parts = [
+                    f"{col}={val}" for col, val in zip(self.partition_by, partition_values)
+                ]
+            else:
+                partition_parts = [f"{self.partition_by[0]}={partition_values}"]
+
+            partition_path = "/".join([base_path.rstrip("/")] + partition_parts)
+            partition_dir = Path(partition_path)
+            partition_dir.mkdir(parents=True, exist_ok=True)
+
+            # Determine output file within partition
+            output_file = Path(partition_path) / "data.parquet"
+            group_df.drop(columns=self.partition_by, inplace=True)
+
+            # Determine format
+            base_path_obj = Path(base_path)
+            if base_path_obj.suffix == ".csv":
+                output_file = output_file.with_suffix(".csv")
+                group_df.to_csv(output_file, index=False, **self.output_params)
+            else:
+                group_df.to_parquet(output_file, index=False)
+
+            total_records += len(group_df)
+            logger.info(
+                f"  • Saved {len(group_df)} records to '{output_file}' "
+                f"({'/'.join(partition_parts)})"
+            )
+
+        logger.info(f"  ✓ Saved {total_records} records partitioned by {self.partition_by}")
 
 
 class ClipOutliersETL(BaseETL):
@@ -401,7 +723,7 @@ class ClipOutliersETL(BaseETL):
 
         if not cols:
             logger.warning(
-                f"ClipOutliersETL '{self.name}': no columns matched — " "returning data unchanged"
+                f"ClipOutliersETL '{self.name}': no columns matched — returning data unchanged"
             )
             return df
 
@@ -417,7 +739,7 @@ class ClipOutliersETL(BaseETL):
         n_total = (df[cols] > self.threshold).sum().sum()
         df[cols] = df[cols].clip(upper=self.threshold)
         logger.info(
-            f"  ✓ Clipped {n_total:,} values to {self.threshold:,.0f} " f"in {len(cols)} columns"
+            f"  ✓ Clipped {n_total:,} values to {self.threshold:,.0f} in {len(cols)} columns"
         )
 
         return df

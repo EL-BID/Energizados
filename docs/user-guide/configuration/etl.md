@@ -98,17 +98,74 @@ etl:
 
 > **IMPORTANT:** When `mode="merge"`, `merge_config` is required. If `on`, `left_on`, and `right_on` are all omitted, `key_column` is used as the merge key.
 
+### Mode: Incremental (Monthly Processing)
+
+Processes only new/pending files based on state tracking. Ideal for monthly ETL workflows where you only want to process new data files.
+
+```yaml
+etl:
+  consumos_monthly:
+    enabled: true
+    description: "Procesa solo archivos de consumos nuevos mensual"
+    raw_glob: "data/raw/consumos_*.csv"
+    output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "incremental"
+      partition_by:
+        - year
+        - month
+      overwrite: false
+      state_file: "data/processed/.consumos_state.json"
+    depends_on: []
+```
+
+**How it works:**
+1. Discovers files matching `raw_glob` pattern
+2. Compares with already processed files (via `state_file` or `processed_glob`)
+3. Processes only pending files
+4. Updates state file with processed files
+5. Optionally writes output in Hive-partitioned structure
+
+**Example with Hive partitioning:**
+
+```yaml
+etl:
+  consumos_incremental:
+    enabled: true
+    raw_glob: "data/raw/consumos_*.csv"
+    output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "incremental"
+      partition_by:
+        - year
+        - month
+      overwrite: false
+      state_file: "data/processed/.consumos_state.json"
+```
+
+This writes to:
+- `data/processed/consumos.parquet/year=2024/month=01/data.parquet`
+- `data/processed/consumos.parquet/year=2024/month=02/data.parquet`
+- etc.
+
 ### SourceETL Parameters Reference
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `mode` | string | `"concat"` | Processing mode: `"concat"` or `"merge"` |
+| `mode` | string | `"concat"` | Processing mode: `"concat"`, `"merge"`, or `"incremental"` |
 | `merge_config` | dict | `null` | Merge configuration. Required when `mode="merge"`. Accepts any `pandas.merge()` parameter. |
 | `key_column` | string | `"id_cliente"` | Fallback merge key used when `merge_config` does not specify `on`, `left_on`, or `right_on` |
 | `input_params` | dict | `{}` | Extra keyword arguments passed to the pandas read function (e.g. `sep`, `encoding`, `engine` for CSV). Applies to all input files equally. |
 | `output_params` | dict | `{}` | Extra keyword arguments passed to the pandas write function. Only used when the output file is a CSV. |
 | `transform_fn` | string or callable | `null` | Custom transform applied after reading and concatenating/merging. Accepts a dotted-path string (e.g. `"src.data.transforms.clean_data"`) or a Python callable. Must have signature `(pd.DataFrame) -> pd.DataFrame`. |
 | `sample` | integer | `null` | Random sample of N rows taken from the combined result. Uses `random_state=42` for reproducibility. If N exceeds the available rows, all rows are returned. |
+| `partition_by` | list | `null` | List of columns for Hive-style partitioning (e.g., `["year", "month"]`). Writes to `output/year=YYYY/month=MM/` structure. |
+| `overwrite` | bool | `false` | If `true`, overwrites existing output files. If `false`, skips existing files in incremental mode. |
+| `state_file` | string | `null` | Path to JSON file that tracks processed files. Used in incremental mode. Default: `<output_path>.state.json` |
+| `raw_glob` | string | `null` | Glob pattern to discover raw input files (e.g., `data/raw/*.csv`). Used in incremental mode. |
+| `processed_glob` | string | `null` | Glob pattern to find already processed files. Used in incremental mode to detect pending files. |
 
 ### Example: CSV with custom read options
 

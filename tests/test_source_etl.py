@@ -48,7 +48,7 @@ class TestSourceETLInit:
 
     def test_init_with_invalid_mode(self):
         """Verify that invalid mode raises error."""
-        with pytest.raises(ValueError, match="Mode must be 'concat' or 'merge'"):
+        with pytest.raises(ValueError, match="Mode must be 'concat', 'merge', or 'incremental'"):
             SourceETL(
                 name="test",
                 input_paths=["file1.csv"],

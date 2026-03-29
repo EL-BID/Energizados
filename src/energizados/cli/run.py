@@ -226,13 +226,18 @@ def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
     return user_order
 
 
-def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) -> Dict[str, Any]:
+def execute_pipeline(
+    config_paths: List[str],
+    run_name: Optional[str] = None,
+    overwrite: bool = False,
+) -> Dict[str, Any]:
     """
     Executes the complete pipeline from YAML configuration(s).
 
     Args:
         config_paths: List of paths to YAML configuration files
         run_name: Optional custom run directory name
+        overwrite: If True, overwrite existing output directory
 
     Returns:
         Dict: Final context with pipeline results
@@ -258,7 +263,10 @@ def execute_pipeline(config_paths: List[str], run_name: Optional[str] = None) ->
 
     # Build pipeline (don't run yet)
     builder = ConfigPipelineBuilder(
-        config=merged_config, config_paths=list(config_paths), run_name=run_name
+        config=merged_config,
+        config_paths=list(config_paths),
+        run_name=run_name,
+        overwrite=overwrite,
     )
     pipeline = builder.build()
 
@@ -511,7 +519,10 @@ def _print_metrics_summary(result: Dict[str, Any]) -> None:
 
 
 def execute_step(
-    config_paths: List[str], step_name: str, run_name: Optional[str] = None
+    config_paths: List[str],
+    step_name: str,
+    run_name: Optional[str] = None,
+    overwrite: bool = False,
 ) -> Dict[str, Any]:
     """
     Executes a single step of the pipeline.
@@ -520,6 +531,7 @@ def execute_step(
         config_paths: List of paths to YAML configuration files
         step_name: Name of the step to execute
         run_name: Optional custom run directory name
+        overwrite: If True, overwrite existing run directory
 
     Returns:
         Dict: Updated context after the step
@@ -545,7 +557,10 @@ def execute_step(
 
     # Build complete pipeline
     builder = ConfigPipelineBuilder(
-        config=merged_config, config_paths=list(config_paths), run_name=run_name
+        config=merged_config,
+        config_paths=list(config_paths),
+        run_name=run_name,
+        overwrite=overwrite,
     )
     pipeline = builder.build()
 

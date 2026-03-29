@@ -304,6 +304,14 @@ Domain-specific fraud detection features derived from the consumption time serie
 - consumption_patterns:
     num_periodos: 12
     periods_suffix: "_anterior"
+    enable_diff_ratios: true
+    enable_minmax_ratio: true
+    enable_zscore: true
+    enable_zero_ratio: true
+    enable_slope: true
+    enable_consistency: true
+    enable_drastic_changes: true
+    drastic_threshold: 0.5
 ```
 
 **Parameters:**
@@ -312,8 +320,23 @@ Domain-specific fraud detection features derived from the consumption time serie
 |-----------|------|---------|-------------|
 | `num_periodos` | int | `12` | Number of time series columns |
 | `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
+| `enable_diff_ratios` | bool | `true` | Enable diff ratio features between consecutive periods |
+| `enable_minmax_ratio` | bool | `true` | Enable min/max ratio feature |
+| `enable_zscore` | bool | `true` | Enable z-score feature |
+| `enable_zero_ratio` | bool | `true` | Enable zero ratio feature |
+| `enable_slope` | bool | `true` | Enable slope and normalized slope features |
+| `enable_consistency` | bool | `true` | Enable consistency score feature |
+| `enable_drastic_changes` | bool | `true` | Enable drastic changes count feature |
+| `drastic_threshold` | float | `0.5` | Threshold for drastic changes (0.5 = 50%) |
 
-**Generated features:** diff ratios, min/max ratio, z-score, zero ratio, slope (normalized), consistency score, drastic changes count.
+**Generated features (when enabled):**
+- `diff_X_Y`: Ratio of change between consecutive periods
+- `min_max_ratio_X`: Ratio of min/max consumption
+- `zscore_mean_X`: Z-score of mean consumption
+- `zero_ratio_X`: Proportion of months with zero consumption
+- `slope_normalized_X`: Slope normalized by mean
+- `consistency_score_X`: Consistency score (low variability = suspicious)
+- `drastic_changes_count_X`: Count of changes exceeding threshold
 
 #### geo_features (moved to ETL)
 

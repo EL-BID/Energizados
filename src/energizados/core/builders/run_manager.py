@@ -29,17 +29,24 @@ class RunManager:
         config_paths: List of config file paths used for this run
     """
 
-    def __init__(self, config_paths: Optional[List[str]] = None, run_name: Optional[str] = None):
+    def __init__(
+        self,
+        config_paths: Optional[List[str]] = None,
+        run_name: Optional[str] = None,
+        overwrite: bool = False,
+    ):
         """
         Initialize run manager.
 
         Args:
             config_paths: List of config file paths used for this run
             run_name: Optional custom run directory name
+            overwrite: If True, overwrite existing run directory
         """
         self.config_paths: List[str] = config_paths or []
         self._run_dir: Optional[Path] = None
         self._run_name: Optional[str] = run_name
+        self._overwrite: bool = overwrite
         self._start_time = time.time()
 
     @property
@@ -48,21 +55,29 @@ class RunManager:
         return self._run_dir
 
     def generate_run_dir(
-        self, base_output_dir: str = "output", run_name: Optional[str] = None
+        self,
+        base_output_dir: str = "output",
+        run_name: Optional[str] = None,
+        overwrite: Optional[bool] = None,
     ) -> Path:
         """
         Creates a run directory inside the output base directory.
 
         If run_name is provided, uses that name directly (deleting existing dir if present).
         If run_name is None, uses a timestamp with suffix for collisions.
+        If overwrite=True, deletes existing directory even with auto-generated names.
 
         Args:
             base_output_dir: Base output directory (default: "output")
             run_name: Optional custom run directory name
+            overwrite: Override instance overwrite setting (optional)
 
         Returns:
             Path: Path to the created run directory
         """
+        # Use instance default if not overridden
+        use_overwrite = overwrite if overwrite is not None else self._overwrite
+
         base = Path(base_output_dir)
 
         if run_name is not None:
@@ -79,8 +94,13 @@ class RunManager:
             auto_run_name = f"{prefix}-{timestamp}"
             run_dir = base / auto_run_name
 
-            # Handle timestamp collisions atomically (avoid TOCTOU race)
+            # Handle timestamp collisions and overwrite
             import os
+
+            # If overwrite is True, delete existing directory first
+            if use_overwrite and run_dir.exists():
+                logger.info(f"Overwriting existing run directory: {run_dir}")
+                shutil.rmtree(run_dir)
 
             suffix = 0
             while True:
@@ -90,6 +110,13 @@ class RunManager:
                     run_dir = candidate
                     break
                 except FileExistsError:
+                    # If overwrite is True and directory exists, delete and retry
+                    if use_overwrite:
+                        logger.info(f"Overwriting existing run directory: {candidate}")
+                        shutil.rmtree(candidate)
+                        os.makedirs(candidate)
+                        run_dir = candidate
+                        break
                     suffix += 1
 
         (run_dir / "models").mkdir(parents=True, exist_ok=True)

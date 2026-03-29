@@ -12,12 +12,13 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 
-def _setup_logging(verbose: int = 0):
+def _setup_logging(verbose: int = 0, log_file: str = None):
     """
     Configures logging for the CLI.
 
     Args:
         verbose: Verbosity level (0=WARNING, 1=INFO, 2+=DEBUG)
+        log_file: Optional path to log file. If None, only console logging is used.
     """
     from rich.logging import RichHandler
 
@@ -30,18 +31,39 @@ def _setup_logging(verbose: int = 0):
     else:
         level = logging.DEBUG
 
-    # Configure RichHandler
-    handler = RichHandler(console=ui.console, show_path=False, rich_tracebacks=True)
-    handler.setLevel(level)
-
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.handlers = []  # Remove existing handlers
-    root_logger.addHandler(handler)
+
+    # Configure RichHandler for console
+    console_handler = RichHandler(console=ui.console, show_path=False, rich_tracebacks=True)
+    console_handler.setLevel(level)
+    root_logger.addHandler(console_handler)
+
+    # Add file handler if log_file is specified
+    if log_file:
+        from pathlib import Path
+
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create file handler
+        file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+        file_handler.setLevel(level)
+
+        # Simple formatter for file (no ANSI codes)
+        file_formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        file_handler.setFormatter(file_formatter)
+        root_logger.addHandler(file_handler)
+
+        # Log to console that we're writing to file
+        ui.console.print(f"[dim]Logging to file: {log_file}[/dim]")
 
     # Expose handler globally for level management
-    ui.set_rich_handler(handler)
+    ui.set_rich_handler(console_handler)
 
 
 class EnergizadosGroup(click.Group):
@@ -243,8 +265,21 @@ def init(ctx, project_name, template, path, copy_from, force):
     default=None,
     help="Custom run directory name (default: auto-generated timestamp)",
 )
+@click.option(
+    "--overwrite",
+    "-o",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing output directory if it exists",
+)
+@click.option(
+    "--log-file",
+    "-l",
+    default=None,
+    help="Path to log file (default: <run_dir>/run.log)",
+)
 @click.pass_context
-def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
+def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite, log_file):
     """
     Execute a pipeline from YAML configuration.
 
@@ -256,6 +291,8 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
     - --step: Execute only a specific step
     - --etl: Execute a specific ETL (with multiple ETLs)
     - --name, -n: Custom run directory name
+    - --overwrite, -o: Overwrite existing output directory
+    - --log-file, -l: Save logs to file
     - --dry-run: Show the plan without executing
     - --verbose, -v: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
@@ -275,9 +312,11 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
         energizados run etl -v                         # Run with INFO level logging
         energizados run etl -vv                        # Run with DEBUG level logging
         energizados run train -n my_experiment          # Run with custom run directory name
+        energizados run train -o                       # Overwrite existing output
+        energizados run train -l output/run.log        # Save logs to file
     """
     # Configure logging
-    _setup_logging(verbose)
+    _setup_logging(verbose, log_file)
 
     # Validate run name if provided
     import re
@@ -319,7 +358,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
                 return
 
             print_info(f"Executing step '{step}' of the pipeline...")
-            execute_step(config_paths, step, run_name=name)
+            execute_step(config_paths, step, run_name=name, overwrite=overwrite)
             print_success("Step completed successfully")
             return
 
@@ -353,11 +392,11 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name):
         shared, repeated_runs = split_configs_by_type(config_paths)
         if repeated_runs:
             if shared:
-                execute_pipeline(shared, run_name=name)
+                execute_pipeline(shared, run_name=name, overwrite=overwrite)
             for per_run_paths in repeated_runs:
-                execute_pipeline(per_run_paths, run_name=name)
+                execute_pipeline(per_run_paths, run_name=name, overwrite=overwrite)
         else:
-            execute_pipeline(config_paths, run_name=name)
+            execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
 
     except ConfigResolutionError as e:
         print_error(str(e))

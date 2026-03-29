@@ -1001,11 +1001,39 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
     Parameters:
     - periods_suffix: str, suffix of consumption columns (default="_anterior").
     - num_periodos: int, number of consumption periods (default=12).
+    - enable_diff_ratios: bool, enable diff ratio features (default=True).
+    - enable_minmax_ratio: bool, enable min/max ratio feature (default=True).
+    - enable_zscore: bool, enable z-score feature (default=True).
+    - enable_zero_ratio: bool, enable zero ratio feature (default=True).
+    - enable_slope: bool, enable slope and normalized slope features (default=True).
+    - enable_consistency: bool, enable consistency score feature (default=True).
+    - enable_drastic_changes: bool, enable drastic changes count feature (default=True).
+    - drastic_threshold: float, threshold for drastic changes (default=0.5 = 50%).
     """
 
-    def __init__(self, periods_suffix: str = "_anterior", num_periodos: int = 12):
+    def __init__(
+        self,
+        periods_suffix: str = "_anterior",
+        num_periodos: int = 12,
+        enable_diff_ratios: bool = True,
+        enable_minmax_ratio: bool = True,
+        enable_zscore: bool = True,
+        enable_zero_ratio: bool = True,
+        enable_slope: bool = True,
+        enable_consistency: bool = True,
+        enable_drastic_changes: bool = True,
+        drastic_threshold: float = 0.5,
+    ):
         self.periods_suffix = periods_suffix
         self.num_periodos = num_periodos
+        self.enable_diff_ratios = enable_diff_ratios
+        self.enable_minmax_ratio = enable_minmax_ratio
+        self.enable_zscore = enable_zscore
+        self.enable_zero_ratio = enable_zero_ratio
+        self.enable_slope = enable_slope
+        self.enable_consistency = enable_consistency
+        self.enable_drastic_changes = enable_drastic_changes
+        self.drastic_threshold = drastic_threshold
 
     def fit(self, X, y=None):
         """No-op fit. ConsumptionPatterns is stateless.
@@ -1055,51 +1083,59 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         df = X.copy()
         df = self._ensure_stat_columns(df)
 
-        # 1. Diff ratios between consecutive periods (captures abrupt drops)
-        for i in range(self.num_periodos, 1, -1):
-            current = f"{i}{self.periods_suffix}"
-            prev = f"{i - 1}{self.periods_suffix}"
-            df[f"diff_{i}_{i - 1}"] = np.where(df[prev] > 0, df[current] / df[prev], 0)
-
-        # 2. Min-max ratio (variability)
-        df[f"min_max_ratio_{self.num_periodos}"] = np.where(
-            df[f"max_cons{self.num_periodos}"] > 0,
-            df[f"min_cons{self.num_periodos}"] / df[f"max_cons{self.num_periodos}"],
-            0,
-        )
-
-        # 3. Z-score of mean consumption (outliers)
         mean_col = f"mean_{self.num_periodos}"
         std_col = f"std_cons{self.num_periodos}"
-        mean_global = df[mean_col].mean()
-        std_global = df[std_col].mean()
-        df[f"zscore_mean_{self.num_periodos}"] = np.where(
-            df[std_col] > 0, (df[mean_col] - mean_global) / std_global, 0
-        )
+        zero_col = f"cant_ceros_{self.num_periodos}"
+        slope_col = f"slope_{self.num_periodos}"
+
+        # 1. Diff ratios between consecutive periods (captures abrupt drops)
+        if self.enable_diff_ratios:
+            for i in range(self.num_periodos, 1, -1):
+                current = f"{i}{self.periods_suffix}"
+                prev = f"{i - 1}{self.periods_suffix}"
+                df[f"diff_{i}_{i - 1}"] = np.where(df[prev] > 0, df[current] / df[prev], 0)
+
+        # 2. Min-max ratio (variability)
+        if self.enable_minmax_ratio:
+            df[f"min_max_ratio_{self.num_periodos}"] = np.where(
+                df[f"max_cons{self.num_periodos}"] > 0,
+                df[f"min_cons{self.num_periodos}"] / df[f"max_cons{self.num_periodos}"],
+                0,
+            )
+
+        # 3. Z-score of mean consumption (outliers)
+        if self.enable_zscore:
+            mean_global = df[mean_col].mean()
+            std_global = df[std_col].mean()
+            df[f"zscore_mean_{self.num_periodos}"] = np.where(
+                df[std_col] > 0, (df[mean_col] - mean_global) / std_global, 0
+            )
 
         # 4. Zero ratio (proportion of months with zero consumption)
-        zero_col = f"cant_ceros_{self.num_periodos}"
-        df[f"zero_ratio_{self.num_periodos}"] = df[zero_col] / self.num_periodos
+        if self.enable_zero_ratio:
+            df[f"zero_ratio_{self.num_periodos}"] = df[zero_col] / self.num_periodos
 
         # 5. Slope normalized by mean (trend relative to average)
-        slope_col = f"slope_{self.num_periodos}"
-        df[f"slope_normalized_{self.num_periodos}"] = np.where(
-            df[mean_col] > 0, df[slope_col] / df[mean_col], 0
-        )
+        if self.enable_slope:
+            df[f"slope_normalized_{self.num_periodos}"] = np.where(
+                df[mean_col] > 0, df[slope_col] / df[mean_col], 0
+            )
 
         # 6. Consistency score (low variability = suspicious)
-        df[f"consistency_score_{self.num_periodos}"] = np.where(
-            df[std_col] > 0, df[mean_col] / df[std_col], df[mean_col]
-        )
+        if self.enable_consistency:
+            df[f"consistency_score_{self.num_periodos}"] = np.where(
+                df[std_col] > 0, df[mean_col] / df[std_col], df[mean_col]
+            )
 
-        # 7. Drastic changes count (changes >50%)
-        changes = []
-        for i in range(self.num_periodos, 1, -1):
-            current = f"{i}{self.periods_suffix}"
-            prev = f"{i - 1}{self.periods_suffix}"
-            change = np.abs(df[current] - df[prev]) / (df[prev] + 1e-6)
-            changes.append(change > 0.5)
-        df[f"drastic_changes_count_{self.num_periodos}"] = np.sum(changes, axis=0)
+        # 7. Drastic changes count (configurable threshold)
+        if self.enable_drastic_changes:
+            changes = []
+            for i in range(self.num_periodos, 1, -1):
+                current = f"{i}{self.periods_suffix}"
+                prev = f"{i - 1}{self.periods_suffix}"
+                change = np.abs(df[current] - df[prev]) / (df[prev] + 1e-6)
+                changes.append(change > self.drastic_threshold)
+            df[f"drastic_changes_count_{self.num_periodos}"] = np.sum(changes, axis=0)
 
         return df
 

@@ -223,6 +223,7 @@ class ConfigPipelineBuilder:
         config: Dict = None,
         config_paths: List[str] = None,
         run_name: Optional[str] = None,
+        overwrite: bool = False,
     ):
         """
         Initialize the builder.
@@ -232,6 +233,7 @@ class ConfigPipelineBuilder:
             config: Configuration dictionary (optional, takes precedence over config_path)
             config_paths: List of all config files used (for copying to run dir)
             run_name: Optional custom run directory name
+            overwrite: If True, overwrite existing run directory
         """
         # Store config paths for backwards compatibility
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
@@ -244,6 +246,7 @@ class ConfigPipelineBuilder:
             config=config,
             config_paths=self.config_paths,
             run_name=run_name,
+            overwrite=overwrite,
         )
 
     def _load_config(self, path: str) -> Dict:

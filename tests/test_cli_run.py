@@ -626,7 +626,7 @@ class TestSequentialSameTypeExecution:
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None):
+            def mock_execute(config_paths, run_name=None, overwrite=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -659,7 +659,7 @@ class TestSequentialSameTypeExecution:
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None):
+            def mock_execute(config_paths, run_name=None, overwrite=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -693,7 +693,7 @@ class TestSequentialSameTypeExecution:
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None):
+            def mock_execute(config_paths, run_name=None, overwrite=False):
                 call_args.append(list(config_paths))
                 return {}
 

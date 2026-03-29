@@ -68,6 +68,7 @@ class PipelineDirector:
         config: Dict = None,
         config_paths: List[str] = None,
         run_name: Optional[str] = None,
+        overwrite: bool = False,
     ):
         """
         Initialize the director.
@@ -77,6 +78,7 @@ class PipelineDirector:
             config: Configuration dictionary (optional, takes precedence over config_path)
             config_paths: List of all config files used (for copying to run dir)
             run_name: Optional custom run directory name
+            overwrite: If True, overwrite existing run directory
         """
         if config is not None:
             self.config = config
@@ -89,7 +91,8 @@ class PipelineDirector:
 
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
         self._run_name: Optional[str] = run_name
-        self.run_manager = RunManager(self.config_paths, run_name=run_name)
+        self._overwrite: bool = overwrite
+        self.run_manager = RunManager(self.config_paths, run_name=run_name, overwrite=overwrite)
         self._run_dir: Optional[Path] = None
 
         # Validate configuration against schema

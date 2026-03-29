@@ -52,18 +52,52 @@ class InferenceBuilder(StepBuilder):
 
         inference = InferenceClass(threshold=threshold)
 
+        # Read additional filtering configuration
+        columns_filter = inference_config.get("columns_filter")
+        contratos_list = inference_config.get("contratos_list")
+        output_columns = inference_config.get("output_columns")
+
+        # Auto-detect model and feature engineering paths if not specified
+        model_path = inference_config.get("model_path")
+        feature_engineering_path = inference_config.get("feature_engineering_path")
+
+        if not model_path:
+            # Try to auto-detect from latest training run
+            model_path = self._auto_detect_latest_run(
+                inference_config.get("output_base_dir", "output")
+            )
+
+        if not feature_engineering_path and model_path:
+            # Auto-detect feature engineering from same run directory
+            fe_path = self._auto_detect_feature_engineering(model_path)
+            if fe_path:
+                feature_engineering_path = fe_path
+
         class InferenceStep(PipelineStep):
             """Pipeline step for making predictions with trained models."""
 
-            def __init__(self, inference_engine, config):
+            def __init__(
+                self,
+                inference_engine,
+                config,
+                columns_filter=None,
+                contratos_list=None,
+                output_columns=None,
+            ):
                 """Initialize with the inference engine and its configuration.
 
                 Args:
                     inference_engine: Inference object with ``predict`` / ``predict_proba`` methods.
                     config: Inference configuration dict from YAML.
+                    columns_filter: Dict of {column_name: [values]} to filter before FE.
+                    contratos_list: List of contract IDs to include in inference.
+                    output_columns: List of column names to include in output CSV.
                 """
                 self.inference = inference_engine
                 self.config = config
+                self.columns_filter = columns_filter
+                self.contratos_list = contratos_list
+                self.output_columns = output_columns
 
             def validate_input(self, context: Dict[str, Any]) -> bool:
                 """Validate that a model is available — either from config path or context.
@@ -88,6 +122,11 @@ class InferenceBuilder(StepBuilder):
 
                 Same pattern for feature_engineering.
 
+                Filtering priority:
+                1. Apply columns_filter BEFORE feature engineering (optimization)
+                2. Apply contratos_list BEFORE feature engineering
+                3. Apply output_columns when saving to CSV
+
                 Args:
                     context: Pipeline context dict with at minimum ``model``.
 
@@ -96,23 +135,31 @@ class InferenceBuilder(StepBuilder):
                 """
                 from energizados.core.utils.secure_pickle import secure_load
 
-                # --- Model resolution: config path → context → error ---
-                _model_path = self.config.get("model_path")
+                # --- Model resolution: resolved → config → context → error ---
+                _model_path = self.config.get("_resolved_model_path") or self.config.get(
+                    "model_path"
+                )
                 if _model_path:
                     model = secure_load(_model_path)
+                    logger.info(f"Loaded model from: {_model_path}")
                 elif context.get("model"):
                     model = context["model"]
+                    logger.info("Using model from context")
                 else:
                     raise ValueError(
                         "No model available. Set model_path in infer.yaml or run training first."
                     )
 
-                # --- Feature engineering resolution: config path → context → None ---
-                _fe_path = self.config.get("feature_engineering_path")
+                # --- Feature engineering resolution: resolved → config → context → None ---
+                _fe_path = self.config.get("_resolved_feature_engineering_path") or self.config.get(
+                    "feature_engineering_path"
+                )
                 if _fe_path:
                     feature_engineering = secure_load(_fe_path)
+                    logger.info(f"Loaded feature engineering from: {_fe_path}")
                 elif context.get("feature_engineering"):
                     feature_engineering = context["feature_engineering"]
+                    logger.info("Using feature engineering from context")
                 else:
                     feature_engineering = None
                     logger.warning("No feature engineering pipeline found. Using raw features.")
@@ -124,14 +171,29 @@ class InferenceBuilder(StepBuilder):
                     data = pd.read_parquet(_input_path)
                     # Keep original input for enrichment
                     original_data = data.copy()
+                    logger.info(f"Loaded inference data: {len(data):,} records")
                 elif "inference_data" in context:
                     data = context["inference_data"]
                     original_data = data.copy()
+                    logger.info(f"Using inference_data from context: {len(data):,} records")
                 elif "X_test" in context:
                     data = context["X_test"]
                     original_data = data.copy()
+                    logger.info(f"Using X_test from context: {len(data):,} records")
                 else:
                     raise ValueError("No inference data found")
+
+                # --- Apply columns_filter BEFORE feature engineering (optimization) ---
+                if self.columns_filter:
+                    data, filtered_count = self._apply_columns_filter(data)
+                    logger.info(
+                        f"  • columns_filter: removed {filtered_count:,} rows, {len(data):,} remaining"
+                    )
+
+                # --- Apply contratos_list BEFORE feature engineering ---
+                if self.contratos_list:
+                    data, filtered_count = self._apply_contratos_list(data)
+                    logger.info(f"  • contratos_list: filtered to {len(data):,} records from list")
 
                 # --- Apply feature engineering if available ---
                 if feature_engineering is not None:
@@ -169,6 +231,71 @@ class InferenceBuilder(StepBuilder):
 
                 return context
 
+            def _apply_columns_filter(self, data: pd.DataFrame) -> tuple:
+                """Apply columns_filter to data before feature engineering.
+
+                Args:
+                    data: Input DataFrame
+
+                Returns:
+                    Tuple of (filtered DataFrame, number of rows removed)
+                """
+                if not self.columns_filter:
+                    return data, 0
+
+                original_count = len(data)
+                filtered_data = data.copy()
+
+                for col_name, allowed_values in self.columns_filter.items():
+                    if col_name not in filtered_data.columns:
+                        logger.warning(
+                            f"  • columns_filter: column '{col_name}' not found, skipping"
+                        )
+                        continue
+
+                    # Convert allowed_values to list if single value
+                    if not isinstance(allowed_values, list):
+                        allowed_values = [allowed_values]
+
+                    # Filter to only rows where column value is in allowed_values
+                    filtered_data = filtered_data[filtered_data[col_name].isin(allowed_values)]
+
+                removed = original_count - len(filtered_data)
+                return filtered_data, removed
+
+            def _apply_contratos_list(self, data: pd.DataFrame) -> tuple:
+                """Apply contratos_list filter to data before feature engineering.
+
+                Assumes the data has a column named 'id_cliente' or 'cliente'.
+
+                Args:
+                    data: Input DataFrame
+
+                Returns:
+                    Tuple of (filtered DataFrame, number of rows removed)
+                """
+                if not self.contratos_list:
+                    return data, 0
+
+                original_count = len(data)
+
+                # Try common ID column names
+                id_col = None
+                for col in ["id_cliente", "cliente", "customer_id", "id"]:
+                    if col in data.columns:
+                        id_col = col
+                        break
+
+                if id_col is None:
+                    logger.warning("  • contratos_list: no ID column found, skipping filter")
+                    return data, 0
+
+                # Filter to only contracts in the list
+                filtered_data = data[data[id_col].isin(self.contratos_list)]
+
+                removed = original_count - len(filtered_data)
+                return filtered_data, removed
+
             def _save_output(
                 self,
                 original_data: pd.DataFrame,
@@ -194,6 +321,16 @@ class InferenceBuilder(StepBuilder):
                         "probability": probas,
                     }
                 )
+
+                # Apply output_columns filter if specified
+                if self.output_columns:
+                    available_cols = list(result.columns)
+                    valid_cols = [c for c in self.output_columns if c in available_cols]
+                    if valid_cols:
+                        result = result[valid_cols]
+                        logger.info(
+                            f"  • output_columns: selected {len(valid_cols)} columns: {valid_cols}"
+                        )
 
                 if include_input:
                     result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
@@ -257,7 +394,83 @@ class InferenceBuilder(StepBuilder):
                 """
                 return ["predictions", "prediction_probas"]
 
-        return InferenceStep(inference, inference_config)
+        # Pass filtering configuration to the step
+        inference_config_filtered = inference_config.copy()
+        inference_config_filtered["_resolved_model_path"] = model_path
+        inference_config_filtered["_resolved_feature_engineering_path"] = feature_engineering_path
+
+        return InferenceStep(
+            inference,
+            inference_config_filtered,
+            columns_filter=columns_filter,
+            contratos_list=contratos_list,
+            output_columns=output_columns,
+        )
+
+    def _auto_detect_latest_run(self, output_base_dir: str = "output") -> Optional[str]:
+        """
+        Auto-detect the model path from the latest training run.
+
+        Looks for directories matching 'train-YYYYMMDD_HHMM' and returns
+        the most recent one.
+
+        Args:
+            output_base_dir: Base directory containing training runs
+
+        Returns:
+            Path to model.pkl, or None if no runs found
+        """
+        output_path = Path(output_base_dir)
+        if not output_path.exists():
+            logger.warning(f"Output directory not found: {output_base_dir}")
+            return None
+
+        # Find all train-* directories
+        train_dirs = sorted(
+            [d for d in output_path.iterdir() if d.is_dir() and d.name.startswith("train-")],
+            key=lambda d: d.name,
+            reverse=True,  # Most recent first
+        )
+
+        if not train_dirs:
+            logger.warning(f"No training runs found in {output_base_dir}")
+            return None
+
+        latest_dir = train_dirs[0]
+        model_path = latest_dir / "models" / "model.pkl"
+
+        if not model_path.exists():
+            # Try ensemble path
+            model_path = latest_dir / "models" / "ensemble.pkl"
+
+        if model_path.exists():
+            logger.info(f"Auto-detected latest model: {model_path}")
+            return str(model_path)
+
+        logger.warning(f"No model found in latest run: {latest_dir}")
+        return None
+
+    def _auto_detect_feature_engineering(self, model_path: str) -> Optional[str]:
+        """
+        Auto-detect feature engineering path from model path.
+
+        Assumes model is in output/train-YYYYMMDD_HHMM/models/ and
+        looks for feature_engineering.pkl in the same directory.
+
+        Args:
+            model_path: Path to the model file
+
+        Returns:
+            Path to feature_engineering.pkl, or None if not found
+        """
+        model_dir = Path(model_path).parent
+        fe_path = model_dir / "feature_engineering.pkl"
+
+        if fe_path.exists():
+            logger.info(f"Auto-detected feature engineering: {fe_path}")
+            return str(fe_path)
+
+        return None
 
     def is_enabled(self) -> bool:
         """Check if Inference step is enabled.
