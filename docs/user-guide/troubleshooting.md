@@ -317,7 +317,7 @@ print(df.columns.tolist())  # Should match training data columns
 4. Verify threshold is between 0 and 1:
 
 ```yaml
-inference:
+infer:
   threshold: 0.5  # Must be 0.0 to 1.0
 ```
 

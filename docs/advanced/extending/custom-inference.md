@@ -133,11 +133,11 @@ class ThresholdedInference(BaseInference):
 ### Wire It in Configuration
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
   output_path: "output/predictions.csv"
-  custom_class: "src.inference.thresholded_inference.ThresholdedInference"
+  custom_class: "inference.thresholded_inference.ThresholdedInference"
   params:
     threshold: 0.7
     min_consumption: 10.0
@@ -215,7 +215,7 @@ class BatchInference(BaseInference):
 
 ```python
 # src/run/batch_inference_script.py
-from src.inference.batch_inference import BatchInference
+from inference.batch_inference import BatchInference
 import pandas as pd
 
 # Initialize custom inference
@@ -243,7 +243,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from src.inference.thresholded_inference import ThresholdedInference
+from inference.thresholded_inference import ThresholdedInference
 from energizados.modeling.adapters import LGBMModelAdapter
 
 

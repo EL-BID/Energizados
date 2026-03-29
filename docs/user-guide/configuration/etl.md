@@ -26,8 +26,8 @@ etl:
 | Field | Type | Description |
 |-------|------|-------------|
 | `enabled` | boolean | Whether to execute this ETL |
-| `input` | string or list | Input file path(s) (parquet, CSV) or `@etl_name` references |
-| `output` | string | Output file path |
+| `input` | string or list | Input file path(s) (parquet, CSV, Excel) or `@etl_name` references |
+| `output` | string | Output file path (`CleanFilesETL` can omit this) |
 | `custom_class` | string | Python class implementing `BaseETL` |
 | `depends_on` | list | List of ETL names this ETL depends on |
 
@@ -40,7 +40,9 @@ etl:
 
 ## SourceETL
 
-The `SourceETL` class is the built-in ETL implementation that supports two modes:
+`SourceETL` is the built-in ETL implementation. It reads CSV, Parquet (`.parquet`/`.pq`), and Excel (`.xlsx`/`.xls`) files and supports two processing modes.
+
+> **Note:** New projects created with `energizados init` use `custom_class: "data.custom_etl.CustomETL"` for the sample ETL — this is the generated `CustomETL` class in `src/data/custom_etl.py`, which extends `BaseETL`. Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly without a custom class.
 
 ### Mode: Concat (Vertical Concatenation)
 
@@ -60,12 +62,6 @@ etl:
       mode: "concat"
     depends_on: []
 ```
-
-**Parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `mode` | string | `"concat"` | Must be `"concat"` for vertical concatenation |
 
 ### Mode: Merge (Horizontal Merge)
 
@@ -89,13 +85,6 @@ etl:
     depends_on: []
 ```
 
-**Parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `mode` | string | `"concat"` | Must be `"merge"` for horizontal merge |
-| `merge_config` | dict | `{}` | Parameters passed to `pandas.merge()` |
-
 **`merge_config` Options:**
 
 | Parameter | Type | Default | Description |
@@ -107,11 +96,56 @@ etl:
 | `left_index` | boolean | `false` | Use left DataFrame's index as merge key |
 | `right_index` | boolean | `false` | Use right DataFrame's index as merge key |
 
-> ⚠️ **IMPORTANT:** When `mode="merge"`, `merge_config` is required.
+> **IMPORTANT:** When `mode="merge"`, `merge_config` is required. If `on`, `left_on`, and `right_on` are all omitted, `key_column` is used as the merge key.
 
-### Sampling
+### SourceETL Parameters Reference
 
-Use the `sample` parameter to read only a subset of rows from input data. Useful for development, testing, and debugging without loading full datasets.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `mode` | string | `"concat"` | Processing mode: `"concat"` or `"merge"` |
+| `merge_config` | dict | `null` | Merge configuration. Required when `mode="merge"`. Accepts any `pandas.merge()` parameter. |
+| `key_column` | string | `"id_cliente"` | Fallback merge key used when `merge_config` does not specify `on`, `left_on`, or `right_on` |
+| `input_params` | dict | `{}` | Extra keyword arguments passed to the pandas read function (e.g. `sep`, `encoding`, `engine` for CSV). Applies to all input files equally. |
+| `output_params` | dict | `{}` | Extra keyword arguments passed to the pandas write function. Only used when the output file is a CSV. |
+| `transform_fn` | string or callable | `null` | Custom transform applied after reading and concatenating/merging. Accepts a dotted-path string (e.g. `"src.data.transforms.clean_data"`) or a Python callable. Must have signature `(pd.DataFrame) -> pd.DataFrame`. |
+| `sample` | integer | `null` | Random sample of N rows taken from the combined result. Uses `random_state=42` for reproducibility. If N exceeds the available rows, all rows are returned. |
+
+### Example: CSV with custom read options
+
+```yaml
+etl:
+  consumos_csv:
+    enabled: true
+    description: "Semicolon-delimited CSV with custom options"
+    input: "data/raw/consumos.csv"
+    output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "concat"
+      input_params:
+        sep: ";"
+        engine: "python"
+        on_bad_lines: "skip"
+    depends_on: []
+```
+
+### Example: Custom transform function
+
+```yaml
+etl:
+  cleaned:
+    enabled: true
+    description: "Apply custom cleaning logic"
+    input: "data/raw/dirty.csv"
+    output: "data/processed/cleaned.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "concat"
+      transform_fn: "src.data.transforms.clean_data"
+    depends_on: []
+```
+
+### Example: Sampling for quick iteration
 
 ```yaml
 etl:
@@ -126,14 +160,6 @@ etl:
       sample: 1000  # Read only 1000 rows
     depends_on: []
 ```
-
-**Parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `sample` | integer | `null` | Number of rows to sample from input (uses `random_state=42` for reproducibility) |
-
-> 💡 **Tip:** If `sample` is greater than the number of available rows, pandas returns all available rows without error.
 
 ## ETL Dependencies
 
@@ -389,8 +415,8 @@ geo_features:
   output: "data/processed/dataset_with_geo.parquet"
   custom_class: "energizados.etl.pipeline.GeoFeaturesETL"
   params:
-    lat_col: "latitude"
-    lon_col: "longitude"
+    lat_col: "latitud"     # default — Spanish spelling
+    lon_col: "longitud"    # default — Spanish spelling
     n_clusters: 10
     random_state: 42
     include_hierarchy: true
@@ -404,17 +430,19 @@ geo_features:
   depends_on: [dataset_builder]
 ```
 
+> **Note:** At least 10 valid (non-zero, non-null) coordinate pairs are required to fit the KMeans clusters. Points with invalid or zero coordinates receive `geo_cluster=-1` and `"sin_dato"` for all IBGE hierarchy columns.
+
 **Parameters:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `lat_col` | string | `"latitud"` | Latitude column name |
-| `lon_col` | string | `"longitud"` | Longitude column name |
+| `lat_col` | string | `"latitud"` | Latitude column name (Spanish spelling by default) |
+| `lon_col` | string | `"longitud"` | Longitude column name (Spanish spelling by default) |
 | `n_clusters` | int | `10` | Number of KMeans geographic clusters |
 | `random_state` | int | `42` | Random seed for KMeans |
-| `include_hierarchy` | bool | `true` | Add IBGE hierarchy columns |
-| `include_distances` | bool | `true` | Add distance-to-city columns |
-| `distance_cities` | list | top-5 | Cities for distance calculation (see available list below) |
+| `include_hierarchy` | bool | `true` | Add `geo_estado`, `geo_municipio`, `geo_regiao` columns via IBGE spatial join |
+| `include_distances` | bool | `true` | Add haversine distance columns to reference cities |
+| `distance_cities` | list | `null` (top-5) | Cities for distance calculation (see available list below). If `null`, defaults to the top 5. |
 | `include_coords` | bool | `false` | Keep original lat/lon columns in output |
 | `cache_dir` | string | `null` | Directory to persist IBGE shapefiles on disk |
 
@@ -429,6 +457,67 @@ geo_features:
 
 **Relationship with `stratified_time` split:** the `geo_cluster` column produced by this ETL
 is required when using `method: stratified_time` in `train.yaml`.
+
+## ClipOutliersETL
+
+Clips extreme values in numeric columns. Designed to remove data reading errors (e.g., meter malfunctions recording values in the order of 10^16 kWh) before feature engineering. Run this ETL after the main dataset-building ETL and before training.
+
+```yaml
+etl:
+  clip_outliers:
+    enabled: true
+    description: "Clip extreme consumption values (data reading errors)"
+    input: "data/processed/dataset.parquet"
+    output: "data/processed/dataset_clipped.parquet"
+    custom_class: "energizados.etl.pipeline.ClipOutliersETL"
+    params:
+      threshold: 100000           # values above this are clipped to this value
+      periods_suffix: "_anterior" # auto-detects columns ending in this suffix
+    depends_on: []
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `threshold` | float | `100000` | Maximum allowed value. Values above this are clipped to this value. |
+| `columns` | list | `null` | Explicit list of column names to clip. If `null`, auto-detects all columns whose name ends with `periods_suffix`. |
+| `periods_suffix` | string | `"_anterior"` | Suffix used for auto-detection when `columns` is not specified. |
+
+## CleanFilesETL
+
+Deletes files after the pipeline completes. Useful for removing intermediate outputs and freeing disk space. This ETL does not produce a dataset — it returns an empty DataFrame so the orchestrator can track it normally in the DAG.
+
+The files to delete are specified in the `input` field, which supports:
+- Direct paths: `"data/processed/consumos.parquet"`
+- References to other ETL outputs: `"@consumos"` (resolved by the orchestrator)
+- Glob patterns: `"data/processed/tmp_*.parquet"`
+
+The `output` field is optional — no file is written.
+
+```yaml
+etl:
+  clean_files:
+    enabled: true
+    description: "Remove intermediate outputs after pipeline completes"
+    input:
+      - "@consumos"                                    # reference to another ETL's output
+      - "@clientes"
+      - "data/processed/dataset_mergeado.parquet"      # direct path
+      # - "data/processed/tmp_*.parquet"               # glob pattern also supported
+    output: "data/processed/.clean_done"               # optional placeholder; no file written
+    custom_class: "energizados.etl.pipeline.CleanFilesETL"
+    params:
+      missing_ok: true   # silently skip files that don't exist
+    depends_on:
+      - merge_dataset    # run last — after all ETLs that produce the files above
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `missing_ok` | boolean | `true` | If `true`, silently skip files that do not exist. If `false`, raise an error for any missing file. |
 
 ## Custom ETL Classes
 

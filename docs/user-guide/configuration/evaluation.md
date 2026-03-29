@@ -48,7 +48,7 @@ evaluation:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `metrics` | list | `[]` | List of metrics to compute |
+| `metrics` | list | `[auc, precision, recall, f1, confusion_matrix, cumulative_gains]` | List of metrics to compute |
 | `generate_plots` | boolean | `true` | Whether to generate visualization plots |
 | `generate_html_report` | boolean | `true` | Whether to generate HTML report |
 | `generate_json_report` | boolean | `true` | Whether to generate JSON report |

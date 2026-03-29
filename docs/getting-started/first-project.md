@@ -69,14 +69,14 @@ etl:
     description: "Procesa dataset de ejemplo (elimina filas con NULL)"
     input: "data/raw/sample_dataset.parquet"
     output: "data/processed/sample_dataset.parquet"
-    custom_class: "energizados.etl.pipeline.SourceETL"
+    custom_class: "data.custom_etl.CustomETL"
     params:
       mode: "concat"  # 'concat' (default) or 'merge'
     depends_on: []
 ```
 
 This ETL:
-- Uses `SourceETL` with `mode: "concat"` to process a single input file
+- Uses `CustomETL` (extends `BaseETL`) to process a single input file
 - Outputs to `data/processed/sample_dataset.parquet`
 - Has no dependencies (`depends_on: []`)
 

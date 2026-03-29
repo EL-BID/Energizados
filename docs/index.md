@@ -1,7 +1,6 @@
 # Energizados
 
-Energizados is a machine learning framework for detecting **non-technical losses (NTL)** — electricity theft and meter
-fraud — in energy distribution systems.
+A machine learning framework for detecting electricity theft (non-technical losses) in energy distribution systems.
 
 ## Choose Your Path
 
@@ -15,7 +14,7 @@ fraud — in energy distribution systems.
 
     [Explore Advanced →](advanced/architecture.md)
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 pip install energizados

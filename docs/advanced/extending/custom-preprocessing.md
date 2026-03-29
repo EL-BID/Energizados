@@ -39,7 +39,7 @@ class CustomColumnTransformer(BaseEstimator, TransformerMixin):
 ### Wire It in Configuration
 
 ```yaml
-training:
+train:
   feature_engineering:
     preprocessing:
       columns:
@@ -123,14 +123,14 @@ class CustomInteractionTransformer(BaseEstimator, TransformerMixin):
 ### Wire It in Configuration
 
 ```yaml
-training:
+train:
   feature_engineering:
     preprocessing:
       columns:
         # ... column-level preprocessing
 
       global_transformers:
-        - custom_class: "src.preprocessing.interaction_transformer.CustomInteractionTransformer"
+        - custom_class: "preprocessing.interaction_transformer.CustomInteractionTransformer"
           params:
             interactions:
               - ["consumption_mean", "consumption_std", "*"]
@@ -209,7 +209,7 @@ Allowed prefixes: ['energizados.', 'src.', 'data.', 'features.', 'models.', 'inf
 import pytest
 import pandas as pd
 
-from src.preprocessing.interaction_transformer import CustomInteractionTransformer
+from preprocessing.interaction_transformer import CustomInteractionTransformer
 
 
 @pytest.fixture

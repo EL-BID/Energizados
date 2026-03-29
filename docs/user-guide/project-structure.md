@@ -18,7 +18,8 @@ my_project/
 ├── data/
 │   ├── raw/               # Input data (includes sample_dataset.parquet)
 │   ├── processed/         # ETL outputs and feature engineering results
-│   └── splits/            # Train/val/test splits
+│   └── temp/
+│       └── splits/        # Train/val/test splits
 ├── output/                # Training run outputs (auto-created per run)
 │   ├── index.html         # Summary table of all training runs
 │   └── train-YYYYMMDD_HHMM/  # One directory per training execution
@@ -31,10 +32,10 @@ my_project/
 │   ├── inference/         # Custom inference (custom_inference.py)
 │   ├── utils/             # Shared utilities (helpers.py)
 │   └── run/               # Execution scripts
-│       ├── 01_etl.py
+│       ├── 00_etl.py
+│       ├── 01_eda.py
 │       ├── 02_training.py
-│       ├── 03_evaluation.py
-│       └── 04_inference.py
+│       └── 03_inference.py
 ├── docs/
 │   └── project_docs.md
 └── tests/
@@ -66,7 +67,7 @@ All data-related directories.
 
 - **`processed/`**: Where ETL outputs and feature engineering results are saved. Intermediate datasets are stored here.
 
-- **`splits/`**: Contains train/validation/test split files. Used when `split.save_splits: true` in training configuration.
+- **`temp/splits/`**: Contains train/validation/test split files. Used when `split.save_splits: true` in training configuration.
 
 ### `output/`
 
@@ -105,10 +106,10 @@ Source code for custom components and execution scripts.
   - **`helpers.py`**: Shared utility functions that can be used across custom components.
 
 - **`run/`**: Python scripts for direct execution without CLI:
-  - **`01_etl.py`**: Executes ETLs from `etl.yaml`
+  - **`00_etl.py`**: Executes ETLs from `etl.yaml`
+  - **`01_eda.py`**: Runs exploratory data analysis from `eda.yaml`
   - **`02_training.py`**: Runs the training pipeline from `train.yaml`
-  - **`03_evaluation.py`**: Runs evaluation on a trained model
-  - **`04_inference.py`**: Runs inference on new data
+  - **`03_inference.py`**: Runs inference on new data
 
 ### `docs/`
 

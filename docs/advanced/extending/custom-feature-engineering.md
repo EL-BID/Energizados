@@ -169,10 +169,10 @@ class DomainSpecificFeatureEngineering(BaseFeatureEngineering):
 
 Wire it in `config/train.yaml`:
 ```yaml
-training:
+train:
   feature_engineering:
     enabled: true
-    custom_class: "src.features.domain_feature_engineering.DomainSpecificFeatureEngineering"
+    custom_class: "features.domain_feature_engineering.DomainSpecificFeatureEngineering"
     params:
       # Any parameters for your custom pipeline
 ```
@@ -184,7 +184,7 @@ You can also customize specific steps within the feature engineering pipeline:
 ### Per-Column Custom Transformer
 
 ```yaml
-training:
+train:
   feature_engineering:
     preprocessing:
       columns:
@@ -198,7 +198,7 @@ training:
 ### Full Preprocessing Replacement
 
 ```yaml
-training:
+train:
   feature_engineering:
     preprocessing:
       custom_class: "preprocessing.CustomPreprocessing"
@@ -209,7 +209,7 @@ training:
 ### Custom Feature Selector
 
 ```yaml
-training:
+train:
   feature_engineering:
     feature_selection:
       enabled: true
@@ -238,7 +238,7 @@ training:
 Global transformers operate on the entire dataset after column-level preprocessing. They can create features that depend on multiple columns.
 
 ```yaml
-training:
+train:
   feature_engineering:
     preprocessing:
       columns:
@@ -282,7 +282,7 @@ See [Custom Preprocessing](custom-preprocessing.md) for more details on global t
 import pytest
 import pandas as pd
 
-from src.features.domain_feature_engineering import DomainSpecificFeatureEngineering
+from features.domain_feature_engineering import DomainSpecificFeatureEngineering
 
 
 def test_custom_feature_engineering_fit_transform(synthetic_classification_data):

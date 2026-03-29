@@ -153,7 +153,7 @@ Here's a complete `train.yaml` with LightGBM + CatBoost ensemble:
 
 ```yaml
 # config/train.yaml
-training:
+train:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
@@ -312,7 +312,7 @@ Inference automatically uses the ensemble if `ensemble.pkl` exists. The inferenc
 
 ```yaml
 # config/infer.yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_customers.parquet"
   model_path: "output/train-20240315_1430/models/ensemble.pkl"  # Points to ensemble

@@ -22,6 +22,7 @@ The framework provides:
 src/energizados/
 ├── preprocessing/              # Data cleaning and feature engineering transformers
 │   ├── preprocessing.py      # Core transformers (ToDummy, TeEncoder, etc.)
+│   ├── geo_features.py      # GeoFeatures transformer + _IBGEGeocoder
 │   └── base.py             # BaseTransformer abstract class
 │
 ├── modeling/                   # Model implementations
@@ -36,7 +37,7 @@ src/energizados/
 │
 ├── feature_selection/         # Feature selection methods
 │   ├── base.py             # BaseFeatureSelector abstract class
-│   └── methods.py          # BorutaSelector, CorrelationSelector, ConstantSelector
+│   └── methods.py          # BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector
 │
 ├── evaluation/               # Model evaluation and reporting
 │   ├── evaluator.py        # DefaultEvaluator: runs full evaluation
@@ -76,6 +77,11 @@ src/energizados/
 │   ├── init.py             # Project initialization
 │   ├── run.py              # Pipeline execution
 │   └── validate.py         # Configuration validation
+│
+├── templates/                # Project scaffold templates (used by `energizados init`)
+│   ├── config/             # YAML config templates (etl, train, infer, eda)
+│   ├── src/run/            # Run script templates (use ConfigPipelineBuilder for backwards compat)
+│   └── data/raw/           # Sample dataset included in new projects
 │
 ├── eda/                      # Exploratory Data Analysis module
 │   ├── base.py                  # BaseExplorer abstract class
@@ -214,7 +220,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `feature_engineering/base.py` | `BaseFeatureEngineering` abstract class for custom pipelines |
 | `feature_engineering/default.py` | Default implementation combining preprocessing + feature selection |
 | `feature_selection/base.py` | `BaseFeatureSelector` abstract class for custom selectors |
-| `feature_selection/methods.py` | Built-in selectors: Boruta, Correlation, Constant |
+| `feature_selection/methods.py` | Built-in selectors: BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector |
 | `preprocessing/preprocessing.py` | Core transformers: ToDummy, TeEncoder, CardinalityReducer, etc. |
 
 ### Modeling
@@ -270,9 +276,11 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | Module | Responsibility |
 |---------|---------------|
 | `cli/main.py` | Main CLI entry point with subcommands |
-| `cli/init.py` | `energizados init` - project initialization |
+| `cli/init.py` | `energizados init` - project initialization; copies templates from `src/energizados/templates/` |
 | `cli/run.py` | `energizados run` - pipeline execution |
 | `cli/validate.py` | `energizados validate` - configuration validation |
+
+Templates live at `src/energizados/templates/` (package root level, sibling to `cli/`). The generated run scripts under `templates/src/run/` use `ConfigPipelineBuilder` for backwards compatibility.
 
 ## Data Flow
 
@@ -284,6 +292,8 @@ Raw Data
 ETL (config/etl.yaml)
     ↓
 Processed Data (data/processed/)
+    ↓
+EDA (config/eda.yaml) [optional — run independently before training]
     ↓
 Split (config/train.yaml → split section)
     ↓
@@ -417,6 +427,7 @@ The framework provides several base classes for extending functionality:
 | `BaseETL` | `src/energizados/etl/base.py` | Create custom ETLs |
 | `BaseFeatureEngineering` | `src/energizados/feature_engineering/base.py` | Custom feature engineering pipelines |
 | `BaseFeatureSelector` | `src/energizados/feature_selection/base.py` | Custom feature selection methods |
+| `BaseModel` | `src/energizados/core/base.py` | Custom model implementations |
 | `BaseInference` | `src/energizados/inference/base.py` | Custom inference logic |
 | `BaseExplorer` | `src/energizados/eda/base.py` | Custom EDA phases |
 
@@ -462,7 +473,7 @@ etl:
 ### Training Configuration (`train.yaml`)
 
 ```yaml
-training:
+train:
   enabled: true
   input_path: "data/processed/data.parquet"
   target_column: "target"
@@ -522,7 +533,7 @@ training:
 ### Inference Configuration (`infer.yaml`)
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
   output_path: "output/predictions.csv"

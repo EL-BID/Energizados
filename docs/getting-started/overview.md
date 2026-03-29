@@ -48,7 +48,7 @@ More complex models trained on labeled data:
     - *Spectral*: signal slope, signal variance, signal distance
     - *Temporal*: autocorrelation, entropy, centroids
 
-2. **Feature Selection**: Removes constant, highly correlated, or irrelevant features (Boruta algorithm)
+2. **Feature Selection**: Removes constant, highly correlated, or irrelevant features (Boruta, correlation, constant variance, categorical, mutual information)
 
 3. **Imbalanced data handling**: Under-sampling or over-sampling strategies (imbalanced-learn)
 

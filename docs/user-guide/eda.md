@@ -56,6 +56,20 @@ eda:
     report_name: "eda_report.html"
 ```
 
+## Section Key Aliases
+
+The configuration normalizes several legacy section keys to their canonical form. Both the original and canonical names are accepted:
+
+| Alias (also accepted) | Canonical key | Notes |
+|-----------------------|---------------|-------|
+| `target_analysis` | `target` | Phase 3 section key |
+| `data_quality` | `global_stats` | Data quality features are computed inside `global_stats` |
+| `missing_values` | `global_stats` | Missing value stats are part of `global_stats` |
+| `duplicates` | `global_stats` | Duplicate detection is part of `global_stats` |
+
+!!! note
+    The YAML template uses the alias form (`data_quality`, `missing_values`, `duplicates`, `target_analysis`) for readability. The framework internally maps them to their canonical keys before processing.
+
 ## Analysis Phases
 
 The EDA module runs through multiple phases, each producing specific insights:
@@ -298,6 +312,35 @@ For each hierarchy, the EDA generates:
 !!! example
     For a hierarchy `["ZONA", "TIPO_TARIFA"]`, the target rate heatmap shows which zone-tariff combinations have the highest fraud rates, helping identify high-risk segments for targeted inspection.
 
+## Configurable Thresholds
+
+The `thresholds` section controls when alerts are raised across all phases:
+
+| Key | Default | Alert triggered when... |
+|-----|---------|------------------------|
+| `missing_threshold` | `0.5` | A column has more than 50% missing values (`HIGH_MISSING`) |
+| `correlation_threshold` | `0.95` | Two columns have Pearson correlation above 0.95 (`HIGHLY_CORRELATED`) |
+| `cardinality_high` | `100` | A categorical column has more than 100 unique values (`HIGH_CARDINALITY`) |
+| `cardinality_low` | `10` | A numeric column has fewer than 10 unique values (`LOW_CARDINALITY_NUMERIC`) |
+| `class_imbalance_ratio` | `10` | Majority class is more than 10× the minority class (`CLASS_IMBALANCE`) |
+| `iv_threshold_weak` | `0.02` | A feature's IV is below 0.02 — considered a weak predictor (`WEAK_PREDICTORS`) |
+| `iv_threshold_leakage` | `0.8` | A feature's IV exceeds 0.8 — potential data leakage (`POTENTIAL_LEAKAGE`) |
+| `iv_threshold_strong` | `0.3` | Reference value for strong predictors (no alert, used in report labeling) |
+| `ks_significance` | `0.05` | KS test p-value threshold for significance |
+
+```yaml
+thresholds:
+  missing_threshold: 0.5
+  correlation_threshold: 0.95
+  cardinality_high: 100
+  cardinality_low: 10
+  class_imbalance_ratio: 10
+  iv_threshold_weak: 0.02
+  iv_threshold_strong: 0.3
+  iv_threshold_leakage: 0.8
+  ks_significance: 0.05
+```
+
 ## Output
 
 The EDA module generates:
@@ -364,9 +407,9 @@ eda:
         - zscore
         - modified_zscore
       thresholds:
-        iqr:1.5
-        zscore:3.0
-        modified_zscore:3.5
+        iqr: 1.5
+        zscore: 3.0
+        modified_zscore: 3.5
       consumption_patterns: true  # Detects abrupt drops, zeros, negatives, constants
       alert_threshold: 10         # % of outliers that triggers a WARNING alert
       max_outlier_values_shown: 20
@@ -381,17 +424,25 @@ eda:
         min_population_pct: 0.5    # Minimum % of rows for a population
         # additional_columns: ["feature_1", "feature_2"]  # Optional: extra columns
     related_columns:
-      enabled: true
-      hierarchies:
-        - name: "Zone × Activity"
-          columns: ["zona", "actividad"]
-        - name: "Tariff × Voltage"
-          columns: ["tipo_tarifa", "nivel_tension"]
+      enabled: false
+      hierarchies: []
+      # hierarchies:
+      #   - name: "Proceso de inspección"
+      #     columns: ["TIPO_SERVICO", "ACAO", "CATEGORIA_NOTA"]
+      #   - name: "Ubicación × Tarifa"
+      #     columns: ["ZONA", "TIPO_TARIFA"]
     geospatial:
       enabled: false
+      clustering:
+        n_clusters: 10
+      country_bounds: [[-34.8, -74], [5.3, -28]]  # Brazil
     feature_importance:
       enabled: true
       methods: ["iv", "ks_chi2", "cramers_v", "correlation"]
+      lgbm_quick:
+        enabled: false          # Enable for LightGBM-based feature importance
+        n_estimators: 50
+        max_depth: 5
     segmentation:
       enabled: true
       segment_cols: ["zona", "actividad", "tipo_tarifa"]

@@ -42,7 +42,7 @@ Executes a pipeline from YAML configuration files.
 ### Optional Options
 
 - `--config-path, -p`: Override config directory (default: `config/`)
-- `--step, -s`: Execute only a specific pipeline step (`etl`, `split`, `training`, `evaluation`, `inference`)
+- `--step, -s`: Execute only a specific pipeline step (`etl`, `split`, `train`, `evaluation`, `infer`)
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
 - `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
@@ -54,7 +54,10 @@ Config names are resolved to files in `config/` directory:
 - `etl` → `config/etl.yaml`
 - `train` → `config/train.yaml`
 - `infer` → `config/infer.yaml`
+- `eda` → `config/eda.yaml`
 - `etl,train` → `config/etl.yaml` + `config/train.yaml`
+- Subdirectory paths: `v0/etl` → `config/v0/etl.yaml`
+- Wildcards: `v0/train*` → all matching files in `config/v0/`
 - Absolute paths are passed through unchanged
 - Use `--config-path` to override the default directory
 
@@ -66,7 +69,7 @@ energizados run etl,train
 
 # Run only one step
 energizados run train --step split
-energizados run train --step training
+energizados run train --step train
 
 # Run a specific ETL
 energizados run etl --etl sample
@@ -84,6 +87,13 @@ energizados run train -vv
 # Run with custom run directory name
 energizados run train -n mi-experimento-v1    # Custom run directory name
 energizados run train -n experimento-v2       # Replaces if already exists
+
+# Run with wildcard config names
+energizados run train_01* -v                  # All configs matching pattern
+
+# Run EDA
+energizados run eda
+energizados run eda -v
 ```
 
 ---
@@ -121,36 +131,6 @@ energizados validate etl,train -vv
 
 ---
 
-## `energizados run eda [options]`
-
-Runs exploratory data analysis (EDA) on a dataset using `config/eda.yaml`.
-
-### Options
-
-All options from `energizados run` are available when using `eda` config:
-- `--config-path, -p`: Override config directory (default: `config/`)
-- `--step, -s`: Execute only a specific pipeline step
-- `--dry-run, -d`: Show execution plan without executing
-
-### Config Name Resolution
-
-Same resolution rules as `energizados run` command.
-
-### Examples
-
-```bash
-# Run EDA with default config
-energizados run eda
-
-# Run EDA with custom config directory
-energizados run --config-path /custom/path eda
-
-# Dry run to see execution plan
-energizados run eda --dry-run
-```
-
----
-
 ## `energizados doctor [options]`
 
 Checks system information and validates the environment.
@@ -184,9 +164,11 @@ The `--step` option in `energizados run` accepts the following values:
 |------|-------------|
 | `etl` | Run ETL processes defined in `etl.yaml` |
 | `split` | Split data into train/val/test sets |
-| `training` | Train models (includes feature engineering) |
+| `train` | Train models (includes feature engineering) |
 | `evaluation` | Evaluate trained models |
-| `inference` | Run inference on new data |
+| `infer` | Run inference on new data |
+
+> **Note:** `energizados run eda` uses the same `run` command with `eda` as the config name. It is not a separate CLI command — it simply resolves to `config/eda.yaml`.
 
 ---
 

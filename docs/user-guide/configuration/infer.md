@@ -9,14 +9,18 @@ Inference configuration defines how to apply a trained model to new data. It spe
 ## Configuration Structure
 
 ```yaml
-inference:
-  enabled: true
-  input_path: "path/to/new_data.parquet"
-  output_path: "path/to/predictions.csv"
-  model_path: "path/to/model.pkl"
-  feature_engineering_path: "path/to/feature_engineering.pkl"
+infer:
+  enabled: false          # Set to true to run inference
+  input_path: "data/processed/sample_dataset.parquet"
+  output_path: "output/predictions.csv"
+  # Uncomment and set to point to a specific training run:
+  # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
+  # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
   threshold: 0.5
+  type: "default"         # Use "default" or set custom_class
 ```
+
+> **Note:** The template ships with `enabled: false`. You must set `enabled: true` and configure `model_path` and `feature_engineering_path` before running inference.
 
 ## Required Fields
 
@@ -61,7 +65,7 @@ output/train-20260317_1430/
 Configuration:
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
@@ -88,7 +92,7 @@ output/train-20260317_1430/
 Configuration:
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
@@ -136,7 +140,7 @@ energizados run infer
 ### Using the Python Script
 
 ```bash
-python src/run/04_inference.py
+python src/run/03_inference.py --run-dir output/train-YYYYMMDD_HHMM
 ```
 
 ---
@@ -146,7 +150,7 @@ python src/run/04_inference.py
 ### Basic Inference
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
@@ -160,7 +164,7 @@ inference:
 Use a higher threshold to reduce false positives (fewer unnecessary inspections):
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
@@ -172,7 +176,7 @@ inference:
 Use a lower threshold to reduce false negatives (catch more fraud):
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
@@ -186,7 +190,7 @@ inference:
 If you used threshold calibration during training, use the calibrated threshold:
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
@@ -202,7 +206,7 @@ Check the evaluation report (`output/train-YYYYMMDD_HHMM/reports/evaluation/repo
 Process multiple files by updating the configuration:
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/batch/january_2024.parquet"
   output_path: "predictions/january_2024.csv"
@@ -250,14 +254,14 @@ class CustomInference(BaseInference):
 Update `infer.yaml` to use your custom class:
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  custom_class: "src.inference.custom_inference.CustomInference"
+  custom_class: "inference.custom_inference.CustomInference"
 ```
 
 ---
@@ -266,10 +270,10 @@ inference:
 
 ### 1. Model Versioning
 
-Keep track of which model was used for inference:
+Keep track of which model was used for infer:
 
 ```yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_data.parquet"
   output_path: "predictions_model_v1.csv"

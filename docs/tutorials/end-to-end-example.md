@@ -27,7 +27,8 @@ fraud_detection/
 │   ├── raw/
 │   │   └── sample_dataset.parquet    # Sample data (42,500 rows)
 │   ├── processed/                      # ETL outputs
-│   └── splits/                         # Train/val/test splits
+│   └── temp/
+│       └── splits/                     # Train/val/test splits
 ├── output/                  # Training run outputs
 ├── src/
 │   ├── data/
@@ -138,7 +139,7 @@ The default `train.yaml` is already configured for LightGBM training. Let's revi
 
 ```yaml
 # config/train.yaml
-training:
+train:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
@@ -320,7 +321,7 @@ The default `infer.yaml` is already configured:
 
 ```yaml
 # config/infer.yaml
-inference:
+infer:
   enabled: true
   input_path: "data/new_customers.parquet"
   model_path: "output/train-20240315_1430/models/model.pkl"

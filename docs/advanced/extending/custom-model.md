@@ -128,10 +128,10 @@ class SklearnModelAdapter(BaseModel):
 
 Wire it in `config/train.yaml`:
 ```yaml
-training:
+train:
   models:
     - type: "sklearn_adapter"
-      custom_class: "src.models.sklearn_adapter.SklearnModelAdapter"
+      custom_class: "models.sklearn_adapter.SklearnModelAdapter"
       params:
         estimator_class: "sklearn.ensemble.RandomForestClassifier"
         estimator_params:
@@ -206,10 +206,10 @@ class CustomLightGBMModel(BaseModel):
 
 Wire it in `config/train.yaml`:
 ```yaml
-training:
+train:
   models:
     - name: "custom_lgbm"
-      custom_class: "src.models.custom_lightgbm.CustomLightGBMModel"
+      custom_class: "models.custom_lightgbm.CustomLightGBMModel"
       params:
         n_estimators: 1000
         learning_rate: 0.05
@@ -221,17 +221,17 @@ training:
 Custom models can be used as base models in ensembles:
 
 ```yaml
-training:
+train:
   models:
     - name: "sklearn_rf"
-      custom_class: "src.models.sklearn_adapter.SklearnModelAdapter"
+      custom_class: "models.sklearn_adapter.SklearnModelAdapter"
       params:
         estimator_class: "sklearn.ensemble.RandomForestClassifier"
         estimator_params:
           n_estimators: 100
 
     - name: "custom_lgbm"
-      custom_class: "src.models.custom_lightgbm.CustomLightGBMModel"
+      custom_class: "models.custom_lightgbm.CustomLightGBMModel"
       params:
         n_estimators: 500
 
@@ -252,7 +252,7 @@ import pytest
 import numpy as np
 
 from energizados.core.base import BaseModel
-from src.models.sklearn_adapter import SklearnModelAdapter
+from models.sklearn_adapter import SklearnModelAdapter
 
 
 def test_sklearn_adapter_fit_predict(synthetic_classification_data):

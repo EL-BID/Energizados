@@ -42,7 +42,8 @@ fraud_detection/
 ├── data/
 │   ├── raw/               # Input data (includes sample_dataset.parquet)
 │   ├── processed/         # ETL outputs and feature engineering results
-│   └── splits/            # Train/val/test splits
+│   └── temp/
+│       └── splits/        # Train/val/test splits
 ├── output/                # Training run outputs (auto-created per run)
 │   ├── index.html         # Summary table of all training runs
 │   └── train-YYYYMMDD_HHMM/  # One directory per training execution
@@ -58,10 +59,10 @@ fraud_detection/
 │   ├── inference/         # Custom inference (custom_inference.py)
 │   ├── utils/             # Shared utilities (helpers.py)
 │   └── run/               # Execution scripts
-│       ├── 01_etl.py
+│       ├── 00_etl.py
+│       ├── 01_eda.py
 │       ├── 02_training.py
-│       ├── 03_evaluation.py
-│       └── 04_inference.py
+│       └── 03_inference.py
 ├── docs/
 │   └── project_docs.md
 └── tests/
