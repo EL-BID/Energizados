@@ -15,9 +15,9 @@ from energizados.eda.report import EDAReportGenerator
 class TestRenderOutlierSection:
     """Tests for render_outlier_section() method."""
 
-    def test_render_outlier_section_with_empty_results(self):
+    def test_render_outlier_section_with_empty_results(self, tmp_path):
         """Test render_outlier_section() with empty outlier results."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {}
 
         html = generator.render_outlier_section(columns, {})
@@ -26,9 +26,9 @@ class TestRenderOutlierSection:
         # The section is only rendered when outlier data exists
         assert html == ""
 
-    def test_render_outlier_section_with_numeric_outliers(self):
+    def test_render_outlier_section_with_numeric_outliers(self, tmp_path):
         """Test render_outlier_section() with numeric column outliers."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
@@ -53,9 +53,9 @@ class TestRenderOutlierSection:
         assert "<th>Column</th>" in html
         assert "<th>Method</th>" in html
 
-    def test_render_outlier_section_with_high_outlier_alerts(self):
+    def test_render_outlier_section_with_high_outlier_alerts(self, tmp_path):
         """Test render_outlier_section() with high outlier percentage alerts."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
@@ -76,9 +76,9 @@ class TestRenderOutlierSection:
         assert "15.00%" in html
         assert "badge-WARNING" in html
 
-    def test_render_outlier_section_with_consumption_outliers(self):
+    def test_render_outlier_section_with_consumption_outliers(self, tmp_path):
         """Test render_outlier_section() with consumption outlier patterns."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [],
             "consumption_outliers": {
@@ -98,9 +98,9 @@ class TestRenderOutlierSection:
         assert "Extreme Range Outliers" in html
         assert "Global Mean Outliers" in html
 
-    def test_render_outlier_section_with_consumption_high_values(self):
+    def test_render_outlier_section_with_consumption_high_values(self, tmp_path):
         """Test render_outlier_section() shows high consumption outlier percentages."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [],
             "consumption_outliers": {
@@ -117,9 +117,9 @@ class TestRenderOutlierSection:
         assert "12.00%" in html
         assert "8.00%" in html
 
-    def test_render_outlier_section_with_legacy_iqr_method(self):
+    def test_render_outlier_section_with_legacy_iqr_method(self, tmp_path):
         """Test render_outlier_section() with legacy IQR method (no outlier_methods)."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
@@ -137,9 +137,9 @@ class TestRenderOutlierSection:
         assert "8.00%" in html
         assert "IQR (legacy)" in html
 
-    def test_render_outlier_section_method_breakdown(self):
+    def test_render_outlier_section_method_breakdown(self, tmp_path):
         """Test that method breakdown statistics are calculated correctly."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
@@ -332,15 +332,15 @@ class TestSaveOutlierResultsJson:
 class TestHasOutlierData:
     """Tests for _has_outlier_data() method."""
 
-    def test_has_outlier_data_with_empty_columns(self):
+    def test_has_outlier_data_with_empty_columns(self, tmp_path):
         """Test _has_outlier_data() returns False for empty columns."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
 
         assert generator._has_outlier_data({}) is False
 
-    def test_has_outlier_data_with_multi_method_outliers(self):
+    def test_has_outlier_data_with_multi_method_outliers(self, tmp_path):
         """Test _has_outlier_data() returns True for multi-method outliers."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
@@ -355,9 +355,9 @@ class TestHasOutlierData:
 
         assert generator._has_outlier_data(columns) is True
 
-    def test_has_outlier_data_with_legacy_outliers(self):
+    def test_has_outlier_data_with_legacy_outliers(self, tmp_path):
         """Test _has_outlier_data() returns True for legacy IQR outliers."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
@@ -371,9 +371,9 @@ class TestHasOutlierData:
 
         assert generator._has_outlier_data(columns) is True
 
-    def test_has_outlier_data_with_consumption_outliers(self):
+    def test_has_outlier_data_with_consumption_outliers(self, tmp_path):
         """Test _has_outlier_data() returns True for consumption outliers."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [],
             "consumption_outliers": {"pct_zero_variance": 2.5},
@@ -381,9 +381,9 @@ class TestHasOutlierData:
 
         assert generator._has_outlier_data(columns) is True
 
-    def test_has_outlier_data_no_outliers(self):
+    def test_has_outlier_data_no_outliers(self, tmp_path):
         """Test _has_outlier_data() returns False when no outliers exist."""
-        generator = EDAReportGenerator("output/eda/")
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
         columns = {
             "numeric": [
                 {
