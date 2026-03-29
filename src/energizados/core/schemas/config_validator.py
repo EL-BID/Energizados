@@ -256,6 +256,26 @@ class ConfigValidator:
             elif not 0 <= threshold <= 1:
                 errors.append(ValidationError("infer.threshold", "must be between 0 and 1"))
 
+        # Validate output_format if present
+        if "output_format" in inf_config:
+            fmt = inf_config["output_format"]
+            if not isinstance(fmt, str) or fmt not in ("csv", "parquet"):
+                errors.append(
+                    ValidationError(
+                        "infer.output_format", "output_format must be 'csv' or 'parquet'"
+                    )
+                )
+
+        # Validate output_include_input if present
+        if "output_include_input" in inf_config:
+            val = inf_config["output_include_input"]
+            if not isinstance(val, bool):
+                errors.append(
+                    ValidationError(
+                        "infer.output_include_input", "output_include_input must be a boolean"
+                    )
+                )
+
         return errors
 
     def _validate_eda(self, eda_config: Any) -> List[ValidationError]:

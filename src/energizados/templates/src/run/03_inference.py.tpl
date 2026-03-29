@@ -3,13 +3,18 @@
 
 Usage:
     python src/run/03_inference.py --run-dir output/train-20240101_1200
+
+The script auto-resolves model and feature engineering paths from the
+run directory and passes them as config overrides to ConfigPipelineBuilder.
 """
 
 import argparse
-import pickle
 from pathlib import Path
 
+import yaml
+
 from energizados.core.pipeline import ConfigPipelineBuilder
+from energizados.core.utils.secure_pickle import secure_load
 
 if __name__ == "__main__":
     from energizados.cli.main import _setup_logging
@@ -33,21 +38,19 @@ if __name__ == "__main__":
     if not model_path.exists():
         raise FileNotFoundError(f"Model not found: {model_path}")
 
-    with open(model_path, "rb") as f:
-        model = pickle.load(f)
+    # Load config and merge resolved paths
+    config_path = "config/infer.yaml"
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
 
-    feature_engineering = None
+    # Inject resolved paths into infer section
+    infer_config = config.setdefault("infer", {})
+    infer_config["model_path"] = str(model_path)
     if feature_engineering_path.exists():
-        with open(feature_engineering_path, "rb") as f:
-            feature_engineering = pickle.load(f)
+        infer_config["feature_engineering_path"] = str(feature_engineering_path)
 
-    builder = ConfigPipelineBuilder(config_path="config/infer.yaml")
+    builder = ConfigPipelineBuilder(config=config, config_paths=[config_path])
     pipeline = builder.build()
-
-    # Inject trained artifacts into context before running
-    pipeline.context["model"] = model
-    if feature_engineering is not None:
-        pipeline.context["feature_engineering"] = feature_engineering
 
     results = pipeline.run()
     print("Inference completed")

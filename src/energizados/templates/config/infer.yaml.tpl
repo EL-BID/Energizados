@@ -10,9 +10,13 @@ infer:
   input_path: "data/processed/feature_pipeline.parquet"
   output_path: "output/predictions.csv"
 
-  # Point to the latest training run:
+  # Point to the latest training run for standalone inference:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
   # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
+
+  # Output options
+  # output_include_input: true   # Append original input columns to output (default: false)
+  # output_format: "csv"         # "csv" or "parquet" (default: csv)
 
   # Threshold for binary predictions
   threshold: 0.5
