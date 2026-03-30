@@ -143,3 +143,4 @@ models/artifacts
 .plans/
 .proyects/
 node_modules/
+.worktrees/
