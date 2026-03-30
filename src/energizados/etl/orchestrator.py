@@ -254,7 +254,8 @@ class ETLOrchestrator:
                 )
 
             etl_class = import_class(config["custom_class"])
-            params = config.get("params", {})
+            # Copy params to avoid modifying the original config dict
+            params = dict(config.get("params", {}))
             input_paths = self.resolve_input_paths(etl_name)
             output_path = config.get("output")
 

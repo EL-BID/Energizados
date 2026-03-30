@@ -30,10 +30,6 @@ class BaseETL(ABC):
 
     def __init__(self):
         """Initialize the ETL instance."""
-        # Support 'sample' parameter for all ETL subclasses
-        # If subclass sets self.sample, it will be used in run()
-        if not hasattr(self, "sample"):
-            self.sample = getattr(self, "sample", None)
 
     @abstractmethod
     def extract(self) -> pd.DataFrame:

@@ -7,6 +7,7 @@ This module provides ETL classes for data processing:
 - CleanFilesETL: Deletes specified files (e.g. intermediate outputs after pipeline).
 """
 
+import glob
 import json
 import logging
 from pathlib import Path
@@ -276,18 +277,32 @@ class SourceETL(BaseETL):
 
     def _extract_incremental(self) -> pd.DataFrame:
         """Extract data in incremental mode - only process pending files."""
-        import glob as glob_module
+        import re
 
         from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        # Validate glob pattern to prevent directory traversal
+        # Only allow safe patterns: alphanumeric, _, -, /, *, ?, and []
+        if self.raw_glob:
+            safe_pattern = re.compile(r"^[\w\-./\*?\[\]]+$")
+            if not safe_pattern.match(self.raw_glob):
+                raise ETLError(
+                    f"SourceETL '{self.name}': raw_glob contains unsafe characters. "
+                    f"Allowed: alphanumeric, _, -, /, *, ?, []. Got: '{self.raw_glob}'"
+                )
 
         # Determine input files to process
         if self.raw_glob:
             # Use glob pattern to discover raw files
-            raw_files = sorted(glob_module.glob(self.raw_glob))
+            raw_files = sorted(glob.glob(self.raw_glob))
             if not raw_files:
                 logger.info(f"  • No files found matching glob: '{self.raw_glob}'")
                 return pd.DataFrame()
             logger.info(f"  • Found {len(raw_files)} files matching raw_glob")
+
+            # Validate each resolved file path to prevent traversal
+            for f in raw_files:
+                validate_no_traversal(f, label=f"ETL '{self.name}' incremental glob result")
 
             # Determine which files are pending
             pending_files = self._get_pending_files(raw_files)
@@ -355,11 +370,9 @@ class SourceETL(BaseETL):
 
     def _get_pending_files(self, raw_files: List[str]) -> List[str]:
         """Determine which files are pending based on state and processed_glob."""
-        import glob as glob_module
-
         if self.processed_glob:
             # Use processed_glob to find already processed files
-            processed_files = set(glob_module.glob(self.processed_glob))
+            processed_files = set(glob.glob(self.processed_glob))
             # Also include files from state
             state_files = set(self._state.get("processed_files", []))
             all_processed = processed_files | state_files
@@ -389,6 +402,47 @@ class SourceETL(BaseETL):
         if file_path not in self._state["processed_files"]:
             self._state["processed_files"].append(file_path)
 
+    def _acquire_lock(self, lock_path: Path) -> bool:
+        """Acquire file lock for concurrent access safety.
+
+        Uses a simple lock file mechanism. Returns True if lock acquired.
+        """
+        import time
+
+        max_retries = 10
+        retry_delay = 0.5
+
+        for attempt in range(max_retries):
+            try:
+                # Try to create lock file exclusively
+                lock_path.touch(exist_ok=False)
+                return True
+            except FileExistsError:
+                # Lock exists, check if stale (older than 5 minutes)
+                try:
+                    import time as time_module
+
+                    if time_module.time() - lock_path.stat().st_mtime > 300:
+                        # Lock is stale, remove it
+                        lock_path.unlink()
+                        logger.warning(f"  • Removed stale lock file: {lock_path}")
+                        continue
+                except OSError:
+                    pass
+                # Wait and retry
+                time.sleep(retry_delay)
+
+        logger.warning(f"  • Could not acquire lock after {max_retries} attempts")
+        return False
+
+    def _release_lock(self, lock_path: Path) -> None:
+        """Release file lock."""
+        try:
+            if lock_path.exists():
+                lock_path.unlink()
+        except OSError:
+            pass
+
     def _load_state(self) -> None:
         """Load state from state_file."""
         import json
@@ -400,6 +454,11 @@ class SourceETL(BaseETL):
 
         validate_no_traversal(self.state_file, label=f"ETL '{self.name}' state file")
         state_path = Path(self.state_file)
+
+        # Acquire lock for safe concurrent access
+        lock_path = state_path.with_suffix(".lock")
+        if not self._acquire_lock(lock_path):
+            logger.warning("  • Proceeding without lock (concurrent access may cause issues)")
 
         if state_path.exists():
             try:
@@ -419,6 +478,8 @@ class SourceETL(BaseETL):
             return
 
         state_path = Path(self.state_file)
+        lock_path = state_path.with_suffix(".lock")
+
         state_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -427,6 +488,9 @@ class SourceETL(BaseETL):
             logger.debug(f"  • State saved to '{self.state_file}'")
         except Exception as e:
             logger.warning(f"  • Could not save state file: {e}")
+        finally:
+            # Always release lock
+            self._release_lock(lock_path)
 
     def _merge_dataframes(self, dataframes: List[pd.DataFrame]) -> pd.DataFrame:
         """
@@ -820,9 +884,13 @@ class CleanFilesETL(BaseETL):
 
     def run(self, output_path: Optional[str] = None) -> pd.DataFrame:  # type: ignore[override]
         """Delete all files in input_paths and return an empty DataFrame."""
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
         deleted, skipped, failed = 0, 0, []
 
         for file_path in self.input_paths:
+            # Validate path to prevent directory traversal attacks
+            validate_no_traversal(file_path, label=f"CleanFilesETL '{self.name}' input")
             path = Path(file_path)
             if not path.exists():
                 if self.missing_ok:
