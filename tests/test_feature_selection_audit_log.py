@@ -107,6 +107,7 @@ class TestGetAuditStatsPostFit:
         assert "threshold" in stats
         assert stats["threshold"] == 0.99
 
+    @pytest.mark.slow
     def test_boruta_selector_audit_stats(self, small_df, small_target):
         """BorutaSelector returns vote_counts, n_runs, threshold."""
         selector = BorutaSelector(n_estimators=10, max_iter=5, random_state=42)
@@ -152,6 +153,7 @@ class TestSaveAuditLog:
         assert "final_selected_features" in data
         assert len(data["steps"]) == 2
 
+    @pytest.mark.slow
     def test_save_audit_log_step_has_audit_stats(self, small_df, small_target, tmp_path):
         """Boruta step in audit log has vote_counts in audit_stats."""
         pipeline = FeatureSelectionPipeline(
@@ -175,6 +177,7 @@ class TestSaveAuditLog:
         assert "audit_stats" in step
         assert "vote_counts" in step["audit_stats"]
 
+    @pytest.mark.slow
     def test_save_audit_log_boruta_has_vote_counts(self, small_df, small_target, tmp_path):
         """Boruta step audit log contains vote_counts."""
         pipeline = FeatureSelectionPipeline(

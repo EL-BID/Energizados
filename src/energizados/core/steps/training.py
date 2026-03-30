@@ -6,13 +6,13 @@ and model training to prevent data leakage.
 """
 
 import logging
-import pickle  # nosec B403: ML model serialization (local files only)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 from energizados.core.base import PipelineStep
+from energizados.core.utils.secure_pickle import secure_dump
 from energizados.feature_engineering import DefaultFeatureEngineering
 from energizados.modeling.registry import ModelRegistry
 
@@ -245,8 +245,7 @@ class TrainingStep(PipelineStep):
         output_pkl = self.feature_engineering_config.get("output_pkl")
         fe_path = Path(output_pkl) if output_pkl else self.output_dir / "feature_engineering.pkl"
         fe_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(fe_path, "wb") as f:
-            pickle.dump(feature_engineering, f)
+        secure_dump(feature_engineering, fe_path)
         logger.info(f"Feature Engineering saved to: {fe_path}")
 
         self._report_phase(context, "feature_engineering", 50)
@@ -475,8 +474,7 @@ class TrainingStep(PipelineStep):
             logger.info(f"Applied probability calibration to model '{name}'")
 
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(save_path, "wb") as f:
-            pickle.dump(model, f)
+        secure_dump(model, save_path)
         logger.info(f"Model '{name}' saved to: {save_path}")
 
         return model, save_path
@@ -620,8 +618,7 @@ class TrainingStep(PipelineStep):
         ensemble.fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
         ensemble_path = self.output_dir / "ensemble.pkl"
-        with open(ensemble_path, "wb") as f:
-            pickle.dump(ensemble, f)
+        secure_dump(ensemble, ensemble_path)
         logger.info(f"Ensemble saved to: {ensemble_path}")
 
         return ensemble, ensemble_path

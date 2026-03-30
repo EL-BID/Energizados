@@ -692,11 +692,9 @@ class SimpleTrendAdapter(BaseModel):
         """
         self.check_fitted()
         result = self._model.predict(X)
-        # Use trend_perc as probability proxy, handle NaN values
         proba = (100 - result["trend_perc"]).values / 100
-        # Replace NaN with 0.5 (neutral probability) for rows with missing consumption data
         proba = np.where(np.isnan(proba), 0.5, proba)
-        return proba
+        return np.clip(proba, 0.0, 1.0)
 
     def get_raw_model(self) -> Any:
         """Rule-based model has no raw fitted model.
@@ -855,10 +853,10 @@ class IsolationForestAdapter(BaseModel):
         """
         X_train = X[self.cols_for_model].copy()
 
-        # Handle missing values - IsolationForest doesn't handle NaN
-        X_train = X_train.fillna(X_train.median())
+        self._train_medians = X_train.median()
 
-        # Fit the model
+        X_train = X_train.fillna(self._train_medians)
+
         self._model.fit(X_train)
 
         # Store the anomaly scores for min-max scaling later
@@ -882,9 +880,7 @@ class IsolationForestAdapter(BaseModel):
         """
         self.check_fitted()
         X_pred = X[self.cols_for_model].copy()
-        X_pred = X_pred.fillna(X_pred.median())
-
-        # IsolationForest returns: 1 for inliers, -1 for outliers
+        X_pred = X_pred.fillna(self._train_medians)
         raw_predictions = self._model.predict(X_pred)
 
         # Convert -1 (outlier) to 1 (fraud), 1 (inlier) to 0 (normal)
@@ -905,9 +901,7 @@ class IsolationForestAdapter(BaseModel):
         """
         self.check_fitted()
         X_pred = X[self.cols_for_model].copy()
-        X_pred = X_pred.fillna(X_pred.median())
-
-        # Get anomaly scores (lower = more anomalous)
+        X_pred = X_pred.fillna(self._train_medians)
         scores = self._model.score_samples(X_pred)
 
         # Handle edge case where all scores are the same
@@ -919,7 +913,7 @@ class IsolationForestAdapter(BaseModel):
         # We want: higher = more likely anomaly
         proba = 1 - (scores - self._score_min) / (self._score_max - self._score_min)
 
-        return proba
+        return np.clip(proba, 0.0, 1.0)
 
     def get_raw_model(self) -> Any:
         """Extract the fitted IsolationForest from the adapter.
