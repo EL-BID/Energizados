@@ -615,6 +615,8 @@ def execute_etl(
     # Merge configurations
     merged_config = merge_configs(config_paths)
 
+    from energizados._version import SCHEMA_VERSION_KEY
+
     # Verify if there is ETL configuration
     etl_configs = merged_config.get("etl")
 
@@ -625,10 +627,9 @@ def execute_etl(
 
     # If a specific ETL is requested, filter its dependencies
     if etl_name:
+        available = [k for k in etl_configs if k != SCHEMA_VERSION_KEY]
         if etl_name not in etl_configs:
-            raise PipelineError(
-                f"ETL '{etl_name}' not found. Available ETLs: {list(etl_configs.keys())}"
-            )
+            raise PipelineError(f"ETL '{etl_name}' not found. Available ETLs: {available}")
 
         # Filter only necessary ETLs (etl_name + dependencies)
         filtered_configs = _get_etl_with_dependencies(etl_configs, etl_name)

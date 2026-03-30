@@ -68,7 +68,9 @@ class ETLOrchestrator:
         Args:
             etl_configs: Dictionary with configuration for each ETL.
         """
-        self.etl_configs = etl_configs
+        from energizados._version import SCHEMA_VERSION_KEY
+
+        self.etl_configs = {k: v for k, v in etl_configs.items() if k != SCHEMA_VERSION_KEY}
         self.etl_instances: Dict[str, object] = {}
         self.execution_order: List[str] = []
         self.results: Dict[str, pd.DataFrame] = {}

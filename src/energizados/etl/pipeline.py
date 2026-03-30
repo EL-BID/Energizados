@@ -30,7 +30,12 @@ class SourceETL(BaseETL):
 
     - **concat**: Concatenates multiple dataframes vertically (default)
     - **merge**: Joins multiple dataframes horizontally using merge_config
-    - **incremental**: Processes only new/pending files based on state tracking
+    - **incremental**: Processes only new/pending records based on a key column value
+
+    Input paths can be individual files, globs, ``@etl_name`` references, or
+    **Hive-style partitioned directories** (e.g. ``year=2024/month=03/``).
+    When a directory is detected, it is read with ``pd.read_parquet()`` which
+    automatically discovers all parquet files and parses partition columns.
 
     Args:
         name: Name of the source (e.g.: 'consumos', 'inspecciones', 'clientes').
@@ -51,10 +56,13 @@ class SourceETL(BaseETL):
             If None (default), reads all data.
         partition_by: Optional list of columns for Hive-style partitioning.
             Example: ['year', 'month'] → writes to output_path/year=YYYY/month=MM/
-            The DataFrame must contain these columns.
+            If the DataFrame does not contain these columns but ``incremental_key`` is
+            a datetime column, ``year`` and ``month`` are derived automatically.
+            In incremental mode, if omitted, defaults to ``['year', 'month']`` when
+            ``incremental_key`` is provided.
         overwrite: If False (default), skips files that already exist in output.
             If True, overwrites existing files.
-        state_file: Path to JSON file that tracks processed files.
+        state_file: Path to JSON file that tracks processed files and last processed value.
             Used in incremental mode to detect pending files.
             If None, uses '<output_path>.state.json' by default.
         raw_glob: Glob pattern to find raw input files (e.g., 'data/raw/*.csv').
@@ -63,6 +71,13 @@ class SourceETL(BaseETL):
         processed_glob: Glob pattern to find already processed files.
             Used in incremental mode to detect what's already done.
             If specified alongside raw_glob, compares both to find pending files.
+        incremental_key: Column name used to filter new records (e.g. 'fecha_actualizacion').
+            In incremental mode, only records where ``incremental_key > last_processed_value``
+            are kept. After processing, the max value is stored in the state file so the next
+            run continues from where this one left off.
+        last_processed: Initial value for ``incremental_key`` comparison when no state exists.
+            Accepts any value comparable to the column (ISO date string, int, float, etc.).
+            If None and no state exists, all records are processed on the first run.
         **kwargs: Additional parameters.
 
     Example:
@@ -107,7 +122,8 @@ class SourceETL(BaseETL):
         ...     name='consumos_monthly',
         ...     mode='incremental',
         ...     raw_glob='data/raw/consumos_*.csv',
-        ...     output_path='data/processed/consumos.parquet',
+        ...     output_path='data/processed/consumos/',
+        ...     incremental_key='fecha_actualizacion',
         ...     partition_by=['year', 'month'],
         ...     overwrite=False,
         ...     state_file='data/processed/.consumos_state.json',
@@ -119,17 +135,19 @@ class SourceETL(BaseETL):
 
             consumos_incremental:
               enabled: true
-              description: "Procesa solo archivos de consumos nuevos每月"
+              description: "Procesa solo registros nuevos de consumos (incremental por fecha)"
               raw_glob: "data/raw/consumos_*.csv"
-              output: "data/processed/consumos.parquet"
+              output: "data/processed/consumos/"
               custom_class: "energizados.etl.pipeline.SourceETL"
               params:
                 mode: "incremental"
+                incremental_key: "fecha_actualizacion"  # datetime column used to filter new records
                 partition_by:
-                  - year
-                  - month
+                  - year   # derived automatically from incremental_key if not in DataFrame
+                  - month  # derived automatically from incremental_key if not in DataFrame
                 overwrite: false
                 state_file: "data/processed/.consumos_state.json"
+                # last_processed: "2024-01-01"  # optional: initial cutoff if no state exists
     """
 
     def __init__(
@@ -149,6 +167,8 @@ class SourceETL(BaseETL):
         state_file: Optional[str] = None,
         raw_glob: Optional[str] = None,
         processed_glob: Optional[str] = None,
+        incremental_key: Optional[str] = None,
+        last_processed: Optional[str] = None,
         **kwargs,
     ):
         self.name = name
@@ -165,7 +185,13 @@ class SourceETL(BaseETL):
         self.state_file = state_file
         self.raw_glob = raw_glob
         self.processed_glob = processed_glob
+        self.incremental_key = incremental_key
+        self.last_processed = last_processed
         self.kwargs = kwargs
+
+        # Auto-partition by year/month when incremental_key is set and partition_by was not specified
+        if self.mode == "incremental" and self.incremental_key and not self.partition_by:
+            self.partition_by = ["year", "month"]
 
         # Load transform_fn if provided
         self._transform_fn: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None
@@ -220,6 +246,9 @@ class SourceETL(BaseETL):
         - merge: Joins horizontally according to merge_config
         - incremental: Processes only pending files based on state tracking
 
+        Supports reading Hive-style partitioned directories (year=2024/month=03/)
+        in concat and merge modes via ``pd.read_parquet()``.
+
         Returns:
             pd.DataFrame: Combined raw data
 
@@ -246,7 +275,10 @@ class SourceETL(BaseETL):
                 raise ETLError(f"File not found: {path}")
 
             try:
-                if source_file.suffix == ".csv":
+                # Directory with Hive-style partitions (e.g. year=2024/month=03/)
+                if source_file.is_dir():
+                    df = pd.read_parquet(str(source_file))
+                elif source_file.suffix == ".csv":
                     df = pd.read_csv(path, **self.input_params)
                 elif source_file.suffix in [".parquet", ".pq"]:
                     df = pd.read_parquet(path)
@@ -361,12 +393,72 @@ class SourceETL(BaseETL):
         result = pd.concat(dataframes, axis=0, ignore_index=True)
         logger.info(f"  ✓ Incremental extract: {len(result)} records from {len(dataframes)} files")
 
-        # Update state with processed files
+        # Filter by incremental_key if configured
+        if self.incremental_key:
+            result = self._filter_by_incremental_key(result)
+
+        # Update state with processed files (flushed to disk only after load succeeds)
         for path in processed_files:
             self._mark_file_processed(path)
 
-        self._save_state()
         return result
+
+    def _filter_by_incremental_key(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Filter DataFrame to only records newer than the last processed value.
+
+        Reads ``last_processed_value`` from state (falling back to ``self.last_processed``).
+        Keeps only rows where ``incremental_key > last_processed_value``.
+        After filtering, updates state with the new max value so the next run
+        continues from where this one left off.
+
+        If the column is not datetime but can be parsed as one, it is coerced
+        automatically. Numeric and string comparisons are also supported.
+        """
+        col = self.incremental_key
+
+        if col not in df.columns:
+            raise ETLError(
+                f"SourceETL '{self.name}': incremental_key '{col}' not found in DataFrame. "
+                f"Available columns: {list(df.columns)}"
+            )
+
+        # Get last processed value: state takes priority over constructor param
+        last_val = self._state.get("last_processed_value") or self.last_processed
+
+        # Coerce column to datetime if possible (and not already)
+        if not pd.api.types.is_datetime64_any_dtype(df[col]):
+            try:
+                df = df.copy()
+                df[col] = pd.to_datetime(df[col])
+                logger.debug(f"  • Parsed '{col}' as datetime for incremental filtering")
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Could not parse '%s' as datetime: %s", col, e)
+
+        before = len(df)
+        if last_val is not None:
+            # Coerce last_val to match column dtype for comparison
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                last_val_cmp = pd.Timestamp(last_val)
+            else:
+                last_val_cmp = last_val
+
+            df = df[df[col] > last_val_cmp].copy()
+            logger.info(
+                f"  • Filtered by '{col}' > {last_val}: "
+                f"{before - len(df)} records skipped, {len(df)} kept"
+            )
+        else:
+            logger.info(f"  • No prior state for '{col}' — processing all {before} records")
+
+        if df.empty:
+            return df
+
+        # Persist the new high-water mark
+        new_max = df[col].max()
+        self._state["last_processed_value"] = str(new_max)
+        logger.info(f"  • Updated last_processed_value → {new_max}")
+
+        return df
 
     def _get_pending_files(self, raw_files: List[str]) -> List[str]:
         """Determine which files are pending based on state and processed_glob."""
@@ -443,6 +535,10 @@ class SourceETL(BaseETL):
         except OSError:
             pass
 
+    def _on_load_success(self) -> None:
+        """Persist state to disk only after load() completes successfully."""
+        self._save_state()
+
     def _load_state(self) -> None:
         """Load state from state_file."""
         import json
@@ -457,6 +553,7 @@ class SourceETL(BaseETL):
 
         # Acquire lock for safe concurrent access
         lock_path = state_path.with_suffix(".lock")
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
         if not self._acquire_lock(lock_path):
             logger.warning("  • Proceeding without lock (concurrent access may cause issues)")
 
@@ -465,7 +562,11 @@ class SourceETL(BaseETL):
                 with open(state_path, "r") as f:
                     self._state = json.load(f)
                 processed_count = len(self._state.get("processed_files", []))
-                logger.info(f"  • Loaded state: {processed_count} processed files tracked")
+                last_val = self._state.get("last_processed_value")
+                logger.info(
+                    f"  • Loaded state: {processed_count} processed files tracked"
+                    + (f", last_processed_value={last_val}" if last_val else "")
+                )
             except Exception as e:
                 logger.warning(f"  • Could not load state file: {e}")
                 self._state = {}
@@ -581,6 +682,44 @@ class SourceETL(BaseETL):
 
         return df
 
+    def _derive_partition_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Derive 'year' and/or 'month' columns from incremental_key if missing.
+
+        Only acts on columns listed in ``partition_by`` that are absent from the
+        DataFrame AND can be derived from the ``incremental_key`` datetime column.
+        """
+        col = self.incremental_key
+        needs_year = "year" in self.partition_by and "year" not in df.columns
+        needs_month = "month" in self.partition_by and "month" not in df.columns
+
+        if not (needs_year or needs_month):
+            return df
+
+        if col not in df.columns:
+            return df
+
+        # Ensure datetime dtype
+        series = df[col]
+        if not pd.api.types.is_datetime64_any_dtype(series):
+            try:
+                series = pd.to_datetime(series)
+            except Exception:
+                logger.warning(
+                    f"  • Could not parse '{col}' as datetime — "
+                    "year/month columns will not be derived"
+                )
+                return df
+
+        df = df.copy()
+        if needs_year:
+            df["year"] = series.dt.year
+            logger.info(f"  • Derived 'year' from '{col}'")
+        if needs_month:
+            df["month"] = series.dt.month.astype(str).str.zfill(2)
+            logger.info(f"  • Derived 'month' from '{col}'")
+
+        return df
+
     def load(self, df: pd.DataFrame, path: str) -> None:
         """
         Saves the transformed data.
@@ -601,6 +740,10 @@ class SourceETL(BaseETL):
 
             validate_no_traversal(path, label=f"ETL '{self.name}' output")
             output_path = Path(path)
+
+            # Derive year/month partition columns from incremental_key if needed
+            if self.incremental_key and self.partition_by and not df.empty:
+                df = self._derive_partition_columns(df)
 
             # Handle incremental mode with overwrite check
             if self.mode == "incremental" and not self.overwrite:

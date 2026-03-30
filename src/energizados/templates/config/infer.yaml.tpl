@@ -4,6 +4,7 @@
 # using trained models.
 
 infer:
+  schema_version: 1
   enabled: false  # Change to true to enable
 
   # Input/output paths
@@ -25,18 +26,24 @@ infer:
   # columns_filter: Filter rows by column values BEFORE expensive FE
   # Use this to filter by zona, region, etc. to avoid running
   # tsfel on records you don't need to score.
+  #
+  # Syntax options:
+  #   1. Simple equality (list):    zona: ["FLORIANOPOLIS", "PALHOCA"]
+  #   2. Operators:                 consumo_1_anterior: {">": 0, "<=": 10000}
+  #                                  fecha_inspeccion: {">=": "2026-01-01", "!=": null}
+  #                                  actividad: {like: "INDUSTRI"}
+  #   3. Pandas expression:         _expr: "(zona == 'FLORIANOPOLIS') & (consumo_1 > 500)"
+  #
+  # Available operators: >, <, >=, <=, !=, ==, like
+  #
   # Example:
   #   columns_filter:
   #     zona: ["FLORIANOPOLIS", "PALHOCA"]
   #     nivel_tension: ["BT"]
-
-  # contratos_list: Score only specific contracts from a list
-  # Useful for targeted scoring campaigns.
-  # Example:
-  #   contratos_list:
-  #     - 12345
-  #     - 67890
-  #     - 11111
+  #     consumo_1_anterior:
+  #       ">": 0
+  #       "<=": 10000
+  #     _expr: "(zona == 'FLORIANOPOLIS') & (consumo_1_anterior > 500)"
 
   # ============================================================
   # Output Options

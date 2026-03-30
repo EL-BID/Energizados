@@ -182,12 +182,9 @@ class RunManager:
         timestamp = datetime.now().isoformat()
 
         # Get energizados version with fallback
-        try:
-            import importlib.metadata
+        from energizados._version import get_version
 
-            energizados_version = importlib.metadata.version("energizados")
-        except Exception:
-            energizados_version = "unknown"
+        energizados_version = get_version()
 
         # Get Python version
         import sys

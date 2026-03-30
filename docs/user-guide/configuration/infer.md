@@ -40,8 +40,7 @@ infer:
 | `output_base_dir` | string | `"output"` | Base directory to search for latest training run |
 | `output_include_input` | bool | `false` | Include original input columns in output |
 | `output_format` | string | `"csv"` | Output format: `"csv"` or `"parquet"` |
-| `columns_filter` | dict | `null` | Filter rows by column values BEFORE feature engineering |
-| `contratos_list` | list | `null` | Score only specific contracts from a list |
+| `columns_filter` | dict | `null` | Filter rows by column values BEFORE FE. Supports equality, operators (>, <, >=, <=, !=, like), and pandas `_expr` |
 | `output_columns` | list | `null` | Select specific columns for output |
 
 ---
@@ -255,9 +254,54 @@ infer:
   # Filter BEFORE feature engineering (optimization)
   columns_filter:
     zona: ["FLORIANOPOLIS", "PALHOCA"]
-  contratos_list:
-    - 12345
-    - 67890
+```
+
+### Filtering with Operators
+
+Filter by comparison operators (`>`, `<`, `>=`, `<=`, `!=`, `like`):
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  
+  columns_filter:
+    # Simple equality (list of values)
+    zona: ["FLORIANOPOLIS", "PALHOCA"]
+    nivel_tension: ["BT"]
+    
+    # Comparison operators
+    consumo_1_anterior:
+      ">": 0                    # consumption > 0
+      "<=": 10000               # and consumption <= 10000
+    
+    fecha_inspeccion:
+      ">=": "2026-01-01"        # date >= 2026-01-01
+      "!=": null                # not null
+    
+    # Pattern matching ( LIKE %pattern% )
+    actividad:
+      like: "INDUSTRI"
+```
+
+### Filtering with Pandas Expression
+
+Use pandas query syntax for complex filters:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  threshold: 0.5
+  
+  columns_filter:
+    _expr: "(zona == 'FLORIANOPOLIS') & (consumo_1_anterior > 500)"
 ```
 
 ### Inference with Custom Output Columns

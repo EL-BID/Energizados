@@ -878,7 +878,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             rows += f"""
 <tr>
     <td><strong>{_esc(d.get("col", ""))}</strong>{f" {consumption_badge}" if consumption_badge else ""}</td>
-    <td>{d.get("count", 0):,}</td>
+    <td>{int(d["count"]) if isinstance(d.get("count"), (int, float)) and not pd.isna(d.get("count")) else "—"}</td>
     <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
     <td>{d.get("mean", "—")}</td>
     <td>{d.get("std", "—")}</td>
@@ -923,7 +923,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             rows += f"""
 <tr>
     <td><strong>{_esc(d.get("col", ""))}</strong></td>
-    <td>{d.get("count", 0):,}</td>
+    <td>{int(d["count"]) if isinstance(d.get("count"), (int, float)) and not pd.isna(d.get("count")) else "—"}</td>
     <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
     <td>{d.get("unique_count", 0)}</td>
     <td style="max-width:300px;white-space:normal;">{top_str}</td>
@@ -952,7 +952,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             rows += f"""
 <tr>
     <td><strong>{_esc(d.get("col", ""))}</strong></td>
-    <td>{d.get("count", 0):,}</td>
+    <td>{int(d["count"]) if isinstance(d.get("count"), (int, float)) and not pd.isna(d.get("count")) else "—"}</td>
     <td>{d.get("null_pct", 0):.1f}%</td>
     <td>{_esc(str(d.get("min_date", "—")))}</td>
     <td>{_esc(str(d.get("max_date", "—")))}</td>

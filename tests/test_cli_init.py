@@ -61,7 +61,7 @@ class TestInitCommand:
             assert (project_path / "tests" / "__init__.py").exists()
             assert (project_path / "docs" / "project_docs.md").exists()
 
-            # Verify configuration files (3 separate files)
+            # Verify configuration files
             assert (project_path / "config" / "etl.yaml").exists()
             assert (project_path / "config" / "train.yaml").exists()
             assert (project_path / "config" / "infer.yaml").exists()
@@ -483,3 +483,129 @@ class TestTemplateResolution:
         for tpl in required:
             path = _get_template_path(tpl)
             assert path.exists(), f"Missing template: {tpl} (expected at {path})"
+
+
+class TestPerSectionSchemaVersion:
+    """Tests for per-section schema_version in config files."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    def test_init_configs_have_schema_version(self):
+        """Verify that each generated config file has schema_version inside its root section."""
+        import yaml
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
+            assert result.exit_code == 0
+
+            config_dir = Path(tmpdir) / "test_project" / "config"
+
+            # etl.yaml -> etl.schema_version
+            etl_data = yaml.safe_load((config_dir / "etl.yaml").read_text())
+            assert etl_data["etl"]["schema_version"] == 1
+
+            # train.yaml -> train.schema_version
+            train_data = yaml.safe_load((config_dir / "train.yaml").read_text())
+            assert train_data["train"]["schema_version"] == 1
+
+            # infer.yaml -> infer.schema_version
+            infer_data = yaml.safe_load((config_dir / "infer.yaml").read_text())
+            assert infer_data["infer"]["schema_version"] == 1
+
+            # eda.yaml -> eda.schema_version
+            eda_data = yaml.safe_load((config_dir / "eda.yaml").read_text())
+            assert eda_data["eda"]["schema_version"] == 1
+
+    def test_no_general_yaml_created(self):
+        """Verify that general.yaml is NOT created by init."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
+            assert result.exit_code == 0
+            assert not (Path(tmpdir) / "test_project" / "config" / "general.yaml").exists()
+
+    def test_requirements_pins_version(self):
+        """Verify that requirements.txt uses compatible release operator."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
+            assert result.exit_code == 0
+
+            requirements = (Path(tmpdir) / "test_project" / "requirements.txt").read_text()
+            assert "energizados~=" in requirements
+            assert "energizados>=1.0.0" not in requirements
+
+
+class TestSchemaValidation:
+    """Tests for per-section schema compatibility checker."""
+
+    def test_check_passes_with_current_schema(self):
+        """Verify that compatibility check passes with current schema versions."""
+        from energizados._version import CURRENT_SCHEMA_VERSIONS
+        from energizados.cli.compat import check_project_compatibility
+
+        config = {
+            "etl": {"schema_version": CURRENT_SCHEMA_VERSIONS["etl"], "sample": {}},
+            "train": {"schema_version": CURRENT_SCHEMA_VERSIONS["train"], "enabled": True},
+        }
+        # Should not raise
+        check_project_compatibility(config)
+
+    def test_check_fails_with_newer_schema(self):
+        """Verify that compatibility check fails when a section schema is newer."""
+        import pytest
+
+        from energizados._version import CURRENT_SCHEMA_VERSIONS
+        from energizados.cli.compat import check_project_compatibility
+        from energizados.core.exceptions import ConfigurationError
+
+        config = {
+            "etl": {"schema_version": CURRENT_SCHEMA_VERSIONS["etl"] + 1, "sample": {}},
+        }
+        with pytest.raises(ConfigurationError, match="schema version"):
+            check_project_compatibility(config)
+
+    def test_check_passes_without_schema_version(self):
+        """Verify that missing schema_version does not block execution (backwards compat)."""
+        from energizados.cli.compat import check_project_compatibility
+
+        config = {"etl": {"sample": {"enabled": True}}}
+        # Should not raise — backwards compatible
+        check_project_compatibility(config)
+
+    def test_check_independent_per_section(self):
+        """Verify that each section is checked independently."""
+        import pytest
+
+        from energizados._version import CURRENT_SCHEMA_VERSIONS
+        from energizados.cli.compat import check_project_compatibility
+        from energizados.core.exceptions import ConfigurationError
+
+        # etl OK, train too new -> should fail on train
+        config = {
+            "etl": {"schema_version": CURRENT_SCHEMA_VERSIONS["etl"]},
+            "train": {"schema_version": CURRENT_SCHEMA_VERSIONS["train"] + 1},
+        }
+        with pytest.raises(ConfigurationError, match="train"):
+            check_project_compatibility(config)
+
+
+class TestETLSchemaVersionFiltering:
+    """Tests that schema_version is filtered out when parsing ETL configs."""
+
+    def test_orchestrator_ignores_schema_version(self):
+        """Verify that ETLOrchestrator filters out schema_version key."""
+        from energizados.etl.orchestrator import ETLOrchestrator
+
+        configs = {
+            "schema_version": 1,
+            "sample": {
+                "enabled": True,
+                "input": "data.csv",
+                "output": "out.parquet",
+                "custom_class": "energizados.etl.pipeline.SourceETL",
+                "depends_on": [],
+            },
+        }
+        orchestrator = ETLOrchestrator(configs)
+        assert "schema_version" not in orchestrator.etl_configs
+        assert "sample" in orchestrator.etl_configs

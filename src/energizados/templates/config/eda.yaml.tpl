@@ -4,6 +4,7 @@
 # Run with: energizados run eda
 
 eda:
+  schema_version: 1
   enabled: true
 
   # ============================================

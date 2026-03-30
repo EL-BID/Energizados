@@ -54,7 +54,6 @@ class InferenceBuilder(StepBuilder):
 
         # Read additional filtering configuration
         columns_filter = inference_config.get("columns_filter")
-        contratos_list = inference_config.get("contratos_list")
         output_columns = inference_config.get("output_columns")
 
         # Auto-detect model and feature engineering paths if not specified
@@ -81,7 +80,6 @@ class InferenceBuilder(StepBuilder):
                 inference_engine,
                 config,
                 columns_filter=None,
-                contratos_list=None,
                 output_columns=None,
             ):
                 """Initialize with the inference engine and its configuration.
@@ -90,13 +88,11 @@ class InferenceBuilder(StepBuilder):
                     inference_engine: Inference object with ``predict`` / ``predict_proba`` methods.
                     config: Inference configuration dict from YAML.
                     columns_filter: Dict of {column_name: [values]} to filter before FE.
-                    contratos_list: List of contract IDs to include in inference.
                     output_columns: List of column names to include in output CSV.
                 """
                 self.inference = inference_engine
                 self.config = config
                 self.columns_filter = columns_filter
-                self.contratos_list = contratos_list
                 self.output_columns = output_columns
 
             def validate_input(self, context: Dict[str, Any]) -> bool:
@@ -124,8 +120,7 @@ class InferenceBuilder(StepBuilder):
 
                 Filtering priority:
                 1. Apply columns_filter BEFORE feature engineering (optimization)
-                2. Apply contratos_list BEFORE feature engineering
-                3. Apply output_columns when saving to CSV
+                2. Apply output_columns when saving to CSV
 
                 Args:
                     context: Pipeline context dict with at minimum ``model``.
@@ -190,11 +185,6 @@ class InferenceBuilder(StepBuilder):
                         f"  • columns_filter: removed {filtered_count:,} rows, {len(data):,} remaining"
                     )
 
-                # --- Apply contratos_list BEFORE feature engineering ---
-                if self.contratos_list:
-                    data, filtered_count = self._apply_contratos_list(data)
-                    logger.info(f"  • contratos_list: filtered to {len(data):,} records from list")
-
                 # --- Apply feature engineering if available ---
                 if feature_engineering is not None:
                     data = feature_engineering.transform(data)
@@ -234,6 +224,11 @@ class InferenceBuilder(StepBuilder):
             def _apply_columns_filter(self, data: pd.DataFrame) -> tuple:
                 """Apply columns_filter to data before feature engineering.
 
+                Supports three filter modes:
+                1. Simple equality: column: [values] (existing behavior)
+                2. Operators: column: {">": value, "<=": value, "!=": value, "like": pattern}
+                3. Pandas expression: _expr: " (pandas query) "
+
                 Args:
                     data: Input DataFrame
 
@@ -246,52 +241,75 @@ class InferenceBuilder(StepBuilder):
                 original_count = len(data)
                 filtered_data = data.copy()
 
-                for col_name, allowed_values in self.columns_filter.items():
+                # --- Level 2: Pandas query expression ---
+                # Must be applied first so it can use any column
+                if "_expr" in self.columns_filter:
+                    expr = self.columns_filter["_expr"]
+                    try:
+                        before_expr = len(filtered_data)
+                        filtered_data = filtered_data.query(expr)
+                        after_expr = len(filtered_data)
+                        logger.info(
+                            f"  • columns_filter._expr: filtered to {after_expr:,} records "
+                            f"(removed {before_expr - after_expr:,})"
+                        )
+                    except Exception as e:
+                        logger.error(f"  • columns_filter._expr: invalid expression '{expr}': {e}")
+                    # Remove _expr so it's not processed as a column filter
+                    columns_filter_clean = {
+                        k: v for k, v in self.columns_filter.items() if k != "_expr"
+                    }
+                else:
+                    columns_filter_clean = self.columns_filter
+
+                # --- Level 1: Simple equality + Operators ---
+                for col_name, filter_value in columns_filter_clean.items():
                     if col_name not in filtered_data.columns:
                         logger.warning(
                             f"  • columns_filter: column '{col_name}' not found, skipping"
                         )
                         continue
 
-                    # Convert allowed_values to list if single value
-                    if not isinstance(allowed_values, list):
-                        allowed_values = [allowed_values]
+                    # Skip special keys if any remain
+                    if col_name.startswith("_"):
+                        continue
+
+                    # === CASE 1: Operator dictionary (Level 1: >, <, >=, <=, !=, like) ===
+                    if isinstance(filter_value, dict):
+                        for op, op_value in filter_value.items():
+                            if op == ">":
+                                filtered_data = filtered_data[filtered_data[col_name] > op_value]
+                            elif op == "<":
+                                filtered_data = filtered_data[filtered_data[col_name] < op_value]
+                            elif op == ">=":
+                                filtered_data = filtered_data[filtered_data[col_name] >= op_value]
+                            elif op == "<=":
+                                filtered_data = filtered_data[filtered_data[col_name] <= op_value]
+                            elif op == "!=":
+                                filtered_data = filtered_data[filtered_data[col_name] != op_value]
+                            elif op == "==":
+                                filtered_data = filtered_data[filtered_data[col_name] == op_value]
+                            elif op == "like":
+                                # Case-insensitive substring match
+                                filtered_data = filtered_data[
+                                    filtered_data[col_name]
+                                    .astype(str)
+                                    .str.contains(op_value, case=False, na=False)
+                                ]
+                            else:
+                                logger.warning(
+                                    f"  • columns_filter.{col_name}: unknown operator '{op}', skipping"
+                                )
+                        logger.info(f"  • columns_filter.{col_name}: operators applied")
+                        continue
+
+                    # === CASE 2: Simple equality (list of values) ===
+                    # Convert single value to list if needed
+                    if not isinstance(filter_value, list):
+                        filter_value = [filter_value]
 
                     # Filter to only rows where column value is in allowed_values
-                    filtered_data = filtered_data[filtered_data[col_name].isin(allowed_values)]
-
-                removed = original_count - len(filtered_data)
-                return filtered_data, removed
-
-            def _apply_contratos_list(self, data: pd.DataFrame) -> tuple:
-                """Apply contratos_list filter to data before feature engineering.
-
-                Assumes the data has a column named 'id_cliente' or 'cliente'.
-
-                Args:
-                    data: Input DataFrame
-
-                Returns:
-                    Tuple of (filtered DataFrame, number of rows removed)
-                """
-                if not self.contratos_list:
-                    return data, 0
-
-                original_count = len(data)
-
-                # Try common ID column names
-                id_col = None
-                for col in ["id_cliente", "cliente", "customer_id", "id"]:
-                    if col in data.columns:
-                        id_col = col
-                        break
-
-                if id_col is None:
-                    logger.warning("  • contratos_list: no ID column found, skipping filter")
-                    return data, 0
-
-                # Filter to only contracts in the list
-                filtered_data = data[data[id_col].isin(self.contratos_list)]
+                    filtered_data = filtered_data[filtered_data[col_name].isin(filter_value)]
 
                 removed = original_count - len(filtered_data)
                 return filtered_data, removed
@@ -403,7 +421,6 @@ class InferenceBuilder(StepBuilder):
             inference,
             inference_config_filtered,
             columns_filter=columns_filter,
-            contratos_list=contratos_list,
             output_columns=output_columns,
         )
 

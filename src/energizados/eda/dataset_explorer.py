@@ -349,20 +349,30 @@ class DatasetExplorer:
         return normalized
 
     def _load_dataset(self) -> Optional[pd.DataFrame]:
-        """Load the dataset from parquet or CSV."""
+        """Load the dataset from a parquet file, partitioned parquet directory, or CSV."""
         path = Path(self.input_path)
 
         loading_cfg = self._full_config.get("loading", {})
         encoding = loading_cfg.get("file_encoding", "utf-8")
         decimal = loading_cfg.get("decimal_separator", ".")
 
+        if not path.exists():
+            logger.error("Path not found: %s", self.input_path)
+            return None
+
         try:
-            if path.suffix.lower() == ".parquet":
+            if path.is_dir():
+                logger.info("Loading partitioned parquet directory...")
+                return pd.read_parquet(str(path))
+
+            suffix = path.suffix.lower()
+            if suffix == ".parquet":
                 logger.info("Loading parquet...")
                 return pd.read_parquet(str(path))
-            elif path.suffix.lower() in (".csv", ".tsv"):
+
+            if suffix in (".csv", ".tsv"):
                 logger.info("Loading CSV with encoding='%s', decimal='%s'...", encoding, decimal)
-                sep = "\t" if path.suffix.lower() == ".tsv" else ","
+                sep = "\t" if suffix == ".tsv" else ","
                 return pd.read_csv(
                     str(path),
                     encoding=encoding,
@@ -370,14 +380,8 @@ class DatasetExplorer:
                     sep=sep,
                     on_bad_lines=loading_cfg.get("on_bad_lines", "warn"),
                 )
-            else:
-                # Try parquet first, then CSV
-                try:
-                    return pd.read_parquet(str(path))
-                except Exception:
-                    return pd.read_csv(str(path), encoding=encoding, decimal=decimal)
-        except FileNotFoundError:
-            logger.error("File not found: %s", self.input_path)
+
+            logger.error("Unsupported file format '%s': %s", suffix, self.input_path)
             return None
         except Exception as e:
             logger.error("Error loading dataset: %s", e)

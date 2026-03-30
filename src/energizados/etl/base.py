@@ -74,6 +74,10 @@ class BaseETL(ABC):
         """
         pass
 
+    def _on_load_success(self) -> None:
+        """Hook called after load() completes successfully. Override to persist state."""
+        pass
+
     def run(self, output_path: str) -> pd.DataFrame:
         """
         Executes the complete ETL pipeline.
@@ -95,6 +99,9 @@ class BaseETL(ABC):
         try:
             df = self.extract()
 
+            if len(df) == 0:
+                return df
+
             # Apply sampling if 'sample' parameter was provided
             sample = getattr(self, "sample", None)
             if sample is not None:
@@ -104,6 +111,7 @@ class BaseETL(ABC):
 
             df = self.transform(df)
             self.load(df, output_path)
+            self._on_load_success()
             return df
         except Exception as e:
             raise ETLError(f"Error running ETL: {str(e)}") from e

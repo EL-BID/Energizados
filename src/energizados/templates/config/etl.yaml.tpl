@@ -4,6 +4,8 @@
 # using the multiple ETL with dependencies system.
 
 etl:
+  schema_version: 1
+
   # ETL "sample" - Processes the included example dataset
   sample:
     enabled: true
@@ -170,7 +172,30 @@ etl:
   #     sample: 1000  # Read only 1000 rows for fast iteration
   #   depends_on: []
   #
-  # # ETL 9: Clean intermediate files after pipeline completion
+  # # ETL 9: Incremental load - load only new records since last run
+  # # incremental_key: datetime/numeric column used to detect new records.
+  # #   On first run: processes all records and stores max(incremental_key) in state.
+  # #   Subsequent runs: filters records where incremental_key > last saved value.
+  # # partition_by: Hive-style partitioned output (year=2024/month=03/data.parquet).
+  # #   'year' and 'month' are derived automatically from incremental_key if missing.
+  # incremental_consumos:
+  #   enabled: false
+  #   description: "Incremental load of consumption data (only new records)"
+  #   input: "data/raw/consumos_*.csv"  # glob pattern to discover new files
+  #   output: "data/processed/consumos/"  # directory; partitions written inside
+  #   custom_class: "energizados.etl.pipeline.SourceETL"
+  #   params:
+  #     mode: "incremental"
+  #     incremental_key: "fecha_actualizacion"  # datetime column tracking new records
+  #     partition_by:
+  #       - year   # derived automatically from incremental_key
+  #       - month  # derived automatically from incremental_key (zero-padded: "01".."12")
+  #     overwrite: false
+  #     state_file: ".cache/etl_states/incremental_consumos.json"
+  #     # last_processed: "2024-01-01"  # optional: initial cutoff on first run
+  #   depends_on: []
+
+  # ETL 10: Clean intermediate files after pipeline completion
   # # Use this to free disk space by removing intermediate outputs.
   # # List files to delete in 'input' — supports direct paths, @etl_name
   # # references, and glob patterns (e.g. "data/processed/tmp_*.parquet").

@@ -49,9 +49,12 @@ class SplitBuilder(StepBuilder):
             input_path = self.global_config.get("train", {}).get("input_path")
         if not input_path and "etl" in self.global_config:
             # Use last ETL output if it exists
+            from energizados._version import SCHEMA_VERSION_KEY
+
             etl_configs = self.global_config.get("etl", {})
-            if etl_configs:
-                last_etl = list(etl_configs.keys())[-1]
+            etl_names = [k for k in etl_configs if k != SCHEMA_VERSION_KEY]
+            if etl_names:
+                last_etl = etl_names[-1]
                 # input_path will be @etl_name
                 input_path = f"@{last_etl}"
 

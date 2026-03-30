@@ -195,8 +195,12 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> N
         result.add_warning("'etl' section is empty")
         return
 
-    # Validate each ETL
+    from energizados._version import SCHEMA_VERSION_KEY
+
+    # Validate each ETL (skip reserved metadata keys)
     for etl_name, etl_config in etls.items():
+        if etl_name == SCHEMA_VERSION_KEY:
+            continue
         if not isinstance(etl_config, dict):
             result.add_error(f"ETL '{etl_name}': must be a dictionary")
             continue

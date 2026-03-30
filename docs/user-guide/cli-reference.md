@@ -52,6 +52,8 @@ Executes a pipeline from YAML configuration files.
 
 ### Config Name Resolution
 
+Before executing, the CLI checks the `schema_version` inside each config section (etl, train, eda, infer) to verify compatibility with the installed framework. If a config section uses a newer schema than the framework supports, an error is raised with upgrade instructions.
+
 Config names are resolved to files in `config/` directory:
 - `etl` → `config/etl.yaml`
 - `train` → `config/train.yaml`

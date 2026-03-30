@@ -7,6 +7,7 @@
 # 4. Evaluation: Evaluation of the trained model
 
 train:
+  schema_version: 1
   enabled: true
 
   description: |

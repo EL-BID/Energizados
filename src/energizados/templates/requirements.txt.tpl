@@ -1,8 +1,8 @@
 # Energizados Project Dependencies
 # Update as needed for your project
 
-# Framework core
-energizados>=1.0.0
+# Framework core (compatible release: allows patches, blocks breaking changes)
+energizados~={{energizados_version}}
 
 # Data processing
 pandas>=1.5.0

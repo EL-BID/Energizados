@@ -115,7 +115,7 @@ def _print_next_steps(project_name: str):
 
 
 @click.group(cls=EnergizadosGroup)
-@click.version_option(version="1.0.0", prog_name="energizados")
+@click.version_option(version=None, prog_name="energizados", package_name="energizados")
 @click.pass_context
 def cli(ctx):
     """
@@ -327,11 +327,13 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
                 "Run name can only contain letters, numbers, dashes and underscores"
             )
 
+    from energizados.cli.compat import check_project_compatibility
     from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
     from energizados.cli.run import (
         execute_etl,
         execute_pipeline,
         execute_step,
+        merge_configs,
     )
     from energizados.cli.ui import print_error, print_info, print_success
     from energizados.core.exceptions import StepValidationError
@@ -339,6 +341,10 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
     try:
         # Resolve config names to paths
         config_paths = resolve_configs(configs, config_path)
+
+        # Check per-section schema compatibility before executing
+        merged_for_check = merge_configs(config_paths)
+        check_project_compatibility(merged_for_check)
 
         # If --etl is specified, execute specific ETLs
         if etl:
@@ -467,13 +473,19 @@ def validate(ctx, configs, config_path, verbose):
     # Configure logging
     _setup_logging(verbose)
 
+    from energizados.cli.compat import check_project_compatibility
     from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
+    from energizados.cli.run import merge_configs
     from energizados.cli.ui import print_error, print_info, print_success
     from energizados.cli.validate import validate_config
 
     try:
         # Resolve config names to paths
         config_paths = resolve_configs(configs, config_path)
+
+        # Check per-section schema compatibility before validating
+        merged_for_check = merge_configs(config_paths)
+        check_project_compatibility(merged_for_check)
 
         for resolved_path in config_paths:
             print_info(f"Validating: {resolved_path}")

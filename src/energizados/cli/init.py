@@ -383,7 +383,10 @@ def _create_requirements_file(project_path: Path):
     Args:
         project_path: Path of the project
     """
+    from energizados._version import get_version
+
     requirements_content = _load_template("requirements.txt.tpl")
+    requirements_content = requirements_content.replace("{{energizados_version}}", get_version())
     (project_path / "requirements.txt").write_text(requirements_content)
 
 

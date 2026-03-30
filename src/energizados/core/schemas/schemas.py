@@ -7,6 +7,9 @@ This module contains the schema definitions for each configuration type.
 # ETL Configuration Schema
 ETL_SCHEMA = {
     "type": "object",
+    "properties": {
+        "schema_version": {"type": "integer"},
+    },
     "additionalProperties": {
         "type": "object",
         "required": ["input"],

@@ -34,8 +34,10 @@ class ETLBuilder(StepBuilder):
 
         orchestrator = ETLOrchestrator(etl_configs)
 
-        # Get enabled ETL names for phase tracking
-        etl_names = [name for name, cfg in etl_configs.items() if cfg.get("enabled", True)]
+        # Get enabled ETL names for phase tracking (use orchestrator's filtered configs)
+        etl_names = [
+            name for name, cfg in orchestrator.etl_configs.items() if cfg.get("enabled", True)
+        ]
 
         class ETLStep(PipelineStep):
             """Pipeline step that executes multiple ETLs."""

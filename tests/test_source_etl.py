@@ -582,3 +582,296 @@ class TestSourceETLRun:
             result,
             pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]}),
         )
+
+
+class TestIncrementalKeyFiltering:
+    """Tests for _filter_by_incremental_key."""
+
+    def _make_etl(self, incremental_key="fecha", last_processed=None):
+        return SourceETL(
+            name="test",
+            mode="incremental",
+            input_paths=["dummy.csv"],
+            output_path="/tmp/out",  # nosec B108
+            incremental_key=incremental_key,
+            last_processed=last_processed,
+        )
+
+    def test_no_prior_state_returns_all_records(self):
+        etl = self._make_etl()
+        df = pd.DataFrame(
+            {"fecha": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]), "v": [1, 2, 3]}
+        )
+        result = etl._filter_by_incremental_key(df)
+        assert len(result) == 3
+
+    def test_filters_records_older_than_last_processed(self):
+        etl = self._make_etl(last_processed="2024-01-31")
+        df = pd.DataFrame(
+            {"fecha": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]), "v": [1, 2, 3]}
+        )
+        result = etl._filter_by_incremental_key(df)
+        assert list(result["v"]) == [2, 3]
+
+    def test_updates_state_with_max_value(self):
+        etl = self._make_etl(last_processed="2024-01-31")
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-02-01", "2024-03-15"]), "v": [1, 2]})
+        etl._filter_by_incremental_key(df)
+        assert "last_processed_value" in etl._state
+        assert "2024-03-15" in etl._state["last_processed_value"]
+
+    def test_state_takes_priority_over_constructor_param(self):
+        etl = self._make_etl(last_processed="2024-01-01")
+        etl._state["last_processed_value"] = "2024-02-28"
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-02-01", "2024-03-01"]), "v": [1, 2]})
+        result = etl._filter_by_incremental_key(df)
+        # 2024-02-01 is NOT > 2024-02-28, so only March is kept
+        assert list(result["v"]) == [2]
+
+    def test_raises_when_incremental_key_not_in_dataframe(self):
+        etl = self._make_etl(incremental_key="missing_col")
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-01"]), "v": [1]})
+        with pytest.raises(ETLError, match="incremental_key 'missing_col' not found"):
+            etl._filter_by_incremental_key(df)
+
+    def test_coerces_string_column_to_datetime(self):
+        etl = self._make_etl(last_processed="2024-01-31")
+        df = pd.DataFrame({"fecha": ["2024-01-01", "2024-02-01"], "v": [1, 2]})
+        result = etl._filter_by_incremental_key(df)
+        assert list(result["v"]) == [2]
+
+    def test_empty_df_after_filter_does_not_update_state(self):
+        etl = self._make_etl(last_processed="2025-01-01")
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-01"]), "v": [1]})
+        result = etl._filter_by_incremental_key(df)
+        assert result.empty
+        assert "last_processed_value" not in etl._state
+
+
+class TestDerivePartitionColumns:
+    """Tests for _derive_partition_columns."""
+
+    def _make_etl(self, incremental_key="fecha", partition_by=None):
+        return SourceETL(
+            name="test",
+            mode="incremental",
+            input_paths=["dummy.csv"],
+            output_path="/tmp/out",  # nosec B108
+            incremental_key=incremental_key,
+            partition_by=partition_by or ["year", "month"],
+        )
+
+    def test_derives_year_and_month_from_datetime_column(self):
+        etl = self._make_etl()
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-15", "2024-03-20"]), "v": [1, 2]})
+        result = etl._derive_partition_columns(df)
+        assert list(result["year"]) == [2024, 2024]
+        assert list(result["month"]) == ["01", "03"]
+
+    def test_derives_from_string_column(self):
+        etl = self._make_etl()
+        df = pd.DataFrame({"fecha": ["2024-06-01", "2024-12-31"], "v": [1, 2]})
+        result = etl._derive_partition_columns(df)
+        assert list(result["year"]) == [2024, 2024]
+        assert list(result["month"]) == ["06", "12"]
+
+    def test_does_not_overwrite_existing_year_month(self):
+        etl = self._make_etl()
+        df = pd.DataFrame(
+            {"fecha": pd.to_datetime(["2024-01-15"]), "year": [9999], "month": ["99"], "v": [1]}
+        )
+        result = etl._derive_partition_columns(df)
+        assert list(result["year"]) == [9999]
+        assert list(result["month"]) == ["99"]
+
+    def test_month_is_zero_padded(self):
+        etl = self._make_etl()
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-01", "2024-10-01"]), "v": [1, 2]})
+        result = etl._derive_partition_columns(df)
+        assert list(result["month"]) == ["01", "10"]
+
+    def test_only_year_in_partition_by(self):
+        etl = self._make_etl(partition_by=["year"])
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-06-15"]), "v": [1]})
+        result = etl._derive_partition_columns(df)
+        assert "year" in result.columns
+        assert "month" not in result.columns
+
+    def test_returns_df_unchanged_when_no_incremental_key_column(self):
+        etl = self._make_etl(incremental_key="missing")
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-01"]), "v": [1]})
+        result = etl._derive_partition_columns(df)
+        assert "year" not in result.columns
+
+
+class TestSourceETLExtractPartitionedDirectory:
+    """Tests for extract reading Hive-style partitioned directories."""
+
+    @pytest.fixture
+    def temp_dir_with_partitions(self):
+        """Create a temporary directory with Hive-style partitioned parquet files.
+
+        Yields:
+            Path: Path to the base directory containing partitions.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            base = tmpdir_path / "partitioned"
+            base.mkdir()
+
+            # year=2024/month=01/
+            p1 = base / "year=2024" / "month=01"
+            p1.mkdir(parents=True)
+            df1 = pd.DataFrame({"id": [1, 2], "valor": [10, 20]})
+            df1.to_parquet(p1 / "data.parquet", index=False)
+
+            # year=2024/month=02/
+            p2 = base / "year=2024" / "month=02"
+            p2.mkdir(parents=True)
+            df2 = pd.DataFrame({"id": [3], "valor": [30]})
+            df2.to_parquet(p2 / "data.parquet", index=False)
+
+            yield tmpdir_path
+
+    def test_extract_reads_partitioned_directory(self, temp_dir_with_partitions):
+        """Verify concat mode reads a Hive-partitioned directory including partition columns."""
+        partition_dir = temp_dir_with_partitions / "partitioned"
+
+        etl = SourceETL(
+            name="test",
+            input_paths=[str(partition_dir)],
+            mode="concat",
+        )
+
+        result = etl.extract()
+
+        assert len(result) == 3
+        assert "year" in result.columns
+        assert "month" in result.columns
+        assert set(result["year"].astype(str)) == {"2024"}
+        # pyarrow parses directory values as integers, so "01" -> 1
+        assert set(result["month"].astype(int)) == {1, 2}
+
+    def test_extract_mixed_files_and_directories(self, temp_dir_with_partitions):
+        """Verify concat mode works with a mix of file and directory inputs."""
+        partition_dir = temp_dir_with_partitions / "partitioned"
+
+        # Add a standalone CSV file
+        extra_file = temp_dir_with_partitions / "extra.csv"
+        pd.DataFrame({"id": [99], "valor": [990]}).to_csv(extra_file, index=False)
+
+        etl = SourceETL(
+            name="test",
+            input_paths=[str(partition_dir), str(extra_file)],
+            mode="concat",
+        )
+
+        result = etl.extract()
+
+        # 3 from partitions + 1 from CSV
+        assert len(result) == 4
+
+    def test_extract_partitioned_via_etl_reference(self, temp_dir_with_partitions):
+        """Verify reading a partitioned directory output from another ETL via @ref."""
+        partition_dir = temp_dir_with_partitions / "partitioned"
+
+        etl = SourceETL(
+            name="test",
+            input_paths=[str(partition_dir)],
+            mode="concat",
+        )
+
+        result = etl.extract()
+
+        # Partition columns should be present in the result
+        assert "year" in result.columns
+        assert "month" in result.columns
+        assert set(result["year"].astype(str)) == {"2024"}
+        # pyarrow parses directory values as integers
+        assert set(result["month"].astype(int)) == {1, 2}
+
+
+class TestIncrementalEndToEnd:
+    """Integration test: incremental ETL with incremental_key and partition_by."""
+
+    def test_full_incremental_run_creates_partitioned_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            # Raw input file
+            df = pd.DataFrame(
+                {
+                    "fecha": pd.to_datetime(["2024-01-15", "2024-01-20", "2024-02-10"]),
+                    "valor": [10, 20, 30],
+                }
+            )
+            raw_file = tmpdir_path / "raw.parquet"
+            df.to_parquet(raw_file, index=False)
+
+            output_dir = tmpdir_path / "processed"
+            state_file = tmpdir_path / "state.json"
+
+            etl = SourceETL(
+                name="test",
+                mode="incremental",
+                input_paths=[str(raw_file)],
+                output_path=str(output_dir),
+                incremental_key="fecha",
+                partition_by=["year", "month"],
+                state_file=str(state_file),
+            )
+            etl.run(str(output_dir))
+
+            # Expect two partitions: year=2024/month=01 and year=2024/month=02
+            jan = output_dir / "year=2024" / "month=01" / "data.parquet"
+            feb = output_dir / "year=2024" / "month=02" / "data.parquet"
+            assert jan.exists(), "January partition missing"
+            assert feb.exists(), "February partition missing"
+
+            jan_df = pd.read_parquet(jan)
+            assert len(jan_df) == 2
+            feb_df = pd.read_parquet(feb)
+            assert len(feb_df) == 1
+
+    def test_second_run_skips_already_processed_records(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            raw_file = tmpdir_path / "raw.parquet"
+            output_dir = tmpdir_path / "processed"
+            state_file = tmpdir_path / "state.json"
+
+            def make_etl():
+                return SourceETL(
+                    name="test",
+                    mode="incremental",
+                    input_paths=[str(raw_file)],
+                    output_path=str(output_dir),
+                    incremental_key="fecha",
+                    partition_by=["year", "month"],
+                    overwrite=True,
+                    state_file=str(state_file),
+                )
+
+            # First run: January data
+            df1 = pd.DataFrame(
+                {"fecha": pd.to_datetime(["2024-01-10", "2024-01-20"]), "valor": [1, 2]}
+            )
+            df1.to_parquet(raw_file, index=False)
+            etl1 = make_etl()
+            result1 = etl1.run(str(output_dir))
+            assert len(result1) == 2
+
+            # Second run: file now includes Jan + Feb records
+            df2 = pd.DataFrame(
+                {
+                    "fecha": pd.to_datetime(["2024-01-10", "2024-01-20", "2024-02-05"]),
+                    "valor": [1, 2, 3],
+                }
+            )
+            df2.to_parquet(raw_file, index=False)
+            etl2 = make_etl()
+            result2 = etl2.run(str(output_dir))
+            # Only the February record is newer than the stored max (2024-01-20)
+            assert len(result2) == 1
+            assert result2["valor"].iloc[0] == 3

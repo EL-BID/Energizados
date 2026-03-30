@@ -125,7 +125,7 @@ src/energizados/
 **Generated project structure (`energizados init`):**
 ```
 mi_proyecto/
-├── config/                 # Configuration files (3 YAMLs)
+├── config/                 # Configuration files
 │   ├── etl.yaml
 │   ├── train.yaml         # Includes split, feature_engineering, model, evaluation
 │   └── infer.yaml
@@ -188,7 +188,7 @@ etl:
 
 **SourceETL Modes:**
 
-`SourceETL` supports two processing modes via the `mode` parameter:
+`SourceETL` supports three processing modes via the `mode` parameter:
 
 1. **`concat`** (default): Concatenates multiple input files vertically
    ```yaml
@@ -219,7 +219,52 @@ etl:
          on: "id_cliente"  # Column to merge on
    ```
 
-**Important:** When `mode="merge"`, `merge_config` is required. The `merge_config` accepts any parameter from `pd.merge()`: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
+3. **`incremental`**: Filters records by a key column — only rows newer than the last processed value are kept. Stores the high-water mark in a state file so each run continues from where the previous one left off.
+   ```yaml
+   consumos_incremental:
+     enabled: true
+     input: "data/raw/consumos_*.csv"   # glob — all matching files are read
+     output: "data/processed/consumos/" # directory; partitions written inside
+     custom_class: "energizados.etl.pipeline.SourceETL"
+     params:
+       mode: "incremental"
+       incremental_key: "fecha_actualizacion"  # datetime column to filter new records
+       partition_by:
+         - year    # derived automatically from incremental_key
+         - month   # derived automatically from incremental_key (zero-padded)
+       overwrite: false
+       state_file: ".cache/etl_states/consumos.json"
+       # last_processed: "2024-01-01"  # optional: initial cutoff on first run
+   ```
+
+**Important:**
+- When `mode="merge"`, `merge_config` is required. Accepts any `pd.merge()` parameter: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
+- When `mode="incremental"`, `incremental_key` is required. The column is parsed as datetime automatically if needed. On first run all records are processed (unless `last_processed` is set). After each run `max(incremental_key)` is persisted in `state_file`.
+- `partition_by: [year, month]` — if these columns are absent but `incremental_key` is a datetime column, `year` and `month` are derived automatically. Month is zero-padded (`"01"`–`"12"`).
+
+### Project Versioning
+
+Each config file includes a `schema_version` inside its root section, allowing independent evolution:
+
+```yaml
+# etl.yaml
+etl:
+  schema_version: 1
+  sample:
+    enabled: true
+    ...
+
+# train.yaml
+train:
+  schema_version: 1
+  enabled: true
+  ...
+```
+
+- **Per-section schema**: Each config type (etl, train, eda, infer) has its own schema version that evolves independently. Defined in `CURRENT_SCHEMA_VERSIONS` dict in `src/energizados/_version.py`.
+- **Schema validation**: The CLI checks each section's `schema_version` before `run` and `validate`. If a section's schema is newer than the framework supports, execution is blocked with an upgrade message.
+- **ETL filtering**: The `schema_version` key is filtered out by `ETLOrchestrator` and validators so it's not treated as an ETL name.
+- **Version pinning**: Generated `requirements.txt` uses `energizados~=X.Y.Z` (compatible release) to allow patches but block breaking changes.
 
 ### Feature Engineering and Model Training
 
@@ -438,7 +483,7 @@ Additional ETL examples are provided (commented out) in the template:
 
 **Key ETL Classes:**
 - `BaseETL`: Abstract base class for all ETL implementations
-- `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat` or `merge`). This single class handles both concatenation and merge; there are no separate `MultiSourceETL` or `MergeETL` classes.
+- `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat`, `merge`, or `incremental`). Key incremental params: `incremental_key` (column used to filter new records), `last_processed` (initial cutoff), `partition_by` (Hive-style output — `year`/`month` derived automatically from `incremental_key`), `state_file` (persists high-water mark across runs).
 - `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
 - `GeoFeaturesETL`: Adds geographic features from lat/lon coordinates. Appends `geo_cluster` (int, KMeans), IBGE hierarchy (`geo_estado`, `geo_municipio`, `geo_regiao`), and haversine distance columns. Run after the main dataset ETL and before training. Required if using `stratified_time` split. Points with invalid/zero coords get `geo_cluster=-1` and `"sin_dato"` for hierarchy. `custom_class: "energizados.etl.pipeline.GeoFeaturesETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`, `include_hierarchy` (bool), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str).
 - `CleanFilesETL`: Deletes files listed in the `input` field. Useful for removing intermediate outputs after the pipeline completes. Supports `@etl_name` references, glob patterns, and direct paths in `input`. Does not produce a dataset — returns an empty DataFrame so the orchestrator tracks it normally in the DAG. `custom_class: "energizados.etl.pipeline.CleanFilesETL"`. Params: `missing_ok` (bool, default: `True` — silently skips missing files). The `output` field is optional (no file is written).
@@ -559,7 +604,7 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 - LSTM models reshape consumption data to (samples, 12, 1) for sequential processing
 - Preprocessed datasets are saved in `data/processed/` as parquet files (include target column for inspection)
 - Feature pipelines are saved as `.pkl` files for reuse in training and inference
-- **ETL configuration requires `custom_class` for each ETL** - use `SourceETL` (supports both `concat` and `merge` modes) or a custom class
+- **ETL configuration requires `custom_class` for each ETL** - use `SourceETL` (supports `concat`, `merge`, and `incremental` modes) or a custom class
 - **New projects include `data/raw/sample_dataset.parquet`** for immediate testing
 - The framework uses Python's `logging` module for all internal logging (configurable via logging handlers)
 - CLI output uses `click.echo` for user-facing messages
