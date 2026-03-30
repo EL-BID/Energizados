@@ -139,13 +139,13 @@ class Pipeline:
 
             # Execute step
             try:
-                # Pass phase update callback via context if step supports it
-                # The callback signature is: (step_name, phase, pct, total_phases)
-                # Steps can call with 3 args (total_phases defaults to None) or 4 args
                 if self.on_phase_update:
-                    self.context["_on_phase_update"] = lambda step, phase, pct, total_phases=None: (
-                        self.on_phase_update(step, phase, pct, total_phases)
-                    )
+                    callback = self.on_phase_update
+
+                    def _phase_adapter(step, phase, pct, total_phases=None):
+                        callback(step, phase, pct, total_phases)
+
+                    self.context["_on_phase_update"] = _phase_adapter
                 self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")
 
@@ -236,16 +236,12 @@ class ConfigPipelineBuilder:
         """Return the run directory after pipeline execution."""
         return self._director.run_manager.run_dir
 
-    def _generate_run_dir(self, base_output_dir: str = "output") -> Path:
-        """Generate run directory (delegated to director)."""
-        return self._director.run_manager.generate_run_dir(base_output_dir)
-
-    def _copy_configs_to_run_dir(self):
-        """Copy configs to run directory (delegated to director)."""
+    def copy_configs_to_run_dir(self):
+        """Copy configs to run directory."""
         self._director.run_manager.copy_configs_to_run_dir()
 
-    def _generate_index_html(self):
-        """Generate index HTML (delegated to director)."""
+    def generate_index_html(self):
+        """Generate index HTML."""
         self._director.run_manager.generate_index_html()
 
     def run(self) -> Dict[str, Any]:

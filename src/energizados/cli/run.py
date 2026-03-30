@@ -448,10 +448,10 @@ def execute_pipeline(
 
     # Post-run tasks (config copy, index HTML) - these need to be called manually
     # since we called pipeline.run() directly instead of builder.run()
-    if builder._director.run_manager._run_dir is not None:
-        builder._copy_configs_to_run_dir()
-        builder._generate_index_html()
-        index_path = builder._director.run_manager._run_dir.parent / "index.html"
+    if builder.run_dir is not None:
+        builder.copy_configs_to_run_dir()
+        builder.generate_index_html()
+        index_path = builder.run_dir.parent / "index.html"
         if index_path.exists():
             console.print(f"\n[dim]Index updated → {index_path}[/]")
 
@@ -580,9 +580,9 @@ def execute_step(
     result = pipeline.run()
 
     # Post-run tasks if a run dir was generated
-    if builder._run_dir is not None:
-        builder._copy_configs_to_run_dir()
-        builder._generate_index_html()
+    if builder.run_dir is not None:
+        builder.copy_configs_to_run_dir()
+        builder.generate_index_html()
 
     return result
 

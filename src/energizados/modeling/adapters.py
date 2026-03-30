@@ -16,6 +16,25 @@ from energizados.core.base import BaseModel
 logger = logging.getLogger(__name__)
 
 
+def _warn_column_mismatch(available_columns, expected_columns, adapter_name: str) -> None:
+    """Log a warning when there is a mismatch between available and expected columns."""
+    extra = set(expected_columns) - set(available_columns)
+    new = set(available_columns) - set(expected_columns)
+    if extra:
+        logger.warning(
+            "%s: %d expected columns missing from input: %s",
+            adapter_name,
+            len(extra),
+            extra if len(extra) <= 5 else list(extra)[:5],
+        )
+    if new:
+        logger.debug(
+            "%s: %d input columns not used by model (ignored silently).",
+            adapter_name,
+            len(new),
+        )
+
+
 class LGBMModelAdapter(BaseModel):
     """
     Adapter for LGBMModel that implements the BaseModel interface.
@@ -29,6 +48,7 @@ class LGBMModelAdapter(BaseModel):
         search_hip: If True, performs hyperparameter search.
         sampling_th: Sampling threshold for imbalanced classes.
         sampling_method: Sampling method ('over', 'undersample', 'none').
+        threshold: Classification threshold for binary predictions (default 0.5).
     """
 
     def __init__(
@@ -42,6 +62,7 @@ class LGBMModelAdapter(BaseModel):
         cv: int = 3,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
+        threshold: float = 0.5,
     ):
         super().__init__(config)
         self.cols_for_model = cols_for_model
@@ -52,6 +73,7 @@ class LGBMModelAdapter(BaseModel):
         self.n_iter = n_iter
         self.cv = cv
         self.class_weight = class_weight
+        self.threshold = threshold
         self._trained_pipeline = None
 
         # Import the original model
@@ -102,9 +124,10 @@ class LGBMModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
-        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(
-            int
-        )
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
+        return (
+            self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > self.threshold
+        ).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
@@ -117,6 +140,7 @@ class LGBMModelAdapter(BaseModel):
             np.ndarray: Positive class probabilities.
         """
         self.check_fitted()
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
         return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
 
     def get_raw_model(self) -> Any:
@@ -152,6 +176,7 @@ class CATModelAdapter(BaseModel):
         cv: Number of cross-validation folds for RandomizedSearchCV.
         config: Optional framework configuration dict.
         class_weight: Class weights (dict or "balanced").
+        threshold: Classification threshold for binary predictions (default 0.5).
     """
 
     def __init__(
@@ -165,6 +190,7 @@ class CATModelAdapter(BaseModel):
         cv: int = 3,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
+        threshold: float = 0.5,
     ):
         super().__init__(config)
         self.cols_for_model = cols_for_model
@@ -175,6 +201,7 @@ class CATModelAdapter(BaseModel):
         self.n_iter = n_iter
         self.cv = cv
         self.class_weight = class_weight
+        self.threshold = threshold
 
         from energizados.modeling.supervised_models import CATModel as OriginalCAT
 
@@ -222,9 +249,10 @@ class CATModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
-        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(
-            int
-        )
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
+        return (
+            self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > self.threshold
+        ).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Make probability predictions.
@@ -236,6 +264,7 @@ class CATModelAdapter(BaseModel):
             np.ndarray: Positive class probabilities.
         """
         self.check_fitted()
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
         return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
 
     def get_raw_model(self) -> Any:
@@ -271,6 +300,7 @@ class XGBModelAdapter(BaseModel):
         cv: Number of cross-validation folds for RandomizedSearchCV.
         config: Optional framework configuration dict.
         class_weight: scale_pos_weight value for XGBoost (int/float).
+        threshold: Classification threshold for binary predictions (default 0.5).
     """
 
     def __init__(
@@ -284,6 +314,7 @@ class XGBModelAdapter(BaseModel):
         cv: int = 3,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
+        threshold: float = 0.5,
     ):
         super().__init__(config)
         self.cols_for_model = cols_for_model
@@ -294,6 +325,7 @@ class XGBModelAdapter(BaseModel):
         self.n_iter = n_iter
         self.cv = cv
         self.class_weight = class_weight
+        self.threshold = threshold
 
         from energizados.modeling.supervised_models import XGBModel as OriginalXGB
 
@@ -341,9 +373,10 @@ class XGBModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
-        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(
-            int
-        )
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
+        return (
+            self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > self.threshold
+        ).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Make probability predictions.
@@ -355,6 +388,7 @@ class XGBModelAdapter(BaseModel):
             np.ndarray: Positive class probabilities.
         """
         self.check_fitted()
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
         return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
 
     def get_raw_model(self) -> Any:
@@ -388,6 +422,7 @@ class NNModelAdapter(BaseModel):
         sampling_th: Sampling ratio for the imblearn sampler.
         sampling_method: Sampling strategy ('over', 'undersample', or other for none).
         config: Optional framework configuration dict.
+        threshold: Classification threshold for binary predictions (default 0.5).
     """
 
     def __init__(
@@ -398,6 +433,7 @@ class NNModelAdapter(BaseModel):
         sampling_th: float = 0.5,
         sampling_method: str = "undersample",
         config: Optional[dict] = None,
+        threshold: float = 0.5,
     ):
         super().__init__(config)
         self.features_names = features_names
@@ -405,6 +441,7 @@ class NNModelAdapter(BaseModel):
         self.search_hip = search_hip
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
+        self.threshold = threshold
 
         from energizados.modeling.supervised_models import NNModel as OriginalNN
 
@@ -453,10 +490,13 @@ class NNModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
+        _warn_column_mismatch(
+            X.columns, self.features_names + self.spents_names, self.__class__.__name__
+        )
         X_features = self._pipe_features.transform(X[self.features_names])
         X_spents = self._pipe_spent.transform(X[self.spents_names])
         X_combined = np.concatenate([X_features, X_spents], axis=1)
-        return (self.model_.predict(X_combined, verbose=0) > 0.5).astype(int)
+        return (self.model_.predict(X_combined, verbose=0) > self.threshold).astype(int)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Make probability predictions.
@@ -500,6 +540,7 @@ class LSTMNNModelAdapter(BaseModel):
         sampling_th: Sampling ratio for the imblearn sampler.
         sampling_method: Sampling strategy ('over', 'undersample', or other for none).
         config: Optional framework configuration dict.
+        threshold: Classification threshold for binary predictions (default 0.5).
     """
 
     def __init__(
@@ -510,6 +551,7 @@ class LSTMNNModelAdapter(BaseModel):
         sampling_th: float = 0.5,
         sampling_method: str = "undersample",
         config: Optional[dict] = None,
+        threshold: float = 0.5,
     ):
         super().__init__(config)
         self.features_names = features_names
@@ -517,6 +559,7 @@ class LSTMNNModelAdapter(BaseModel):
         self.search_hip = search_hip
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
+        self.threshold = threshold
         self.periodo = 12
 
         from energizados.modeling.supervised_models import LSTMNNModel as OriginalLSTM
@@ -566,16 +609,18 @@ class LSTMNNModelAdapter(BaseModel):
             np.ndarray: Binary predictions (0 or 1).
         """
         self.check_fitted()
+        _warn_column_mismatch(
+            X.columns, self.features_names + self.spents_names, self.__class__.__name__
+        )
         X_features = self._pipe_features.transform(X[self.features_names])
         X_spents = self._pipe_spent.transform(X[self.spents_names])
-        # Convert to numpy arrays if needed (sklearn may return DataFrames)
         if hasattr(X_features, "values"):
             X_features = X_features.values
         if hasattr(X_spents, "values"):
             X_spents = X_spents.values
         X_spents = X_spents.reshape((X_spents.shape[0], self.periodo, 1))
         probs = self.model_.predict([X_spents, X_features], verbose=0)
-        return (probs > 0.5).astype(int).flatten()
+        return (probs > self.threshold).astype(int).flatten()
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Make probability predictions.
@@ -879,6 +924,7 @@ class IsolationForestAdapter(BaseModel):
             np.ndarray: Binary predictions (1 = anomaly, 0 = normal).
         """
         self.check_fitted()
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
         X_pred = X[self.cols_for_model].copy()
         X_pred = X_pred.fillna(self._train_medians)
         raw_predictions = self._model.predict(X_pred)
@@ -900,6 +946,7 @@ class IsolationForestAdapter(BaseModel):
             np.ndarray: Anomaly probability in [0, 1].
         """
         self.check_fitted()
+        _warn_column_mismatch(X.columns, self.cols_for_model, self.__class__.__name__)
         X_pred = X[self.cols_for_model].copy()
         X_pred = X_pred.fillna(self._train_medians)
         scores = self._model.score_samples(X_pred)

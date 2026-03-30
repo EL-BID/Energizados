@@ -37,6 +37,14 @@ class EnsembleModel(BaseModel):
         cv: Number of folds used when use_val_as_oof=False.
         skip_base_fit: When True, base models are assumed already fitted and
             EnsembleModel.fit() only trains the meta-learner.
+        threshold: Classification threshold for binary predictions (default 0.5).
+
+    Note (data leakage in stacking with blending):
+        When ``use_val_as_oof=True`` (blending mode), base models may have seen
+        ``X_val`` during their own early-stopping phase.  This means the meta-learner
+        is trained on predictions that are not truly out-of-fold.  For production-
+        grade evaluation, set ``use_val_as_oof=False`` to generate proper K-fold OOF
+        predictions, or reserve a separate hold-out set for the meta-learner.
     """
 
     def __init__(
@@ -50,6 +58,7 @@ class EnsembleModel(BaseModel):
         use_val_as_oof: bool = True,
         cv: int = 5,
         skip_base_fit: bool = False,
+        threshold: float = 0.5,
     ):
         super().__init__()
         self.base_models = base_models
@@ -61,6 +70,7 @@ class EnsembleModel(BaseModel):
         self.use_val_as_oof = use_val_as_oof
         self.cv = cv
         self.skip_base_fit = skip_base_fit
+        self.threshold = threshold
         self._meta_learner = None
 
     def fit(
@@ -235,7 +245,7 @@ class EnsembleModel(BaseModel):
         Returns:
             np.ndarray: Binary predictions (0 or 1).
         """
-        return (self.predict_proba(X) >= 0.5).astype(int)
+        return (self.predict_proba(X) >= self.threshold).astype(int)
 
     @property
     def ensemble_description(self) -> str:
