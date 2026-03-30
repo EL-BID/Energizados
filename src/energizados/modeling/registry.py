@@ -97,6 +97,7 @@ def _register_default_models():
     try:
         from energizados.modeling.adapters import (
             CATModelAdapter,
+            IsolationForestAdapter,
             LGBMModelAdapter,
             LSTMNNModelAdapter,
             NNModelAdapter,
@@ -112,6 +113,9 @@ def _register_default_models():
         ModelRegistry.register("neural_network", NNModelAdapter)
         ModelRegistry.register("nn", NNModelAdapter)
         ModelRegistry.register("lstm", LSTMNNModelAdapter)
+
+        # Unsupervised anomaly detection models
+        ModelRegistry.register("isolation_forest", IsolationForestAdapter)
 
         # Simple models (baseline)
         ModelRegistry.register("simple_trend", SimpleTrendAdapter)
