@@ -36,7 +36,7 @@ SPLIT_SCHEMA = {
         "splits_dir": {"type": "string"},
         "method": {
             "type": "string",
-            "enum": ["stratified", "random", "time_series", "group_based"],
+            "enum": ["stratified", "random", "time_series", "group_based", "stratified_time"],
         },
         "group_column": {"type": "string"},
         "date_column": {"type": "string"},
@@ -176,7 +176,7 @@ ENSEMBLE_SCHEMA = {
     "type": "object",
     "required": ["method"],
     "properties": {
-        "method": {"type": "string", "enum": ["soft_voting", "stacking", "weighted_voting"]},
+        "method": {"type": "string", "enum": ["soft_voting", "stacking"]},
         "weights": {"type": "array", "items": {"type": "number"}},
         "meta_learner": {
             "oneOf": [

@@ -5,6 +5,7 @@ This module implements the 'run' command functionality to execute
 pipelines from YAML configuration.
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,8 @@ from rich.text import Text
 from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError, PipelineError
 from energizados.core.pipeline import ConfigPipelineBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class TimeElapsedColumnMs(ProgressColumn):
@@ -62,7 +65,6 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
                 if config is None:
                     config = {}
                 merged_config.update(config)
-                logger = __import__("logging").getLogger(__name__)
                 logger.debug(f"Configuration loaded from: {config_path}")
         except yaml.YAMLError as e:
             raise ConfigurationError(

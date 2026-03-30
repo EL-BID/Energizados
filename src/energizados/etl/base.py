@@ -106,4 +106,4 @@ class BaseETL(ABC):
             self.load(df, output_path)
             return df
         except Exception as e:
-            raise ETLError(f"Error running ETL: {str(e)}")
+            raise ETLError(f"Error running ETL: {str(e)}") from e

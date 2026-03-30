@@ -493,7 +493,6 @@ class XGBModel:
             random_state=314,
             scale_pos_weight=scale_pos_weight,
             verbosity=0,
-            use_label_encoder=False,
         )
         if self.class_weight is not None:
             return make_pipeline(xgb_model)

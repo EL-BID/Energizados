@@ -8,6 +8,7 @@ This module provides utility functions for:
 
 from .import_utils import ALLOWED_PREFIXES, import_class
 from .secure_pickle import secure_dump, secure_load, validate_no_traversal
+from .yaml_utils import load_yaml_config
 
 __all__ = [
     "import_class",
@@ -15,4 +16,5 @@ __all__ = [
     "secure_dump",
     "secure_load",
     "validate_no_traversal",
+    "load_yaml_config",
 ]

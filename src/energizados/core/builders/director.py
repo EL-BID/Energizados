@@ -9,8 +9,6 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
-
 from energizados.core.builders.eda_builder import EDABuilder
 from energizados.core.builders.etl_builder import ETLBuilder
 from energizados.core.builders.evaluation_builder import EvaluationBuilder
@@ -21,32 +19,13 @@ from energizados.core.builders.training_builder import TrainingBuilder
 from energizados.core.exceptions import ConfigurationError
 from energizados.core.pipeline import Pipeline
 from energizados.core.schemas.config_validator import ConfigValidator
+from energizados.core.utils.yaml_utils import load_yaml_config
 
 logger = logging.getLogger(__name__)
 
 
 def _load_yaml_config(path: str) -> Dict:
-    """
-    Load configuration from YAML.
-
-    Args:
-        path: Path to the YAML file
-
-    Returns:
-        Dict: Loaded configuration
-
-    Raises:
-        ConfigurationError: If the file does not exist or has format errors
-    """
-    config_file = Path(path)
-    if not config_file.exists():
-        raise ConfigurationError(f"Configuration file not found: {path}", path)
-
-    try:
-        with open(path, "r") as f:
-            return yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        raise ConfigurationError(f"Error parsing YAML: {e}", path) from e
+    return load_yaml_config(path)
 
 
 class PipelineDirector:

@@ -13,40 +13,18 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
-
 from energizados.core.base import PipelineStep
 from energizados.core.exceptions import (
-    ConfigurationError,
     PipelineError,
     StepValidationError,
 )
+from energizados.core.utils.yaml_utils import load_yaml_config
 
 logger = logging.getLogger(__name__)
 
 
 def _load_yaml_config(path: str) -> Dict:
-    """
-    Load configuration from YAML.
-
-    Args:
-        path: Path to the YAML file
-
-    Returns:
-        Dict: Loaded configuration
-
-    Raises:
-        ConfigurationError: If the file does not exist or has format errors
-    """
-    config_file = Path(path)
-    if not config_file.exists():
-        raise ConfigurationError(f"Configuration file not found: {path}", path)
-
-    try:
-        with open(path, "r") as f:
-            return yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        raise ConfigurationError(f"Error parsing YAML: {e}", path) from e
+    return load_yaml_config(path)
 
 
 class Pipeline:
@@ -178,7 +156,7 @@ class Pipeline:
                 # Notify step error
                 if self.on_step_error:
                     self.on_step_error(step_name, e)
-                raise PipelineError(f"Error executing step {step_name}: {e}", step=step_name)
+                raise PipelineError(f"Error executing step {step_name}: {e}", step=step_name) from e
 
         return self.context
 

@@ -103,7 +103,7 @@ class TestConfigSchemas:
         """Verify that ensemble methods are validated correctly."""
         validator = ConfigValidator()
 
-        valid_ensemble_methods = ["soft_voting", "stacking", "weighted_voting"]
+        valid_ensemble_methods = ["soft_voting", "stacking"]
 
         for method in valid_ensemble_methods:
             config = {
