@@ -427,6 +427,177 @@ class CATModel:
         return random_imba.best_score_, random_imba.best_params_
 
 
+class XGBModel:
+    """XGBoost classifier with imbalanced-learn sampling support.
+
+    Wraps XGBClassifier in an imblearn pipeline with optional
+    RandomUnderSampler or RandomOverSampler and optional hyperparameter search.
+
+    Note: Requires xgboost optional dependency.
+    Install with: pip install energizados[xgboost]
+    """
+
+    def __init__(
+        self,
+        cols_for_model,
+        hyperparams,
+        search_hip=False,
+        sampling_th=0.5,
+        sampling_method="undersample",
+        n_iter=60,
+        cv=3,
+        class_weight=None,
+    ):
+        """Initialize XGBModel.
+
+        Args:
+            cols_for_model: List of feature column names.
+            hyperparams: XGBoost hyperparameter dict.
+            search_hip: If True, run hyperparameter search before training.
+            sampling_th: Sampling ratio for the sampler.
+            sampling_method: Sampling strategy ('oversample', 'undersample', 'smotetomek', or other for none).
+            n_iter: Number of iterations for RandomizedSearchCV.
+            cv: Number of cross-validation folds.
+            class_weight: Passed as scale_pos_weight (int/float) or ignored if None.
+        """
+        self.cols_for_model = cols_for_model
+        self.sampling_th = sampling_th
+        self.sampling_method = sampling_method
+        self.search_hip = search_hip
+        self.hyperparams = hyperparams
+        self.n_iter = n_iter
+        self.cv = cv
+        self.class_weight = class_weight
+
+    def build_pipeline_preproceso_model(self):
+        """Build an imblearn pipeline with XGBClassifier and optional sampler.
+
+        Returns:
+            imblearn.pipeline.Pipeline: Pipeline with optional sampler followed by
+                XGBClassifier.
+        """
+        try:
+            from xgboost import (
+                XGBClassifier,  # Lazy import - only load when training XGBModel
+            )
+        except ImportError:
+            raise ImportError(
+                "xgboost is required for XGBModel. "
+                "Install it with: pip install energizados[xgboost]"
+            )
+
+        scale_pos_weight = self.class_weight if isinstance(self.class_weight, (int, float)) else 1
+        xgb_model = XGBClassifier(
+            n_estimators=1000,
+            eval_metric="auc",
+            random_state=314,
+            scale_pos_weight=scale_pos_weight,
+            verbosity=0,
+            use_label_encoder=False,
+        )
+        if self.class_weight is not None:
+            return make_pipeline(xgb_model)
+        if self.sampling_method == "oversample":
+            over = RandomOverSampler(sampling_strategy=self.sampling_th, random_state=40)
+            return make_pipeline(over, xgb_model)
+        elif self.sampling_method == "undersample":
+            under = RandomUnderSampler(sampling_strategy=self.sampling_th, random_state=40)
+            return make_pipeline(under, xgb_model)
+        elif self.sampling_method == "smotetomek":
+            smt = SMOTETomek(sampling_strategy=self.sampling_th, random_state=40)
+            return make_pipeline(smt, xgb_model)
+        else:
+            return make_pipeline(xgb_model)
+
+    def train(self, df_train, y_train, df_val=None, y_val=None):
+        """Train the XGBoost pipeline.
+
+        If no validation set is provided, 10% of the training data is reserved
+        for early stopping. Optionally performs hyperparameter search first.
+
+        Args:
+            df_train: Training feature DataFrame.
+            y_train: Training target Series.
+            df_val: Validation feature DataFrame (optional).
+            y_val: Validation target Series (optional).
+
+        Returns:
+            imblearn.pipeline.Pipeline: Fitted pipeline with sampler and XGBClassifier.
+        """
+        if df_val is None:
+            df_train, df_val, y_train, y_val = train_test_split(
+                df_train, y_train, test_size=0.1, random_state=42
+            )
+
+        X_train = df_train[self.cols_for_model].copy()
+        X_val = df_val[self.cols_for_model].copy()
+
+        pipe = self.build_pipeline_preproceso_model()
+
+        if self.search_hip:
+            self.best_score_, self.hyperparams = self.find_hyp_xgb_model(
+                X_train, y_train, X_val, y_val, pipe
+            )
+
+        params = self.hyperparams
+        prefixed_params = {
+            (k if "__" in k else f"xgbclassifier__{k}"): v for k, v in params.items()
+        }
+        fit_params = {
+            "xgbclassifier__eval_set": [(X_val, y_val)],
+            "xgbclassifier__verbose": False,
+        }
+        pipe.set_params(**prefixed_params)
+        pipe.fit(X_train, y_train, **fit_params)
+
+        return pipe
+
+    def find_hyp_xgb_model(self, X_train, y_train, X_val, y_val, imba_pipeline):
+        """Run RandomizedSearchCV to find optimal XGBoost hyperparameters.
+
+        Args:
+            X_train: Training feature DataFrame.
+            y_train: Training target Series.
+            X_val: Validation feature DataFrame (not used in CV phase).
+            y_val: Validation target Series (not used in CV phase).
+            imba_pipeline: imblearn pipeline containing the XGBClassifier.
+
+        Returns:
+            tuple: (best_score, best_params) from the randomized search.
+        """
+        param_test = {
+            "n_estimators": sp_randint(100, 1000),
+            "max_depth": sp_randint(3, 12),
+            "learning_rate": sp_uniform(loc=0.01, scale=0.2),
+            "subsample": sp_uniform(loc=0.5, scale=0.5),
+            "colsample_bytree": sp_uniform(loc=0.4, scale=0.6),
+            "min_child_weight": sp_randint(1, 20),
+            "reg_alpha": [0, 0.1, 1, 5, 10],
+            "reg_lambda": [0.5, 1, 5, 10],
+            "gamma": [0, 0.1, 0.5, 1, 5],
+        }
+
+        new_params = {"xgbclassifier__" + key: param_test[key] for key in param_test}
+
+        random_search = RandomizedSearchCV(
+            estimator=imba_pipeline,
+            param_distributions=new_params,
+            cv=self.cv,
+            scoring="roc_auc",
+            n_jobs=-1,
+            n_iter=self.n_iter,
+            refit=True,
+            random_state=314,
+        )
+        random_search.fit(X_train, y_train)
+        logger.info(
+            "\nBest score reached: {} with params: {} ".format(
+                random_search.best_score_, random_search.best_params_
+            )
+        )
+        return random_search.best_score_, random_search.best_params_
+
+
 class NNModel:
     """Feedforward neural network model for binary classification.
 

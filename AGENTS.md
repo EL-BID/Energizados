@@ -292,7 +292,7 @@ training:
 
   # Single model example
   models:
-    - type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
+    - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm
       sampling:
         method: "undersample"  # oversample, undersample, none
         threshold: 0.5
@@ -496,6 +496,7 @@ sections:
 **`src/modeling/supervised_models.py`** - Supervised model classes:
 - `LGBMModel`: LightGBM with imbalanced-learn sampling (undersample/over)
 - `CATModel`: CatBoost with native categorical handling
+- `XGBModel`: XGBoost with imbalanced-learn sampling (optional dependency: `pip install energizados[xgboost]`)
 - `NNModel`: Feedforward neural network (TensorFlow/Keras)
 - `LSTMNNModel`: LSTM + Dense neural network for sequential consumption data
 

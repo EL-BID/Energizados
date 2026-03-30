@@ -677,7 +677,7 @@ class TrainingStep(PipelineStep):
         params = model_config.copy()
         model_type = params.get("type", "lightgbm")
 
-        if model_type in ["lightgbm", "lgbm", "catboost", "cat"]:
+        if model_type in ["lightgbm", "lgbm", "catboost", "cat", "xgboost", "xgb"]:
             params["cols_for_model"] = X_train.columns.tolist()
             sampling_config = params.pop("sampling", {})
             params["sampling_method"] = sampling_config.get("method", "undersample")

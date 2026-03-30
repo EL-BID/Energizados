@@ -256,6 +256,125 @@ class CATModelAdapter(BaseModel):
         return raw
 
 
+class XGBModelAdapter(BaseModel):
+    """Adapter for XGBModel that implements the BaseModel interface.
+
+    Wraps XGBModel to integrate XGBoost with the Energizados framework pipeline.
+
+    Args:
+        cols_for_model: Feature column names to pass to the model.
+        hyperparams: XGBoost hyperparameter dict.
+        search_hip: If True, performs hyperparameter search before training.
+        sampling_th: Sampling ratio for the imblearn sampler.
+        sampling_method: Sampling strategy ('oversample', 'undersample', 'smotetomek', or other for none).
+        n_iter: Number of iterations for RandomizedSearchCV.
+        cv: Number of cross-validation folds for RandomizedSearchCV.
+        config: Optional framework configuration dict.
+        class_weight: scale_pos_weight value for XGBoost (int/float).
+    """
+
+    def __init__(
+        self,
+        cols_for_model: list,
+        hyperparams: Optional[dict] = None,
+        search_hip: bool = False,
+        sampling_th: float = 0.5,
+        sampling_method: str = "undersample",
+        n_iter: int = 60,
+        cv: int = 3,
+        config: Optional[dict] = None,
+        class_weight: Optional[dict] = None,
+    ):
+        super().__init__(config)
+        self.cols_for_model = cols_for_model
+        self.hyperparams = hyperparams or {}
+        self.search_hip = search_hip
+        self.sampling_th = sampling_th
+        self.sampling_method = sampling_method
+        self.n_iter = n_iter
+        self.cv = cv
+        self.class_weight = class_weight
+
+        from energizados.modeling.supervised_models import XGBModel as OriginalXGB
+
+        self._model = OriginalXGB(
+            cols_for_model=cols_for_model,
+            hyperparams=hyperparams,
+            search_hip=search_hip,
+            sampling_th=sampling_th,
+            sampling_method=sampling_method,
+            n_iter=n_iter,
+            cv=cv,
+            class_weight=class_weight,
+        )
+        self._trained_pipeline = None
+
+    def fit(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        X_val: Optional[pd.DataFrame] = None,
+        y_val: Optional[pd.Series] = None,
+    ) -> "XGBModelAdapter":
+        """Train the XGBoost model.
+
+        Args:
+            X: Training features.
+            y: Training target.
+            X_val: Validation features (optional).
+            y_val: Validation target (optional).
+
+        Returns:
+            self: The fitted instance.
+        """
+        self._trained_pipeline = self._model.train(X, y, X_val, y_val)
+        self.is_fitted_ = True
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Make binary predictions.
+
+        Args:
+            X: Features for prediction.
+
+        Returns:
+            np.ndarray: Binary predictions (0 or 1).
+        """
+        self.check_fitted()
+        return (self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1] > 0.5).astype(
+            int
+        )
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """Make probability predictions.
+
+        Args:
+            X: Features for prediction.
+
+        Returns:
+            np.ndarray: Positive class probabilities.
+        """
+        self.check_fitted()
+        return self._trained_pipeline.predict_proba(X[self.cols_for_model])[:, 1]
+
+    def get_raw_model(self) -> Any:
+        """Extract the fitted XGBClassifier from the trained pipeline.
+
+        Returns:
+            The fitted XGBClassifier instance, or None if not yet trained.
+        """
+        if self._trained_pipeline is None:
+            logger.warning("XGBModelAdapter.get_raw_model() called before fit().")
+            return None
+        raw = self._trained_pipeline.named_steps.get("xgbclassifier")
+        if raw is None:
+            logger.warning(
+                "Step 'xgbclassifier' not found in pipeline. Available: %s",
+                list(self._trained_pipeline.named_steps.keys()),
+            )
+        return raw
+
+
 class NNModelAdapter(BaseModel):
     """Adapter for NNModel that implements the BaseModel interface.
 

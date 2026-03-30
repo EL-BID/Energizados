@@ -61,7 +61,8 @@ dependencies = [
 [project.optional-dependencies]
 catboost = ["catboost==1.2.8"]
 tensorflow = ["tensorflow>=2.17.0"]
-all = ["catboost==1.2.8", "tensorflow>=2.17.0"]
+xgboost = ["xgboost>=2.0.0"]
+all = ["catboost==1.2.8", "tensorflow>=2.17.0", "xgboost>=2.0.0"]
 dev = [
     "black>=23.0",
     "ipykernel>=6.0",
@@ -212,5 +213,6 @@ module = [
     "lightgbm.*",
     "tsfel.*",
     "unidecode.*",
+    "xgboost.*",
 ]
 ignore_missing_imports = true

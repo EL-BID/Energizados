@@ -102,6 +102,7 @@ def _register_default_models():
             NNModelAdapter,
             SimpleConstantAdapter,
             SimpleTrendAdapter,
+            XGBModelAdapter,
         )
 
         # Supervised models (adapters that implement BaseModel)
@@ -109,6 +110,8 @@ def _register_default_models():
         ModelRegistry.register("lgbm", LGBMModelAdapter)
         ModelRegistry.register("catboost", CATModelAdapter)
         ModelRegistry.register("cat", CATModelAdapter)
+        ModelRegistry.register("xgboost", XGBModelAdapter)
+        ModelRegistry.register("xgb", XGBModelAdapter)
         ModelRegistry.register("neural_network", NNModelAdapter)
         ModelRegistry.register("nn", NNModelAdapter)
         ModelRegistry.register("lstm", LSTMNNModelAdapter)

@@ -36,6 +36,7 @@ try:
         LGBMModel,
         LSTMNNModel,
         NNModel,
+        XGBModel,
     )
 
     _supervised_models_available = True
@@ -50,6 +51,7 @@ try:
         NNModelAdapter,
         SimpleConstantAdapter,
         SimpleTrendAdapter,
+        XGBModelAdapter,
     )
 
     _adapters_available = True
@@ -92,6 +94,7 @@ if _supervised_models_available:
             "CATModel",
             "NNModel",
             "LSTMNNModel",
+            "XGBModel",
         ]
     )
 
@@ -104,6 +107,7 @@ if _adapters_available:
             "LSTMNNModelAdapter",
             "SimpleTrendAdapter",
             "SimpleConstantAdapter",
+            "XGBModelAdapter",
         ]
     )
 
