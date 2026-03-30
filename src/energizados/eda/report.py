@@ -5,6 +5,7 @@ Generates a comprehensive self-contained HTML report for EDA results.
 All text is in English.
 """
 
+import html
 import json
 import logging
 from datetime import datetime
@@ -14,6 +15,8 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from energizados.evaluation._html_templates import DARK_TOGGLE_JS, SHARED_CSS
+
+_esc = html.escape
 
 logger = logging.getLogger(__name__)
 
@@ -454,8 +457,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         if related_columns:
             sections.append(("relacionadas", "Phase 7: Related Columns"))
             for h_name in related_columns:
-                safe_id = h_name.replace(" ", "_").lower()
-                sections.append((f"hier_{safe_id}", f"  → {h_name}"))
+                safe_id = _esc(h_name.replace(" ", "_").lower())
+                sections.append((f"hier_{safe_id}", f"  → {_esc(h_name)}"))
 
         return "".join(f'<a href="#{sid}">{label}</a>' for sid, label in sections)
 
@@ -590,14 +593,14 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 """
         rows_html = ""
         for alert in alerts:
-            sev = alert.get("severity", "INFO")
-            code = alert.get("code", "")
-            message = alert.get("message", "")
+            sev = _esc(alert.get("severity", "INFO"))
+            code = _esc(alert.get("code", ""))
+            message = _esc(alert.get("message", ""))
             details = alert.get("details", {})
             details_str = ""
             if details:
                 try:
-                    details_str = f'<br><small style="color:#888;">{json.dumps(details, ensure_ascii=False, default=str)[:300]}</small>'
+                    details_str = f'<br><small style="color:#888;">{_esc(json.dumps(details, ensure_ascii=False, default=str)[:300])}</small>'
                 except Exception:  # nosec B110
                     pass
 
@@ -642,7 +645,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         num_str_table = ""
         if numeric_as_str:
             rows = "".join(
-                f"<tr><td>{d['col']}</td><td>{d['parseable_count']:,}</td><td>{d['parseable_pct']:.1f}%</td></tr>"
+                f"<tr><td>{_esc(d['col'])}</td><td>{d['parseable_count']:,}</td><td>{d['parseable_pct']:.1f}%</td></tr>"
                 for d in numeric_as_str
             )
             num_str_table = f"""
@@ -653,8 +656,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         ws_table = ""
         if whitespace_cols:
             rows = "".join(
-                f"<tr><td>{d['col']}</td><td>{d['affected_count']:,}</td>"
-                f"<td>{d['affected_pct']:.1f}%</td><td><code>{d.get('example', '')}</code></td></tr>"
+                f"<tr><td>{_esc(d['col'])}</td><td>{d['affected_count']:,}</td>"
+                f"<td>{d['affected_pct']:.1f}%</td><td><code>{_esc(d.get('example', ''))}</code></td></tr>"
                 for d in whitespace_cols
             )
             ws_table = f"""
@@ -671,11 +674,11 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             <div class="label">Rows Loaded</div>
         </div>
         <div class="stat-card">
-            <div class="value">{loading.get("encoding_used", "N/A")}</div>
+            <div class="value">{_esc(str(loading.get("encoding_used", "N/A")))}</div>
             <div class="label">Detected Encoding</div>
         </div>
         <div class="stat-card">
-            <div class="value">{loading.get("decimal_separator", ".")}</div>
+            <div class="value">{_esc(str(loading.get("decimal_separator", ".")))}</div>
             <div class="label">Decimal Separator</div>
         </div>
         <div class="stat-card">
@@ -697,7 +700,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         top_nulls = sorted(nulls_by_col, key=lambda x: x.get("null_pct", 0), reverse=True)[:20]
 
         nulls_rows = "".join(
-            f"<tr><td>{d['col']}</td><td>{d['null_count']:,}</td><td>{d['null_pct']:.2f}%</td>"
+            f"<tr><td>{_esc(d['col'])}</td><td>{d['null_count']:,}</td><td>{d['null_pct']:.2f}%</td>"
             f'<td><div class="consumption-bar" style="width:{min(d["null_pct"], 100):.0f}%;'
             f'background:linear-gradient(90deg,#f44336,#ffcdd2);"></div></td></tr>'
             for d in top_nulls
@@ -705,19 +708,20 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         dtype_counts = global_stats.get("dtype_counts", {})
         dtype_html = " ".join(
-            f'<span class="pill">{dtype}: {count}</span>' for dtype, count in dtype_counts.items()
+            f'<span class="pill">{_esc(dtype)}: {count}</span>'
+            for dtype, count in dtype_counts.items()
         )
 
         const_cols = global_stats.get("constant_cols", [])
         const_html = (
-            " ".join(f'<span class="pill">{c}</span>' for c in const_cols[:20])
+            " ".join(f'<span class="pill">{_esc(c)}</span>' for c in const_cols[:20])
             if const_cols
             else "<em>None</em>"
         )
 
         fully_null = global_stats.get("fully_null_cols", [])
         fully_null_html = (
-            " ".join(f'<span class="pill">{c}</span>' for c in fully_null[:20])
+            " ".join(f'<span class="pill">{_esc(c)}</span>' for c in fully_null[:20])
             if fully_null
             else "<em>None</em>"
         )
@@ -873,7 +877,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             )
             rows += f"""
 <tr>
-    <td><strong>{d.get("col", "")}</strong>{f" {consumption_badge}" if consumption_badge else ""}</td>
+    <td><strong>{_esc(d.get("col", ""))}</strong>{f" {consumption_badge}" if consumption_badge else ""}</td>
     <td>{d.get("count", 0):,}</td>
     <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
     <td>{d.get("mean", "—")}</td>
@@ -908,7 +912,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         rows = ""
         for d in categorical:
             top = d.get("top_categories", [])
-            top_str = ", ".join(f"{c['value']} ({c['pct']:.1f}%)" for c in top[:3])
+            top_str = ", ".join(f"{_esc(c['value'])} ({c['pct']:.1f}%)" for c in top[:3])
             iv_td = (
                 f"<td>{d.get('iv', '—') if d.get('iv') is not None else '—'}</td>"
                 f"<td>{d.get('cramers_v', '—') if d.get('cramers_v') is not None else '—'}</td>"
@@ -918,7 +922,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             null_color = "color:#f44336;" if (d.get("null_pct", 0) or 0) > 30 else ""
             rows += f"""
 <tr>
-    <td><strong>{d.get("col", "")}</strong></td>
+    <td><strong>{_esc(d.get("col", ""))}</strong></td>
     <td>{d.get("count", 0):,}</td>
     <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
     <td>{d.get("unique_count", 0)}</td>
@@ -947,13 +951,13 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         for d in temporal:
             rows += f"""
 <tr>
-    <td><strong>{d.get("col", "")}</strong></td>
+    <td><strong>{_esc(d.get("col", ""))}</strong></td>
     <td>{d.get("count", 0):,}</td>
     <td>{d.get("null_pct", 0):.1f}%</td>
-    <td>{d.get("min_date", "—")}</td>
-    <td>{d.get("max_date", "—")}</td>
+    <td>{_esc(str(d.get("min_date", "—")))}</td>
+    <td>{_esc(str(d.get("max_date", "—")))}</td>
     <td>{d.get("span_days", "—")}</td>
-    <td>{d.get("granularity", "—")}</td>
+    <td>{_esc(d.get("granularity", "—"))}</td>
 </tr>"""
 
         return f"""
@@ -978,7 +982,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         for s in stats:
             stats_rows += f"""
 <tr>
-    <td>{s.get("period", "")}</td>
+    <td>{_esc(s.get("period", ""))}</td>
     <td>{s.get("mean", "—")}</td>
     <td>{s.get("std", "—")}</td>
     <td>{s.get("min", "—")}</td>
@@ -1043,14 +1047,14 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         temporal_rate = target.get("temporal_rate", [])
 
         class_rows = "".join(
-            f"<tr><td>{label}</td><td>{class_counts.get(label, 0):,}</td><td>{class_pcts.get(label, 0):.2f}%</td></tr>"
+            f"<tr><td>{_esc(str(label))}</td><td>{class_counts.get(label, 0):,}</td><td>{class_pcts.get(label, 0):.2f}%</td></tr>"
             for label in class_counts
         )
 
         temporal_rows = ""
         if temporal_rate:
             temporal_rows = "".join(
-                f"<tr><td>{d['period']}</td><td>{d['total']:,}</td><td>{d['positive']:,}</td><td>{d['rate']:.2f}%</td></tr>"
+                f"<tr><td>{_esc(str(d['period']))}</td><td>{d['total']:,}</td><td>{d['positive']:,}</td><td>{d['rate']:.2f}%</td></tr>"
                 for d in temporal_rate[:24]
             )
             temporal_table = f"""
@@ -1139,7 +1143,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                     elif val is None or (isinstance(val, float) and pd.isna(val)):
                         cells += "<td>—</td>"
                     else:
-                        cells += f"<td>{val}</td>"
+                        cells += f"<td>{_esc(str(val))}</td>"
                 rows_html += f"<tr>{cells}</tr>"
 
             table_html = f"""
@@ -1151,13 +1155,13 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 </div>"""
 
         weak_html = (
-            " ".join(f'<span class="pill">{c}</span>' for c in weak_features[:20])
+            " ".join(f'<span class="pill">{_esc(c)}</span>' for c in weak_features[:20])
             if weak_features
             else "<em>None</em>"
         )
         leakage_html = (
             " ".join(
-                f'<span class="pill" style="background:#ffcdd2;color:#c62828;">{c}</span>'
+                f'<span class="pill" style="background:#ffcdd2;color:#c62828;">{_esc(c)}</span>'
                 for c in leakage_candidates
             )
             if leakage_candidates
@@ -1171,7 +1175,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     {f'<div class="chart-container">{iv_chart}</div>' if iv_chart else ""}
 
     <h3>Top 20 Features (by combined score)</h3>
-    <p>{" ".join(f'<span class="pill"><strong>{i + 1}.</strong> {c}</span>' for i, c in enumerate(top_features))}</p>
+    <p>{" ".join(f'<span class="pill"><strong>{i + 1}.</strong> {_esc(c)}</span>' for i, c in enumerate(top_features))}</p>
 
     <h3>Low Predictive Power Features (IV &lt; threshold)</h3>
     <p>{weak_html}</p>
@@ -1196,7 +1200,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         mapbox_chart = charts.get("scatter_mapbox", "")
 
         quality_rows = "".join(
-            f"<tr><td>{k}</td><td>{v}</td></tr>"
+            f"<tr><td>{_esc(k)}</td><td>{v}</td></tr>"
             for k, v in {
                 "Valid Records": f"{coord_quality.get('valid_coords_count', 0):,}",
                 "% Missing": f"{coord_quality.get('null_pct', 0):.1f}%",
@@ -1208,7 +1212,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         zone_rows = ""
         if target_by_zone:
             zone_rows = "".join(
-                f"<tr><td>{zone}</td><td>{rate:.1%}</td></tr>"
+                f"<tr><td>{_esc(str(zone))}</td><td>{rate:.1%}</td></tr>"
                 for zone, rate in sorted(target_by_zone.items(), key=lambda x: x[1], reverse=True)[
                     :15
                 ]
@@ -1340,7 +1344,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         ]
 
         segment_rows = "".join(
-            f"<tr><td>{s['column']}={s['segment']}</td><td>{s['size']:,}</td><td>{s['size_pct']:.1f}%</td>"
+            f"<tr><td>{_esc(s['column'])}={_esc(s['segment'])}</td><td>{s['size']:,}</td><td>{s['size_pct']:.1f}%</td>"
             f"<td>{s['target_rate']:.1%}</td><td>{s['z_score']:.2f}</td></tr>"
             for s in top_segments
         )
@@ -1381,7 +1385,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 continue
             blocks.append(
                 f'<details class="col-detail">'
-                f"<summary>{col}</summary>"
+                f"<summary>{_esc(col)}</summary>"
                 f'<div class="detail-body">{charts_html}</div>'
                 f"</details>"
             )
@@ -1403,7 +1407,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         sections_html = ""
 
         for h_name, h_data in related_columns.items():
-            safe_id = h_name.replace(" ", "_").lower()
+            safe_id = _esc(h_name.replace(" ", "_").lower())
             columns = h_data.get("columns", [])
             h_charts = hierarchy_charts.get(h_name, {})
 
@@ -1422,8 +1426,8 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
             sections_html += f"""
 <div id="hier_{safe_id}" style="margin-top:20px;">
-    <h3>{h_name}</h3>
-    <p><strong>Columns:</strong> {" → ".join(columns)}</p>
+    <h3>{_esc(h_name)}</h3>
+    <p><strong>Columns:</strong> {" → ".join(_esc(c) for c in columns)}</p>
 
     <h4>Hierarchical Breakdown</h4>
     <ul class="tree-list">{tree_html}</ul>
@@ -1449,7 +1453,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         items = ""
         for node in tree[:30]:  # limit nodes per level
-            value = node.get("value", "")
+            value = _esc(str(node.get("value", "")))
             count = node.get("count", 0)
             pct_parent = node.get("pct_of_parent", 0)
             pct_total = node.get("pct_of_total", 0)
@@ -1473,10 +1477,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         if not cross:
             return ""
 
-        header = "".join(f"<th>{c}</th>" for c in columns)
+        header = "".join(f"<th>{_esc(c)}</th>" for c in columns)
         rows = ""
         for record in cross[:50]:
-            cells = "".join(f"<td>{record.get(c, '')}</td>" for c in columns)
+            cells = "".join(f"<td>{_esc(str(record.get(c, '')))}</td>" for c in columns)
             cells += f"<td>{record.get('count', 0):,}</td>"
             rows += f"<tr>{cells}</tr>"
 
@@ -1558,7 +1562,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             for col_name, pop_data in population_analysis.items():
                 if pop_data.get("has_multiple_populations", False):
                     population_tables += f"""
-<h3>Population Segmentation: {col_name}</h3>
+<h3>Population Segmentation: {_esc(col_name)}</h3>
 {self._build_population_analysis_table(col_name, pop_data)}
 """
 
@@ -1601,7 +1605,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 
         rows = ""
         for col_data in numeric:
-            col_name = col_data.get("col", "")
+            col_name = _esc(col_data.get("col", ""))
             is_consumption = col_data.get("_is_consumption", False)
             col_type = (
                 '<span class="badge" style="background:#e8f5e9;color:#2e7d32;">consumption</span>'
@@ -1634,7 +1638,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                     rows += f"""
 <tr>
     <td><strong>{col_name}</strong>{f" {col_type}" if col_type else ""}</td>
-    <td>{method_name.capitalize()}</td>
+    <td>{_esc(method_name.capitalize())}</td>
     <td>{outlier_count:,}</td>
     <td>{outlier_pct:.2f}%</td>
     <td>{alert_badge}</td>
@@ -1749,10 +1753,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
 <table class="data-table">
 <thead>
 <tr>
-    <th>Rango</th>
-    <th>Percentil</th>
-    <th>Filas</th>
-    <th>Interpretación</th>
+    <th>Range</th>
+    <th>Percentile</th>
+    <th>Rows</th>
+    <th>Interpretation</th>
 </tr>
 </thead>
 <tbody>
@@ -1807,7 +1811,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         for method, stats in method_stats.items():
             rows += f"""
 <tr>
-    <td><strong>{method.upper()}</strong></td>
+    <td><strong>{_esc(method.upper())}</strong></td>
     <td>{stats["total_cols"]}</td>
     <td>{stats["total_outliers"]:,}</td>
     <td>{stats["avg_pct"]:.2f}%</td>
@@ -1884,16 +1888,16 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 outlier_pct = col_data.get("outlier_pct", 0.0)
                 if outlier_pct > 10.0:
                     alerts.append(
-                        f"Column <strong>{col_data.get('col', '')}</strong> has "
+                        f"Column <strong>{_esc(col_data.get('col', ''))}</strong> has "
                         f"{outlier_pct:.2f}% outliers (IQR method)."
                     )
             else:
                 for method_name, method_result in outlier_methods.items():
                     if method_result.get("has_alert", False):
                         alerts.append(
-                            f"Column <strong>{col_data.get('col', '')}</strong> has "
+                            f"Column <strong>{_esc(col_data.get('col', ''))}</strong> has "
                             f"{method_result.get('outlier_pct', 0.0):.2f}% outliers "
-                            f"({method_name} method)."
+                            f"({_esc(method_name)} method)."
                         )
 
         if consumption_outliers:

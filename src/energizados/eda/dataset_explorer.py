@@ -527,7 +527,7 @@ class DatasetExplorer:
         thresholds_cfg = outliers_cfg.get("thresholds", {})
         consumption_patterns = outliers_cfg.get("consumption_patterns", True)
         alert_threshold = outliers_cfg.get("alert_threshold", 10.0)
-        outliers_cfg.get("detailed_charts", True)
+        store_masks = outliers_cfg.get("detailed_charts", True)
 
         # Initialize OutlierDetector with config
         detector = OutlierDetector(
@@ -536,6 +536,7 @@ class DatasetExplorer:
             zscore_threshold=thresholds_cfg.get("zscore", 3.0),
             modified_zscore_threshold=thresholds_cfg.get("modified_zscore", 3.5),
             alert_threshold_pct=alert_threshold,
+            store_mask=store_masks,
         )
 
         results = {
@@ -730,14 +731,14 @@ class DatasetExplorer:
         pct_range_outliers = round(float(range_outliers) / total * 100, 4)
 
         # Consecutive zeros: 3+ consecutive periods with zero consumption
-        is_zero = (cons_df == 0).astype(int)
-        max_consec = pd.Series(0, index=df.index)
-        for i in range(len(periods_sorted)):
-            for j in range(i + 1, len(periods_sorted)):
-                window = is_zero.iloc[:, i : j + 1]
-                consecutive = window.min(axis=1) == 1
-                max_consec = pd.concat([max_consec, consecutive], axis=1).max(axis=1)
-        consec_zeros_mask = max_consec >= 3
+        is_zero = (cons_df == 0).astype(int).values
+        n_cols = is_zero.shape[1]
+        max_run = np.zeros(is_zero.shape[0], dtype=int)
+        current_run = np.zeros(is_zero.shape[0], dtype=int)
+        for j in range(n_cols):
+            current_run = np.where(is_zero[:, j] == 1, current_run + 1, 0)
+            max_run = np.maximum(max_run, current_run)
+        consec_zeros_mask = pd.Series(max_run >= 3, index=df.index)
         pct_consec_zeros = round(float(consec_zeros_mask.sum()) / total * 100, 4)
 
         # Abrupt drops: >50% drop between consecutive periods
@@ -950,6 +951,12 @@ class DatasetExplorer:
         ]
         if len(numeric_cols) > 1:
             try:
+                if len(numeric_cols) > 30:
+                    logger.warning(
+                        "Correlation matrix truncated to 30 columns (out of %d). "
+                        "Some correlations may be missed.",
+                        len(numeric_cols),
+                    )
                 numeric_sample = df[numeric_cols[:30]]
                 corr_matrix = numeric_sample.corr(numeric_only=True)
                 charts["correlation_heatmap"] = interactive_plotter.null_correlation_heatmap(

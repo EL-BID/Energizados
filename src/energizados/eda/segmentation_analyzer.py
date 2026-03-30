@@ -78,7 +78,7 @@ class SegmentationAnalyzer(BaseExplorer):
 
         results = {}
         overall_rate = df[target_col].mean()
-        overall_std = df[target_col].std() if len(df) > 0 else 0
+        # overall_std = df[target_col].std() if len(df) > 0 else 0
 
         # --- Per-segment analysis ---
         segment_stats = []
@@ -110,8 +110,13 @@ class SegmentationAnalyzer(BaseExplorer):
                     continue
 
                 # Calculate deviation from overall rate (in sigmas)
-                if overall_std > 0:
-                    z_score = abs(segment_rate - overall_rate) / overall_std
+                se = (
+                    (overall_rate * (1 - overall_rate) / segment_size) ** 0.5
+                    if segment_size > 0
+                    else 0
+                )
+                if se > 0:
+                    z_score = abs(segment_rate - overall_rate) / se
                 else:
                     z_score = 0
 

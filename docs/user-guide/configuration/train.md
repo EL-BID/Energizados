@@ -15,8 +15,9 @@ The training configuration file controls the entire training pipeline with five 
 ## File Structure
 
 ```yaml
-training:
+train:
   enabled: true                     # Whether to execute training
+  description: "Experiment description"  # Optional: shown in evaluation report
   input_path: "path/to/data.parquet"  # Input dataset
   target_column: "target"           # Target variable name
   periods_suffix: "_anterior"        # Suffix for time series columns
@@ -53,6 +54,7 @@ training:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `description` | string | `""` | Experiment description shown in the evaluation HTML report header |
 | `periods_suffix` | string | `"_anterior"` | Suffix for time series columns |
 | `output_base_dir` | string | `"output"` | Base directory for outputs |
 
@@ -452,9 +454,11 @@ feature_selection:
 
 | Method | Description | Parameters |
 |--------|-------------|------------|
-| `boruta` | Boruta algorithm for feature selection | `n_estimators`, `max_iter` |
-| `correlation` | Removes highly correlated features | `threshold` |
-| `constant` | Removes low-variance features | `threshold` |
+| `boruta` | Boruta algorithm — runs 10 times, selects features in ≥5 runs | `n_estimators` (100), `max_depth` (8), `max_iter` (100) |
+| `correlation` | Removes one of each highly correlated pair | `method` ("pearson"), `threshold` (0.9) |
+| `constant` | Removes columns where one value covers >threshold of rows | `threshold` (0.99) |
+| `categorical` | Keeps only object/category dtype columns | `include_category` (true), `include_object` (true) |
+| `mutual_information` | Keeps top-k features by mutual information | `k` (10), `random_state` (42) |
 
 ---
 
@@ -554,6 +558,7 @@ models:
 | `n_estimators` | int | `1000` | Number of boosting iterations |
 | `min_child_samples` | int | `20` | Minimum samples in leaf |
 | `subsample` | float | `1.0` | Subsample ratio of training data |
+| `class_weight` | string/dict | `null` | e.g. `"balanced"` — when set, **sampling is bypassed entirely** and class imbalance is handled via LightGBM weights instead |
 
 #### CatBoost Configuration
 
@@ -805,7 +810,7 @@ evaluation:
 ### Single Model Example
 
 ```yaml
-training:
+train:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
@@ -862,7 +867,7 @@ training:
 ### Ensemble Example
 
 ```yaml
-training:
+train:
   enabled: true
   input_path: "data/processed/sample_dataset.parquet"
   target_column: "target"
