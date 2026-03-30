@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, Neural Networks, LSTM).
+Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, XGBoost, Neural Networks, LSTM), plus unsupervised anomaly detection (IsolationForest).
 
 The framework also includes an **ETL system** with support for multiple ETLs with dependencies using YAML configuration.
 
@@ -68,8 +68,9 @@ These scripts use `ConfigPipelineBuilder` API directly.
 ```
 src/energizados/
 ├── preprocessing/      # Data cleaning and feature engineering transformers
-├── modeling/           # Model implementations (supervised and simple models)
-│   ├── adapters.py    # LGBMModelAdapter, CATModelAdapter, NNModelAdapter, LSTMNNModelAdapter
+├── modeling/           # Model implementations (supervised and unsupervised)
+│   ├── adapters.py    # LGBMModelAdapter, CATModelAdapter, XGBModelAdapter, NNModelAdapter, LSTMNNModelAdapter, IsolationForestAdapter
+│   ├── registry.py    # ModelRegistry with all registered model names
 │   └── ensemble.py    # EnsembleModel (soft voting and stacking)
 ├── feature_engineering/  # Combined preprocessing + feature selection
 │   ├── base.py        # BaseFeatureEngineering abstract class
@@ -292,7 +293,7 @@ training:
 
   # Single model example
   models:
-    - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm
+    - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm, isolation_forest
       sampling:
         method: "undersample"  # oversample, undersample, none
         threshold: 0.5
@@ -499,6 +500,12 @@ sections:
 - `XGBModel`: XGBoost with imbalanced-learn sampling (optional dependency: `pip install energizados[xgboost]`)
 - `NNModel`: Feedforward neural network (TensorFlow/Keras)
 - `LSTMNNModel`: LSTM + Dense neural network for sequential consumption data
+
+**`src/modeling/adapters.py`** - Model adapters implementing BaseModel interface:
+- `LGBMModelAdapter`, `CATModelAdapter`, `XGBModelAdapter`: Wrap supervised models
+- `NNModelAdapter`, `LSTMNNModelAdapter`: Wrap neural network models
+- `IsolationForestAdapter`: Unsupervised anomaly detection (trains without labels, uses contamination param)
+- `SimpleTrendAdapter`, `SimpleConstantAdapter`: Rule-based baseline models
 
 **`src/modeling/ensemble.py`** - Ensemble model combining multiple base models:
 - `EnsembleModel`: Combines N base models via soft voting or stacking with meta-learner

@@ -241,12 +241,14 @@ train:
   # Available model types:
   #   - lightgbm: Gradient Boosting (requires preprocessing)
   #   - catboost: CatBoost (requires preprocessing)
+  #   - xgboost: XGBoost (requires preprocessing; optional: pip install energizados[xgboost])
   #   - neural_network / nn: Feedforward Neural Network (requires preprocessing)
   #   - lstm: LSTM Neural Network for sequential data (requires preprocessing)
+  #   - isolation_forest: Unsupervised anomaly detection (trains WITHOUT labels)
   #   - simple_trend: Rule-based trend detector (uses raw consumption data)
   #   - simple_constant: Rule-based constant consumption detector (uses raw consumption data)
   models:
-    - type: "lightgbm"  # Options: lightgbm, catboost, neural_network, lstm, simple_trend, simple_constant
+    - type: "lightgbm"  # Options: lightgbm, catboost, xgboost, neural_network, lstm, isolation_forest, simple_trend, simple_constant
 
       # Class balancing: choose ONE of sampling or class_weight
       # Option 1: Sampling (resamples the data)
@@ -307,6 +309,29 @@ train:
   #     sampling:
   #       method: "smotetomek"
   #       threshold: 0.5
+
+  # ----- Example: XGBoost -----
+  # models:
+  #   - type: "xgboost"
+  #     sampling:
+  #       method: "undersample"
+  #       threshold: 0.5
+  #     hyperparams:
+  #       n_estimators: 500
+  #       learning_rate: 0.05
+  #       max_depth: 6
+
+  # ----- Example: Isolation Forest (unsupervised anomaly detection) -----
+  # Trains WITHOUT labels (y is ignored). Uses contamination param to set expected anomaly rate.
+  # Does NOT require preprocessing (uses raw features directly).
+  # models:
+  #   - type: "isolation_forest"
+  #     sampling:
+  #       method: "none"
+  #       threshold: 0.1           # contamination: expected proportion of anomalies (0-0.5)
+  #     hyperparams:
+  #       n_estimators: 100
+  #       max_samples: "auto"
 
   # ----- Example: Simple Trend (rule-based, no ML) -----
   # Uses raw consumption columns, does NOT require preprocessing

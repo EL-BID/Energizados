@@ -466,14 +466,16 @@ feature_selection:
 
 ### Available Model Types
 
-Energizados supports six model types:
+Energizados supports eight model types:
 
 | Type | Aliases | Description | Requires Preprocessing |
 |------|---------|-------------|----------------------|
 | `lightgbm` | `lgbm` | Gradient Boosting with LightGBM | Yes |
 | `catboost` | `cat` | CatBoost classifier | Yes |
+| `xgboost` | `xgb` | XGBoost classifier | Yes |
 | `neural_network` | `nn` | Feedforward Neural Network (Dense) | Yes |
 | `lstm` | - | LSTM for sequential consumption data | Yes |
+| `isolation_forest` | - | Unsupervised anomaly detection (trains WITHOUT labels) | Yes |
 | `simple_trend` | - | Rule-based trend detector | No (uses raw data) |
 | `simple_constant` | - | Rule-based constant consumption detector | No (uses raw data) |
 
@@ -485,8 +487,15 @@ These models require feature engineering preprocessing to work correctly:
 
 - **lightgbm**: Fast gradient boosting, good for tabular data
 - **catboost**: Handles categorical features natively
+- **xgboost**: XGBoost gradient boosting (optional: `pip install energizados[xgboost]`)
 - **neural_network**: Feedforward Dense network with scaled features
 - **lstm**: Long Short-Term Memory network for sequential consumption patterns
+
+#### Unsupervised Models (Train WITHOUT Labels)
+
+These models train without target labels:
+
+- **isolation_forest**: Detects anomalies based on isolation (fewer splits = more anomalous)
 
 #### Rule-Based Models (Use Raw Data)
 
@@ -517,7 +526,7 @@ models:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `type` | string | - | Model type: `lightgbm`, `catboost`, `neural_network`, `lstm`, `simple_trend`, `simple_constant` |
+| `type` | string | - | Model type: `lightgbm`, `catboost`, `xgboost`, `neural_network`, `lstm`, `isolation_forest`, `simple_trend`, `simple_constant` |
 | `sampling` | dict | - | Sampling configuration (ML models only) |
 | `sampling.method` | string | `"none"` | `oversample`, `undersample`, `smotetomek`, `none` |
 | `sampling.threshold` | float | `0.5` | Threshold for undersampling |
