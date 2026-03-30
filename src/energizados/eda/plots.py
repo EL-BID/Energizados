@@ -400,6 +400,11 @@ class EDAStaticPlots:
         Returns:
             Dict[str, str]: Dictionary mapping column names to SVG strings
         """
+        # Handle empty numeric_cols to avoid NameError on loop variable
+        if not numeric_cols:
+            logger.debug("No numeric columns provided for outlier boxplots")
+            return {}
+
         try:
             import io
 

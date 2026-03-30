@@ -792,13 +792,13 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
                 consumption_stats.append(
                     {
                         "col": col_name,
-                        "count": period_stat.get("mean", 0),  # Not exact, but for display
+                        "count": "—",  # Not available at period level
                         "null_pct": period_stat.get("nulls_pct", 0),
                         "mean": period_stat.get("mean", 0),
                         "std": period_stat.get("std", 0),
                         "min": period_stat.get("min", 0),
                         "max": period_stat.get("max", 0),
-                        "p50": period_stat.get("mean", 0),  # Use mean as approximation
+                        "p50": "—",  # Not available at period level
                         "outlier_pct": 0,  # Not available at this level
                         "skewness": "—",  # Not available
                         "consumption": True,

@@ -731,11 +731,14 @@ class DatasetExplorer:
         pct_range_outliers = round(float(range_outliers) / total * 100, 4)
 
         # Consecutive zeros: 3+ consecutive periods with zero consumption
-        is_zero = (cons_df == 0).astype(int).values
+        # Fill NaN with a sentinel value first, then check for exact zeros
+        cons_filled = cons_df.fillna(-999)  # sentinel to treat NaN as non-zero
+        is_zero = (cons_filled == 0).astype(int).values
         n_cols = is_zero.shape[1]
         max_run = np.zeros(is_zero.shape[0], dtype=int)
         current_run = np.zeros(is_zero.shape[0], dtype=int)
         for j in range(n_cols):
+            # Increment run when current value is zero, reset otherwise
             current_run = np.where(is_zero[:, j] == 1, current_run + 1, 0)
             max_run = np.maximum(max_run, current_run)
         consec_zeros_mask = pd.Series(max_run >= 3, index=df.index)

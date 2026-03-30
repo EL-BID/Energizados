@@ -41,19 +41,23 @@ class OutlierDetector:
 
     def __init__(
         self,
-        methods: List[str] = ["iqr", "zscore"],
+        methods: Optional[List[str]] = None,
         iqr_multiplier: float = 1.5,
         zscore_threshold: float = 3.0,
         modified_zscore_threshold: float = 3.5,
         alert_threshold_pct: float = 10.0,
         max_sample_values: int = 20,
+        store_mask: bool = False,
     ):
+        if methods is None:
+            methods = ["iqr", "zscore"]
         self.methods = methods
         self.iqr_multiplier = iqr_multiplier
         self.zscore_threshold = zscore_threshold
         self.modified_zscore_threshold = modified_zscore_threshold
         self.alert_threshold_pct = alert_threshold_pct
         self.max_sample_values = max_sample_values
+        self.store_mask = store_mask
 
         # Validate methods
         valid_methods = {"iqr", "zscore", "modified_zscore"}
@@ -224,8 +228,11 @@ class OutlierDetector:
             "outlier_pct": round(pct, 4),
             "sample_values": sample,
             "has_alert": pct > self.alert_threshold_pct,
-            "mask": mask,
         }
+
+        # Only store full mask when explicitly requested (saves memory)
+        if self.store_mask:
+            result["mask"] = mask
 
         if fences is not None:
             result["fences"] = fences

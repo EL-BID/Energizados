@@ -15,6 +15,9 @@
 | `sdd-archive` | Orchestrator launches archive phase; `/sdd-archive` | Sync delta specs to main specs and archive a completed change |
 | `go-testing` | Writing Go tests, using teatest, adding test coverage | Go testing patterns for Gentleman.Dots, including Bubbletea TUI testing |
 | `skill-creator` | User asks to create a new skill or document patterns for AI | Creates new AI agent skills following the Agent Skills spec |
+| `branch-pr` | Creating a pull request, opening a PR, preparing changes for review | PR creation workflow for Agent Teams Lite following issue-first enforcement |
+| `issue-creation` | Creating a GitHub issue, reporting a bug, requesting a feature | Issue creation workflow for Agent Teams Lite |
+| `judgment-day` | "judgment day", "dual review", "doble review", "juzgar", "adversarial review" | Parallel adversarial review with two blind judge sub-agents |
 
 ## Skill Paths (Global)
 
@@ -29,8 +32,11 @@
 | `sdd-apply` | `~/.config/opencode/skills/sdd-apply/SKILL.md` |
 | `sdd-verify` | `~/.config/opencode/skills/sdd-verify/SKILL.md` |
 | `sdd-archive` | `~/.config/opencode/skills/sdd-archive/SKILL.md` |
-| `go-testing` | `~/.config/opencode/skills/go-testing/SKILL.md` |
-| `skill-creator` | `~/.config/opencode/skills/skill-creator/SKILL.md` |
+| `go-testing` | `~/.claude/skills/go-testing/SKILL.md` |
+| `skill-creator` | `~/.claude/skills/skill-creator/SKILL.md` |
+| `branch-pr` | `~/.claude/skills/branch-pr/SKILL.md` |
+| `issue-creation` | `~/.claude/skills/issue-creation/SKILL.md` |
+| `judgment-day` | `~/.claude/skills/judgment-day/SKILL.md` |
 
 ## Project Conventions
 
@@ -38,7 +44,7 @@
 
 - **Language**: Python 3.10+
 - **Package manager**: pip / setuptools (pyproject.toml + setuptools)
-- **Version**: 0.1.2.dev0
+- **Version**: 0.1.3.dev0
 - **Entry point**: `energizados` CLI (`energizados.cli.main:cli`)
 
 ### Code Quality
