@@ -162,17 +162,22 @@ class EnsembleModel(BaseModel):
         """
         Create a fresh (unfitted) copy of a base model with the same parameters.
 
-        Uses sklearn's clone() when possible, otherwise falls back to
-        re-instantiating with the same __init__ arguments via __dict__.
+        Uses sklearn's clone() when possible (requires ``get_params()``), otherwise
+        falls back to re-instantiating with the same ``__init__`` arguments via
+        ``__dict__``.
         """
         try:
             from sklearn.base import clone as sklearn_clone
 
             return sklearn_clone(model)
         except Exception:  # nosec B110
-            pass
+            logger.debug(
+                "sklearn clone failed for %s — falling back to __dict__ re-instantiation.",
+                type(model).__name__,
+            )
 
-        # Fallback: re-instantiate with same class
+        # Fallback: re-instantiate with same class using public init params only.
+        # Excludes private attrs (prefixed with '_'), fitted state, and config.
         cls = model.__class__
         init_params = {
             k: v
