@@ -788,3 +788,146 @@ class SimpleConstantAdapter(BaseModel):
         """
         logger.debug("SimpleConstantAdapter.get_raw_model() returning self (rule-based).")
         return self
+
+
+class IsolationForestAdapter(BaseModel):
+    """Adapter for IsolationForest that implements the BaseModel interface.
+
+    Wraps sklearn's IsolationForest to integrate anomaly detection with the
+    Energizados framework pipeline. Isolation Forest is an unsupervised model
+    that isolates anomalies by randomly partitioning features.
+
+    The model is trained without labels (y is ignored). Predictions use the
+    anomaly score converted to a probability via min-max scaling.
+
+    Args:
+        cols_for_model: Columns to use for the model.
+        hyperparams: IsolationForest hyperparameters (n_estimators, max_samples, etc.).
+        sampling_th: Contamination parameter (proportion of anomalies expected).
+            Options: 'auto' or float between 0 and 0.5.
+        sampling_method: Ignored (present for interface compatibility).
+        config: Optional framework configuration dict.
+    """
+
+    def __init__(
+        self,
+        cols_for_model: list,
+        hyperparams: Optional[dict] = None,
+        sampling_th: float = 0.1,
+        sampling_method: str = "none",
+        config: Optional[dict] = None,
+    ):
+        super().__init__(config)
+        self.cols_for_model = cols_for_model
+        self.hyperparams = hyperparams or {}
+        self.sampling_th = sampling_th
+        self.sampling_method = sampling_method
+
+        # Import sklearn's IsolationForest
+        from sklearn.ensemble import IsolationForest as SklearnIF
+
+        # Set contamination from sampling_th
+        hyperparams_with_contamination = {**self.hyperparams, "contamination": sampling_th}
+
+        self._model = SklearnIF(**hyperparams_with_contamination)
+        self._score_min = None
+        self._score_max = None
+
+    def fit(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        X_val: Optional[pd.DataFrame] = None,
+        y_val: Optional[pd.Series] = None,
+    ) -> "IsolationForestAdapter":
+        """Train the Isolation Forest model.
+
+        Note: IsolationForest is unsupervised, so y is ignored during training.
+
+        Args:
+            X: Training features.
+            y: Ignored (present for interface compatibility).
+            X_val: Ignored.
+            y_val: Ignored.
+
+        Returns:
+            self: The fitted instance.
+        """
+        X_train = X[self.cols_for_model].copy()
+
+        # Handle missing values - IsolationForest doesn't handle NaN
+        X_train = X_train.fillna(X_train.median())
+
+        # Fit the model
+        self._model.fit(X_train)
+
+        # Store the anomaly scores for min-max scaling later
+        self._score_samples = self._model.score_samples(X_train)
+
+        # Store min and max for probability conversion
+        self._score_min = np.min(self._score_samples)
+        self._score_max = np.max(self._score_samples)
+
+        self.is_fitted_ = True
+        return self
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Make binary predictions (anomaly = 1, normal = 0).
+
+        Args:
+            X: Features for prediction.
+
+        Returns:
+            np.ndarray: Binary predictions (1 = anomaly, 0 = normal).
+        """
+        self.check_fitted()
+        X_pred = X[self.cols_for_model].copy()
+        X_pred = X_pred.fillna(X_pred.median())
+
+        # IsolationForest returns: 1 for inliers, -1 for outliers
+        raw_predictions = self._model.predict(X_pred)
+
+        # Convert -1 (outlier) to 1 (fraud), 1 (inlier) to 0 (normal)
+        return ((raw_predictions + 1) / 2).astype(int)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """Make probability predictions based on anomaly score.
+
+        Uses min-max scaling of the anomaly scores to convert them to
+        probabilities in [0, 1]. Lower scores (more anomalous) get higher
+        probability of being fraud.
+
+        Args:
+            X: Features for prediction.
+
+        Returns:
+            np.ndarray: Anomaly probability in [0, 1].
+        """
+        self.check_fitted()
+        X_pred = X[self.cols_for_model].copy()
+        X_pred = X_pred.fillna(X_pred.median())
+
+        # Get anomaly scores (lower = more anomalous)
+        scores = self._model.score_samples(X_pred)
+
+        # Handle edge case where all scores are the same
+        if self._score_max == self._score_min:
+            return np.full(len(scores), 0.5)
+
+        # Min-max scale scores to [0, 1] and invert so higher = more likely anomaly
+        # score_samples returns: higher = more normal
+        # We want: higher = more likely anomaly
+        proba = 1 - (scores - self._score_min) / (self._score_max - self._score_min)
+
+        return proba
+
+    def get_raw_model(self) -> Any:
+        """Extract the fitted IsolationForest from the adapter.
+
+        Returns:
+            The fitted sklearn IsolationForest instance, or None if not yet trained.
+        """
+        if self._model is None:
+            logger.warning("IsolationForestAdapter.get_raw_model() called before fit().")
+            return None
+        return self._model
