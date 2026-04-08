@@ -113,9 +113,8 @@ etl:
     params:
       mode: "incremental"
       incremental_key: "fecha_actualizacion"  # datetime column used to filter new records
-      partition_by:
-        - year   # derived automatically from incremental_key
-        - month  # derived automatically from incremental_key (zero-padded: "01".."12")
+      incremental_format: "%d/%m/%Y"         # strftime format for parsing (optional)
+      incremental_partition: "%Y-%m"         # strftime format for partition column (default)
       overwrite: false
       state_file: ".cache/etl_states/consumos.json"
       # last_processed: "2024-01-01"  # optional: initial cutoff on first run
@@ -124,30 +123,32 @@ etl:
 
 **How it works:**
 
-1. Reads all files matching `input` glob pattern
+1. **File-by-file processing**: Each input file matching the glob pattern is processed independently (extract → transform → load)
 2. Filters records: keeps only rows where `incremental_key > last_processed_value`
 3. On the **first run**, all records pass (no prior state). The `last_processed` param sets an explicit initial cutoff.
 4. After filtering, stores `max(incremental_key)` in `state_file` as the high-water mark
 5. On **subsequent runs**, only records newer than the stored value are processed
-6. Writes output in Hive-partitioned structure (e.g. `year=2024/month=03/data.parquet`)
+6. Creates a `partition` column using `incremental_partition` strftime format (default `"%Y-%m"` → `"2024-01"`)
+7. Writes output partitioned by the `partition` column (e.g. `partition=2024-01/data.parquet`)
 
-**Year/month auto-derivation:**
+**Parameters:**
 
-When `partition_by` includes `"year"` or `"month"` but those columns are not in the DataFrame, they are derived automatically from the `incremental_key` column (parsed as datetime). Month is always zero-padded (`"01"`–`"12"`).
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `incremental_key` | string | required | Datetime or numeric column used for record-level filtering |
+| `incremental_format` | string | `null` | strftime format to parse `incremental_key` (e.g. `"%d/%m/%Y"`). If omitted, pandas auto-parses. |
+| `incremental_partition` | string | `"%Y-%m"` | strftime format to create the `partition` column (e.g. `"%Y"`, `"%Y-%m"`, `"%Y-%m-%d"`) |
+| `partition_by` | list | deprecated in incremental | **Deprecated** — use `incremental_partition` instead. If passed in incremental mode, a warning is logged and it is ignored. Still works in concat/merge modes. |
 
 **Output structure:**
 ```
 data/processed/consumos/
-├── year=2024/
-│   ├── month=01/
-│   │   └── data.parquet   ← records from January 2024
-│   ├── month=02/
-│   │   └── data.parquet
-│   └── month=03/
-│       └── data.parquet
-└── year=2025/
-    └── month=01/
-        └── data.parquet
+├── partition=2024-01/
+│   └── data.parquet   ← records from January 2024
+├── partition=2024-02/
+│   └── data.parquet
+└── partition=2024-03/
+    └── data.parquet
 ```
 
 **File-level deduplication (optional):**
@@ -173,12 +174,14 @@ params:
 | `output_params` | dict | `{}` | Extra keyword arguments passed to the pandas write function. Only used when the output file is a CSV. |
 | `transform_fn` | string or callable | `null` | Custom transform applied after reading and concatenating/merging. Accepts a dotted-path string (e.g. `"src.data.transforms.clean_data"`) or a Python callable. Must have signature `(pd.DataFrame) -> pd.DataFrame`. |
 | `sample` | integer | `null` | Random sample of N rows taken from the combined result. Uses `random_state=42` for reproducibility. If N exceeds the available rows, all rows are returned. |
-| `partition_by` | list | `null` | List of columns for Hive-style partitioning (e.g., `["year", "month"]`). Writes to `output/year=YYYY/month=MM/data.parquet`. When `incremental_key` is a datetime column, `year` and `month` are derived automatically if missing from the DataFrame. |
+| `partition_by` | list | `null` | **Deprecated in incremental mode** — use `incremental_partition` instead. Still works in concat/merge modes. List of columns for Hive-style partitioning (e.g., `["year", "month"]`). Writes to `output/year=YYYY/month=MM/data.parquet`. |
 | `overwrite` | bool | `false` | If `true`, overwrites existing output files. If `false`, skips existing files in incremental mode. |
 | `state_file` | string | `null` | Path to JSON file that persists processed-file list and `last_processed_value`. Used in incremental mode. Default: `<output_path>.state.json` |
 | `raw_glob` | string | `null` | Glob pattern to discover raw input files (e.g., `data/raw/*.csv`). Used in incremental mode. When set, `input_paths` is ignored. |
 | `processed_glob` | string | `null` | Glob pattern to find already processed files. Used in incremental mode alongside `raw_glob` for file-level deduplication. |
 | `incremental_key` | string | `null` | Datetime or numeric column used for record-level filtering in incremental mode. Only records where `incremental_key > last_processed_value` are kept. After each run the max value is stored in `state_file`. |
+| `incremental_format` | string | `null` | strftime format to parse `incremental_key` column (e.g. `"%d/%m/%Y"`). If omitted, pandas auto-parses the datetime. |
+| `incremental_partition` | string | `"%Y-%m"` | strftime format to create the `partition` column in incremental mode. Default produces `"YYYY-MM"` values (e.g. `"2024-01"`). |
 | `last_processed` | string | `null` | Initial cutoff value for `incremental_key` on the first run (when no state exists). Accepts ISO date strings, integers, or floats. If `null`, all records are processed on the first run. |
 
 ### Example: CSV with custom read options

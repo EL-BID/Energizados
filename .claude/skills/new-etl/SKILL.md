@@ -75,9 +75,8 @@ Produce the complete YAML block ready to paste into `config/etl.yaml` under the 
     params:
       mode: "incremental"
       incremental_key: "{key_column}"  # datetime column used to filter new records
-      partition_by:
-        - year    # derived automatically from incremental_key
-        - month   # derived automatically from incremental_key (zero-padded: "01".."12")
+      incremental_format: "{format}"   # strftime format for parsing (e.g. "%d/%m/%Y"). If omitted, pandas auto-parses.
+      incremental_partition: "%Y-%m"   # strftime format for partition column (default: year-month)
       overwrite: false
       state_file: ".cache/etl_states/{name}.json"
       # last_processed: "2024-01-01"  # optional: initial cutoff on first run
@@ -87,7 +86,9 @@ Produce the complete YAML block ready to paste into `config/etl.yaml` under the 
 **How incremental works:**
 - First run: processes all records (or records after `last_processed` if set), stores `max(incremental_key)` in `state_file`
 - Subsequent runs: only keeps records where `incremental_key > stored_max`
-- `year` and `month` are derived automatically from `incremental_key` (datetime) when not already in the DataFrame
+- `incremental_partition` creates a "partition" column with strftime format (default `"%Y-%m"` → `"2024-01"`)
+- Output structure: `output_dir/partition=2024-01/data.parquet`
+- File-by-file processing: each input file is processed independently (extract → transform → load)
 
 ## Step 4: Remind
 

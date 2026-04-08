@@ -219,7 +219,7 @@ etl:
          on: "id_cliente"  # Column to merge on
    ```
 
-3. **`incremental`**: Filters records by a key column — only rows newer than the last processed value are kept. Stores the high-water mark in a state file so each run continues from where the previous one left off.
+3. **`incremental`**: Filters records by a key column — only rows newer than the last processed value are kept. Stores the high-water mark in a state file so each run continues from where the previous one left off. Processes files one-by-one for constant memory usage.
    ```yaml
    consumos_incremental:
      enabled: true
@@ -229,9 +229,8 @@ etl:
      params:
        mode: "incremental"
        incremental_key: "fecha_actualizacion"  # datetime column to filter new records
-       partition_by:
-         - year    # derived automatically from incremental_key
-         - month   # derived automatically from incremental_key (zero-padded)
+       incremental_format: null                # optional: explicit strftime for date parsing (e.g. "%d/%m/%Y")
+       incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
        overwrite: false
        state_file: ".cache/etl_states/consumos.json"
        # last_processed: "2024-01-01"  # optional: initial cutoff on first run
@@ -240,7 +239,9 @@ etl:
 **Important:**
 - When `mode="merge"`, `merge_config` is required. Accepts any `pd.merge()` parameter: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
 - When `mode="incremental"`, `incremental_key` is required. The column is parsed as datetime automatically if needed. On first run all records are processed (unless `last_processed` is set). After each run `max(incremental_key)` is persisted in `state_file`.
-- `partition_by: [year, month]` — if these columns are absent but `incremental_key` is a datetime column, `year` and `month` are derived automatically. Month is zero-padded (`"01"`–`"12"`).
+- `incremental_format`: Optional strftime string for explicit date parsing. When set, `pd.to_datetime(col, format=incremental_format)` is used instead of auto-parsing. Useful for ambiguous date formats like `"15/01/2024"` (DD/MM/YYYY).
+- `incremental_partition`: strftime format string (default `"%Y-%m"`). Controls output partition directory names. Output structure: `output_dir/partition=<value>/data.parquet`. Common values: `"%Y-%m"` → `partition=2024-01/`, `"%Y"` → `partition=2024/`.
+- `partition_by` is **deprecated** in incremental mode. If passed, a deprecation warning is logged and the parameter is ignored. Use `incremental_partition` instead. For concat/merge modes, `partition_by` still works with Hive-style partitioning.
 
 ### Project Versioning
 
@@ -483,7 +484,7 @@ Additional ETL examples are provided (commented out) in the template:
 
 **Key ETL Classes:**
 - `BaseETL`: Abstract base class for all ETL implementations
-- `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat`, `merge`, or `incremental`). Key incremental params: `incremental_key` (column used to filter new records), `last_processed` (initial cutoff), `partition_by` (Hive-style output — `year`/`month` derived automatically from `incremental_key`), `state_file` (persists high-water mark across runs).
+- `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat`, `merge`, or `incremental`). Key incremental params: `incremental_key` (column used to filter new records), `last_processed` (initial cutoff), `incremental_format` (optional strftime for date parsing), `incremental_partition` (strftime for partition values, default `"%Y-%m"` → `partition=YYYY-MM/`), `state_file` (persists high-water mark across runs). `partition_by` is deprecated in incremental mode — use `incremental_partition` instead.
 - `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
 - `GeoFeaturesETL`: Adds geographic features from lat/lon coordinates. Appends `geo_cluster` (int, KMeans), IBGE hierarchy (`geo_estado`, `geo_municipio`, `geo_regiao`), and haversine distance columns. Run after the main dataset ETL and before training. Required if using `stratified_time` split. Points with invalid/zero coords get `geo_cluster=-1` and `"sin_dato"` for hierarchy. `custom_class: "energizados.etl.pipeline.GeoFeaturesETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`, `include_hierarchy` (bool), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str).
 - `CleanFilesETL`: Deletes files listed in the `input` field. Useful for removing intermediate outputs after the pipeline completes. Supports `@etl_name` references, glob patterns, and direct paths in `input`. Does not produce a dataset — returns an empty DataFrame so the orchestrator tracks it normally in the DAG. `custom_class: "energizados.etl.pipeline.CleanFilesETL"`. Params: `missing_ok` (bool, default: `True` — silently skips missing files). The `output` field is optional (no file is written).

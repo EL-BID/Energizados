@@ -58,13 +58,15 @@ class SourceETL(BaseETL):
             Example: ['year', 'month'] → writes to output_path/year=YYYY/month=MM/
             If the DataFrame does not contain these columns but ``incremental_key`` is
             a datetime column, ``year`` and ``month`` are derived automatically.
-            In incremental mode, if omitted, defaults to ``['year', 'month']`` when
-            ``incremental_key`` is provided.
+            **Deprecated in incremental mode**: use ``incremental_partition`` instead.
+            If passed with ``mode='incremental'``, a deprecation warning is logged and
+            the parameter is ignored.
         overwrite: If False (default), skips files that already exist in output.
             If True, overwrites existing files.
         state_file: Path to JSON file that tracks processed files and last processed value.
             Used in incremental mode to detect pending files.
-            If None, uses '<output_path>.state.json' by default.
+            If None (default), auto-inferred as ``{output_path}/.etl_state.json``
+            for incremental mode. Explicit value still honored for backward compat.
         raw_glob: Glob pattern to find raw input files (e.g., 'data/raw/*.csv').
             Used in incremental mode to discover new files.
             If specified, input_paths is ignored in incremental mode.
@@ -78,6 +80,14 @@ class SourceETL(BaseETL):
         last_processed: Initial value for ``incremental_key`` comparison when no state exists.
             Accepts any value comparable to the column (ISO date string, int, float, etc.).
             If None and no state exists, all records are processed on the first run.
+        incremental_format: Optional strftime format string for parsing the ``incremental_key``
+            column. When set, ``pd.to_datetime(col, format=incremental_format)`` is used
+            instead of auto-parsing. Useful for ambiguous date formats like ``"15/01/2024"``.
+            Default: None (auto-parse).
+        incremental_partition: strftime format string for partition column generation.
+            Applied to the parsed ``incremental_key`` datetime to create a ``"partition"``
+            column. Output is written as ``output_path/partition=<value>/data.parquet``.
+            Default: ``"%Y-%m"`` (monthly partitions like ``"2024-01"``).
         **kwargs: Additional parameters.
 
     Example:
@@ -124,9 +134,22 @@ class SourceETL(BaseETL):
         ...     raw_glob='data/raw/consumos_*.csv',
         ...     output_path='data/processed/consumos/',
         ...     incremental_key='fecha_actualizacion',
-        ...     partition_by=['year', 'month'],
+        ...     incremental_partition='%Y-%m',  # monthly: partition=2024-01/
         ...     overwrite=False,
-        ...     state_file='data/processed/.consumos_state.json',
+        ...     # state_file is auto-inferred as data/processed/consumos/.etl_state.json
+        ... )
+        >>> df = etl.run()
+
+    Example with incremental mode (custom date format):
+        >>> etl = SourceETL(
+        ...     name='consumos_ddmmyyyy',
+        ...     mode='incremental',
+        ...     raw_glob='data/raw/consumos_*.csv',
+        ...     output_path='data/processed/consumos/',
+        ...     incremental_key='fecha_actualizacion',
+        ...     incremental_format='%d/%m/%Y',  # parse DD/MM/YYYY dates
+        ...     incremental_partition='%Y-%m',
+        ...     # state_file is auto-inferred as data/processed/consumos/.etl_state.json
         ... )
         >>> df = etl.run()
 
@@ -141,12 +164,11 @@ class SourceETL(BaseETL):
               custom_class: "energizados.etl.pipeline.SourceETL"
               params:
                 mode: "incremental"
-                incremental_key: "fecha_actualizacion"  # datetime column used to filter new records
-                partition_by:
-                  - year   # derived automatically from incremental_key if not in DataFrame
-                  - month  # derived automatically from incremental_key if not in DataFrame
+                incremental_key: "fecha_actualizacion"
+                incremental_format: null  # optional: explicit strftime for date parsing
+                incremental_partition: "%Y-%m"  # strftime for partition values
                 overwrite: false
-                state_file: "data/processed/.consumos_state.json"
+                # state is auto-managed at {output}/.etl_state.json
                 # last_processed: "2024-01-01"  # optional: initial cutoff if no state exists
     """
 
@@ -169,6 +191,8 @@ class SourceETL(BaseETL):
         processed_glob: Optional[str] = None,
         incremental_key: Optional[str] = None,
         last_processed: Optional[str] = None,
+        incremental_format: Optional[str] = None,
+        incremental_partition: str = "%Y-%m",
         **kwargs,
     ):
         self.name = name
@@ -180,18 +204,28 @@ class SourceETL(BaseETL):
         self.input_params = input_params or {}
         self.output_params = output_params or {}
         self.sample = sample
-        self.partition_by = partition_by
         self.overwrite = overwrite
         self.state_file = state_file
         self.raw_glob = raw_glob
         self.processed_glob = processed_glob
         self.incremental_key = incremental_key
         self.last_processed = last_processed
+        self.incremental_format = incremental_format
+        self.incremental_partition = incremental_partition
+        self._written_partitions: List[str] = []
+        self._state_dirty: bool = False
         self.kwargs = kwargs
 
-        # Auto-partition by year/month when incremental_key is set and partition_by was not specified
-        if self.mode == "incremental" and self.incremental_key and not self.partition_by:
-            self.partition_by = ["year", "month"]
+        # partition_by deprecation in incremental mode
+        if self.mode == "incremental" and partition_by is not None:
+            logger.warning(
+                f"SourceETL '{self.name}': partition_by is deprecated in incremental mode. "
+                f"Use incremental_partition (default '%Y-%m') instead. "
+                f"Ignoring partition_by={partition_by}."
+            )
+            self.partition_by = None
+        else:
+            self.partition_by = partition_by
 
         # Load transform_fn if provided
         self._transform_fn: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None
@@ -234,8 +268,13 @@ class SourceETL(BaseETL):
 
         # Initialize state for incremental mode
         self._state: Dict[str, Any] = {}
-        if self.mode == "incremental" and self.state_file:
-            self._load_state()
+        if self.mode == "incremental":
+            # Auto-infer state_file when not explicitly configured
+            if self.state_file is None and self.output_path:
+                self.state_file = str(Path(self.output_path) / ".etl_state.json")
+                logger.info(f"  • Auto-inferred state_file: {self.state_file}")
+            if self.state_file:
+                self._load_state()
 
     def extract(self) -> pd.DataFrame:
         """
@@ -366,24 +405,18 @@ class SourceETL(BaseETL):
                 logger.info(f"  • Skipping (already processed): '{source_file.name}'")
                 continue
 
-            try:
-                if source_file.suffix == ".csv":
-                    df = pd.read_csv(path, **self.input_params)
-                elif source_file.suffix in [".parquet", ".pq"]:
-                    df = pd.read_parquet(path)
-                elif source_file.suffix in [".xlsx", ".xls"]:
-                    df = pd.read_excel(path)
-                else:
-                    logger.warning(f"  • Skipping (unsupported format): '{source_file.suffix}'")
-                    continue
-
-                dataframes.append(df)
-                processed_files.append(path)
-                logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
-
-            except Exception as e:
-                logger.error(f"  ✗ Error reading '{path}': {str(e)}")
+            if source_file.is_dir():
+                # Directory (e.g. partitioned output from @ref) — read as parquet dataset
+                pass
+            elif source_file.suffix not in [".csv", ".parquet", ".pq", ".xlsx", ".xls"]:
+                logger.warning(f"  • Skipping (unsupported format): '{source_file.suffix}'")
                 continue
+
+            df = self._read_single_file(path)
+
+            dataframes.append(df)
+            processed_files.append(path)
+            logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
 
         if not dataframes:
             logger.info("  ✓ No new data to process")
@@ -411,8 +444,9 @@ class SourceETL(BaseETL):
         After filtering, updates state with the new max value so the next run
         continues from where this one left off.
 
-        If the column is not datetime but can be parsed as one, it is coerced
-        automatically. Numeric and string comparisons are also supported.
+        If ``incremental_format`` is set, uses it for explicit date parsing.
+        Otherwise, if the column is not datetime but can be parsed as one, it is
+        coerced automatically. Numeric and string comparisons are also supported.
         """
         col = self.incremental_key
 
@@ -429,8 +463,14 @@ class SourceETL(BaseETL):
         if not pd.api.types.is_datetime64_any_dtype(df[col]):
             try:
                 df = df.copy()
-                df[col] = pd.to_datetime(df[col])
-                logger.debug(f"  • Parsed '{col}' as datetime for incremental filtering")
+                if self.incremental_format:
+                    df[col] = pd.to_datetime(df[col], format=self.incremental_format)
+                    logger.debug(
+                        f"  • Parsed '{col}' as datetime with format '{self.incremental_format}'"
+                    )
+                else:
+                    df[col] = pd.to_datetime(df[col])
+                    logger.debug(f"  • Parsed '{col}' as datetime for incremental filtering")
             except Exception as e:  # noqa: BLE001
                 logger.debug("Could not parse '%s' as datetime: %s", col, e)
 
@@ -459,6 +499,313 @@ class SourceETL(BaseETL):
         logger.info(f"  • Updated last_processed_value → {new_max}")
 
         return df
+
+    def _add_partition_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add a ``partition`` column derived from incremental_key via strftime.
+
+        .. deprecated::
+            This method is no longer called by ``run()`` — partitioning is handled
+            internally by ``_load_incremental()`` so that ETL transforms never see
+            the ``partition`` column. Kept for backward compatibility and unit tests.
+
+        Args:
+            df: DataFrame with a parsed datetime ``incremental_key`` column.
+
+        Returns:
+            DataFrame with an added ``"partition"`` column.
+        """
+        col = self.incremental_key
+        df = df.copy()
+
+        # Ensure datetime dtype
+        if not pd.api.types.is_datetime64_any_dtype(df[col]):
+            if self.incremental_format:
+                df[col] = pd.to_datetime(df[col], format=self.incremental_format)
+            else:
+                df[col] = pd.to_datetime(df[col])
+
+        df["partition"] = df[col].dt.strftime(self.incremental_partition)
+        return df
+
+    def _precompute_partition(self, df: pd.DataFrame) -> dict:
+        """Pre-compute partition values from ``incremental_key`` BEFORE transform.
+
+        This must be called before ``transform()`` because the transform may remove
+        the ``incremental_key`` column (e.g. a pivot from long to wide format).
+
+        Returns a dict with:
+        - ``per_row``: Series of partition values (index-aligned with ``df``) for
+          row-preserving transforms.
+        - ``unique``: set of unique partition values — used when the transform changes
+          row count (e.g. pivot/aggregation).
+
+        Args:
+            df: DataFrame with the ``incremental_key`` column still present.
+
+        Returns:
+            Dict with ``per_row`` (Series) and ``unique`` (set) partition values.
+        """
+        col = self.incremental_key
+
+        if col not in df.columns:
+            raise ETLError(
+                f"SourceETL '{self.name}': incremental_key '{col}' not found in DataFrame. "
+                f"Available columns: {list(df.columns)}"
+            )
+
+        dt_col = df[col]
+        if not pd.api.types.is_datetime64_any_dtype(dt_col):
+            if self.incremental_format:
+                dt_col = pd.to_datetime(dt_col, format=self.incremental_format)
+            else:
+                dt_col = pd.to_datetime(dt_col)
+
+        partition_values = dt_col.dt.strftime(self.incremental_partition)
+        return {
+            "per_row": partition_values,
+            "unique": set(partition_values.unique()),
+        }
+
+    def _attach_partition(self, df: pd.DataFrame, partition_map: dict) -> None:
+        """Attach ``_partition`` column to a (possibly transformed) DataFrame.
+
+        If the transform preserved the row count, uses per-row partition values.
+        If the transform changed the row count (e.g. pivot), assigns all rows to
+        each unique partition value. When there is a single unique value (common
+        case: one file = one period), all rows go to that partition.
+        When multiple unique values exist, all rows are replicated across partitions
+        — this is the correct behavior for aggregated/pivoted data that spans
+        multiple periods.
+
+        Modifies ``df`` in place.
+
+        Args:
+            df: DataFrame after transform (may have different row count).
+            partition_map: Dict from ``_precompute_partition``.
+        """
+        if "_partition" in df.columns:
+            # Transform preserved it (unlikely but possible) — nothing to do
+            return
+
+        per_row = partition_map["per_row"]
+        unique = partition_map["unique"]
+
+        if len(df) == len(per_row):
+            # Row count preserved — direct assignment
+            df["_partition"] = per_row.values
+        elif len(unique) == 1:
+            # Transform changed row count but all data belongs to one partition
+            df["_partition"] = next(iter(unique))
+        else:
+            # Multiple partitions + row count changed (e.g. pivot across periods).
+            # Use the latest partition value — the incremental_key filter already
+            # ensured all data is "new", and the high-water mark tracks progress.
+            latest = max(unique)
+            df["_partition"] = latest
+            logger.warning(
+                f"  • Transform changed row count and data spans {len(unique)} "
+                f"partitions. Assigning all rows to latest partition '{latest}'."
+            )
+
+    def _load_incremental(self, df: pd.DataFrame, output_path: str) -> None:
+        """Write DataFrame in partitioned format for incremental mode.
+
+        Uses the pre-computed ``_partition`` column if present (set by
+        ``_precompute_partition`` before ``transform()``). Falls back to deriving
+        the partition from ``incremental_key`` for backward compatibility.
+
+        Groups by partition and writes to ``output_path/partition=<val>/data.parquet``.
+        If a partition file already exists, new rows are appended.
+
+        Args:
+            df: DataFrame with ``_partition`` column (preferred) or ``incremental_key``.
+            output_path: Base output directory.
+        """
+        base = Path(output_path)
+        base.mkdir(parents=True, exist_ok=True)
+
+        df = df.copy()
+
+        # Use pre-computed _partition if available; otherwise derive from incremental_key
+        if "_partition" not in df.columns:
+            col = self.incremental_key
+            if col not in df.columns:
+                raise ETLError(
+                    f"SourceETL '{self.name}': incremental_key '{col}' not found in "
+                    f"DataFrame after transform. If your transform removes this column "
+                    f"(e.g. pivot), this is handled automatically — please report this "
+                    f"as a bug. Available columns: {list(df.columns)}"
+                )
+
+            if not pd.api.types.is_datetime64_any_dtype(df[col]):
+                if self.incremental_format:
+                    df[col] = pd.to_datetime(df[col], format=self.incremental_format)
+                else:
+                    df[col] = pd.to_datetime(df[col])
+
+            df["_partition"] = df[col].dt.strftime(self.incremental_partition)
+
+        for partition_val, group_df in df.groupby("_partition", sort=False):
+            partition_dir = base / f"partition={partition_val}"
+            partition_dir.mkdir(parents=True, exist_ok=True)
+            output_file = partition_dir / "data.parquet"
+
+            # Drop internal partition column(s) from saved data
+            save_df = group_df.drop(columns=["_partition", "partition"], errors="ignore")
+
+            # Append to existing partition file
+            if output_file.exists():
+                existing = pd.read_parquet(output_file)
+                save_df = pd.concat([existing, save_df], ignore_index=True)
+
+            save_df.to_parquet(output_file, index=False)
+            self._written_partitions.append(str(partition_val))
+            logger.info(f"  • Saved {len(group_df)} records to partition={partition_val}/")
+
+    def _read_single_file(self, path: str) -> pd.DataFrame:
+        """Read a single file and return a DataFrame.
+
+        Supports CSV, Parquet, and Excel formats. Raises ETLError on failure.
+
+        Args:
+            path: Path to the file.
+
+        Returns:
+            DataFrame with the file contents.
+
+        Raises:
+            ETLError: If the file cannot be read or has an unsupported format.
+        """
+        source_file = Path(path)
+
+        if not source_file.exists():
+            raise ETLError(f"Error reading '{path}': file not found")
+
+        try:
+            if source_file.is_dir():
+                return pd.read_parquet(str(source_file))
+            elif source_file.suffix == ".csv":
+                return pd.read_csv(path, **self.input_params)
+            elif source_file.suffix in [".parquet", ".pq"]:
+                return pd.read_parquet(path)
+            elif source_file.suffix in [".xlsx", ".xls"]:
+                return pd.read_excel(path)
+            else:
+                raise ETLError(f"Unsupported format: {source_file.suffix}")
+        except ETLError:
+            raise
+        except Exception as e:
+            raise ETLError(f"Error reading '{path}': {str(e)}") from e
+
+    def run(self, output_path: Optional[str] = None) -> pd.DataFrame:  # type: ignore[override]
+        """Execute the ETL pipeline.
+
+        For incremental mode, processes files one-by-one: extract → filter →
+        add partition → transform → load. State is saved ONCE after all files
+        complete. Falls back to ``super().run()`` for concat/merge modes.
+
+        Args:
+            output_path: Path to save output. Falls back to ``self.output_path``.
+
+        Returns:
+            Concatenated DataFrame of all processed records.
+        """
+        if self.mode != "incremental":
+            return super().run(output_path or self.output_path or "")
+
+        # Incremental mode: file-by-file processing
+        actual_output = output_path or self.output_path or ""
+        import re
+
+        from energizados.core.utils.secure_pickle import validate_no_traversal
+
+        # Determine input files
+        if self.raw_glob:
+            safe_pattern = re.compile(r"^[\w\-./\*?\[\]]+$")
+            if not safe_pattern.match(self.raw_glob):
+                raise ETLError(
+                    f"SourceETL '{self.name}': raw_glob contains unsafe characters. "
+                    f"Allowed: alphanumeric, _, -, /, *, ?, []. Got: '{self.raw_glob}'"
+                )
+            raw_files = sorted(glob.glob(self.raw_glob))
+            if not raw_files:
+                logger.info(f"  • No files found matching glob: '{self.raw_glob}'")
+                return pd.DataFrame()
+            for f in raw_files:
+                validate_no_traversal(f, label=f"ETL '{self.name}' incremental glob result")
+            input_paths = self._get_pending_files(raw_files)
+        else:
+            input_paths = self.input_paths
+
+        if not input_paths:
+            logger.info("  ✓ All files already processed (no pending files)")
+            return pd.DataFrame()
+
+        # Reset partition tracking for this run
+        self._written_partitions = []
+
+        all_results = []
+
+        for path in input_paths:
+            validate_no_traversal(path, label=f"ETL '{self.name}' incremental input")
+            source_file = Path(path)
+
+            if not source_file.exists():
+                logger.warning(f"  • Skipping (not found): '{path}'")
+                continue
+
+            if not self.overwrite and self._is_file_processed(path):
+                logger.info(f"  • Skipping (already processed): '{source_file.name}'")
+                continue
+
+            # Extract single file
+            df = self._read_single_file(path)
+
+            # Filter by incremental_key
+            if self.incremental_key:
+                df = self._filter_by_incremental_key(df)
+
+            if df.empty:
+                logger.info(f"  • No new records in '{source_file.name}'")
+                self._mark_file_processed(path)
+                continue
+
+            # Pre-compute partition value BEFORE transform — the transform may
+            # remove the incremental_key column (e.g. pivot long-to-wide).
+            partition_map = self._precompute_partition(df)
+
+            # Transform (partition column is NOT present — internal detail of the pipeline)
+            df = self.transform(df)
+
+            if df.empty:
+                logger.info(f"  • No records after transform in '{source_file.name}'")
+                self._mark_file_processed(path)
+                continue
+
+            # Restore partition info after transform
+            self._attach_partition(df, partition_map)
+
+            # Load incremental (uses pre-computed _partition column)
+            self._load_incremental(df, actual_output)
+
+            all_results.append(df)
+            self._mark_file_processed(path)
+            logger.info(f"  • Processed {len(df)} records from '{source_file.name}'")
+
+        # Save state ONCE after all files
+        self._on_load_success()
+
+        if not all_results:
+            logger.info("  ✓ No new data to process")
+            return pd.DataFrame()
+
+        result = pd.concat(all_results, axis=0, ignore_index=True)
+        # Drop internal partition column from returned result
+        result = result.drop(columns=["_partition"], errors="ignore")
+        logger.info(
+            f"  ✓ Incremental run complete: {len(result)} records from {len(all_results)} files"
+        )
+        return result
 
     def _get_pending_files(self, raw_files: List[str]) -> List[str]:
         """Determine which files are pending based on state and processed_glob."""
@@ -493,6 +840,7 @@ class SourceETL(BaseETL):
 
         if file_path not in self._state["processed_files"]:
             self._state["processed_files"].append(file_path)
+            self._state_dirty = True
 
     def _acquire_lock(self, lock_path: Path) -> bool:
         """Acquire file lock for concurrent access safety.
@@ -574,8 +922,27 @@ class SourceETL(BaseETL):
             self._state = {}
 
     def _save_state(self) -> None:
-        """Save state to state_file."""
-        if not self.state_file or not self._state:
+        """Save unified state to state_file.
+
+        Writes both incremental state fields (processed_files,
+        last_processed_value) and manifest fields (run_id, new_partitions,
+        all_partitions) into a single JSON file.
+
+        Uses atomic write (write to ``.tmp`` then ``os.replace()``) to
+        prevent corruption from crashes.
+
+        Skips the write entirely when no new partitions were written
+        (empty run — preserves existing state file unchanged).
+        """
+        import os
+        from datetime import datetime, timezone
+
+        if not self.state_file:
+            return
+
+        # Skip write entirely when no new partitions AND no state changes
+        # (empty run — preserves existing state file unchanged)
+        if not self._written_partitions and not self._state_dirty:
             return
 
         state_path = Path(self.state_file)
@@ -583,12 +950,41 @@ class SourceETL(BaseETL):
 
         state_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Build unified state dict
+        state_data = dict(self._state)
+
+        # Add manifest fields ONLY when partitions were actually written
+        if self._written_partitions:
+            state_data["run_id"] = datetime.now(timezone.utc).isoformat()
+            state_data["new_partitions"] = list(self._written_partitions)
+
+            # Scan output directory for all existing partitions
+            all_partitions: List[str] = []
+            if self.output_path and Path(self.output_path).exists():
+                output_dir = Path(self.output_path)
+                for p in sorted(output_dir.iterdir()):
+                    if p.is_dir() and p.name.startswith("partition="):
+                        all_partitions.append(p.name.replace("partition=", ""))
+            state_data["all_partitions"] = all_partitions
+
+        # Atomic write: write to .tmp then rename
+        tmp_path = state_path.with_suffix(".json.tmp")
         try:
-            with open(state_path, "w") as f:
-                json.dump(self._state, f, indent=2)
+            with open(tmp_path, "w") as f:
+                json.dump(state_data, f, indent=2)
+            os.replace(tmp_path, state_path)
             logger.debug(f"  • State saved to '{self.state_file}'")
+            logger.info(
+                f"  • Unified state written: {len(self._written_partitions)} new partitions, "
+                f"{len(all_partitions)} total"
+            )
         except Exception as e:
             logger.warning(f"  • Could not save state file: {e}")
+            # Clean up tmp file if rename failed
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
         finally:
             # Always release lock
             self._release_lock(lock_path)

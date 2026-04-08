@@ -13,6 +13,7 @@
 | `sdd-apply` | Orchestrator launches apply phase; `/sdd-apply` | Implement tasks from the change following specs and design |
 | `sdd-verify` | Orchestrator launches verify phase; `/sdd-verify` | Validate that implementation matches specs, design, and tasks |
 | `sdd-archive` | Orchestrator launches archive phase; `/sdd-archive` | Sync delta specs to main specs and archive a completed change |
+| `sdd-onboard` | Orchestrator launches onboard phase; `/sdd-onboard` | Guided end-to-end walkthrough of the full SDD cycle |
 | `go-testing` | Writing Go tests, using teatest, adding test coverage | Go testing patterns for Gentleman.Dots, including Bubbletea TUI testing |
 | `skill-creator` | User asks to create a new skill or document patterns for AI | Creates new AI agent skills following the Agent Skills spec |
 | `branch-pr` | Creating a pull request, opening a PR, preparing changes for review | PR creation workflow for Agent Teams Lite following issue-first enforcement |
@@ -32,11 +33,19 @@
 | `sdd-apply` | `~/.config/opencode/skills/sdd-apply/SKILL.md` |
 | `sdd-verify` | `~/.config/opencode/skills/sdd-verify/SKILL.md` |
 | `sdd-archive` | `~/.config/opencode/skills/sdd-archive/SKILL.md` |
+| `sdd-onboard` | `~/.config/opencode/skills/sdd-onboard/SKILL.md` |
 | `go-testing` | `~/.claude/skills/go-testing/SKILL.md` |
 | `skill-creator` | `~/.claude/skills/skill-creator/SKILL.md` |
 | `branch-pr` | `~/.claude/skills/branch-pr/SKILL.md` |
 | `issue-creation` | `~/.claude/skills/issue-creation/SKILL.md` |
 | `judgment-day` | `~/.claude/skills/judgment-day/SKILL.md` |
+
+## Project Skills
+
+| Skill | Trigger | Description |
+|-------|---------|-------------|
+| `new-etl` | "new etl", "scaffold etl", "add etl" | Scaffold a new ETL block for config/etl.yaml |
+| `run-experiment` | "run experiment", "run pipeline", "kick off training" | Run a full training experiment (validate → ETL → train) and surface key metrics |
 
 ## Project Conventions
 

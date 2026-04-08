@@ -4,6 +4,7 @@ Unit tests for ETLOrchestrator.
 Tests for the orchestrator of multiple ETLs with dependencies.
 """
 
+import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -328,3 +329,251 @@ class TestETLOrchestrator:
         assert "ETL Execution Plan" in plan
         assert "etl1" in plan
         assert "etl2" in plan
+
+
+class TestManifestAwareResolution:
+    """Tests for resolve_input_paths with manifest-aware resolution (task 4.4)."""
+
+    def test_incremental_to_incremental_returns_new_partition_paths(self):
+        """When both upstream and downstream are incremental, resolve returns
+        only the new partition paths from the manifest."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            # Create upstream output directory with partitions
+            upstream_output = tmpdir_path / "upstream_out"
+            upstream_output.mkdir()
+            (upstream_output / "partition=2024-01").mkdir()
+            (upstream_output / "partition=2024-02").mkdir()
+
+            # Create manifest with new_partitions
+            state_dir = tmpdir_path / "states"
+            state_dir.mkdir()
+            manifest = {
+                "run_id": "2024-06-01T10:00:00+00:00",
+                "new_partitions": ["2024-02"],
+                "all_partitions": ["2024-01", "2024-02"],
+                "last_processed_value": "2024-02-28",
+            }
+            with open(state_dir / "manifest.json", "w") as f:
+                json.dump(manifest, f)
+
+            configs = {
+                "upstream": {
+                    "enabled": True,
+                    "input": "data/raw.parquet",
+                    "output": str(upstream_output),
+                    "depends_on": [],
+                    "params": {
+                        "mode": "incremental",
+                        "state_file": str(state_dir / "state.json"),
+                    },
+                },
+                "downstream": {
+                    "enabled": True,
+                    "input": "@upstream",
+                    "output": str(tmpdir_path / "downstream_out"),
+                    "depends_on": ["upstream"],
+                    "params": {"mode": "incremental"},
+                },
+            }
+
+            orchestrator = ETLOrchestrator(configs)
+            orchestrator.results["upstream"] = pd.DataFrame()
+
+            paths = orchestrator.resolve_input_paths("downstream")
+            assert len(paths) == 1
+            assert paths[0] == f"{upstream_output}/partition=2024-02/data.parquet"
+
+    def test_no_manifest_fallback_returns_full_path(self):
+        """When no manifest exists (first run), resolve returns the full
+        upstream output path as fallback."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            upstream_output = tmpdir_path / "upstream_out"
+
+            # No state dir or manifest
+            configs = {
+                "upstream": {
+                    "enabled": True,
+                    "input": "data/raw.parquet",
+                    "output": str(upstream_output),
+                    "depends_on": [],
+                    "params": {
+                        "mode": "incremental",
+                        "state_file": str(tmpdir_path / "nonexistent" / "state.json"),
+                    },
+                },
+                "downstream": {
+                    "enabled": True,
+                    "input": "@upstream",
+                    "output": str(tmpdir_path / "downstream_out"),
+                    "depends_on": ["upstream"],
+                    "params": {"mode": "incremental"},
+                },
+            }
+
+            orchestrator = ETLOrchestrator(configs)
+            orchestrator.results["upstream"] = pd.DataFrame()
+
+            paths = orchestrator.resolve_input_paths("downstream")
+            assert paths == [str(upstream_output)]
+
+    def test_non_incremental_downstream_gets_full_path(self):
+        """When downstream is NOT incremental, it gets the full upstream path
+        even if upstream is incremental with a manifest."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            upstream_output = tmpdir_path / "upstream_out"
+            upstream_output.mkdir()
+
+            # Manifest exists but downstream is NOT incremental
+            state_dir = tmpdir_path / "states"
+            state_dir.mkdir()
+            manifest = {
+                "run_id": "2024-06-01T10:00:00+00:00",
+                "new_partitions": ["2024-02"],
+                "all_partitions": ["2024-01", "2024-02"],
+                "last_processed_value": "2024-02-28",
+            }
+            with open(state_dir / "manifest.json", "w") as f:
+                json.dump(manifest, f)
+
+            configs = {
+                "upstream": {
+                    "enabled": True,
+                    "input": "data/raw.parquet",
+                    "output": str(upstream_output),
+                    "depends_on": [],
+                    "params": {
+                        "mode": "incremental",
+                        "state_file": str(state_dir / "state.json"),
+                    },
+                },
+                "downstream": {
+                    "enabled": True,
+                    "input": "@upstream",
+                    "output": str(tmpdir_path / "downstream_out"),
+                    "depends_on": ["upstream"],
+                    # No params or params without mode="incremental"
+                },
+            }
+
+            orchestrator = ETLOrchestrator(configs)
+            orchestrator.results["upstream"] = pd.DataFrame()
+
+            paths = orchestrator.resolve_input_paths("downstream")
+            assert paths == [str(upstream_output)]
+
+    def test_mixed_ref_and_direct_paths(self):
+        """When downstream has both @ref and direct paths, manifest-aware
+        resolution applies only to the @ref portion."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            upstream_output = tmpdir_path / "upstream_out"
+            upstream_output.mkdir()
+
+            # Direct file
+            direct_file = tmpdir_path / "extra.csv"
+            direct_file.write_text("a,b\n1,2\n")
+
+            # Manifest for upstream
+            state_dir = tmpdir_path / "states"
+            state_dir.mkdir()
+            manifest = {
+                "run_id": "2024-06-01T10:00:00+00:00",
+                "new_partitions": ["2024-03"],
+                "all_partitions": ["2024-01", "2024-03"],
+                "last_processed_value": "2024-03-31",
+            }
+            with open(state_dir / "manifest.json", "w") as f:
+                json.dump(manifest, f)
+
+            configs = {
+                "upstream": {
+                    "enabled": True,
+                    "input": "data/raw.parquet",
+                    "output": str(upstream_output),
+                    "depends_on": [],
+                    "params": {
+                        "mode": "incremental",
+                        "state_file": str(state_dir / "state.json"),
+                    },
+                },
+                "downstream": {
+                    "enabled": True,
+                    "input": ["@upstream", str(direct_file)],
+                    "output": str(tmpdir_path / "downstream_out"),
+                    "depends_on": ["upstream"],
+                    "params": {"mode": "incremental"},
+                },
+            }
+
+            orchestrator = ETLOrchestrator(configs)
+            orchestrator.results["upstream"] = pd.DataFrame()
+
+            paths = orchestrator.resolve_input_paths("downstream")
+            assert len(paths) == 2
+            # First path is the manifest-aware partition path
+            assert paths[0] == f"{upstream_output}/partition=2024-03/data.parquet"
+            # Second path is the direct file
+            assert paths[1] == str(direct_file)
+
+    def test_is_incremental_helper(self):
+        """_is_incremental returns True only when params.mode == incremental."""
+        configs = {
+            "inc": {
+                "enabled": True,
+                "input": "data/a.csv",
+                "output": "data/a.parquet",
+                "depends_on": [],
+                "params": {"mode": "incremental"},
+            },
+            "concat": {
+                "enabled": True,
+                "input": "data/b.csv",
+                "output": "data/b.parquet",
+                "depends_on": [],
+                "params": {"mode": "concat"},
+            },
+            "no_params": {
+                "enabled": True,
+                "input": "data/c.csv",
+                "output": "data/c.parquet",
+                "depends_on": [],
+            },
+        }
+
+        orchestrator = ETLOrchestrator(configs)
+        assert orchestrator._is_incremental("inc") is True
+        assert orchestrator._is_incremental("concat") is False
+        assert orchestrator._is_incremental("no_params") is False
+
+    def test_read_manifest_returns_none_when_missing(self):
+        """_read_manifest returns None when manifest.json doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "state.json"
+            orchestrator = ETLOrchestrator({})
+            result = orchestrator._read_manifest(str(state_file))
+            assert result is None
+
+    def test_read_manifest_returns_dict_when_present(self):
+        """_read_manifest returns parsed JSON when manifest.json exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = Path(tmpdir)
+            manifest = {"run_id": "2024-01-01", "new_partitions": ["2024-01"]}
+            with open(state_dir / "manifest.json", "w") as f:
+                json.dump(manifest, f)
+
+            orchestrator = ETLOrchestrator({})
+            result = orchestrator._read_manifest(str(state_dir / "state.json"))
+            assert result == manifest
+
+    def test_read_manifest_returns_none_for_none_state_file(self):
+        """_read_manifest returns None when state_file is None."""
+        orchestrator = ETLOrchestrator({})
+        result = orchestrator._read_manifest(None)
+        assert result is None

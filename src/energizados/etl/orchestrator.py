@@ -6,10 +6,11 @@ respecting dependencies between them, implementing topological order.
 """
 
 import glob
+import json
 import logging
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -176,6 +177,41 @@ class ETLOrchestrator:
         self.execution_order = order
         return order
 
+    def _is_incremental(self, etl_name: str) -> bool:
+        """Check if an ETL is configured in incremental mode.
+
+        Args:
+            etl_name: Name of the ETL.
+
+        Returns:
+            True if params.mode == "incremental".
+        """
+        config = self.etl_configs.get(etl_name, {})
+        return config.get("params", {}).get("mode") == "incremental"
+
+    def _read_manifest(self, state_file: Optional[str]) -> Optional[Dict]:
+        """Read manifest.json from the state file directory.
+
+        Args:
+            state_file: Path to the ETL's state file.
+
+        Returns:
+            Manifest dict or None if not found / unreadable.
+        """
+        if not state_file:
+            return None
+
+        manifest_path = Path(state_file).parent / "manifest.json"
+        if not manifest_path.exists():
+            return None
+
+        try:
+            with open(manifest_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.debug(f"  • Could not read manifest at {manifest_path}: {e}")
+            return None
+
     def resolve_input_paths(self, etl_name: str) -> List[str]:
         """
         Resolves the input paths for an ETL.
@@ -185,6 +221,8 @@ class ETLOrchestrator:
         - File list: ["file1.csv", "file2.csv"]
         - Glob expressions: "*.csv", "data/**/*.parquet"
         - References to other ETLs: "@etl_name"
+        - Manifest-aware resolution: when both upstream and downstream are
+          incremental, returns only new partitions from the upstream manifest.
 
         Args:
             etl_name: Name of the ETL
@@ -202,7 +240,9 @@ class ETLOrchestrator:
         if isinstance(raw_input, str):
             raw_input = [raw_input]
 
-        resolved_paths = []
+        downstream_incremental = self._is_incremental(etl_name)
+
+        resolved_paths: List[str] = []
         for path_spec in raw_input:
             # Reference to another ETL (@etl_name)
             if path_spec.startswith("@"):
@@ -211,7 +251,8 @@ class ETLOrchestrator:
                     ref_config = self.etl_configs[ref_etl]
                     if not ref_config.get("enabled", True):
                         logger.debug(
-                            f"ETL '{etl_name}' references disabled ETL '{ref_etl}', skipping its output"
+                            f"ETL '{etl_name}' references disabled ETL "
+                            f"'{ref_etl}', skipping its output"
                         )
                         continue
                     ref_output = ref_config.get("output")
@@ -220,6 +261,20 @@ class ETLOrchestrator:
                             f"ETL '{etl_name}' references '{ref_etl}' via @, "
                             f"but '{ref_etl}' has no output path"
                         )
+
+                    # Manifest-aware resolution: both upstream and downstream incremental
+                    if downstream_incremental and self._is_incremental(ref_etl):
+                        manifest = self._read_manifest(
+                            ref_config.get("params", {}).get("state_file")
+                        )
+                        if manifest and manifest.get("new_partitions"):
+                            # Return specific partition paths
+                            for part_val in manifest["new_partitions"]:
+                                partition_path = f"{ref_output}/partition={part_val}/data.parquet"
+                                resolved_paths.append(partition_path)
+                            continue
+                        # No manifest → fall back to full output dir
+
                     resolved_paths.append(ref_output)
                 else:
                     raise ETLDependencyError(f"ETL '{etl_name}' references unknown ETL '{ref_etl}'")
@@ -332,7 +387,7 @@ class ETLOrchestrator:
                     if self.on_etl_complete:
                         self.on_etl_complete(etl_name, len(result))
                 except Exception as e:
-                    logger.error(f"✗ {etl_name} failed: {e}")
+                    logger.exception(f"✗ {etl_name} failed")
                     if self.on_etl_error:
                         self.on_etl_error(etl_name, e)
                     raise ETLError(f"Error executing ETL '{etl_name}': {e}") from e
