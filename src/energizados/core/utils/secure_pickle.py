@@ -63,7 +63,9 @@ def secure_load(path: str):
     Raises:
         FileNotFoundError: If the .sig file does not exist.
         ValueError: If the hash does not match the .sig file.
+        ValueError: If path contains directory traversal components.
     """
+    validate_no_traversal(path, label="secure_load path")
     pkl_path = Path(path)
     sig_path = Path(str(pkl_path) + ".sig")
 

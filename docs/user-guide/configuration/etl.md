@@ -10,6 +10,8 @@ The ETL configuration file defines data extraction, transformation, and loading 
 
 ```yaml
 etl:
+  schema_version: 1                 # Schema version (checked by CLI on run/validate)
+
   etl_name:
     enabled: true                    # Whether to execute this ETL
     description: "ETL description"  # Human-readable description
@@ -20,6 +22,8 @@ etl:
       # parameter: value
     depends_on: []                   # List of ETL names this depends on
 ```
+
+> **Schema versioning:** The `schema_version` field inside each config root section (etl, train, eda, infer) tracks the config format independently. The CLI checks it before `run` and `validate`. If the project's schema version is newer than what the installed framework supports, execution is blocked with an upgrade message. You generally do not need to change this manually — the framework increments it only on breaking changes.
 
 ## Required Fields
 

@@ -9,9 +9,12 @@ run directory and passes them as config overrides to ConfigPipelineBuilder.
 """
 
 import argparse
+import logging
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 from energizados.core.pipeline import ConfigPipelineBuilder
 from energizados.core.utils.secure_pickle import secure_load
@@ -53,4 +56,4 @@ if __name__ == "__main__":
     pipeline = builder.build()
 
     results = pipeline.run()
-    print("Inference completed")
+    logger.info("Inference completed")

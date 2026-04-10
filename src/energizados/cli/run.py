@@ -36,12 +36,27 @@ class TimeElapsedColumnMs(ProgressColumn):
         )
 
 
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge two dicts. Dict values are merged; all others use override."""
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
     """
     Merges multiple configuration files into one.
 
-    The strategy is "last wins": if there are duplicate keys,
-    the last file overwrites the previous values.
+    Uses deep merge so that dict-typed sections (e.g. ``etl:``, ``train:``)
+    are merged key-by-key rather than replaced wholesale. Scalar and list
+    values still follow "last wins" semantics.
+
+    Example: two files each with an ``etl:`` section will produce a combined
+    ``etl:`` containing all ETL entries from both files.
 
     Args:
         config_paths: List of paths to YAML files
@@ -52,7 +67,7 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
     Raises:
         ConfigurationError: If any file does not exist or has format errors
     """
-    merged_config = {}
+    merged_config: Dict[str, Any] = {}
 
     for config_path in config_paths:
         config_file = Path(config_path)
@@ -64,7 +79,7 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
                 config = yaml.safe_load(f)
                 if config is None:
                     config = {}
-                merged_config.update(config)
+                merged_config = _deep_merge(merged_config, config)
                 logger.debug(f"Configuration loaded from: {config_path}")
         except yaml.YAMLError as e:
             raise ConfigurationError(

@@ -438,7 +438,7 @@ def _tsfel_process_chunk(chunk_values, chunk_indices, cfg):
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=RuntimeWarning, module="scipy")
                 features = tsfel.time_series_features_extractor(cfg, values, fs=1, verbose=0)
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             # Constant/zero series can crash tsfel (e.g. ecdf_percentile on constant input).
             # Skip this row — the left join in transform() will leave its tsfel cols as NaN,
             # which are then filled with 0.

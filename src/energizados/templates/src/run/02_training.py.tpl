@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 """Script to run training (includes feature engineering)."""
 
+import logging
+
 from energizados.core.pipeline import ConfigPipelineBuilder
+
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     from energizados.cli.main import _setup_logging
@@ -15,8 +19,8 @@ if __name__ == "__main__":
     results = builder.run()
 
     if builder.run_dir:
-        print(f"✓ Training completed")
-        print(f"  Run directory: {builder.run_dir}")
-        print(f"  Index: {builder.run_dir.parent / 'index.html'}")
+        logger.info("Training completed")
+        logger.info("Run directory: %s", builder.run_dir)
+        logger.info("Index: %s", builder.run_dir.parent / "index.html")
     else:
-        print("✓ Training completed")
+        logger.info("Training completed")

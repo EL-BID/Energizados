@@ -89,8 +89,8 @@ class TrainingStep(PipelineStep):
         if self._phase_callback:
             try:
                 self._phase_callback("TrainingStep", phase, pct)
-            except Exception:  # nosec: Silently ignore callback errors
-                pass
+            except Exception as e:  # nosec: callback errors should not abort training
+                logger.debug("Phase callback error (ignored): %s", type(e).__name__)
 
     # ------------------------------------------------------------------
     # Main execute

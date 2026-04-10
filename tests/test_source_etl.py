@@ -1383,7 +1383,9 @@ class TestIncrementalEndToEnd:
     def test_transform_removes_incremental_key_multiple_partitions(self):
         """When transform removes incremental_key and data spans multiple periods.
 
-        The latest partition is used for all rows (warning is emitted).
+        Silently assigning all rows to the latest partition would corrupt data
+        from earlier periods, so an ETLError is raised instead — the user must
+        either preserve the row count or return a '_partition' column explicitly.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
@@ -1430,15 +1432,10 @@ class TestIncrementalEndToEnd:
                 state_file=str(state_file),
             )
 
-            result = etl.run(str(output_dir))
-            assert len(result) == 2  # 2 clients after pivot
+            from energizados.core.exceptions import ETLError
 
-            # Latest partition used for all rows
-            feb = output_dir / "partition=2024-02" / "data.parquet"
-            assert feb.exists(), "February (latest) partition should exist"
-
-            # _partition internal column should NOT be in the final result
-            assert "_partition" not in result.columns
+            with pytest.raises(ETLError, match="Cannot safely assign partition values"):
+                etl.run(str(output_dir))
 
 
 class TestWrittenPartitions:

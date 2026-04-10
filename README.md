@@ -15,8 +15,8 @@ inference.
 
 | Capability            | Details                                                                                 |
 |-----------------------|-----------------------------------------------------------------------------------------|
-| **ETL Framework**     | Multi-source data processing with concat/merge modes and dependency management via YAML |
-| **ML Models**         | LightGBM, CatBoost, Neural Networks, LSTM, + ensemble (stacking/soft voting)            |
+| **ETL Framework**     | Multi-source data processing with concat/merge/incremental modes and dependency management via YAML |
+| **ML Models**         | LightGBM, CatBoost, XGBoost, Neural Networks, LSTM, IsolationForest + ensemble (stacking/soft voting) |
 | **Preprocessing**     | Target encoding, one-hot, ordinal, cardinality reduction, tsfel time-series features    |
 | **Feature Selection** | Boruta, correlation-based, constant-value selectors                                     |
 | **EDA Module**        | Interactive HTML reports with IV/KS/Cramér's V analysis and segment drift detection     |

@@ -11,8 +11,11 @@ Requires:
     - The primary data source file referenced in eda.yaml must exist
 """
 
+import logging
 import yaml
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from energizados.eda.dataset_explorer import DatasetExplorer
 
@@ -61,9 +64,9 @@ def main():
     error_count = sum(1 for a in results.get("alerts", []) if a.get("severity") == "ERROR")
     warning_count = sum(1 for a in results.get("alerts", []) if a.get("severity") == "WARNING")
 
-    print(f"\n✓ EDA completado")
-    print(f"  Reporte: {report_path}")
-    print(f"  Alertas: {alert_count} total ({error_count} errores, {warning_count} advertencias)")
+    logger.info("EDA completed")
+    logger.info("Report: %s", report_path)
+    logger.info("Alerts: %d total (%d errors, %d warnings)", alert_count, error_count, warning_count)
 
 
 if __name__ == "__main__":

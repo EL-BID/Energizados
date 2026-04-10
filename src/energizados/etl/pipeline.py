@@ -615,13 +615,13 @@ class SourceETL(BaseETL):
             df["_partition"] = next(iter(unique))
         else:
             # Multiple partitions + row count changed (e.g. pivot across periods).
-            # Use the latest partition value — the incremental_key filter already
-            # ensured all data is "new", and the high-water mark tracks progress.
-            latest = max(unique)
-            df["_partition"] = latest
-            logger.warning(
-                f"  • Transform changed row count and data spans {len(unique)} "
-                f"partitions. Assigning all rows to latest partition '{latest}'."
+            # Silently assigning all rows to the latest partition would corrupt data
+            # from earlier periods — raise instead and force the user to be explicit.
+            raise ETLError(
+                f"Transform changed row count and data spans {len(unique)} partitions "
+                f"({sorted(unique)}). Cannot safely assign partition values. "
+                "Return a '_partition' column from your transform(), or ensure the "
+                "transform preserves the original row count."
             )
 
     def _load_incremental(self, df: pd.DataFrame, output_path: str) -> None:
@@ -807,8 +807,15 @@ class SourceETL(BaseETL):
             # Restore partition info after transform
             self._attach_partition(df, partition_map)
 
-            # Load incremental (uses pre-computed _partition column)
-            self._load_incremental(df, actual_output)
+            # Load incremental (uses pre-computed _partition column).
+            # Mark file processed AFTER a successful write so a mid-write failure
+            # (e.g. disk full) does not suppress the file on the next run.
+            try:
+                self._load_incremental(df, actual_output)
+            except Exception as e:
+                raise ETLError(
+                    f"Failed to write incremental output for '{source_file.name}': {e}"
+                ) from e
 
             all_results.append(df)
             self._mark_file_processed(path)
@@ -921,9 +928,12 @@ class SourceETL(BaseETL):
         validate_no_traversal(self.state_file, label=f"ETL '{self.name}' state file")
         state_path = Path(self.state_file)
 
-        # Acquire lock for safe concurrent access
+        # Acquire lock for safe concurrent access.
+        # Stored as self._lock_path so _save_state always releases it,
+        # even when the run produces no new data (early-return path).
         lock_path = state_path.with_suffix(".lock")
         lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path = lock_path
         if not self._acquire_lock(lock_path):
             logger.warning("  • Proceeding without lock (concurrent access may cause issues)")
 
@@ -962,54 +972,66 @@ class SourceETL(BaseETL):
         if not self.state_file:
             return
 
-        # Skip write entirely when no new partitions AND no state changes
-        # (empty run — preserves existing state file unchanged)
-        if not self._written_partitions and not self._state_dirty:
-            return
+        # Use the lock acquired in _load_state.  The finally block below ALWAYS
+        # releases it — including the early-return path when there is nothing to
+        # write (fix for lock leak when incremental run finds no new data).
+        lock_path = getattr(self, "_lock_path", None)
 
-        state_path = Path(self.state_file)
-        lock_path = state_path.with_suffix(".lock")
-
-        state_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Build unified state dict
-        state_data = dict(self._state)
-
-        # Add manifest fields ONLY when partitions were actually written
-        if self._written_partitions:
-            state_data["run_id"] = datetime.now(timezone.utc).isoformat()
-            state_data["new_partitions"] = list(self._written_partitions)
-
-            # Scan output directory for all existing partitions
-            all_partitions: List[str] = []
-            if self.output_path and Path(self.output_path).exists():
-                output_dir = Path(self.output_path)
-                for p in sorted(output_dir.iterdir()):
-                    if p.is_dir() and p.name.startswith("partition="):
-                        all_partitions.append(p.name.replace("partition=", ""))
-            state_data["all_partitions"] = all_partitions
-
-        # Atomic write: write to .tmp then rename
-        tmp_path = state_path.with_suffix(".json.tmp")
         try:
-            with open(tmp_path, "w") as f:
-                json.dump(state_data, f, indent=2)
-            os.replace(tmp_path, state_path)
-            logger.debug(f"  • State saved to '{self.state_file}'")
-            logger.info(
-                f"  • Unified state written: {len(self._written_partitions)} new partitions, "
-                f"{len(all_partitions)} total"
-            )
-        except Exception as e:
-            logger.warning(f"  • Could not save state file: {e}")
-            # Clean up tmp file if rename failed
+            # Skip write entirely when no new partitions AND no state changes
+            # (empty run — preserves existing state file unchanged)
+            if not self._written_partitions and not self._state_dirty:
+                return
+
+            state_path = Path(self.state_file)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Build unified state dict
+            state_data = dict(self._state)
+
+            # Initialize before conditional so the logger.info below is always valid
+            # (fix for UnboundLocalError when _state_dirty is True but no partitions written)
+            all_partitions: List[str] = []
+
+            # Add manifest fields ONLY when partitions were actually written
+            if self._written_partitions:
+                state_data["run_id"] = datetime.now(timezone.utc).isoformat()
+                state_data["new_partitions"] = list(self._written_partitions)
+
+                # Scan output directory for all existing partitions
+                if self.output_path and Path(self.output_path).exists():
+                    output_dir = Path(self.output_path)
+                    for p in sorted(output_dir.iterdir()):
+                        if p.is_dir() and p.name.startswith("partition="):
+                            all_partitions.append(p.name.replace("partition=", ""))
+                state_data["all_partitions"] = all_partitions
+
+            # Atomic write: write to .tmp then rename
+            tmp_path = state_path.with_suffix(".json.tmp")
             try:
-                tmp_path.unlink()
-            except OSError:
-                pass
+                with open(tmp_path, "w") as f:
+                    json.dump(state_data, f, indent=2)
+                os.replace(tmp_path, state_path)
+                logger.debug(f"  • State saved to '{self.state_file}'")
+                if self._written_partitions:
+                    logger.info(
+                        f"  • Unified state written: {len(self._written_partitions)} new "
+                        f"partitions, {len(all_partitions)} total"
+                    )
+                else:
+                    logger.debug("  • State updated (processed files only)")
+            except Exception as e:
+                logger.warning(f"  • Could not save state file: {e}")
+                # Clean up tmp file if rename failed
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
         finally:
-            # Always release lock
-            self._release_lock(lock_path)
+            # Always release lock, even on early return or exception
+            if lock_path:
+                self._release_lock(lock_path)
+            self._lock_path = None
 
     def _merge_dataframes(self, dataframes: List[pd.DataFrame]) -> pd.DataFrame:
         """

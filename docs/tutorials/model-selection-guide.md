@@ -8,8 +8,10 @@ Choosing the right model is critical for building an effective fraud detection s
 |-------|-------------|------|------|
 | **LightGBM** | First choice for tabular data, large datasets, balanced performance | • Fast training (gradient boosting)<br>• Handles imbalanced data well with built-in support<br>• Memory efficient<br>• Good accuracy<br>• Less sensitive to hyperparameter tuning | • Less interpretable than linear models<br>• Requires categorical encoding (though it handles them well)<br>• May overfit on very small datasets |
 | **CatBoost** | Many categorical features, need native categorical handling | • **Native categorical support** (no preprocessing needed)<br>• Robust to overfitting<br>• Good out-of-the-box performance<br>• Handles missing values automatically | • Slower training than LightGBM<br>• Larger memory footprint<br>• More parameters to tune |
+| **XGBoost** | Sklearn-compatible ecosystems, existing XGBoost pipelines | • Sklearn API compatibility<br>• Large ecosystem and community<br>• Well-understood hyperparameters<br>• Good performance on tabular data | • Optional dependency (`pip install energizados[xgboost]`)<br>• Typically slower than LightGBM for same accuracy<br>• Higher memory usage |
 | **Neural Network (NNModel)** | Large datasets, complex non-linear patterns | • Flexible architecture<br>• Can learn complex feature interactions<br>• Works well with high-dimensional data | • Requires more data to perform well<br>• Longer training time<br>• Harder to interpret<br>• More hyperparameters to tune |
 | **LSTM** | When consumption sequence order matters, temporal patterns are critical | • Captures temporal dependencies in consumption history<br>• Learns patterns across time steps<br>• Good for sequential anomaly detection | • Most complex model<br>• Longest training time<br>• Requires sequential data preprocessing<br>• Needs more data<br>• Hardest to tune |
+| **IsolationForest** | No labeled data available, anomaly detection baseline | • **Unsupervised** — trains without fraud labels<br>• Fast and memory efficient<br>• Good at detecting global outliers<br>• Useful as a complementary signal | • No recall/precision optimization possible<br>• Less effective for local/contextual fraud patterns<br>• Requires careful tuning of `contamination` param |
 
 ## Choosing Your First Model
 
@@ -37,6 +39,28 @@ Consider CatBoost when:
 
 !!! example
     If your dataset has 15+ categorical features like `actividad`, `tipo_tarifa`, `zona`, `nivel_tension`, `material_instalacion`, etc., CatBoost's native categorical handling can save significant preprocessing time and often outperforms LightGBM.
+
+### When to Try XGBoost
+
+Consider XGBoost when:
+
+- **You already have XGBoost pipelines** you want to plug in to the framework
+- **You need sklearn API compatibility** for downstream tooling (GridSearch, SHAP, etc.)
+- **You want a second boosting benchmark** alongside LightGBM
+
+!!! note
+    XGBoost requires an optional dependency: `pip install energizados[xgboost]`. In terms of raw accuracy on fraud detection, LightGBM and CatBoost typically match or beat XGBoost with faster training. Prefer XGBoost when ecosystem compatibility outweighs raw performance.
+
+### When to Try IsolationForest
+
+Consider IsolationForest when:
+
+- **You have no fraud labels** (unsupervised baseline)
+- **You want a complementary anomaly signal** to combine with a supervised model
+- **You need a quick sanity check** on which users look anomalous without any labeling effort
+
+!!! warning
+    IsolationForest does not support `sampling` or `hyperparam_search` in the usual sense — it trains without labels and produces anomaly scores via `contamination`. It cannot be combined in a supervised ensemble. Use it as a standalone baseline or as a feature generator.
 
 ### When to Try Neural Networks
 

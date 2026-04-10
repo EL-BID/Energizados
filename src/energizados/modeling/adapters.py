@@ -935,9 +935,15 @@ class IsolationForestAdapter(BaseModel):
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Make probability predictions based on anomaly score.
 
-        Uses min-max scaling of the anomaly scores to convert them to
-        probabilities in [0, 1]. Lower scores (more anomalous) get higher
-        probability of being fraud.
+        Uses min-max scaling of the anomaly scores (fitted on the training set)
+        to convert them to probabilities in [0, 1]. Lower scores (more anomalous)
+        get higher probability of being fraud.
+
+        **Limitation**: The scaling bounds are derived from the training set.
+        Inference samples whose anomaly scores fall outside the training range
+        are clipped — they are correctly bounded at 0.0 or 1.0, but the clipping
+        discards granularity for very extreme samples. A warning is emitted when
+        this occurs so callers are aware.
 
         Args:
             X: Features for prediction.
@@ -955,9 +961,20 @@ class IsolationForestAdapter(BaseModel):
         if self._score_max == self._score_min:
             return np.full(len(scores), 0.5)
 
-        # Min-max scale scores to [0, 1] and invert so higher = more likely anomaly
-        # score_samples returns: higher = more normal
-        # We want: higher = more likely anomaly
+        # Warn when test scores fall outside training range — the clipping below
+        # keeps probabilities valid but signals the model may be underfit or that
+        # inference data is significantly different from training data.
+        out_of_range = int(np.sum((scores < self._score_min) | (scores > self._score_max)))
+        if out_of_range > 0:
+            logger.warning(
+                f"IsolationForestAdapter: {out_of_range}/{len(scores)} samples have anomaly "
+                f"scores outside the training range [{self._score_min:.4f}, "
+                f"{self._score_max:.4f}]. Probabilities will be clipped to [0, 1]. "
+                "Consider retraining on a more representative sample."
+            )
+
+        # Min-max scale scores to [0, 1] and invert so higher = more likely anomaly.
+        # score_samples returns: higher = more normal → we invert.
         proba = 1 - (scores - self._score_min) / (self._score_max - self._score_min)
 
         return np.clip(proba, 0.0, 1.0)
