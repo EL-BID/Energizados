@@ -1051,7 +1051,7 @@ class TestIncrementalEndToEnd:
                     input_paths=[str(raw_file)],
                     output_path=str(output_dir),
                     incremental_key="fecha",
-                    overwrite=True,
+                    reprocess=True,
                     state_file=str(state_file),
                 )
 
@@ -1635,11 +1635,13 @@ class TestUnifiedState:
             assert "T" in state["run_id"]
 
     def test_no_separate_manifest_json_created(self):
-        """After incremental run, no manifest.json exists in the state dir or output dir."""
+        """After incremental run, no manifest.json exists in the state dir or output dir.
+        All manifest fields are stored inside the unified state file (.etl_state.json),
+        and the orchestrator reads them directly from there."""
         with tempfile.TemporaryDirectory() as tmpdir:
             etl, output_dir, state_file = self._run_incremental_etl(tmpdir)
 
-            # Check state dir
+            # Check state dir — no separate manifest.json (fields are in state file)
             assert not (state_file.parent / "manifest.json").exists()
             # Check output dir
             assert not (output_dir / "manifest.json").exists()
@@ -1672,7 +1674,7 @@ class TestUnifiedState:
                 output_path=str(output_dir),
                 incremental_key="fecha",
                 state_file=str(state_file),
-                overwrite=True,
+                reprocess=True,
             )
             etl1.run(str(output_dir))
 
@@ -1687,7 +1689,7 @@ class TestUnifiedState:
                 output_path=str(output_dir),
                 incremental_key="fecha",
                 state_file=str(state_file),
-                overwrite=True,
+                reprocess=True,
             )
             result = etl2.run(str(output_dir))
             assert result.empty

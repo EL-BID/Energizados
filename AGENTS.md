@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+**Name**: Energizados
+
 Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, XGBoost, Neural Networks, LSTM), plus unsupervised anomaly detection (IsolationForest).
 
 The framework also includes an **ETL system** with support for multiple ETLs with dependencies using YAML configuration.
@@ -230,9 +232,10 @@ etl:
        mode: "incremental"
        incremental_key: "fecha_actualizacion"  # datetime column to filter new records
        incremental_format: null                # optional: explicit strftime for date parsing (e.g. "%d/%m/%Y")
-       incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
-       overwrite: false
-       state_file: ".cache/etl_states/consumos.json"
+        incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
+        reprocess: false                        # true = re-read all files; false = only pending
+        write_mode: "append"                    # "append" = concat to existing; "replace" = overwrite
+        state_file: ".cache/etl_states/consumos.json"
        # last_processed: "2024-01-01"  # optional: initial cutoff on first run
    ```
 

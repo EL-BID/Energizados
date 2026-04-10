@@ -336,7 +336,7 @@ class TestManifestAwareResolution:
 
     def test_incremental_to_incremental_returns_new_partition_paths(self):
         """When both upstream and downstream are incremental, resolve returns
-        only the new partition paths from the manifest."""
+        only the new partition paths from the upstream state file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
@@ -346,17 +346,19 @@ class TestManifestAwareResolution:
             (upstream_output / "partition=2024-01").mkdir()
             (upstream_output / "partition=2024-02").mkdir()
 
-            # Create manifest with new_partitions
+            # Create state file with manifest fields (as SourceETL writes them)
             state_dir = tmpdir_path / "states"
             state_dir.mkdir()
-            manifest = {
+            state = {
                 "run_id": "2024-06-01T10:00:00+00:00",
                 "new_partitions": ["2024-02"],
                 "all_partitions": ["2024-01", "2024-02"],
                 "last_processed_value": "2024-02-28",
+                "processed_files": ["raw.parquet"],
             }
-            with open(state_dir / "manifest.json", "w") as f:
-                json.dump(manifest, f)
+            state_file = state_dir / "state.json"
+            with open(state_file, "w") as f:
+                json.dump(state, f)
 
             configs = {
                 "upstream": {
@@ -366,7 +368,7 @@ class TestManifestAwareResolution:
                     "depends_on": [],
                     "params": {
                         "mode": "incremental",
-                        "state_file": str(state_dir / "state.json"),
+                        "state_file": str(state_file),
                     },
                 },
                 "downstream": {
@@ -422,24 +424,26 @@ class TestManifestAwareResolution:
 
     def test_non_incremental_downstream_gets_full_path(self):
         """When downstream is NOT incremental, it gets the full upstream path
-        even if upstream is incremental with a manifest."""
+        even if upstream is incremental with a state file containing manifest fields."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
             upstream_output = tmpdir_path / "upstream_out"
             upstream_output.mkdir()
 
-            # Manifest exists but downstream is NOT incremental
+            # State file exists with manifest fields but downstream is NOT incremental
             state_dir = tmpdir_path / "states"
             state_dir.mkdir()
-            manifest = {
+            state = {
                 "run_id": "2024-06-01T10:00:00+00:00",
                 "new_partitions": ["2024-02"],
                 "all_partitions": ["2024-01", "2024-02"],
                 "last_processed_value": "2024-02-28",
+                "processed_files": ["raw.parquet"],
             }
-            with open(state_dir / "manifest.json", "w") as f:
-                json.dump(manifest, f)
+            state_file = state_dir / "state.json"
+            with open(state_file, "w") as f:
+                json.dump(state, f)
 
             configs = {
                 "upstream": {
@@ -449,7 +453,7 @@ class TestManifestAwareResolution:
                     "depends_on": [],
                     "params": {
                         "mode": "incremental",
-                        "state_file": str(state_dir / "state.json"),
+                        "state_file": str(state_file),
                     },
                 },
                 "downstream": {
@@ -480,17 +484,19 @@ class TestManifestAwareResolution:
             direct_file = tmpdir_path / "extra.csv"
             direct_file.write_text("a,b\n1,2\n")
 
-            # Manifest for upstream
+            # State file for upstream (with manifest fields)
             state_dir = tmpdir_path / "states"
             state_dir.mkdir()
-            manifest = {
+            state = {
                 "run_id": "2024-06-01T10:00:00+00:00",
                 "new_partitions": ["2024-03"],
                 "all_partitions": ["2024-01", "2024-03"],
                 "last_processed_value": "2024-03-31",
+                "processed_files": ["raw.parquet"],
             }
-            with open(state_dir / "manifest.json", "w") as f:
-                json.dump(manifest, f)
+            state_file = state_dir / "state.json"
+            with open(state_file, "w") as f:
+                json.dump(state, f)
 
             configs = {
                 "upstream": {
@@ -500,7 +506,7 @@ class TestManifestAwareResolution:
                     "depends_on": [],
                     "params": {
                         "mode": "incremental",
-                        "state_file": str(state_dir / "state.json"),
+                        "state_file": str(state_file),
                     },
                 },
                 "downstream": {
@@ -553,7 +559,7 @@ class TestManifestAwareResolution:
         assert orchestrator._is_incremental("no_params") is False
 
     def test_read_manifest_returns_none_when_missing(self):
-        """_read_manifest returns None when manifest.json doesn't exist."""
+        """_read_manifest returns None when the state file doesn't exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "state.json"
             orchestrator = ETLOrchestrator({})
@@ -561,19 +567,94 @@ class TestManifestAwareResolution:
             assert result is None
 
     def test_read_manifest_returns_dict_when_present(self):
-        """_read_manifest returns parsed JSON when manifest.json exists."""
+        """_read_manifest returns parsed JSON from the state file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            state_dir = Path(tmpdir)
-            manifest = {"run_id": "2024-01-01", "new_partitions": ["2024-01"]}
-            with open(state_dir / "manifest.json", "w") as f:
-                json.dump(manifest, f)
+            state_file = Path(tmpdir) / "state.json"
+            state = {
+                "run_id": "2024-01-01",
+                "new_partitions": ["2024-01"],
+                "processed_files": ["raw.parquet"],
+            }
+            with open(state_file, "w") as f:
+                json.dump(state, f)
 
             orchestrator = ETLOrchestrator({})
-            result = orchestrator._read_manifest(str(state_dir / "state.json"))
-            assert result == manifest
+            result = orchestrator._read_manifest(str(state_file))
+            assert result == state
 
     def test_read_manifest_returns_none_for_none_state_file(self):
         """_read_manifest returns None when state_file is None."""
         orchestrator = ETLOrchestrator({})
         result = orchestrator._read_manifest(None)
         assert result is None
+
+    def test_incremental_chain_end_to_end(self):
+        """End-to-end: upstream SourceETL writes partitions + state file,
+        orchestrator resolves downstream input to only new partition paths."""
+        from energizados.etl.pipeline import SourceETL
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            # Create raw data for upstream
+            df = pd.DataFrame(
+                {
+                    "fecha": pd.to_datetime(["2024-01-15", "2024-02-10"]),
+                    "valor": [10, 20],
+                }
+            )
+            raw_file = tmpdir_path / "raw.parquet"
+            df.to_parquet(raw_file, index=False)
+
+            upstream_output = tmpdir_path / "upstream_out"
+            upstream_state = tmpdir_path / "states" / "upstream_state.json"
+            upstream_state.parent.mkdir(parents=True)
+
+            # Run upstream SourceETL (incremental)
+            upstream_etl = SourceETL(
+                name="upstream",
+                mode="incremental",
+                input_paths=[str(raw_file)],
+                output_path=str(upstream_output),
+                incremental_key="fecha",
+                state_file=str(upstream_state),
+            )
+            upstream_etl.run(str(upstream_output))
+
+            # Verify state file was written with manifest fields
+            assert upstream_state.exists()
+            with open(upstream_state) as f:
+                state = json.load(f)
+            assert "new_partitions" in state
+            assert set(state["new_partitions"]) == {"2024-01", "2024-02"}
+
+            # Now configure orchestrator with upstream + downstream
+            configs = {
+                "upstream": {
+                    "enabled": True,
+                    "input": str(raw_file),
+                    "output": str(upstream_output),
+                    "depends_on": [],
+                    "params": {
+                        "mode": "incremental",
+                        "state_file": str(upstream_state),
+                    },
+                },
+                "downstream": {
+                    "enabled": True,
+                    "input": "@upstream",
+                    "output": str(tmpdir_path / "downstream_out"),
+                    "depends_on": ["upstream"],
+                    "params": {"mode": "incremental"},
+                },
+            }
+
+            orchestrator = ETLOrchestrator(configs)
+            orchestrator.results["upstream"] = pd.DataFrame()
+
+            paths = orchestrator.resolve_input_paths("downstream")
+
+            # Should resolve to the partition paths written by upstream
+            assert len(paths) == 2
+            assert f"{upstream_output}/partition=2024-01/data.parquet" in paths
+            assert f"{upstream_output}/partition=2024-02/data.parquet" in paths

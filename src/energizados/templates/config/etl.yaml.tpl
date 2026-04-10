@@ -176,8 +176,10 @@ etl:
   # # incremental_key: datetime/numeric column used to detect new records.
   # #   On first run: processes all records and stores max(incremental_key) in state.
   # #   Subsequent runs: filters records where incremental_key > last saved value.
-  # # partition_by: Hive-style partitioned output (year=2024/month=03/data.parquet).
-  # #   'year' and 'month' are derived automatically from incremental_key if missing.
+  # # incremental_partition: strftime format for partition directory names.
+  # #   Default: "%Y-%m" → partition=2024-01/. Other common: "%Y" → partition=2024/.
+  # # incremental_format: optional strftime for parsing the incremental_key column
+  # #   (e.g. "%d/%m/%Y" for DD/MM/YYYY dates). Default: null (auto-parse).
   # incremental_consumos:
   #   enabled: false
   #   description: "Incremental load of consumption data (only new records)"
@@ -187,11 +189,11 @@ etl:
   #   params:
   #     mode: "incremental"
   #     incremental_key: "fecha_actualizacion"  # datetime column tracking new records
-  #     partition_by:
-  #       - year   # derived automatically from incremental_key
-  #       - month  # derived automatically from incremental_key (zero-padded: "01".."12")
-  #     overwrite: false
-  #     state_file: ".cache/etl_states/incremental_consumos.json"
+  #     incremental_format: null  # optional: explicit strftime for date parsing (e.g. "%d/%m/%Y")
+  #     incremental_partition: "%Y-%m"  # strftime for partition values (default: monthly)
+  #     write_mode: "append"  # "append" = concat to existing; "replace" = overwrite
+  #     reprocess: false      # true = re-read all files; false = only pending
+  #     # state_file: ".cache/etl_states/incremental_consumos.json"  # auto-inferred if omitted
   #     # last_processed: "2024-01-01"  # optional: initial cutoff on first run
   #   depends_on: []
 

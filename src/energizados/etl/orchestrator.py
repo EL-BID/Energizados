@@ -190,26 +190,30 @@ class ETLOrchestrator:
         return config.get("params", {}).get("mode") == "incremental"
 
     def _read_manifest(self, state_file: Optional[str]) -> Optional[Dict]:
-        """Read manifest.json from the state file directory.
+        """Read manifest data from the ETL's unified state file.
+
+        The state file (.etl_state.json) contains both incremental tracking
+        fields (processed_files, last_processed_value) and manifest fields
+        (run_id, new_partitions, all_partitions) in a single JSON file.
 
         Args:
             state_file: Path to the ETL's state file.
 
         Returns:
-            Manifest dict or None if not found / unreadable.
+            State dict (with manifest fields) or None if not found / unreadable.
         """
         if not state_file:
             return None
 
-        manifest_path = Path(state_file).parent / "manifest.json"
-        if not manifest_path.exists():
+        state_path = Path(state_file)
+        if not state_path.exists():
             return None
 
         try:
-            with open(manifest_path, "r") as f:
+            with open(state_path, "r") as f:
                 return json.load(f)
         except Exception as e:
-            logger.debug(f"  • Could not read manifest at {manifest_path}: {e}")
+            logger.debug(f"  • Could not read state file at {state_path}: {e}")
             return None
 
     def resolve_input_paths(self, etl_name: str) -> List[str]:

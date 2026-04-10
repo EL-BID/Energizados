@@ -61,8 +61,14 @@ class SourceETL(BaseETL):
             **Deprecated in incremental mode**: use ``incremental_partition`` instead.
             If passed with ``mode='incremental'``, a deprecation warning is logged and
             the parameter is ignored.
-        overwrite: If False (default), skips files that already exist in output.
-            If True, overwrites existing files.
+        reprocess: If False (default), only processes files not yet in the state file.
+            If True, re-reads all files regardless of processing history (the
+            ``incremental_key`` filter still applies to individual records).
+            Only relevant in incremental mode.
+        write_mode: How to handle existing partition files in incremental mode.
+            ``"append"`` (default) concatenates new records to existing partitions.
+            ``"replace"`` overwrites existing partition files with new data only.
+            Only relevant in incremental mode.
         state_file: Path to JSON file that tracks processed files and last processed value.
             Used in incremental mode to detect pending files.
             If None (default), auto-inferred as ``{output_path}/.etl_state.json``
@@ -135,7 +141,8 @@ class SourceETL(BaseETL):
         ...     output_path='data/processed/consumos/',
         ...     incremental_key='fecha_actualizacion',
         ...     incremental_partition='%Y-%m',  # monthly: partition=2024-01/
-        ...     overwrite=False,
+        ...     reprocess=False,
+        ...     write_mode='append',
         ...     # state_file is auto-inferred as data/processed/consumos/.etl_state.json
         ... )
         >>> df = etl.run()
@@ -167,7 +174,8 @@ class SourceETL(BaseETL):
                 incremental_key: "fecha_actualizacion"
                 incremental_format: null  # optional: explicit strftime for date parsing
                 incremental_partition: "%Y-%m"  # strftime for partition values
-                overwrite: false
+                reprocess: false
+                write_mode: "append"
                 # state is auto-managed at {output}/.etl_state.json
                 # last_processed: "2024-01-01"  # optional: initial cutoff if no state exists
     """
@@ -185,7 +193,8 @@ class SourceETL(BaseETL):
         transform_fn: Optional[Any] = None,
         sample: Optional[int] = None,
         partition_by: Optional[List[str]] = None,
-        overwrite: bool = False,
+        reprocess: bool = False,
+        write_mode: str = "append",
         state_file: Optional[str] = None,
         raw_glob: Optional[str] = None,
         processed_glob: Optional[str] = None,
@@ -204,7 +213,8 @@ class SourceETL(BaseETL):
         self.input_params = input_params or {}
         self.output_params = output_params or {}
         self.sample = sample
-        self.overwrite = overwrite
+        self.reprocess = reprocess
+        self.write_mode = write_mode.lower() if write_mode else "append"
         self.state_file = state_file
         self.raw_glob = raw_glob
         self.processed_glob = processed_glob
@@ -246,6 +256,13 @@ class SourceETL(BaseETL):
         # Validate mode
         if self.mode not in ("concat", "merge", "incremental"):
             raise ValueError(f"Mode must be 'concat', 'merge', or 'incremental', not '{self.mode}'")
+
+        # Validate write_mode
+        if self.write_mode not in ("append", "replace"):
+            raise ValueError(
+                f"SourceETL '{self.name}': write_mode must be 'append' or 'replace', "
+                f"not '{self.write_mode}'"
+            )
 
         # Validate merge_config if mode is merge
         if self.mode == "merge" and not self.merge_config:
@@ -400,8 +417,8 @@ class SourceETL(BaseETL):
                 logger.warning(f"  • Skipping (not found): '{path}'")
                 continue
 
-            # Check if already processed (unless overwrite is True)
-            if not self.overwrite and self._is_file_processed(path):
+            # Check if already processed (unless reprocess is True)
+            if not self.reprocess and self._is_file_processed(path):
                 logger.info(f"  • Skipping (already processed): '{source_file.name}'")
                 continue
 
@@ -653,10 +670,15 @@ class SourceETL(BaseETL):
             # Drop internal partition column(s) from saved data
             save_df = group_df.drop(columns=["_partition", "partition"], errors="ignore")
 
-            # Append to existing partition file
+            # Handle existing partition file based on write_mode setting
             if output_file.exists():
-                existing = pd.read_parquet(output_file)
-                save_df = pd.concat([existing, save_df], ignore_index=True)
+                if self.write_mode == "replace":
+                    # Replace the partition file
+                    logger.info(f"  • Replacing partition: '{output_file}'")
+                else:
+                    # Append to existing partition file
+                    existing = pd.read_parquet(output_file)
+                    save_df = pd.concat([existing, save_df], ignore_index=True)
 
             save_df.to_parquet(output_file, index=False)
             self._written_partitions.append(str(partition_val))
@@ -754,7 +776,7 @@ class SourceETL(BaseETL):
                 logger.warning(f"  • Skipping (not found): '{path}'")
                 continue
 
-            if not self.overwrite and self._is_file_processed(path):
+            if not self.reprocess and self._is_file_processed(path):
                 logger.info(f"  • Skipping (already processed): '{source_file.name}'")
                 continue
 
@@ -1141,16 +1163,11 @@ class SourceETL(BaseETL):
             if self.incremental_key and self.partition_by and not df.empty:
                 df = self._derive_partition_columns(df)
 
-            # Handle incremental mode with overwrite check
-            if self.mode == "incremental" and not self.overwrite:
+            # Handle incremental mode without incremental_key: skip if already exists
+            # and write_mode is "append"
+            if self.mode == "incremental" and not self.reprocess and not self.incremental_key:
                 if output_path.exists():
-                    logger.info(f"  • Skipping save (already exists and overwrite=False): '{path}'")
-                    return
-                # For partitioned output, check if any partition exists
-                if self.partition_by and output_path.exists():
-                    logger.info(
-                        f"  • Skipping save (partition exists and overwrite=False): '{path}'"
-                    )
+                    logger.info(f"  • Skipping save (already exists and reprocess=False): '{path}'")
                     return
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1223,6 +1240,14 @@ class SourceETL(BaseETL):
             # Determine output file within partition
             output_file = Path(partition_path) / "data.parquet"
             group_df.drop(columns=self.partition_by, inplace=True)
+
+            # Handle existing partition file based on write_mode setting
+            if output_file.exists():
+                if self.write_mode == "replace":
+                    logger.info(f"  • Replacing partition: '{output_file}'")
+                else:
+                    existing = pd.read_parquet(output_file)
+                    group_df = pd.concat([existing, group_df], ignore_index=True)
 
             # Determine format
             base_path_obj = Path(base_path)

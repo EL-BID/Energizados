@@ -77,7 +77,8 @@ Produce the complete YAML block ready to paste into `config/etl.yaml` under the 
       incremental_key: "{key_column}"  # datetime column used to filter new records
       incremental_format: "{format}"   # strftime format for parsing (e.g. "%d/%m/%Y"). If omitted, pandas auto-parses.
       incremental_partition: "%Y-%m"   # strftime format for partition column (default: year-month)
-      overwrite: false
+      reprocess: false                 # true = re-read all files; false = only pending
+      write_mode: "append"             # "append" = concat to existing; "replace" = overwrite
       state_file: ".cache/etl_states/{name}.json"
       # last_processed: "2024-01-01"  # optional: initial cutoff on first run
     depends_on: [{depends_on_list}]

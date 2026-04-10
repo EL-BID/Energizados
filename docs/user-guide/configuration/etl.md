@@ -115,7 +115,8 @@ etl:
       incremental_key: "fecha_actualizacion"  # datetime column used to filter new records
       incremental_format: "%d/%m/%Y"         # strftime format for parsing (optional)
       incremental_partition: "%Y-%m"         # strftime format for partition column (default)
-      overwrite: false
+      reprocess: false
+      write_mode: "append"
       state_file: ".cache/etl_states/consumos.json"
       # last_processed: "2024-01-01"  # optional: initial cutoff on first run
     depends_on: []
@@ -139,6 +140,8 @@ etl:
 | `incremental_format` | string | `null` | strftime format to parse `incremental_key` (e.g. `"%d/%m/%Y"`). If omitted, pandas auto-parses. |
 | `incremental_partition` | string | `"%Y-%m"` | strftime format to create the `partition` column (e.g. `"%Y"`, `"%Y-%m"`, `"%Y-%m-%d"`) |
 | `partition_by` | list | deprecated in incremental | **Deprecated** — use `incremental_partition` instead. If passed in incremental mode, a warning is logged and it is ignored. Still works in concat/merge modes. |
+| `reprocess` | bool | `false` | If `true`, re-reads all input files regardless of processing history. The `incremental_key` filter still applies to individual records. If `false`, only processes files not yet tracked in the state file. |
+| `write_mode` | string | `"append"` | How to handle existing partition files: `"append"` concatenates new records; `"replace"` overwrites with new data only. |
 
 **Output structure:**
 ```
@@ -163,6 +166,21 @@ params:
   state_file: ".cache/etl_states/consumos.json"
 ```
 
+### `reprocess` × `write_mode` Combinations
+
+These two parameters control independent aspects of incremental processing:
+
+| `reprocess` | `write_mode` | What happens | When to use |
+|:---:|:---:|---|---|
+| `false` | `"append"` | **Default.** Only new files are read; new records are appended to existing partitions. | Daily production runs. The normal case. |
+| `false` | `"replace"` | Only new files are read; partition files are replaced with only the new records. | When you want each partition to contain only the latest batch (e.g. snapshot-style). |
+| `true` | `"append"` | All files are re-read (ignoring state); new records are appended to existing partitions. The `incremental_key` filter still discards records ≤ `last_processed_value`. | A source file was updated with additional rows and needs reprocessing. |
+| `true` | `"replace"` | All files are re-read; partition files are overwritten with only the new records. | A source file had errors that were corrected; you want to overwrite the output with the fixed data. |
+
+> **Note:** `reprocess` controls **which files** are read (all vs. only pending). `write_mode` controls **how existing partitions** are written (append vs. replace). The `incremental_key` filter is **always** active — it is the core mechanism of incremental mode and cannot be disabled.
+>
+> **Full reprocessing from scratch:** To reprocess everything from the beginning (ignoring `last_processed_value`), delete the state file and run with the defaults (`reprocess: false`, `write_mode: "append"`). This is intentional — a full reset is a destructive operation that should not be accidentally triggered by a YAML parameter.
+
 ### SourceETL Parameters Reference
 
 | Parameter | Type | Default | Description |
@@ -175,8 +193,9 @@ params:
 | `transform_fn` | string or callable | `null` | Custom transform applied after reading and concatenating/merging. Accepts a dotted-path string (e.g. `"src.data.transforms.clean_data"`) or a Python callable. Must have signature `(pd.DataFrame) -> pd.DataFrame`. |
 | `sample` | integer | `null` | Random sample of N rows taken from the combined result. Uses `random_state=42` for reproducibility. If N exceeds the available rows, all rows are returned. |
 | `partition_by` | list | `null` | **Deprecated in incremental mode** — use `incremental_partition` instead. Still works in concat/merge modes. List of columns for Hive-style partitioning (e.g., `["year", "month"]`). Writes to `output/year=YYYY/month=MM/data.parquet`. |
-| `overwrite` | bool | `false` | If `true`, overwrites existing output files. If `false`, skips existing files in incremental mode. |
-| `state_file` | string | `null` | Path to JSON file that persists processed-file list and `last_processed_value`. Used in incremental mode. Default: `<output_path>.state.json` |
+| `reprocess` | bool | `false` | If `true`, re-reads all input files regardless of the state file's processed list. The `incremental_key` filter still applies to individual records. If `false`, only processes files not yet tracked in the state file. |
+| `write_mode` | string | `"append"` | How to handle existing partition files: `"append"` concatenates new records to the existing partition; `"replace"` overwrites the partition file with new data only. |
+| `state_file` | string | `null` | Path to JSON file that persists processed-file list and `last_processed_value`. Used in incremental mode. Default: `<output_path>/.etl_state.json` |
 | `raw_glob` | string | `null` | Glob pattern to discover raw input files (e.g., `data/raw/*.csv`). Used in incremental mode. When set, `input_paths` is ignored. |
 | `processed_glob` | string | `null` | Glob pattern to find already processed files. Used in incremental mode alongside `raw_glob` for file-level deduplication. |
 | `incremental_key` | string | `null` | Datetime or numeric column used for record-level filtering in incremental mode. Only records where `incremental_key > last_processed_value` are kept. After each run the max value is stored in `state_file`. |
