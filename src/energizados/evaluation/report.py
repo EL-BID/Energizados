@@ -388,7 +388,8 @@ class ReportGenerator:
         html_parts = []
 
         metric_configs = [
-            ("AUC", "auc", "Area Under ROC Curve"),
+            ("AUC (Test)", "auc", "Area Under ROC Curve — test set"),
+            ("AUC (Val)", "auc_val", "Area Under ROC Curve — validation set"),
             ("F1 Score", "f1", "F1 Score"),
             ("Precision", "precision", "Precision"),
             ("Recall", "recall", "Recall/Sensitivity"),
@@ -406,6 +407,26 @@ class ReportGenerator:
             <div class="metric-card">
                 <div class="value">{display_value}</div>
                 <div class="label">{label}</div>
+            </div>
+""")
+
+        # Diff AUC card with color coding
+        auc_diff = metrics.get("auc_diff")
+        if auc_diff is not None:
+            diff_display = f"{auc_diff:+.4f}"
+            if abs(auc_diff) < 0.02:
+                diff_color = "var(--positive)"
+                diff_title = "Good generalization"
+            elif abs(auc_diff) < 0.05:
+                diff_color = "var(--warning)"
+                diff_title = "Watch for overfitting"
+            else:
+                diff_color = "var(--negative)"
+                diff_title = "Possible overfitting"
+            html_parts.append(f"""
+            <div class="metric-card" title="{diff_title}">
+                <div class="value" style="color:{diff_color}">{diff_display}</div>
+                <div class="label">Diff AUC (val−test)</div>
             </div>
 """)
 

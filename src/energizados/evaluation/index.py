@@ -77,12 +77,16 @@ class RunIndexGenerator:
             if html_path.exists():
                 relative_link = f"{run_dir.name}/reports/evaluation/evaluation_report.html"
 
+            auc_val = metrics.get("auc_val")
+            auc_diff = metrics.get("auc_diff")
             runs.append(
                 {
                     "run_name": run_dir.name,
                     "timestamp": report_data.get("timestamp", ""),
                     "model_type": model_info.get("model_class", model_info.get("model_type", "—")),
                     "auc": metrics.get("auc"),
+                    "auc_val": auc_val,
+                    "auc_diff": auc_diff,
                     "f1": metrics.get("f1"),
                     "precision": metrics.get("precision"),
                     "recall": metrics.get("recall"),
@@ -139,6 +143,8 @@ class RunIndexGenerator:
             "timestamp": timestamp,
             "model_type": model_type,
             "auc": metrics.get("auc"),
+            "auc_val": metrics.get("auc_val"),
+            "auc_diff": metrics.get("auc_diff"),
             "f1": metrics.get("f1"),
             "precision": metrics.get("precision"),
             "recall": metrics.get("recall"),
@@ -180,6 +186,29 @@ class RunIndexGenerator:
         except (TypeError, ValueError):
             return str(value)
 
+    def _fmt_diff(self, value, decimals: int = 4) -> str:
+        """Format AUC diff with explicit sign."""
+        if value is None:
+            return "—"
+        try:
+            return f"{float(value):+.{decimals}f}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _diff_style(self, value) -> str:
+        """Returns inline CSS color for a diff AUC value."""
+        if value is None:
+            return ""
+        try:
+            v = abs(float(value))
+        except (TypeError, ValueError):
+            return ""
+        if v < 0.02:
+            return "color:var(--positive);font-weight:600"
+        if v < 0.05:
+            return "color:var(--warning);font-weight:600"
+        return "color:var(--negative);font-weight:600"
+
     def _build_html(self, runs: List[Dict], output_dir: Path) -> str:
         """Builds the full HTML content for the index page."""
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -214,7 +243,8 @@ class RunIndexGenerator:
             <div class="value">{run_count}</div>
             <div class="label">Total Runs</div>
         </div>
-        {self._build_best_metric_card(runs, "auc", "Best AUC")}
+        {self._build_best_metric_card(runs, "auc", "Best AUC (Test)")}
+        {self._build_best_metric_card(runs, "auc_val", "Best AUC (Val)")}
         {self._build_best_metric_card(runs, "f1", "Best F1")}
         {self._build_best_metric_card(runs, "precision", "Best Precision")}
         {self._build_best_metric_card(runs, "recall", "Best Recall")}
@@ -319,7 +349,8 @@ class RunIndexGenerator:
                 var row = cb.closest('tr');
                 var cells = row.querySelectorAll('td');
                 // col 0=checkbox, 1=run, 2=timestamp, 3=model,
-                // 4=AUC, 5=F1, 6=Precision, 7=Recall, 8=Accuracy, 9=Threshold, 10=Report
+                // 4=AUC(Test), 5=AUC(Val), 6=DiffAUC, 7=F1,
+                // 8=Precision, 9=Recall, 10=Accuracy, 11=Threshold, 12=Report
                 var runName = cells[1].textContent.trim();
                 if (cb.checked) {{
                     row.classList.add('selected');
@@ -328,11 +359,13 @@ class RunIndexGenerator:
                         timestamp: cells[2].textContent.trim(),
                         model: cells[3].textContent.trim(),
                         auc: cells[4].getAttribute('data-val') || cells[4].textContent.trim(),
-                        f1: cells[5].getAttribute('data-val') || cells[5].textContent.trim(),
-                        precision: cells[6].getAttribute('data-val') || cells[6].textContent.trim(),
-                        recall: cells[7].getAttribute('data-val') || cells[7].textContent.trim(),
-                        accuracy: cells[8].getAttribute('data-val') || cells[8].textContent.trim(),
-                        threshold: cells[9].getAttribute('data-val') || cells[9].textContent.trim()
+                        auc_val: cells[5].getAttribute('data-val') || cells[5].textContent.trim(),
+                        auc_diff: cells[6].getAttribute('data-val') || cells[6].textContent.trim(),
+                        f1: cells[7].getAttribute('data-val') || cells[7].textContent.trim(),
+                        precision: cells[8].getAttribute('data-val') || cells[8].textContent.trim(),
+                        recall: cells[9].getAttribute('data-val') || cells[9].textContent.trim(),
+                        accuracy: cells[10].getAttribute('data-val') || cells[10].textContent.trim(),
+                        threshold: cells[11].getAttribute('data-val') || cells[11].textContent.trim()
                     }};
                 }} else {{
                     row.classList.remove('selected');
@@ -355,7 +388,9 @@ class RunIndexGenerator:
             var metricRows = [
                 ['Timestamp', runs.map(function(r) {{ return {{ val: r.timestamp, numeric: false }}; }})],
                 ['Model', runs.map(function(r) {{ return {{ val: r.model, numeric: false }}; }})],
-                ['AUC', runs.map(function(r) {{ return {{ val: r.auc, numeric: true }}; }})],
+                ['AUC (Test)', runs.map(function(r) {{ return {{ val: r.auc, numeric: true }}; }})],
+                ['AUC (Val)', runs.map(function(r) {{ return {{ val: r.auc_val, numeric: true }}; }})],
+                ['Diff AUC', runs.map(function(r) {{ return {{ val: r.auc_diff, numeric: true }}; }})],
                 ['F1', runs.map(function(r) {{ return {{ val: r.f1, numeric: true }}; }})],
                 ['Precision', runs.map(function(r) {{ return {{ val: r.precision, numeric: true }}; }})],
                 ['Recall', runs.map(function(r) {{ return {{ val: r.recall, numeric: true }}; }})],
@@ -461,14 +496,17 @@ class RunIndexGenerator:
                 else "—"
             )
             auc_cls = self._metric_class(run.get("auc"), "auc")
+            auc_val_cls = self._metric_class(run.get("auc_val"), "auc")
             f1_cls = self._metric_class(run.get("f1"), "f1")
             prec_cls = self._metric_class(run.get("precision"), "precision")
             rec_cls = self._metric_class(run.get("recall"), "recall")
             acc_cls = self._metric_class(run.get("accuracy"), "accuracy")
+            diff_style = self._diff_style(run.get("auc_diff"))
 
             # col 0: checkbox  col 1: run  col 2: timestamp  col 3: model
-            # col 4: AUC  col 5: F1  col 6: Precision  col 7: Recall
-            # col 8: Accuracy  col 9: Threshold  col 10: Report
+            # col 4: AUC(Test)  col 5: AUC(Val)  col 6: Diff AUC
+            # col 7: F1  col 8: Precision  col 9: Recall
+            # col 10: Accuracy  col 11: Threshold  col 12: Report
             rows.append(f"""
             <tr>
                 <td style="width:30px;text-align:center"><input type="checkbox" class="row-select"></td>
@@ -476,6 +514,8 @@ class RunIndexGenerator:
                 <td data-val="{run['timestamp']}">{run['timestamp'][:19] if run['timestamp'] else '—'}</td>
                 <td data-val="{run['model_type']}">{run['model_type']}</td>
                 <td class="metric {auc_cls}" data-val="{run.get('auc', '')}">{self._fmt(run.get('auc'))}</td>
+                <td class="metric {auc_val_cls}" data-val="{run.get('auc_val', '')}">{self._fmt(run.get('auc_val'))}</td>
+                <td class="metric" style="{diff_style}" data-val="{run.get('auc_diff', '')}">{self._fmt_diff(run.get('auc_diff'))}</td>
                 <td class="metric {f1_cls}" data-val="{run.get('f1', '')}">{self._fmt(run.get('f1'))}</td>
                 <td class="metric {prec_cls}" data-val="{run.get('precision', '')}">{self._fmt(run.get('precision'))}</td>
                 <td class="metric {rec_cls}" data-val="{run.get('recall', '')}">{self._fmt(run.get('recall'))}</td>
@@ -491,8 +531,9 @@ class RunIndexGenerator:
             return '<div class="no-runs">No training runs found yet. Run a training to see results here.</div>'
 
         rows_html = "".join(rows)
-        # data-col values: 0=checkbox, 1=run, 2=timestamp, 3=model, 4=AUC, 5=F1,
-        # 6=Precision, 7=Recall, 8=Accuracy, 9=Threshold
+        # data-col values: 0=checkbox, 1=run, 2=timestamp, 3=model,
+        # 4=AUC(Test), 5=AUC(Val), 6=DiffAUC, 7=F1,
+        # 8=Precision, 9=Recall, 10=Accuracy, 11=Threshold
         return f"""
         <table>
             <thead>
@@ -501,12 +542,14 @@ class RunIndexGenerator:
                     <th data-col="1">Run</th>
                     <th data-col="2">Timestamp</th>
                     <th data-col="3">Model</th>
-                    <th data-col="4">AUC</th>
-                    <th data-col="5">F1</th>
-                    <th data-col="6">Precision</th>
-                    <th data-col="7">Recall</th>
-                    <th data-col="8">Accuracy</th>
-                    <th data-col="9">Threshold</th>
+                    <th data-col="4">AUC (Test)</th>
+                    <th data-col="5">AUC (Val)</th>
+                    <th data-col="6">Diff AUC</th>
+                    <th data-col="7">F1</th>
+                    <th data-col="8">Precision</th>
+                    <th data-col="9">Recall</th>
+                    <th data-col="10">Accuracy</th>
+                    <th data-col="11">Threshold</th>
                     <th class="no-sort">Report</th>
                 </tr>
             </thead>

@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
 from energizados.core.base import PipelineStep
@@ -17,6 +18,48 @@ from energizados.feature_engineering import DefaultFeatureEngineering
 from energizados.modeling.registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
+
+
+class _SklearnCalibWrapper:
+    """Sklearn-compatible shim for CalibratedClassifierCV with cv='prefit'.
+
+    CalibratedClassifierCV requires ``classes_``, a 2D ``predict_proba``, and
+    ``_estimator_type = "classifier"`` (checked by sklearn's ``is_classifier()``).
+    Our adapters expose 1D and lack these, so this wrapper bridges the gap.
+    """
+
+    _estimator_type = "classifier"
+
+    def __init__(self, adapter) -> None:
+        self._adapter = adapter
+        self.classes_ = np.array([0, 1])
+
+    def fit(self, X, y):
+        # cv='prefit' never calls fit, but sklearn validates its presence.
+        return self
+
+    def predict_proba(self, X):
+        p = self._adapter.predict_proba(X)
+        return np.column_stack([1 - p, p])
+
+
+class _CalibratedWrapper:
+    """Post-calibration wrapper that restores the 1D predict_proba interface.
+
+    After ``CalibratedClassifierCV.fit()``, ``predict_proba`` returns 2D (n, 2).
+    This wrapper extracts the positive-class column so downstream code (evaluator,
+    inference) continues to receive 1D arrays as expected.
+    """
+
+    def __init__(self, calibrated_clf, original_adapter) -> None:
+        self._calibrated = calibrated_clf
+        self._adapter = original_adapter
+
+    def predict_proba(self, X):
+        return self._calibrated.predict_proba(X)[:, 1]
+
+    def predict(self, X):
+        return self._adapter.predict(X)
 
 
 class TrainingStep(PipelineStep):
@@ -502,23 +545,17 @@ class TrainingStep(PipelineStep):
         from sklearn.calibration import CalibratedClassifierCV
 
         method = calibration_config.get("method", "sigmoid")
-        cv = calibration_config.get("cv", 3)
 
-        logger.info(f"Calibrating with method='{method}', cv={cv}")
+        logger.info(f"Calibrating with method='{method}', cv=prefit")
 
-        # Use cv='prefit' to calibrate on validation set without retraining
-        # the underlying model. This is the standard approach when you have
-        # a held-out validation set for calibration.
-        calibrated_model = CalibratedClassifierCV(
-            estimator=model,
-            method=method,
-            cv="prefit",
-        )
+        # CalibratedClassifierCV with cv='prefit' requires classes_ and 2D predict_proba.
+        # _SklearnCalibWrapper bridges our 1D-adapter interface to what sklearn expects.
+        wrapped = _SklearnCalibWrapper(model)
+        calibrated_clf = CalibratedClassifierCV(estimator=wrapped, method=method, cv="prefit")
+        calibrated_clf.fit(X_val, y_val)
 
-        # Fit calibration on validation set (model is already trained, just calibrate probabilities)
-        calibrated_model.fit(X_val, y_val)
-
-        return calibrated_model
+        # _CalibratedWrapper restores the 1D predict_proba convention used by the evaluator.
+        return _CalibratedWrapper(calibrated_clf, model)
 
     # ------------------------------------------------------------------
     # Multi-model helpers (comparison mode)
@@ -687,6 +724,7 @@ class TrainingStep(PipelineStep):
             params["search_hip"] = hyperparam_search.get("enabled", False)
             params["n_iter"] = hyperparam_search.get("n_iter", 60)
             params["cv"] = hyperparam_search.get("cv", 3)
+            params["n_splits"] = hyperparam_search.get("n_splits", 5)
 
         elif model_type in ["neural_network", "nn", "lstm"]:
             consumption_cols = [c for c in X_train.columns if "_anterior" in c]
@@ -724,6 +762,7 @@ class TrainingStep(PipelineStep):
         # Remove keys that are not model constructor arguments
         params.pop("type", None)
         params.pop("name", None)
+        params.pop("calibration", None)
 
         return params
 

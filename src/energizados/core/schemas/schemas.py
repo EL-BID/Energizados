@@ -145,7 +145,8 @@ MODEL_CONFIG_SCHEMA = {
                 "enabled": {"type": "boolean"},
                 "method": {"type": "string", "enum": ["grid", "random", "bayesian"]},
                 "n_iter": {"type": "integer"},
-                "cv": {"type": "integer"},
+                "cv": {"type": ["integer", "string"], "enum": [3, 5, 10, "time_series"]},
+                "n_splits": {"type": "integer"},
             },
         },
         "validation": {

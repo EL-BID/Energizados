@@ -60,6 +60,7 @@ class LGBMModelAdapter(BaseModel):
         sampling_method: str = "undersample",
         n_iter: int = 60,
         cv: int = 3,
+        n_splits: int = 5,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
         threshold: float = 0.5,
@@ -72,6 +73,7 @@ class LGBMModelAdapter(BaseModel):
         self.sampling_method = sampling_method
         self.n_iter = n_iter
         self.cv = cv
+        self.n_splits = n_splits
         self.class_weight = class_weight
         self.threshold = threshold
         self._trained_pipeline = None
@@ -87,6 +89,7 @@ class LGBMModelAdapter(BaseModel):
             sampling_method=sampling_method,
             n_iter=n_iter,
             cv=cv,
+            n_splits=n_splits,
             class_weight=class_weight,
         )
 
@@ -188,6 +191,7 @@ class CATModelAdapter(BaseModel):
         sampling_method: str = "undersample",
         n_iter: int = 60,
         cv: int = 3,
+        n_splits: int = 5,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
         threshold: float = 0.5,
@@ -200,6 +204,7 @@ class CATModelAdapter(BaseModel):
         self.sampling_method = sampling_method
         self.n_iter = n_iter
         self.cv = cv
+        self.n_splits = n_splits
         self.class_weight = class_weight
         self.threshold = threshold
 
@@ -213,6 +218,7 @@ class CATModelAdapter(BaseModel):
             sampling_method=sampling_method,
             n_iter=n_iter,
             cv=cv,
+            n_splits=n_splits,
             class_weight=class_weight,
         )
         self._trained_pipeline = None
@@ -312,6 +318,7 @@ class XGBModelAdapter(BaseModel):
         sampling_method: str = "undersample",
         n_iter: int = 60,
         cv: int = 3,
+        n_splits: int = 5,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
         threshold: float = 0.5,
@@ -324,6 +331,7 @@ class XGBModelAdapter(BaseModel):
         self.sampling_method = sampling_method
         self.n_iter = n_iter
         self.cv = cv
+        self.n_splits = n_splits
         self.class_weight = class_weight
         self.threshold = threshold
 
@@ -337,6 +345,7 @@ class XGBModelAdapter(BaseModel):
             sampling_method=sampling_method,
             n_iter=n_iter,
             cv=cv,
+            n_splits=n_splits,
             class_weight=class_weight,
         )
         self._trained_pipeline = None

@@ -27,7 +27,11 @@ from imblearn.under_sampling import RandomUnderSampler
 from lightgbm import LGBMClassifier, early_stopping, log_evaluation
 from scipy.stats import randint as sp_randint
 from scipy.stats import uniform as sp_uniform
-from sklearn.model_selection import RandomizedSearchCV, train_test_split
+from sklearn.model_selection import (
+    RandomizedSearchCV,
+    TimeSeriesSplit,
+    train_test_split,
+)
 from sklearn.preprocessing import MinMaxScaler
 
 from energizados.preprocessing.preprocessing import MinMaxScalerRow
@@ -69,6 +73,7 @@ class LGBMModel:
         sampling_method="undersample",
         n_iter=60,
         cv=3,
+        n_splits=5,
         class_weight=None,
     ):
         """
@@ -81,7 +86,9 @@ class LGBMModel:
             sampling_th (float): The sampling threshold.
             sampling_method (str): The sampling method ('over' or 'under').
             n_iter (int): Number of iterations for RandomizedSearchCV.
-            cv (int): Number of cross-validation folds for RandomizedSearchCV.
+            cv (int): Number of cross-validation folds for RandomizedSearchCV,
+                or "time_series" to use TimeSeriesSplit respecting temporal order.
+            n_splits (int): Number of splits for TimeSeriesSplit when cv="time_series".
         """
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
@@ -90,6 +97,7 @@ class LGBMModel:
         self.hyperparams = hyperparams
         self.n_iter = n_iter
         self.cv = cv
+        self.n_splits = n_splits
         self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self):
@@ -218,10 +226,11 @@ class LGBMModel:
             "lgbmclassifier__" + key: search_fit_params[key] for key in search_fit_params
         }
 
+        cv_splits = TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv
         random_imba = RandomizedSearchCV(
             estimator=imba_pipeline,
             param_distributions=new_params,
-            cv=self.cv,
+            cv=cv_splits,
             #                            scoring = 'average_precision',
             scoring="roc_auc",
             n_jobs=-1,
@@ -255,6 +264,7 @@ class CATModel:
         sampling_method="undersample",
         n_iter=60,
         cv=3,
+        n_splits=5,
         class_weight=None,
     ):
         """Initialize CATModel.
@@ -267,7 +277,9 @@ class CATModel:
             preprocesor_num: Unused legacy parameter.
             sampling_method: Sampling strategy ('over', 'under', 'smotetomek', or other for no sampling).
             n_iter: Number of iterations for RandomizedSearchCV.
-            cv: Number of cross-validation folds.
+            cv: Number of cross-validation folds for RandomizedSearchCV,
+                or "time_series" to use TimeSeriesSplit respecting temporal order.
+            n_splits: Number of splits for TimeSeriesSplit when cv="time_series".
             class_weight: Class weights for CatBoost (dict like {0: 1, 1: 10} or "balanced").
         """
         self.cols_for_model = cols_for_model
@@ -278,6 +290,7 @@ class CATModel:
         self.hyperparams = hyperparams
         self.n_iter = n_iter
         self.cv = cv
+        self.n_splits = n_splits
         self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self, cat_features):
@@ -410,7 +423,7 @@ class CATModel:
         random_imba = RandomizedSearchCV(
             estimator=imba_catboost,
             param_distributions=new_params,
-            cv=self.cv,
+            cv=TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv,
             scoring="roc_auc",
             n_jobs=-1,
             n_iter=self.n_iter,
@@ -446,6 +459,7 @@ class XGBModel:
         sampling_method="undersample",
         n_iter=60,
         cv=3,
+        n_splits=5,
         class_weight=None,
     ):
         """Initialize XGBModel.
@@ -457,7 +471,9 @@ class XGBModel:
             sampling_th: Sampling ratio for the sampler.
             sampling_method: Sampling strategy ('oversample', 'undersample', 'smotetomek', or other for none).
             n_iter: Number of iterations for RandomizedSearchCV.
-            cv: Number of cross-validation folds.
+            cv: Number of cross-validation folds for RandomizedSearchCV,
+                or "time_series" to use TimeSeriesSplit respecting temporal order.
+            n_splits: Number of splits for TimeSeriesSplit when cv="time_series".
             class_weight: Passed as scale_pos_weight (int/float) or ignored if None.
         """
         self.cols_for_model = cols_for_model
@@ -467,6 +483,7 @@ class XGBModel:
         self.hyperparams = hyperparams
         self.n_iter = n_iter
         self.cv = cv
+        self.n_splits = n_splits
         self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self):
@@ -581,7 +598,7 @@ class XGBModel:
         random_search = RandomizedSearchCV(
             estimator=imba_pipeline,
             param_distributions=new_params,
-            cv=self.cv,
+            cv=TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv,
             scoring="roc_auc",
             n_jobs=-1,
             n_iter=self.n_iter,

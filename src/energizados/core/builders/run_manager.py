@@ -125,6 +125,24 @@ class RunManager:
 
         logger.info(f"Training run directory: {run_dir}")
         self._run_dir = run_dir
+
+        # Auto-attach file handler when verbose logging is active (-v/-vv/-vvv)
+        import logging as _logging
+
+        root = _logging.getLogger()
+        if root.level < _logging.WARNING:
+            run_log_path = run_dir / "run.log"
+            file_handler = _logging.FileHandler(str(run_log_path), mode="w", encoding="utf-8")
+            file_handler.setLevel(root.level)
+            file_handler.setFormatter(
+                _logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                )
+            )
+            root.addHandler(file_handler)
+            logger.info(f"Run log: {run_log_path}")
+
         return run_dir
 
     def _get_train_config_name(self) -> Optional[str]:

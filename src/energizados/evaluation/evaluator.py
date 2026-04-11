@@ -214,7 +214,28 @@ class DefaultEvaluator(PipelineStep):
         logger.info(f"{'=' * 50}")
         metrics_results["threshold"] = threshold
 
-        # 6b. Segment metrics (MEJORAS P4-15)
+        # 6b. Val AUC — read from val_predictions parquet if available
+        val_pred_path = self.val_predictions_path or ctx.get("val_predictions_path")
+        if val_pred_path and Path(val_pred_path).exists():
+            try:
+                val_pred_df = pd.read_parquet(val_pred_path)
+                val_metrics_calc = Metrics(
+                    val_pred_df["y_true"].values,
+                    (val_pred_df["y_proba"].values >= threshold).astype(int),
+                    val_pred_df["y_proba"].values,
+                    threshold,
+                )
+                auc_val = val_metrics_calc.auc()
+                metrics_results["auc_val"] = float(auc_val)
+                metrics_results["auc_diff"] = float(auc_val) - float(metrics_results.get("auc", 0))
+                logger.info(
+                    f"AUC val: {auc_val:.4f}  |  AUC test: {metrics_results.get('auc', 0):.4f}"
+                    f"  |  Diff: {metrics_results['auc_diff']:+.4f}"
+                )
+            except Exception as e:
+                logger.warning(f"Could not compute val AUC: {e}")
+
+        # 6d. Segment metrics (MEJORAS P4-15)
         segment_metrics = {}
         if self.segment_columns:
             logger.info(f"Calculating segment metrics for: {self.segment_columns}")
@@ -227,7 +248,7 @@ class DefaultEvaluator(PipelineStep):
             if segment_metrics:
                 metrics_results["segment_metrics"] = segment_metrics
 
-        # 6c. Threshold sweep metrics
+        # 6e. Threshold sweep metrics
         logger.info("Calculating threshold sweep metrics...")
         threshold_metrics = None
         try:
@@ -235,7 +256,7 @@ class DefaultEvaluator(PipelineStep):
         except Exception as e:
             logger.warning(f"Could not calculate threshold metrics: {e}")
 
-        # 6d. SHAP Explainability
+        # 6f. SHAP Explainability
         shap_embedded = {}
         shap_plots = {}
         if self._shap_config and self._shap_config.get("enabled", False):
