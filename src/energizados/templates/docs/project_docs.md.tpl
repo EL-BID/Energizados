@@ -8,20 +8,18 @@ Briefly describe the purpose and objectives of this project.
 
 ```
 {{project_name}}/
-├── config/                 # Pipeline configurations (3 files)
-│   ├── etls.yaml           # ETL configuration
-│   ├── training.yaml       # Training configuration (includes feature_engineering)
-│   └── inference.yaml      # Inference configuration
+├── config/                 # Pipeline configurations
+│   ├── etl.yaml            # ETL configuration
+│   ├── train.yaml          # Training configuration (includes feature_engineering)
+│   └── infer.yaml          # Inference configuration (ETL + model scoring)
 ├── data/
 │   ├── raw/               # Raw data (immutable)
 │   ├── processed/         # Processed data
 │   └── temp/              # Temporary files
 │       └── splits/        # Train/val/test splits
 ├── docs/                   # Project documentation
-├── models/
-│   └── trained/           # Trained model files
+├── output/                 # Training run outputs (auto-created per run)
 ├── notebooks/              # Experimentation notebooks
-├── reports/                # Reports and results
 ├── src/
 │   ├── data/              # ETL and preprocessing
 │   │   ├── __init__.py
@@ -39,10 +37,10 @@ Briefly describe the purpose and objectives of this project.
 │   │   ├── __init__.py
 │   │   └── helpers.py
 │   └── run/               # Execution scripts
-│       ├── 01_etl.py
+│       ├── 00_etl.py
+│       ├── 01_eda.py
 │       ├── 02_training.py
-│       ├── 03_evaluation.py
-│       └── 04_inference.py
+│       └── 03_inference.py
 ├── tests/                  # Test suite
 │   ├── conftest.py
 │   ├── test_data.py
@@ -87,44 +85,49 @@ python src/run/04_inference.py
 ### Run the full pipeline with CLI
 
 ```bash
-energizados run \
-  --config config/etls.yaml \
-  --config config/training.yaml
+# Training ETL
+energizados run etl
+
+# Training
+energizados run train
+
+# Inference (ETL + predictions)
+energizados run infer
 ```
 
 ### Run a specific step only
 
 ```bash
-# Run ETLs only
-energizados run --config config/etls.yaml --step etl
+# ETL only
+energizados run etl --step etl
 
-# Run Split only
-energizados run --config config/training.yaml --step split
+# Split only
+energizados run train --step split
 
-# Run Training only
-energizados run --config config/training.yaml --step training
+# Training only
+energizados run train --step training
+
+# Inference dataset only (if etl: section exists in infer.yaml)
+energizados run infer --step etl
+
+# Predictions only
+energizados run infer --step infer
 ```
 
 ### Run a specific ETL
 
 ```bash
 # Run an ETL and its dependencies
-energizados run --config config/etls.yaml --etl sample
+energizados run etl --etl sample
 
 # View execution plan without running
-energizados run --config config/etls.yaml --dry-run
+energizados run etl --dry-run
 ```
 
 ### Validate configuration
 
 ```bash
-# Validate a single file
-energizados validate --config config/etls.yaml
-
-# Validate multiple files
-energizados validate \
-  --config config/etls.yaml \
-  --config config/training.yaml
+energizados validate etl,train
 ```
 
 ### Tests
@@ -144,11 +147,11 @@ pytest tests/test_data.py -v
 
 ### 1. Configure ETLs
 
-Edit `config/etls.yaml` to define your ETLs. See the Energizados documentation for examples.
+Edit `config/etl.yaml` to define your ETLs. See the Energizados documentation for examples.
 
 ### 2. Configure Training
 
-Edit `config/training.yaml` to:
+Edit `config/train.yaml` to:
 - Define the data split strategy (stratified, random, time_series)
 - Configure preprocessing (per-column transformers)
 - Configure feature selection

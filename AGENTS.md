@@ -14,7 +14,7 @@ The framework also includes an **ETL system** with support for multiple ETLs wit
 
 ### Environment Setup
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
 jupyter lab
 ```
 

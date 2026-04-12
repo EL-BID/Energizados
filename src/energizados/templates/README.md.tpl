@@ -6,26 +6,24 @@ Energy fraud detection project with Energizados Framework.
 
 ```
 {{project_name}}/
-├── config/                 # Pipeline configurations (3 files)
-│   ├── etls.yaml           # ETL configuration
-│   ├── training.yaml       # Training configuration (includes feature_engineering)
-│   └── inference.yaml      # Inference configuration
+├── config/                 # Pipeline configurations
+│   ├── etl.yaml            # ETL configuration
+│   ├── train.yaml          # Training configuration (includes feature_engineering)
+│   └── infer.yaml          # Inference configuration (ETL + model scoring)
 ├── data/                   # Project data
 │   ├── raw/               # Raw data (immutable)
 │   ├── processed/         # Processed data
-│   └── splits/            # Train/val/test splits
+│   └── temp/              # Temporary files (splits, cache)
 ├── docs/                   # Project documentation
 │   └── project_docs.md    # Project-specific documentation
-├── models/                 # Trained model files
-│   └── trained/           # Saved models
+├── output/                 # Training run outputs (auto-created per run)
 ├── notebooks/              # Experimentation notebooks
 │   └── example_notebook.ipynb
-├── reports/                # Reports and results
 ├── src/run/                # Execution scripts
-│   ├── 01_etl.py          # Runs ETLs
+│   ├── 00_etl.py          # Runs ETLs
+│   ├── 01_eda.py          # Runs EDA
 │   ├── 02_training.py     # Runs training
-│   ├── 03_evaluation.py   # Runs evaluation
-│   └── 04_inference.py    # Runs inference
+│   └── 03_inference.py    # Runs inference
 ├── src/                    # Source code
 │   ├── data/              # ETL and preprocessing
 │   │   ├── __init__.py
@@ -72,44 +70,32 @@ python src/run/04_inference.py    # Inference
 ### Run the full pipeline
 
 ```bash
-energizados run \
-  --config config/etls.yaml \
-  --config config/training.yaml
+energizados run etl     # ETL
+energizados run train   # Training
+energizados run infer   # Inference (ETL + predictions)
 ```
 
 ### Run a specific step only
 
 ```bash
-# Run ETLs only
-energizados run --config config/etls.yaml --step etl
-
-# Run Split only
-energizados run --config config/training.yaml --step split
-
-# Run Training only
-energizados run --config config/training.yaml --step training
+energizados run etl --step etl
+energizados run train --step split
+energizados run train --step training
+energizados run infer --step etl    # inference dataset only
+energizados run infer --step infer  # predictions only
 ```
 
-### Run a specific ETL (with multiple ETLs)
+### Run a specific ETL
 
 ```bash
-# Run an ETL and its dependencies
-energizados run --config config/etls.yaml --etl sample
-
-# View execution plan without running
-energizados run --config config/etls.yaml --dry-run
+energizados run etl --etl sample
+energizados run etl --dry-run
 ```
 
 ### Validate configuration
 
 ```bash
-# Validate a single file
-energizados validate --config config/etls.yaml
-
-# Validate multiple files
-energizados validate \
-  --config config/etls.yaml \
-  --config config/training.yaml
+energizados validate etl,train
 ```
 
 ### Run tests
@@ -122,10 +108,12 @@ pytest tests/
 
 ### 1. Configure ETLs
 
-Edit `config/etls.yaml` to define your ETLs:
+Edit `config/etl.yaml` to define your ETLs:
 
 ```yaml
-etls:
+etl:
+  schema_version: 1
+
   consumos:
     enabled: true
     input: "data/raw/consumos.csv"
@@ -139,13 +127,18 @@ etls:
       - "@consumos"  # Reference to consumos output
       - "data/raw/clientes.csv"
     output: "data/processed/merged.parquet"
-    custom_class: "energizados.etl.pipeline.MultiSourceETL"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "merge"
+      merge_config:
+        how: "left"
+        on: "id_cliente"
     depends_on: ["consumos"]
 ```
 
 ### 2. Configure Training (includes Feature Engineering)
 
-Edit `config/training.yaml`:
+Edit `config/train.yaml`:
 
 ```yaml
 training:

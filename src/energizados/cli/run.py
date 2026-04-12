@@ -240,6 +240,15 @@ def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
     if not user_order:
         return [step.__class__.__name__ for step in pipeline.steps]
 
+    # Supplement with any steps the director built from additional sections present in
+    # the same config file (e.g., ETLStep from an etl: block inside infer.yaml).
+    # Re-order everything by DEFAULT_STEP_ORDER so ETL always precedes Inference, etc.
+    built_step_names = {step.__class__.__name__ for step in pipeline.steps}
+    extra = [s for s in DEFAULT_STEP_ORDER if s in built_step_names and s not in user_order]
+    if extra:
+        all_requested = set(user_order) | set(extra)
+        return [s for s in DEFAULT_STEP_ORDER if s in all_requested]
+
     return user_order
 
 

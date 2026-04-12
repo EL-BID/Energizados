@@ -1,18 +1,49 @@
 # Infer Configuration for {{project_name}}
 #
-# This file configures inference and prediction
-# using trained models.
+# Optionally combines two phases in one file:
+#   1. etl   — builds the inference dataset (no target) from processed parquets
+#   2. infer — scores with the trained model and produces predictions
+#
+# Usage:
+#   energizados run infer                   # both phases (if etl section is present)
+#   energizados run infer --step etl        # dataset only
+#   energizados run infer --step infer      # predictions only (dataset must exist)
+#
+# If you don't need a custom inference ETL, remove the etl: section below
+# and point input_path directly to your processed dataset.
+
+# ============================================================
+# Optional: Inference ETL (builds the dataset to score)
+# ============================================================
+# Uncomment and configure if you need to build the inference dataset
+# from raw/processed sources before scoring.
+#
+# etl:
+#   schema_version: 1
+#
+#   inference_dataset:
+#     enabled: true
+#     description: "Inference dataset: no target, windowed by start_period/end_period"
+#     input:
+#       - "data/processed/dataset.parquet"   # or multiple sources
+#     output: "data/processed/dataset_infer.parquet"
+#     custom_class: "data.inference_dataset_builder_etl.InferenceDatasetBuilderETL"
+#     params:
+#       start_period: "202401"   # YYYYMM — first period for active client filter
+#       end_period: "202412"     # YYYYMM — last period included (window anchor)
+#       min_num_measures_not_zero: 3
+#       remove_constant_series: true
+#     depends_on: []
 
 infer:
   schema_version: 1
-  enabled: false  # Change to true to enable
+  enabled: true
 
   # Input/output paths
-  input_path: "data/processed/feature_pipeline.parquet"
+  input_path: "data/processed/dataset_infer.parquet"
   output_path: "output/predictions.csv"
 
-  # Model auto-detection (optional - if not specified, uses latest run)
-  # Leave empty to auto-detect from output/train-YYYYMMDD_HHMM/
+  # Point to the training run to use:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
   # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
 
