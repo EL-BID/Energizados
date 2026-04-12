@@ -230,7 +230,7 @@ def init(ctx, project_name, template, path, copy_from, force):
 
 
 @cli.command()
-@click.argument("configs")
+@click.argument("configs", nargs=-1, required=True)
 @click.option(
     "--config-path",
     "-p",
@@ -296,16 +296,18 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
     - --dry-run: Show the plan without executing
     - --verbose, -v: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
-    CONFIGS is a comma-separated list of config names or paths.
+    CONFIGS accepts one or more config names, comma-separated names, or paths.
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
     Subdirectory paths (e.g. "v0/etl") resolve relative to config_dir.
+    Wildcards are supported — quote them to prevent shell expansion:
 
     Examples:
         energizados run etl                            # Run config/etl.yaml
         energizados run etl,train                      # Merge and run both configs
+        energizados run etl train                      # Same, space-separated
         energizados run v0/etl                         # Run config/v0/etl.yaml
-        energizados run v0/etl,v0/train                # Run from subdirectory
-        energizados run v0/train*                      # Wildcard in subdirectory
+        energizados run v0/etl v0/train                # Run from subdirectory
+        energizados run 'v0/exp*'                      # Wildcard (quoted)
         energizados run eda                             # Run config/eda.yaml
         energizados run --config-path /custom etl       # Use /custom/etl.yaml
         energizados run /abs/path/custom.yaml            # Use absolute path directly
@@ -339,8 +341,14 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
     from energizados.core.exceptions import StepValidationError
 
     try:
+        # configs is a tuple from nargs=-1.
+        # Support both "etl,train" (comma-sep in one arg) and "etl train" (space-sep, multiple args).
+        # Flatten: split each token by comma, then join as a single comma-separated string for the resolver.
+        tokens = [t.strip() for raw in configs for t in raw.split(",") if t.strip()]
+        configs_str = ",".join(tokens)
+
         # Resolve config names to paths
-        config_paths = resolve_configs(configs, config_path)
+        config_paths = resolve_configs(configs_str, config_path)
 
         # Check per-section schema compatibility before executing
         merged_for_check = merge_configs(config_paths)
@@ -437,7 +445,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
 
 
 @cli.command()
-@click.argument("configs")
+@click.argument("configs", nargs=-1, required=True)
 @click.option(
     "--config-path",
     "-p",
@@ -458,13 +466,16 @@ def validate(ctx, configs, config_path, verbose):
     This command verifies that the configuration file(s) are valid
     and that all references to classes and parameters are correct.
 
-    CONFIGS is a comma-separated list of config names or paths.
+    CONFIGS accepts one or more config names, comma-separated names, or paths.
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
     Subdirectory paths (e.g. "v0/etl") resolve relative to config_dir.
+    Wildcards are supported — quote them to prevent shell expansion.
 
     Examples:
         energizados validate etl                     # Validate config/etl.yaml
         energizados validate etl,train              # Validate both configs
+        energizados validate etl train              # Same, space-separated
+        energizados validate 'v0/exp*'              # Wildcard (quoted)
         energizados validate v0/etl                  # Validate config/v0/etl.yaml
         energizados validate eda                     # Validate config/eda.yaml
         energizados validate etl -v                 # Validate with INFO level logging
@@ -480,8 +491,11 @@ def validate(ctx, configs, config_path, verbose):
     from energizados.cli.validate import validate_config
 
     try:
+        tokens = [t.strip() for raw in configs for t in raw.split(",") if t.strip()]
+        configs_str = ",".join(tokens)
+
         # Resolve config names to paths
-        config_paths = resolve_configs(configs, config_path)
+        config_paths = resolve_configs(configs_str, config_path)
 
         # Check per-section schema compatibility before validating
         merged_for_check = merge_configs(config_paths)
