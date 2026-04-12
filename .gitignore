@@ -147,3 +147,4 @@ models/artifacts
 .proyects/
 node_modules/
 .worktrees/
+CLAUDE.local.md
