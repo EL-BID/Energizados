@@ -15,6 +15,7 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 | "judgment day", "dual review", "doble review", "juzgar", "adversarial review", "que lo juzguen" | judgment-day | /home/vvv/.claude/skills/judgment-day/SKILL.md |
 | Adding a new ETL block to config/etl.yaml | new-etl | /home/vvv/Develop/bid/energizados/.claude/skills/new-etl/SKILL.md |
 | Running a full Energizados pipeline experiment (validate → ETL → train) | run-experiment | /home/vvv/Develop/bid/energizados/.claude/skills/run-experiment/SKILL.md |
+| Genera reporte completo de resultados de experimentos | experiment-results | /home/vvv/Develop/bid/energizados/.claude/skills/experiment-results/SKILL.md |
 
 ## Compact Rules
 
@@ -77,6 +78,15 @@ Pre-digested rules per skill. Delegators copy matching blocks into sub-agent pro
 - After training, find latest run: `ls -t output/ | head -1`, then read `reports/evaluation/report.json`
 - Display a clean metrics table with Train/Val/Test columns: AUC, Precision, Recall, F1
 - Suggest HTML report for interactive charts, `/ml-config-reviewer` if metrics are below expectations
+
+### experiment-results
+- Generate report AFTER running experiments (energizados run train)
+- Read ALL `evaluation_report.json` files from experiment directories
+- Group experiments by phase (naming: faseX_expN_*)
+- Extract: AUC test/val, precision, recall, F1, threshold, model_info, calibration
+- Generate ASCII chart for AUC evolution across phases
+- Business section: explain metrics in plain language, include operational simulator using cumulative_gains
+- Output: `_results.md` with executive summary, detailed tables, insights, next steps, business section
 
 ## Project Conventions
 
