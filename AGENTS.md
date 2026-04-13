@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Name**: Energizados
 
-Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, XGBoost, Neural Networks, LSTM), plus unsupervised anomaly detection (IsolationForest).
+Energizados is a machine learning framework for detecting electricity theft (non-technical losses in energy distribution). The project implements both simple rule-based models and complex supervised models (LightGBM, CatBoost, XGBoost, Neural Networks, LSTM), plus anomaly detection features via the `if_score` global transformer (Isolation Forest score).
 
 The framework also includes an **ETL system** with support for multiple ETLs with dependencies using YAML configuration.
 
@@ -70,8 +70,9 @@ These scripts use `ConfigPipelineBuilder` API directly.
 ```
 src/energizados/
 ├── preprocessing/      # Data cleaning and feature engineering transformers
+│   ├── isolation_forest_score.py  # IsolationForestScore — sklearn transformer for IF anomaly scoring
 ├── modeling/           # Model implementations (supervised and unsupervised)
-│   ├── adapters.py    # LGBMModelAdapter, CATModelAdapter, XGBModelAdapter, NNModelAdapter, LSTMNNModelAdapter, IsolationForestAdapter
+│   ├── adapters.py    # LGBMModelAdapter, CATModelAdapter, XGBModelAdapter, NNModelAdapter, LSTMNNModelAdapter
 │   ├── registry.py    # ModelRegistry with all registered model names
 │   └── ensemble.py    # EnsembleModel (soft voting and stacking)
 ├── feature_engineering/  # Combined preprocessing + feature selection
@@ -342,7 +343,7 @@ training:
 
   # Single model example
   models:
-    - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm, isolation_forest
+    - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm
       sampling:
         method: "undersample"  # oversample, undersample, none
         threshold: 0.5
@@ -401,6 +402,7 @@ training:
 | `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior") |
 | `geo_features` | **Moved to ETL** — use `GeoFeaturesETL` in `etl.yaml`. For target encoding of geographic columns only, use `GeoFeatures` via `custom_class`. | — |
 | `clip_outliers` | Clips extreme values in consumption columns (data reading errors) — run FIRST in global_transformers | `threshold` (float, default=100000), `columns` (list, default=None — auto-detects `*_anterior`), `periods_suffix` (str, default="_anterior") |
+| `if_score` | Isolation Forest anomaly score (inverted, higher = more anomalous) — appends `if_score` column | `columns` (list, default=None — auto-detect by `periods_suffix`, fallback all numeric), `n_estimators` (int, default=100), `max_samples` (int/str, default="auto"), `max_features` (float, default=1.0), `contamination` (float/str, default="auto"), `random_state` (int, default=None), `contamination_from_target` (bool, default=False — uses `y.mean()`), `output_column` (str, default="if_score"), `periods_suffix` (str, default="_anterior") |
 
 **Global Transformers:**
 
@@ -553,7 +555,6 @@ sections:
 **`src/modeling/adapters.py`** - Model adapters implementing BaseModel interface:
 - `LGBMModelAdapter`, `CATModelAdapter`, `XGBModelAdapter`: Wrap supervised models
 - `NNModelAdapter`, `LSTMNNModelAdapter`: Wrap neural network models
-- `IsolationForestAdapter`: Unsupervised anomaly detection (trains without labels, uses contamination param)
 - `SimpleTrendAdapter`, `SimpleConstantAdapter`: Rule-based baseline models
 
 **`src/modeling/ensemble.py`** - Ensemble model combining multiple base models:

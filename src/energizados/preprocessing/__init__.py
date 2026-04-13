@@ -6,6 +6,7 @@ before analysis and modeling.
 """
 
 from energizados.preprocessing.geo_features import GeoFeatures
+from energizados.preprocessing.isolation_forest_score import IsolationForestScore
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     ConsumptionPatterns,
@@ -27,6 +28,7 @@ __all__ = [
     "ExtraVars",
     "ConsumptionPatterns",
     "GeoFeatures",
+    "IsolationForestScore",
     # Utility functions
     "fill_empty_values_cycle",
     "fill_empty_values_str",

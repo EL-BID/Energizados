@@ -13,6 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 from energizados.feature_engineering.base import BaseFeatureEngineering
+from energizados.preprocessing.isolation_forest_score import IsolationForestScore
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
@@ -83,6 +84,20 @@ def _build_transformer_from_config(
         "consumption_patterns": (
             ConsumptionPatterns,
             {"num_periodos": 12, "periods_suffix": "_anterior"},
+        ),
+        "if_score": (
+            IsolationForestScore,
+            {
+                "columns": None,
+                "n_estimators": 100,
+                "max_samples": "auto",
+                "max_features": 1.0,
+                "contamination": "auto",
+                "random_state": None,
+                "contamination_from_target": False,
+                "output_column": "if_score",
+                "periods_suffix": "_anterior",
+            },
         ),
     }
 

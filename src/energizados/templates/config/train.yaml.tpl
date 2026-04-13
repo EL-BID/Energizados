@@ -166,6 +166,20 @@ train:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
 
+        # Isolation Forest anomaly score (unsupervised feature)
+        # Appends an if_score column with inverted anomaly scores (higher = more anomalous)
+        # Use contamination_from_target: true to set contamination from positive class rate
+        # - if_score:
+        #     columns: null                  # auto-detect cols with periods_suffix
+        #     n_estimators: 100
+        #     max_samples: "auto"
+        #     max_features: 1.0
+        #     contamination: "auto"
+        #     random_state: null
+        #     contamination_from_target: false
+        #     output_column: "if_score"
+        #     periods_suffix: *period_suffix
+
         # Geographic features (geo_cluster, hierarchy, distances) are now configured
         # as an ETL step in etl.yaml using GeoFeaturesETL.
         # For target encoding of geographic columns, use GeoFeatures via custom_class.
@@ -245,11 +259,10 @@ train:
   #   - xgboost: XGBoost (requires preprocessing; optional: pip install energizados[xgboost])
   #   - neural_network / nn: Feedforward Neural Network (requires preprocessing)
   #   - lstm: LSTM Neural Network for sequential data (requires preprocessing)
-  #   - isolation_forest: Unsupervised anomaly detection (trains WITHOUT labels)
   #   - simple_trend: Rule-based trend detector (uses raw consumption data)
   #   - simple_constant: Rule-based constant consumption detector (uses raw consumption data)
   models:
-    - type: "lightgbm"  # Options: lightgbm, catboost, xgboost, neural_network, lstm, isolation_forest, simple_trend, simple_constant
+    - type: "lightgbm"  # Options: lightgbm, catboost, xgboost, neural_network, lstm, simple_trend, simple_constant
 
       # Class balancing: choose ONE of sampling or class_weight
       # Option 1: Sampling (resamples the data)
@@ -321,18 +334,6 @@ train:
   #       n_estimators: 500
   #       learning_rate: 0.05
   #       max_depth: 6
-
-  # ----- Example: Isolation Forest (unsupervised anomaly detection) -----
-  # Trains WITHOUT labels (y is ignored). Uses contamination param to set expected anomaly rate.
-  # Does NOT require preprocessing (uses raw features directly).
-  # models:
-  #   - type: "isolation_forest"
-  #     sampling:
-  #       method: "none"
-  #       threshold: 0.1           # contamination: expected proportion of anomalies (0-0.5)
-  #     hyperparams:
-  #       n_estimators: 100
-  #       max_samples: "auto"
 
   # ----- Example: Simple Trend (rule-based, no ML) -----
   # Uses raw consumption columns, does NOT require preprocessing
