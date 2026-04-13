@@ -148,3 +148,6 @@ models/artifacts
 node_modules/
 .worktrees/
 CLAUDE.local.md
+
+# Notebooks with sensitive data or local paths
+notebooks/data_check.ipynb

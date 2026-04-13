@@ -132,19 +132,19 @@ The directory is created but empty by default. Add your test files here to ensur
 
 ## Sample Dataset
 
-The template includes `data/raw/sample_dataset.parquet` with:
+The template includes `data/raw/sample_dataset.parquet`, a **synthetic dataset** generated to match the statistical properties of real electricity consumption data. It contains:
 
 - **42,500 records** of electricity consumption data
 - **12 monthly consumption columns**: `12_anterior` through `1_anterior`
-- **Categorical features**:
+- **Categorical features** (category names are synthetic hashed identifiers):
   - `actividad`: Economic activity (~284 categories)
   - `tipo_tarifa`: Tariff type (~47 categories)
   - `zona`: Geographic zone (~38 categories)
   - `nivel_tension`: Voltage level (~18 categories)
   - `material_instalacion`: Meter material (~39 categories)
-- **Binary target**: `target` column indicating fraud (1) vs non-fraud (0)
+- **Binary target**: `target` column indicating fraud (1) vs non-fraud (0), ~5.9% fraud rate
 
-Use this dataset to experiment with the framework before using your own data.
+Use this dataset to experiment with the framework before using your own data. No real customer information is included.
 
 ---
 

@@ -220,7 +220,7 @@ For each column with multiple populations detected, the EDA report generates:
     - **10.0+**: Less sensitive — only detects very extreme populations
 
 !!! note
-    Datasets like CELESC have no traditional numeric columns — all numeric data are consumption period columns (`12_anterior`, `11_anterior`, ...). The outlier section will display these with a green "consumption" badge.
+    Electricity fraud detection datasets typically have no traditional numeric columns — all numeric data are consumption period columns (`12_anterior`, `11_anterior`, ...). The outlier section will display these with a green "consumption" badge.
 
 ### Phase 3: Target Variable Analysis
 

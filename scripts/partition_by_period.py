@@ -24,9 +24,9 @@ Usage examples:
     python partition_by_period.py "data/*.csv" DAT_OCORRENCIA output/ --date-format "%d/%m/%Y"
     python partition_by_period.py "data/*.csv" fecha output/ --date-format "mixed" --dayfirst
 
-    python scripts/partition_by_period.py "/home/vvv/Develop/bid/energizados/.proyects/celesc/data/raw/v0.orig/fraude*.csv" DAT_OCORRENCIA output/inspecciones --csv-params "encoding=utf-8,sep=;" --date-format "%d/%m/%Y"
-    python scripts/partition_by_period.py "/home/vvv/Develop/bid/energizados/.proyects/celesc/data/raw/v0.orig/consumo*.csv" PERIODO output/consumos --csv-params "encoding=utf-8,sep=;" --date-format "%Y%m"
-    python scripts/partition_by_period.py "/home/vvv/Develop/bid/energizados/.proyects/celesc/data/raw/v0.orig/dados*.csv" "" output/maestros --csv-params "encoding=utf-8,sep=;"
+    python scripts/partition_by_period.py "data/raw/inspecciones*.csv" DAT_OCORRENCIA output/inspecciones --csv-params "encoding=utf-8,sep=;" --date-format "%d/%m/%Y"
+    python scripts/partition_by_period.py "data/raw/consumos*.csv" PERIODO output/consumos --csv-params "encoding=utf-8,sep=;" --date-format "%Y%m"
+    python scripts/partition_by_period.py "data/raw/maestros*.csv" "" output/maestros --csv-params "encoding=utf-8,sep=;"
 
 Output (with date_column):
     output/
