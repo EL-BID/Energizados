@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - 1.0.0
+## [Unreleased] - 
 
 ### Core
 - Full redesign: Builder pattern, Pydantic validation, modular pipeline steps
@@ -11,26 +11,6 @@
 
 ### ETL
 - Multi-ETL orchestration with DAG dependency resolution (topological sort)
-- `@etl_name` reference syntax to wire ETL outputs as inputs
-- **`SourceETL`** with three processing modes:
-  - `concat` — vertical concatenation of multiple files
-  - `merge` — horizontal join via `merge_config` (any `pd.merge()` parameter)
-  - `incremental` — record-level filtering by datetime/numeric key with high-water mark persistence
-- **Incremental mode** (introduced in this branch):
-  - `incremental_key` — column used to detect new records
-  - `incremental_partition` — strftime format for output partition directories (default `"%Y-%m"` → `partition=2024-01/`)
-  - `incremental_format` — optional explicit strftime for parsing ambiguous date formats (e.g. `"%d/%m/%Y"`)
-  - `reprocess` — re-read all files ignoring the processed-file list
-  - `write_mode` — `"append"` (default) or `"replace"` for existing partitions
-  - `state_file` — JSON file persisting high-water mark and processed-file list across runs
-  - File-by-file processing for constant memory usage
-  - `partition_by` deprecated in incremental mode — emits warning if used; use `incremental_partition` instead
-- `input_params` / `output_params` — extra kwargs passed to `pd.read_*` / `df.to_*`
-- `transform_fn` — custom transform applied post-read (dotted path or callable)
-- `sample` — random N-row subsample for fast iteration
-- **`GeoFeaturesETL`** — KMeans clusters + IBGE administrative hierarchy + haversine distances from lat/lon
-- **`ClipOutliersETL`** — clips extreme numeric values (data reading errors) before feature engineering
-- **`CleanFilesETL`** — removes intermediate outputs after pipeline completes; supports `@etl_name` refs and globs
 
 ### Feature Engineering
 - Column transformers: cardinality reducer, dummies, target/ordinal encoding, MinMax scaler, cast dtype
@@ -60,7 +40,7 @@
 - HTML + JSON reports per training run
 - Per-run index (`output/index.html`) for multi-experiment comparison
 - Threshold calibration
-
+- 
 ### Inference
 - Configurable pipeline with auto-loading of feature engineering + model artifacts
 - `columns_filter` with comparison operators for record-level filtering
@@ -70,3 +50,19 @@
 - Comprehensive test suite: `test_source_etl.py`, `test_etl_orchestrator.py`, `test_cli_init.py`, `test_default_inference.py`
 - Pre-commit hooks (black, flake8, mypy, bandit)
 - Secure pickle: SHA-256 verified load/save for model artifacts
+
+
+## [0.1.0] - 2024-01-01
+
+Initial notebook-based research framework published by the IDB ([EL-BID/Energizados](https://github.com/EL-BID/Energizados)).
+
+### Added
+- Jupyter notebooks for local and Google Colab execution
+- Rule-based models: consumption drop detection (`ChangeTrend`), constant consumption detection (`ConstantConsumption`)
+- Supervised models: LightGBM, feedforward Neural Network, LSTM+Dense hybrid
+- Preprocessing: TSFEL time-series feature extraction, statistical vars, categorical encoding (dummy, cardinality reducer, target encoding), row-wise MinMax scaling
+- Feature selection: constant removal, correlation-based, Boruta
+- Imbalanced-class handling: random oversampling and undersampling
+- Hyperparameter optimization via Random Search
+- Evaluation: AUC-ROC metric
+- Anonymized sample dataset (42,500 records, 19 columns, 5.8 % fraud rate)
