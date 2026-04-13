@@ -1,8 +1,8 @@
 site_name: Energizados
 site_description: Machine learning framework for detecting non-technical losses in energy distribution
-site_url: https://your-org.github.io/energizados/
-repo_url: https://github.com/your-org/energizados
-repo_name: your-org/energizados
+site_url: https://bid-code4dev.github.io/energizados/
+repo_url: https://github.com/bid-code4dev/energizados
+repo_name: bid-code4dev/energizados
 edit_uri: edit/main/docs/
 
 theme:
