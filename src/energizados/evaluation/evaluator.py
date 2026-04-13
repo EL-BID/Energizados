@@ -66,6 +66,7 @@ class DefaultEvaluator(PipelineStep):
         val_predictions_path: Optional[str] = None,
         shap_config: Optional[Dict] = None,
         experiment_description: Optional[str] = None,
+        segmented_evaluation: Optional[Dict] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -91,6 +92,7 @@ class DefaultEvaluator(PipelineStep):
         self.val_predictions_path = val_predictions_path
         self._shap_config = shap_config
         self.experiment_description = experiment_description
+        self.segmented_evaluation = segmented_evaluation or {}
 
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
@@ -235,18 +237,99 @@ class DefaultEvaluator(PipelineStep):
             except Exception as e:
                 logger.warning(f"Could not compute val AUC: {e}")
 
-        # 6d. Segment metrics (MEJORAS P4-15)
+        # 6d. Segment metrics (MEJORAS P4-15) + Segmented evaluation (threshold modes + column combos)
         segment_metrics = {}
+        segmented_metrics = {}
+
+        # --- Legacy segment_columns (simple per-column, global threshold) ---
         if self.segment_columns:
             logger.info(f"Calculating segment metrics for: {self.segment_columns}")
             for col in self.segment_columns:
                 if col in test_df.columns:
                     segments = test_df[col].values
-                    segment_metrics[col] = metrics_calculator.segment_metrics(segments)
+                    segment_metrics[col] = metrics_calculator.segment_metrics(
+                        segments, threshold_mode="global"
+                    )
                 else:
                     logger.warning(f"Segment column '{col}' not found in test dataset, skipping.")
-            if segment_metrics:
-                metrics_results["segment_metrics"] = segment_metrics
+
+        # --- New segmented_evaluation (column combos + configurable threshold modes) ---
+        if self.segmented_evaluation.get("enabled", False):
+            seg_config = self.segmented_evaluation
+            seg_by = seg_config.get("by", [])
+            threshold_mode = seg_config.get("threshold_mode", "global")
+            min_samples = seg_config.get("min_samples", 30)
+            recall_target = seg_config.get("recall_target", 0.8)
+
+            logger.info(
+                f"Segmented evaluation: by={seg_by}, threshold_mode={threshold_mode}, "
+                f"min_samples={min_samples}"
+            )
+
+            for segment_def in seg_by:
+                # Handle column combinations: "zona+region" -> combined segment
+                if "+" in segment_def:
+                    cols = [c.strip() for c in segment_def.split("+")]
+                    # Validate all columns exist
+                    missing = [c for c in cols if c not in test_df.columns]
+                    if missing:
+                        logger.warning(
+                            f"Segment '{segment_def}' has missing columns: {missing}, skipping."
+                        )
+                        continue
+
+                    # Create combined segment column
+                    combined = test_df[cols[0]].astype(str)
+                    for c in cols[1:]:
+                        combined = combined + "|" + test_df[c].astype(str)
+
+                    display_name = f"{segment_def} (combined)"
+                    segments = combined.values
+
+                else:
+                    # Simple column reference
+                    col = segment_def
+                    if col not in test_df.columns:
+                        logger.warning(
+                            f"Segment column '{col}' not found in test dataset, skipping."
+                        )
+                        continue
+                    display_name = col
+                    segments = test_df[col].values
+
+                # Compute metrics with the specified threshold mode
+                seg_results = metrics_calculator.segment_metrics(
+                    segments,
+                    threshold_mode=threshold_mode,
+                    min_samples=min_samples,
+                    recall_target=recall_target,
+                )
+
+                if seg_results:
+                    segmented_metrics[display_name] = seg_results
+
+                    # Log detailed per-segment info
+                    logger.info(f"\n{'=' * 60}")
+                    logger.info(f"SEGMENTED METRICS — {display_name}")
+                    logger.info(f"{'=' * 60}")
+                    for seg_val, seg_data in sorted(seg_results.items()):
+                        n = seg_data["n_samples"]
+                        pos = seg_data["n_positives"]
+                        auc = seg_data["auc"]
+                        thresh = seg_data["threshold"]
+                        thresh_mode = seg_data["threshold_mode"]
+                        logger.info(
+                            f"  {seg_val:30s}  n={n:5,}  pos={pos:4}  "
+                            f"AUC={auc:.4f}  thresh={thresh:.4f} ({thresh_mode})"
+                        )
+                else:
+                    logger.warning(f"No valid segments found for '{display_name}'")
+
+        # Merge both into metrics_results
+        if segment_metrics:
+            metrics_results["segment_metrics"] = segment_metrics
+        if segmented_metrics:
+            metrics_results["segmented_metrics"] = segmented_metrics
 
         # 6e. Threshold sweep metrics
         logger.info("Calculating threshold sweep metrics...")
@@ -454,6 +537,7 @@ class DefaultEvaluator(PipelineStep):
                     calibration_result=calibration_result,
                     threshold_metrics=threshold_metrics,
                     segment_metrics=segment_metrics if segment_metrics else None,
+                    segmented_metrics=segmented_metrics if segmented_metrics else None,
                 )
                 report_paths["json"] = json_path
 
@@ -467,6 +551,7 @@ class DefaultEvaluator(PipelineStep):
                     plots_interactive=plots_interactive if plots_interactive else None,
                     threshold_metrics=threshold_metrics,
                     segment_metrics=segment_metrics if segment_metrics else None,
+                    segmented_metrics=segmented_metrics if segmented_metrics else None,
                     experiment_description=self.experiment_description,
                 )
                 report_paths["html"] = html_path

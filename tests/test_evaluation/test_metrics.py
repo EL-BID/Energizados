@@ -5,7 +5,13 @@ Unit tests for evaluation.metrics module.
 import numpy as np
 import pytest
 
-from energizados.evaluation.metrics import Metrics, compute_threshold_metrics
+from energizados.evaluation.metrics import (
+    Metrics,
+    compute_threshold_metrics,
+    find_optimal_threshold_f1,
+    find_optimal_threshold_recall_target,
+    find_optimal_threshold_youden,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -647,12 +653,15 @@ class TestMetricsSegmentMetrics:
         seg_metrics = metrics.segment_metrics(segments)
 
         for segment_value, segment_data in seg_metrics.items():
-            assert "count" in segment_data
+            assert "n_samples" in segment_data
+            assert "n_positives" in segment_data
             assert "positive_rate" in segment_data
             assert "auc" in segment_data
             assert "precision" in segment_data
             assert "recall" in segment_data
             assert "f1" in segment_data
+            assert "threshold" in segment_data
+            assert "threshold_mode" in segment_data
 
     def test_segment_metrics_count_correct(self, mixed_data_with_segments):
         """Verify that segment counts are correct."""
@@ -662,9 +671,9 @@ class TestMetricsSegmentMetrics:
         metrics = Metrics(y_true, y_pred, y_proba)
         seg_metrics = metrics.segment_metrics(segments)
 
-        assert seg_metrics["A"]["count"] == 4
-        assert seg_metrics["B"]["count"] == 4
-        assert seg_metrics["C"]["count"] == 2
+        assert seg_metrics["A"]["n_samples"] == 4
+        assert seg_metrics["B"]["n_samples"] == 4
+        assert seg_metrics["C"]["n_samples"] == 2
 
     def test_segment_metrics_positive_rate(self, mixed_data_with_segments):
         """Verify that positive_rate is calculated correctly."""
@@ -688,6 +697,22 @@ class TestMetricsSegmentMetrics:
         assert "A" in seg_metrics
         assert "B" not in seg_metrics
 
+    def test_segment_metrics_min_samples(self):
+        """Verify that segments below min_samples are skipped."""
+        # Using mixed_data_with_segments fixture: A=4, B=4, C=2 samples
+        y_true = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+        y_pred = np.array([0, 1, 0, 0, 0, 1, 1, 1, 0, 1])
+        y_proba = np.array([0.2, 0.8, 0.3, 0.4, 0.1, 0.7, 0.6, 0.9, 0.2, 0.8])
+        segments = np.array(["A", "A", "B", "B", "A", "A", "B", "B", "C", "C"])
+        metrics = Metrics(y_true, y_pred, y_proba)
+
+        # min_samples=3 should skip C (only 2 samples) but keep A and B (4 each)
+        seg_metrics = metrics.segment_metrics(segments, min_samples=3)
+
+        assert "A" in seg_metrics
+        assert "B" in seg_metrics
+        assert "C" not in seg_metrics
+
     def test_segment_metrics_single_segment(self):
         """Verify behavior with a single segment."""
         y_true = np.array([0, 1, 0, 1])
@@ -698,7 +723,7 @@ class TestMetricsSegmentMetrics:
         seg_metrics = metrics.segment_metrics(segments)
 
         assert len(seg_metrics) == 1
-        assert seg_metrics["A"]["count"] == 4
+        assert seg_metrics["A"]["n_samples"] == 4
 
 
 class TestMetricsGetThresholdMetrics:
@@ -784,3 +809,115 @@ class TestMetricsIntegration:
 
         assert len(seg_metrics) > 0
         assert len(thresh_metrics["thresholds"]) == 101
+
+
+# ---------------------------------------------------------------------------
+# Tests for threshold optimization functions
+# ---------------------------------------------------------------------------
+
+
+class TestFindOptimalThresholdYouden:
+    """Tests for find_optimal_threshold_youden function."""
+
+    def test_returns_float(self, perfect_predictions):
+        """Verify that the function returns a float."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_youden(y_true, y_proba)
+        assert isinstance(threshold, float)
+
+    def test_threshold_in_valid_range(self, perfect_predictions):
+        """Verify that threshold is in [0, 1]."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_youden(y_true, y_proba)
+        assert 0.0 <= threshold <= 1.0
+
+    def test_perfect_predictions(self, perfect_predictions):
+        """With perfect predictions, threshold should be around 0.5."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_youden(y_true, y_proba)
+        # With perfect separation, any threshold that separates classes works
+        assert 0.0 <= threshold <= 1.0
+
+
+class TestFindOptimalThresholdF1:
+    """Tests for find_optimal_threshold_f1 function."""
+
+    def test_returns_float(self, perfect_predictions):
+        """Verify that the function returns a float."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_f1(y_true, y_proba)
+        assert isinstance(threshold, float)
+
+    def test_threshold_in_valid_range(self, perfect_predictions):
+        """Verify that threshold is in [0, 1]."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_f1(y_true, y_proba)
+        assert 0.0 <= threshold <= 1.0
+
+
+class TestFindOptimalThresholdRecallTarget:
+    """Tests for find_optimal_threshold_recall_target function."""
+
+    def test_returns_float(self, perfect_predictions):
+        """Verify that the function returns a float."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_recall_target(y_true, y_proba, target_recall=0.8)
+        assert isinstance(threshold, float)
+
+    def test_threshold_in_valid_range(self, perfect_predictions):
+        """Verify that threshold is in [0, 1]."""
+        y_true, _, y_proba = perfect_predictions
+        threshold = find_optimal_threshold_recall_target(y_true, y_proba, target_recall=0.8)
+        assert 0.0 <= threshold <= 1.0
+
+    def test_custom_recall_target(self, imbalanced_predictions):
+        """Verify that custom recall target is used."""
+        y_true, _, y_proba = imbalanced_predictions
+        threshold = find_optimal_threshold_recall_target(y_true, y_proba, target_recall=0.5)
+        assert 0.0 <= threshold <= 1.0
+
+
+class TestSegmentMetricsThresholdModes:
+    """Tests for segment_metrics with different threshold modes."""
+
+    def test_global_threshold_mode(self, mixed_data_with_segments):
+        """Verify that global threshold mode uses the provided threshold."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_metrics = metrics.segment_metrics(segments, threshold_mode="global")
+
+        for seg_data in seg_metrics.values():
+            assert seg_data["threshold_mode"] == "global"
+            assert seg_data["threshold"] == 0.5
+
+    def test_youden_threshold_mode(self, mixed_data_with_segments):
+        """Verify that youden threshold mode finds optimal threshold per segment."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_metrics = metrics.segment_metrics(segments, threshold_mode="youden")
+
+        for seg_data in seg_metrics.values():
+            assert seg_data["threshold_mode"] == "youden"
+            assert 0.0 <= seg_data["threshold"] <= 1.0
+
+    def test_f1_optimal_threshold_mode(self, mixed_data_with_segments):
+        """Verify that f1_optimal threshold mode finds optimal threshold per segment."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_metrics = metrics.segment_metrics(segments, threshold_mode="f1_optimal")
+
+        for seg_data in seg_metrics.values():
+            assert seg_data["threshold_mode"] == "f1_optimal"
+            assert 0.0 <= seg_data["threshold"] <= 1.0
+
+    def test_recall_target_threshold_mode(self, mixed_data_with_segments):
+        """Verify that recall_target threshold mode finds threshold for target recall."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_metrics = metrics.segment_metrics(
+            segments, threshold_mode="recall_target", recall_target=0.8
+        )
+
+        for seg_data in seg_metrics.values():
+            assert seg_data["threshold_mode"] == "recall_target"
+            assert 0.0 <= seg_data["threshold"] <= 1.0

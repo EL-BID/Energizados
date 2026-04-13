@@ -10,7 +10,7 @@ SCHEMA_VERSION_KEY = "schema_version"
 # to that specific config's structure.
 CURRENT_SCHEMA_VERSIONS = {
     "etl": 1,
-    "train": 1,
+    "train": 2,  # 2: added segmented_evaluation with threshold modes and column combinations
     "eda": 1,
     "infer": 1,
 }

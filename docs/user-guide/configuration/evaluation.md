@@ -64,7 +64,7 @@ Evaluate model performance broken down by configurable grouping columns (e.g., z
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics |
+| `segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics (legacy, simple) |
 
 Example:
 
@@ -76,6 +76,82 @@ evaluation:
 ```
 
 This generates a segment comparison table and interactive chart in the HTML report showing AUC, Precision, Recall, and F1 for each segment value. Segments are color-coded: green (≥0.7), yellow (≥0.4), red (<0.4).
+
+---
+
+## Segmented Evaluation (Extended)
+
+The `segmented_evaluation` section provides advanced per-segment analysis with support for:
+- **Column combinations**: evaluate by `"zona+region"` to see metrics for each zone×region pair
+- **Configurable threshold modes**: global, per-segment optimized, or target-based
+- **Detailed logging**: each segment's metrics are logged with n_samples, n_positives, AUC, threshold
+- **All metrics per segment**: AUC, precision, recall, F1 for every segment
+
+```yaml
+evaluation:
+  segmented_evaluation:
+    enabled: true
+    by: ["zona", "region", "zona+region"]  # columns or combinations
+    min_samples: 30        # skip segments with fewer samples
+    threshold_mode: "global"  # global | youden | f1_optimal | recall_target
+    recall_target: 0.80    # only when threshold_mode = "recall_target"
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable segmented evaluation |
+| `by` | list[string] | `[]` | Columns or column combinations (use `+` to combine) |
+| `min_samples` | int | `30` | Minimum samples per segment to compute metrics |
+| `threshold_mode` | string | `"global"` | How to determine threshold per segment |
+| `recall_target` | float | `0.80` | Target recall (only when `threshold_mode="recall_target"`) |
+
+### Threshold Modes
+
+| Mode | Description |
+|------|-------------|
+| `global` | Uses the same threshold for all segments (from `evaluation.threshold` or calibration) |
+| `youden` | Finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1) |
+| `f1_optimal` | Maximizes F1 score independently per segment |
+| `recall_target` | Finds threshold that achieves target recall per segment |
+
+### Output
+
+When enabled, segmented evaluation generates:
+
+1. **Logs**: Detailed INFO logging per segment:
+   ```
+   SEGMENTED METRICS — zona
+   zona=Norte  n=150  pos=25  AUC=0.82  thresh=0.50 (global)
+   zona=Sur    n=180  pos=40  AUC=0.78  thresh=0.50 (global)
+   ```
+
+2. **JSON report**: Under `segmented_metrics` key:
+   ```json
+   {
+     "zona": {
+       "Norte": {
+         "n_samples": 150,
+         "n_positives": 25,
+         "positive_rate": 0.167,
+         "auc": 0.82,
+         "precision": 0.65,
+         "recall": 0.60,
+         "f1": 0.62,
+         "threshold": 0.50,
+         "threshold_mode": "global"
+       }
+     },
+     "zona+region": {
+       "Norte|Leste": { ... }
+     }
+   }
+   ```
+
+3. **HTML report**: New "Segmented Evaluation" section with:
+   - Heatmap-colored table (green ≥0.7, yellow ≥0.4, red <0.4)
+   - Columns: Segment, N Samples, N Positives, Positive Rate, Threshold, AUC, Precision, Recall, F1
 
 ---
 

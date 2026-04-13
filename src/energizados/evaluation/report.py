@@ -45,6 +45,7 @@ class ReportGenerator:
         plots_interactive: Optional[Dict[str, str]] = None,
         threshold_metrics: Optional[Dict] = None,
         segment_metrics: Optional[Dict] = None,
+        segmented_metrics: Optional[Dict] = None,
         experiment_description: Optional[str] = None,
     ) -> str:
         """
@@ -74,6 +75,7 @@ class ReportGenerator:
             plots_interactive=plots_interactive,
             threshold_metrics=threshold_metrics,
             segment_metrics=segment_metrics,
+            segmented_metrics=segmented_metrics,
             experiment_description=experiment_description,
         )
 
@@ -93,6 +95,7 @@ class ReportGenerator:
         calibration_result: Optional[Dict] = None,
         threshold_metrics: Optional[Dict] = None,
         segment_metrics: Optional[Dict] = None,
+        segmented_metrics: Optional[Dict] = None,
     ) -> str:
         """
         Generates JSON report with results.
@@ -129,6 +132,9 @@ class ReportGenerator:
         if segment_metrics is not None:
             report_data["segment_metrics"] = segment_metrics
 
+        if segmented_metrics is not None:
+            report_data["segmented_metrics"] = segmented_metrics
+
         path = save_path or str(self.output_dir / "evaluation_report.json")
 
         with open(path, "w") as f:
@@ -151,6 +157,7 @@ class ReportGenerator:
         plots_interactive: Optional[Dict[str, str]] = None,
         threshold_metrics: Optional[Dict] = None,
         segment_metrics: Optional[Dict] = None,
+        segmented_metrics: Optional[Dict] = None,
         experiment_description: Optional[str] = None,
     ) -> str:
         """Builds HTML content of the report."""
@@ -164,6 +171,7 @@ class ReportGenerator:
         # Determine which sections are available for the sidebar
         has_threshold_sweep = threshold_metrics is not None and "thresholds" in threshold_metrics
         has_segments = bool(segment_metrics)
+        has_segmented = bool(segmented_metrics)
         has_visualizations = bool(plots)
         has_model_info = bool(model_info)
         has_shap = bool(
@@ -174,6 +182,7 @@ class ReportGenerator:
             has_calibration=bool(calibration_result),
             has_threshold_sweep=has_threshold_sweep,
             has_segments=has_segments,
+            has_segmented=has_segmented,
             has_visualizations=has_visualizations,
             has_model_info=has_model_info,
             has_shap=has_shap,
@@ -193,6 +202,10 @@ class ReportGenerator:
             segment_section = self._build_segment_metrics_html(
                 segment_metrics, plots_interactive=plots_interactive
             )
+
+        segmented_section = ""
+        if has_segmented:
+            segmented_section = self._build_segmented_metrics_html(segmented_metrics)
 
         # SHAP section
         shap_section = ""
@@ -239,6 +252,8 @@ class ReportGenerator:
             {threshold_sweep_section}
 
             {segment_section}
+
+            {segmented_section}
 
             {shap_section}
 
@@ -355,6 +370,7 @@ class ReportGenerator:
         has_calibration: bool = False,
         has_threshold_sweep: bool = False,
         has_segments: bool = False,
+        has_segmented: bool = False,
         has_visualizations: bool = True,
         has_model_info: bool = True,
         has_shap: bool = False,
@@ -369,6 +385,8 @@ class ReportGenerator:
             links.append('<a href="#section-threshold-sweep">Threshold Sweep</a>')
         if has_segments:
             links.append('<a href="#section-segments">Segment Metrics</a>')
+        if has_segmented:
+            links.append('<a href="#section-segmented">Segmented Evaluation</a>')
         if has_shap:
             links.append('<a href="#section-shap">SHAP Explainability</a>')
         if has_visualizations:
@@ -634,6 +652,88 @@ class ReportGenerator:
                     <td>{segment_val}</td>
                     <td>{count:,}</td>
                     <td>{pos_rate:.2%}</td>
+                    <td class="{_heat_class(auc)}">{auc:.4f}</td>
+                    <td class="{_heat_class(prec)}">{prec:.4f}</td>
+                    <td class="{_heat_class(rec)}">{rec:.4f}</td>
+                    <td class="{_heat_class(f1)}">{f1:.4f}</td>
+                </tr>"""
+        return rows
+
+    def _build_segmented_metrics_html(self, segmented_metrics: Dict) -> str:
+        """Builds the Segmented Evaluation section with heatmap-colored tables.
+
+        Args:
+            segmented_metrics: Dict mapping segment_definition -> segment_value -> metrics dict
+
+        Returns:
+            str: HTML section for segmented evaluation
+        """
+        if not segmented_metrics:
+            return ""
+
+        sections_html = ""
+        for seg_def, seg_data in segmented_metrics.items():
+            rows_html = self._build_segmented_table_rows(seg_data)
+
+            sections_html += f"""
+            <h3 style="color:var(--primary);margin-top:20px;">{seg_def}</h3>
+            <div class="segment-table-wrap">
+                <table class="segment-table">
+                    <thead>
+                        <tr>
+                            <th>Segment</th>
+                            <th>N Samples</th>
+                            <th>N Positives</th>
+                            <th>Positive Rate</th>
+                            <th>Threshold</th>
+                            <th>AUC</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>F1</th>
+                        </tr>
+                    </thead>
+                    <tbody>{rows_html}
+                    </tbody>
+                </table>
+            </div>"""
+
+        return f"""
+    <div class="section" id="section-segmented">
+        <h2>Segmented Evaluation</h2>
+        <p style="margin-bottom:16px;color:var(--text-muted);">
+            Metrics computed independently per segment with configurable threshold mode.
+        </p>
+        {sections_html}
+    </div>
+"""
+
+    def _build_segmented_table_rows(self, seg_data: Dict) -> str:
+        """Builds table rows for segmented metrics with heatmap coloring."""
+        rows = ""
+        for segment_val, metrics in seg_data.items():
+            n_samples = metrics.get("n_samples", 0)
+            n_positives = metrics.get("n_positives", 0)
+            pos_rate = metrics.get("positive_rate", 0)
+            threshold = metrics.get("threshold", 0.5)
+            auc = metrics.get("auc", 0)
+            prec = metrics.get("precision", 0)
+            rec = metrics.get("recall", 0)
+            f1 = metrics.get("f1", 0)
+
+            def _heat_class(v: float) -> str:
+                if v >= 0.7:
+                    return "heat-high"
+                if v >= 0.4:
+                    return "heat-mid"
+                return "heat-low"
+
+            rows += f"""
+                <tr>
+                    <td><strong>{segment_val}</strong></td>
+                    <td>{n_samples:,}</td>
+                    <td>{n_positives:,}</td>
+                    <td>{pos_rate:.2%}</td>
+                    <td>{threshold:.4f}</td>
                     <td class="{_heat_class(auc)}">{auc:.4f}</td>
                     <td class="{_heat_class(prec)}">{prec:.4f}</td>
                     <td class="{_heat_class(rec)}">{rec:.4f}</td>

@@ -827,11 +827,15 @@ evaluation:
 
 > SHAP uses TreeExplainer for LightGBM/CatBoost and KernelExplainer for other model types.
 
-**Per-Segment Evaluation:**
+**Segmented Evaluation:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `evaluation.segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics |
+| `evaluation.segment_columns` | list[string] | `[]` | Column names to compute per-segment metrics (legacy) |
+| `evaluation.segmented_evaluation.by` | list[string] | `[]` | Columns or combos (e.g. `"zona+region"`) for segmented evaluation |
+| `evaluation.segmented_evaluation.min_samples` | int | `30` | Minimum samples per segment |
+| `evaluation.segmented_evaluation.threshold_mode` | string | `"global"` | Threshold mode: `global`, `youden`, `f1_optimal`, `recall_target` |
+| `evaluation.segmented_evaluation.recall_target` | float | `0.80` | Target recall (only when threshold_mode=`recall_target`) |
 
 Example:
 
@@ -840,7 +844,20 @@ evaluation:
   segment_columns:
     - "zona"
     - "tipo_tarifa"
+
+  segmented_evaluation:
+    enabled: true
+    by: ["zona", "region", "zona+region"]
+    min_samples: 30
+    threshold_mode: "global"  # or "youden", "f1_optimal", "recall_target"
+    recall_target: 0.80
 ```
+
+**Threshold modes:**
+- `global`: uses the global threshold for all segments
+- `youden`: finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1)
+- `f1_optimal`: maximizes F1 score per segment
+- `recall_target`: finds threshold that achieves target recall per segment
 
 ---
 

@@ -78,6 +78,7 @@ class EvaluationBuilder(StepBuilder):
             shap_config=eval_config.get("shap"),
             segment_columns=eval_config.get("segment_columns"),
             experiment_description=self.experiment_description,
+            segmented_evaluation=eval_config.get("segmented_evaluation"),
         )
 
     def is_enabled(self) -> bool:

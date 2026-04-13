@@ -7,7 +7,7 @@
 # 4. Evaluation: Evaluation of the trained model
 
 train:
-  schema_version: 1
+  schema_version: 2
   enabled: true
 
   description: |
@@ -445,3 +445,12 @@ train:
     #   max_samples: 500      # Max samples for SHAP computation (controls compute time)
     #   top_n_features: 20    # Number of top features in SHAP plots
     #   plot_types: [summary, bar]  # Plot types: summary (beeswarm) and/or bar (importance)
+
+    # Segmented evaluation: compute metrics per subgroup (zone, region, or combinations)
+    # Generates detailed logs and includes a "Segmented Evaluation" section in HTML/JSON reports
+    # segmented_evaluation:
+    #   enabled: true
+    #   by: ["zona", "region", "zona+region"]  # column names or combos (use + to combine)
+    #   min_samples: 30        # minimum samples per segment to compute metrics
+    #   threshold_mode: "global"  # global | youden | f1_optimal | recall_target
+    #   recall_target: 0.80    # used only when threshold_mode = "recall_target"

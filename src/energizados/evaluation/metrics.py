@@ -18,6 +18,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,69 @@ def compute_threshold_metrics(
         "recalls": recalls,
         "f1s": f1s,
     }
+
+
+def find_optimal_threshold_youden(y_true: np.ndarray, y_proba: np.ndarray) -> float:
+    """
+    Finds optimal threshold using Youden's J statistic (maximizes sensitivity + specificity - 1).
+
+    Args:
+        y_true: True binary labels
+        y_proba: Predicted probabilities
+
+    Returns:
+        float: Optimal threshold
+    """
+    fpr, tpr, thresholds = roc_curve(y_true, y_proba)
+    j_scores = tpr - fpr
+    best_idx = np.argmax(j_scores)
+    return float(thresholds[best_idx])
+
+
+def find_optimal_threshold_f1(y_true: np.ndarray, y_proba: np.ndarray) -> float:
+    """
+    Finds optimal threshold by maximizing F1 score.
+
+    Args:
+        y_true: True binary labels
+        y_proba: Predicted probabilities
+
+    Returns:
+        float: Optimal threshold
+    """
+    thresholds = np.linspace(0, 1, 101)
+    best_f1 = 0.0
+    best_thresh = 0.5
+    for thresh in thresholds:
+        y_pred = (y_proba >= thresh).astype(int)
+        f1 = f1_score(y_true, y_pred, zero_division=0)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_thresh = thresh
+    return float(best_thresh)
+
+
+def find_optimal_threshold_recall_target(
+    y_true: np.ndarray, y_proba: np.ndarray, target_recall: float = 0.8
+) -> float:
+    """
+    Finds threshold that achieves the target recall (approximately).
+
+    Uses Youden's J from the point on the ROC curve closest to the target recall.
+
+    Args:
+        y_true: True binary labels
+        y_proba: Predicted probabilities
+        target_recall: Target recall value (default: 0.8)
+
+    Returns:
+        float: Threshold that achieves approximately the target recall
+    """
+    fpr, tpr, thresholds = roc_curve(y_true, y_proba)
+
+    # Find the threshold closest to target recall
+    idx = np.argmin(np.abs(tpr - target_recall))
+    return float(thresholds[idx])
 
 
 class Metrics:
@@ -207,37 +271,75 @@ class Metrics:
 
         return results
 
-    def segment_metrics(self, segments: np.ndarray) -> Dict:
+    def segment_metrics(
+        self,
+        segments: np.ndarray,
+        threshold_mode: str = "global",
+        min_samples: int = 1,
+        recall_target: float = 0.8,
+    ) -> Dict:
         """
         Calculates metrics broken down by segment (MEJORAS P4-15).
 
         Args:
             segments: Array with segment values, aligned with y_true
+            threshold_mode: How to determine threshold per segment.
+                           "global" = use self.threshold for all segments
+                           "youden" = find optimal threshold per segment using Youden's J
+                           "f1_optimal" = find threshold that maximizes F1 per segment
+                           "recall_target" = find threshold that achieves target recall
+            min_samples: Minimum number of samples in a segment to compute metrics
+            recall_target: Target recall when threshold_mode="recall_target"
 
         Returns:
-            Dict mapping segment_value -> metrics dict (count, positive_rate, auc, precision, recall, f1)
+            Dict mapping segment_value -> metrics dict with n_samples, n_positives,
+            auc, precision, recall, f1, threshold, threshold_mode
         """
         segments = np.asarray(segments)
         results = {}
 
         for segment_value in np.unique(segments):
             mask = segments == segment_value
-            if mask.sum() == 0:
+            n_samples = int(mask.sum())
+
+            if n_samples < min_samples:
+                logger.debug(
+                    f"Skipping segment '{segment_value}': {n_samples} samples < {min_samples} min_samples"
+                )
                 continue
 
-            seg_calc = Metrics(
-                self.y_true[mask],
-                self.y_pred[mask],
-                self.y_proba[mask],
-                self.threshold,
-            )
+            y_true_seg = self.y_true[mask]
+            y_proba_seg = self.y_proba[mask]
+
+            # Determine threshold for this segment
+            if threshold_mode == "global":
+                seg_threshold = self.threshold
+            elif threshold_mode == "youden":
+                seg_threshold = find_optimal_threshold_youden(y_true_seg, y_proba_seg)
+            elif threshold_mode == "f1_optimal":
+                seg_threshold = find_optimal_threshold_f1(y_true_seg, y_proba_seg)
+            elif threshold_mode == "recall_target":
+                seg_threshold = find_optimal_threshold_recall_target(
+                    y_true_seg, y_proba_seg, recall_target
+                )
+            else:
+                logger.warning(f"Unknown threshold_mode '{threshold_mode}', using global")
+                seg_threshold = self.threshold
+
+            y_pred_seg = (y_proba_seg >= seg_threshold).astype(int)
+
+            seg_calc = Metrics(y_true_seg, y_pred_seg, y_proba_seg, seg_threshold)
+
             results[str(segment_value)] = {
-                "count": int(mask.sum()),
-                "positive_rate": float(self.y_true[mask].mean()),
+                "n_samples": n_samples,
+                "n_positives": int(y_true_seg.sum()),
+                "positive_rate": float(y_true_seg.mean()),
                 "auc": seg_calc.auc(),
                 "precision": seg_calc.precision(),
                 "recall": seg_calc.recall(),
                 "f1": seg_calc.f1(),
+                "threshold": seg_threshold,
+                "threshold_mode": threshold_mode,
             }
 
         return results
