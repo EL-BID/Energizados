@@ -617,6 +617,12 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 
 The project documentation and comments are in English. The codebase uses Spanish variable names for features (e.g., `actividad`, `tipo_tarifa`, `zona`) but English for class/method names.
 
+## Skills
+
+| Skill | Description | Trigger |
+|-------|-------------|---------|
+| `experiment-results` | Genera reporte completo de experimentos con metricas, insights, proximos pasos y seccion para negocio. | Cuando el usuario pide resultados de experimentos o generar _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
+
 ## Agent Rules (Always Apply)
 
 - Update CLAUDE.md and all documentation if necessary.

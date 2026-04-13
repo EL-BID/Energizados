@@ -311,13 +311,14 @@ class CATModel:
                 "Install it with: pip install energizados[catboost]"
             )
         cb_model_search = cb.CatBoostClassifier(
-            iterations=1000,
+            iterations=300,  # reducido de 1000: en CV no hay early stopping, cada fold corre hasta el final
             eval_metric="AUC",
             loss_function="Logloss",
             random_seed=42,
             cat_features=cat_features,
             logging_level="Silent",
             class_weights=self.class_weight,
+            thread_count=1,  # avoid OOM when joblib spawns parallel CV workers
         )
         if self.class_weight is not None:
             return make_pipeline(cb_model_search)
@@ -425,7 +426,7 @@ class CATModel:
             param_distributions=new_params,
             cv=TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv,
             scoring="roc_auc",
-            n_jobs=-1,
+            n_jobs=4,  # CatBoost uses thread_count=1 per worker; cap total parallelism
             n_iter=self.n_iter,
             refit=True,
             random_state=314,
