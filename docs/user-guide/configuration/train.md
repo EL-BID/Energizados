@@ -348,6 +348,39 @@ using `GeoFeaturesETL` in `etl.yaml`. See [ETL configuration → GeoFeaturesETL]
 To apply **target encoding** of geographic columns (e.g. `geo_estado_prob`), use
 `GeoFeatures` directly via `custom_class` in `global_transformers`.
 
+#### if_score
+
+Isolation Forest anomaly score — generates an `if_score` column where **higher values indicate more anomalous observations**. This is an unsupervised feature that complements supervised models by encoding how "unusual" each observation is across its consumption patterns.
+
+```yaml
+- if_score:
+    columns: null                  # auto-detect columns ending with periods_suffix
+    n_estimators: 100
+    contamination: "auto"          # "auto", or a float between 0 and 0.5
+    contamination_from_target: true  # uses y.mean() as contamination (recommended)
+    output_column: "if_score"
+    periods_suffix: "_anterior"
+```
+
+**Key parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `columns` | list | `null` | Explicit list of columns. If null, auto-detects numeric columns ending with `periods_suffix` |
+| `n_estimators` | int | `100` | Number of trees in the Isolation Forest |
+| `max_samples` | int/str | `"auto"` | Number of samples to draw for training each tree |
+| `max_features` | float | `1.0` | Fraction of features to consider for each split |
+| `contamination` | float/str | `"auto"` | Expected proportion of anomalies. Use `"auto"` or a float between 0 and 0.5 |
+| `random_state` | int | `null` | Random seed for reproducibility |
+| `contamination_from_target` | bool | `false` | When `true`, uses `y.mean()` as contamination (derived from fraud rate) |
+| `output_column` | str | `"if_score"` | Name of the generated score column |
+| `periods_suffix` | str | `"_anterior"` | Suffix for auto-detecting consumption columns |
+
+**Tips:**
+- Set `contamination_from_target: true` to automatically use the fraud rate as the expected anomaly proportion
+- Run `clip_outliers` **before** `if_score` to avoid extreme values distorting anomaly detection
+- The score is inverted from sklearn's `score_samples()` so that higher = more anomalous (more intuitive for fraud detection)
+
 #### Custom Global Transformer
 
 ```yaml
@@ -475,7 +508,6 @@ Energizados supports eight model types:
 | `xgboost` | `xgb` | XGBoost classifier | Yes |
 | `neural_network` | `nn` | Feedforward Neural Network (Dense) | Yes |
 | `lstm` | - | LSTM for sequential consumption data | Yes |
-| `isolation_forest` | - | Unsupervised anomaly detection (trains WITHOUT labels) | Yes |
 | `simple_trend` | - | Rule-based trend detector | No (uses raw data) |
 | `simple_constant` | - | Rule-based constant consumption detector | No (uses raw data) |
 
@@ -491,11 +523,9 @@ These models require feature engineering preprocessing to work correctly:
 - **neural_network**: Feedforward Dense network with scaled features
 - **lstm**: Long Short-Term Memory network for sequential consumption patterns
 
-#### Unsupervised Models (Train WITHOUT Labels)
+#### Anomaly Detection (Feature Engineering)
 
-These models train without target labels:
-
-- **isolation_forest**: Detects anomalies based on isolation (fewer splits = more anomalous)
+Isolation Forest anomaly scoring is available as a **global_transformer** (`if_score`) in preprocessing, not as a model type. See the [Global Transformers](#global-transformers) section for configuration.
 
 #### Rule-Based Models (Use Raw Data)
 
@@ -526,7 +556,7 @@ models:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `type` | string | - | Model type: `lightgbm`, `catboost`, `xgboost`, `neural_network`, `lstm`, `isolation_forest`, `simple_trend`, `simple_constant` |
+| `type` | string | - | Model type: `lightgbm`, `catboost`, `xgboost`, `neural_network`, `lstm`, `simple_trend`, `simple_constant` |
 | `sampling` | dict | - | Sampling configuration (ML models only) |
 | `sampling.method` | string | `"none"` | `oversample`, `undersample`, `smotetomek`, `none` |
 | `sampling.threshold` | float | `0.5` | Threshold for undersampling |

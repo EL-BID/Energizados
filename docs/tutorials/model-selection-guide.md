@@ -11,7 +11,6 @@ Choosing the right model is critical for building an effective fraud detection s
 | **XGBoost** | Sklearn-compatible ecosystems, existing XGBoost pipelines | • Sklearn API compatibility<br>• Large ecosystem and community<br>• Well-understood hyperparameters<br>• Good performance on tabular data | • Optional dependency (`pip install energizados[xgboost]`)<br>• Typically slower than LightGBM for same accuracy<br>• Higher memory usage |
 | **Neural Network (NNModel)** | Large datasets, complex non-linear patterns | • Flexible architecture<br>• Can learn complex feature interactions<br>• Works well with high-dimensional data | • Requires more data to perform well<br>• Longer training time<br>• Harder to interpret<br>• More hyperparameters to tune |
 | **LSTM** | When consumption sequence order matters, temporal patterns are critical | • Captures temporal dependencies in consumption history<br>• Learns patterns across time steps<br>• Good for sequential anomaly detection | • Most complex model<br>• Longest training time<br>• Requires sequential data preprocessing<br>• Needs more data<br>• Hardest to tune |
-| **IsolationForest** | No labeled data available, anomaly detection baseline | • **Unsupervised** — trains without fraud labels<br>• Fast and memory efficient<br>• Good at detecting global outliers<br>• Useful as a complementary signal | • No recall/precision optimization possible<br>• Less effective for local/contextual fraud patterns<br>• Requires careful tuning of `contamination` param |
 
 ## Choosing Your First Model
 
@@ -51,16 +50,23 @@ Consider XGBoost when:
 !!! note
     XGBoost requires an optional dependency: `pip install energizados[xgboost]`. In terms of raw accuracy on fraud detection, LightGBM and CatBoost typically match or beat XGBoost with faster training. Prefer XGBoost when ecosystem compatibility outweighs raw performance.
 
-### When to Try IsolationForest
+### Using Isolation Forest as a Feature (`if_score`)
 
-Consider IsolationForest when:
+Isolation Forest is available as a **global_transformer** (not a model type). Use `if_score` in `feature_engineering.preprocessing.global_transformers` to generate an anomaly score column that supervised models can use as input:
 
-- **You have no fraud labels** (unsupervised baseline)
-- **You want a complementary anomaly signal** to combine with a supervised model
-- **You need a quick sanity check** on which users look anomalous without any labeling effort
+```yaml
+global_transformers:
+  - if_score:
+      contamination_from_target: true  # uses y.mean() as contamination
+```
+
+**Benefits**:
+- Produces a continuous anomaly score (higher = more anomalous)
+- Complements supervised models with unsupervised signal
+- Configurable `contamination_from_target` to leverage target labels
 
 !!! warning
-    IsolationForest does not support `sampling` or `hyperparam_search` in the usual sense — it trains without labels and produces anomaly scores via `contamination`. It cannot be combined in a supervised ensemble. Use it as a standalone baseline or as a feature generator.
+     The `isolation_forest` model type has been removed. Isolation Forest is now exclusively a feature engineering transformer (`if_score`), not a standalone model. It cannot be used in the `models:` section of `train.yaml`.
 
 ### When to Try Neural Networks
 
