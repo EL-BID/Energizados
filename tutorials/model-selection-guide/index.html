@@ -1,0 +1,2557 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Machine learning framework for detecting non-technical losses in energy distribution">
+      
+      
+      
+        <link rel="canonical" href="https://bid-code4dev.github.io/energizados/tutorials/model-selection-guide/">
+      
+      
+        <link rel="prev" href="../end-to-end-example/">
+      
+      
+        <link rel="next" href="../ensemble-models/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Model Selection Guide - Energizados</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="light-blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#model-selection-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Energizados" class="md-header__button md-logo" aria-label="Energizados" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Energizados
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Model Selection Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/bid-code4dev/energizados" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    bid-code4dev/energizados
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/project-structure/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../end-to-end-example/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../advanced/architecture/" class="md-tabs__link">
+          
+  
+  
+  Advanced
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Energizados" class="md-nav__button md-logo" aria-label="Energizados" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Energizados
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/bid-code4dev/energizados" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    bid-code4dev/energizados
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your First Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/project-structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configuration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/configuration/etls.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ETLs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/configuration/training.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/configuration/evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/configuration/inference.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/eda/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EDA Module
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/understanding-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Understanding Results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../end-to-end-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#model-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-your-first-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing Your First Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing Your First Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-with-lightgbm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start with LightGBM
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-catboost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try CatBoost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-xgboost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try XGBoost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-isolation-forest-as-a-feature-if_score" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Isolation Forest as a Feature (if_score)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-neural-networks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try Neural Networks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-lstm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try LSTM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-selection-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Selection Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Selection Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-establish-a-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Establish a Baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-iterate-on-single-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Iterate on Single Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-consider-ensembles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Consider Ensembles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-advanced-models-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Advanced Models (Optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#business-driven-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Business-Driven Model Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Business-Driven Model Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-precision-use-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Precision Use Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-recall-use-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Recall Use Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#balanced-use-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Balanced Use Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practical-recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practical Recommendations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Practical Recommendations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-small-teams-quick-wins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Small Teams / Quick Wins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-large-teams-production-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Large Teams / Production Systems
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-research-benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Research / Benchmarking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Pitfalls
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Pitfalls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#over-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Over-Engineering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ignoring-business-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ignoring Business Constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neglecting-feature-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neglecting Feature Engineering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-comparing-properly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not Comparing Properly
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ensemble-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensemble Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/development-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending the Framework
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extending the Framework
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/extending/custom-etl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ETL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/extending/custom-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/extending/custom-feature-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Feature Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/extending/custom-preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/extending/custom-inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Inference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../advanced/pypi-publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PyPI Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#model-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-your-first-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing Your First Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Choosing Your First Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-with-lightgbm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start with LightGBM
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-catboost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try CatBoost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-xgboost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try XGBoost
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-isolation-forest-as-a-feature-if_score" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Isolation Forest as a Feature (if_score)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-neural-networks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try Neural Networks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-try-lstm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Try LSTM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-selection-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Selection Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Selection Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-establish-a-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Establish a Baseline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-iterate-on-single-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Iterate on Single Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-consider-ensembles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Consider Ensembles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-advanced-models-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Advanced Models (Optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#business-driven-model-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Business-Driven Model Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Business-Driven Model Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-precision-use-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Precision Use Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-recall-use-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Recall Use Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#balanced-use-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Balanced Use Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#practical-recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Practical Recommendations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Practical Recommendations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-small-teams-quick-wins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Small Teams / Quick Wins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-large-teams-production-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Large Teams / Production Systems
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-research-benchmarking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        For Research / Benchmarking
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Pitfalls
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Pitfalls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#over-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Over-Engineering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ignoring-business-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ignoring Business Constraints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neglecting-feature-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neglecting Feature Engineering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-comparing-properly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not Comparing Properly
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../end-to-end-example/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="model-selection-guide">Model Selection Guide<a class="headerlink" href="#model-selection-guide" title="Permanent link">&para;</a></h1>
+<p>Choosing the right model is critical for building an effective fraud detection system. This guide helps you understand the tradeoffs between different model types and select the best one for your use case.</p>
+<h2 id="model-comparison">Model Comparison<a class="headerlink" href="#model-comparison" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>When to Use</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LightGBM</strong></td>
+<td>First choice for tabular data, large datasets, balanced performance</td>
+<td>• Fast training (gradient boosting)<br>• Handles imbalanced data well with built-in support<br>• Memory efficient<br>• Good accuracy<br>• Less sensitive to hyperparameter tuning</td>
+<td>• Less interpretable than linear models<br>• Requires categorical encoding (though it handles them well)<br>• May overfit on very small datasets</td>
+</tr>
+<tr>
+<td><strong>CatBoost</strong></td>
+<td>Many categorical features, need native categorical handling</td>
+<td>• <strong>Native categorical support</strong> (no preprocessing needed)<br>• Robust to overfitting<br>• Good out-of-the-box performance<br>• Handles missing values automatically</td>
+<td>• Slower training than LightGBM<br>• Larger memory footprint<br>• More parameters to tune</td>
+</tr>
+<tr>
+<td><strong>XGBoost</strong></td>
+<td>Sklearn-compatible ecosystems, existing XGBoost pipelines</td>
+<td>• Sklearn API compatibility<br>• Large ecosystem and community<br>• Well-understood hyperparameters<br>• Good performance on tabular data</td>
+<td>• Optional dependency (<code>pip install energizados[xgboost]</code>)<br>• Typically slower than LightGBM for same accuracy<br>• Higher memory usage</td>
+</tr>
+<tr>
+<td><strong>Neural Network (NNModel)</strong></td>
+<td>Large datasets, complex non-linear patterns</td>
+<td>• Flexible architecture<br>• Can learn complex feature interactions<br>• Works well with high-dimensional data</td>
+<td>• Requires more data to perform well<br>• Longer training time<br>• Harder to interpret<br>• More hyperparameters to tune</td>
+</tr>
+<tr>
+<td><strong>LSTM</strong></td>
+<td>When consumption sequence order matters, temporal patterns are critical</td>
+<td>• Captures temporal dependencies in consumption history<br>• Learns patterns across time steps<br>• Good for sequential anomaly detection</td>
+<td>• Most complex model<br>• Longest training time<br>• Requires sequential data preprocessing<br>• Needs more data<br>• Hardest to tune</td>
+</tr>
+</tbody>
+</table>
+<h2 id="choosing-your-first-model">Choosing Your First Model<a class="headerlink" href="#choosing-your-first-model" title="Permanent link">&para;</a></h2>
+<h3 id="start-with-lightgbm">Start with LightGBM<a class="headerlink" href="#start-with-lightgbm" title="Permanent link">&para;</a></h3>
+<p><strong>Why LightGBM is the default choice:</strong></p>
+<ol>
+<li><strong>Fast iteration</strong>: Train and evaluate models quickly to establish a baseline</li>
+<li><strong>Handles imbalance well</strong>: Built-in support for class weights and sampling</li>
+<li><strong>Memory efficient</strong>: Works well with large datasets (100k+ rows)</li>
+<li><strong>Robust</strong>: Less sensitive to hyperparameter choices than neural networks</li>
+<li><strong>Good accuracy</strong>: Typically achieves 0.75-0.85 AUC on fraud detection tasks</li>
+</ol>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For 90% of fraud detection use cases, LightGBM with proper feature engineering is sufficient. Don't overcomplicate things by jumping straight to neural networks or LSTMs.</p>
+</div>
+<h3 id="when-to-try-catboost">When to Try CatBoost<a class="headerlink" href="#when-to-try-catboost" title="Permanent link">&para;</a></h3>
+<p>Consider CatBoost when:</p>
+<ul>
+<li><strong>You have many categorical features</strong> (10+ categorical columns)</li>
+<li><strong>Categorical features have high cardinality</strong> (100+ unique values)</li>
+<li><strong>You want minimal preprocessing</strong> (no one-hot encoding needed)</li>
+<li><strong>You want robust performance without extensive tuning</strong></li>
+</ul>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p>If your dataset has 15+ categorical features like <code>actividad</code>, <code>tipo_tarifa</code>, <code>zona</code>, <code>nivel_tension</code>, <code>material_instalacion</code>, etc., CatBoost's native categorical handling can save significant preprocessing time and often outperforms LightGBM.</p>
+</div>
+<h3 id="when-to-try-xgboost">When to Try XGBoost<a class="headerlink" href="#when-to-try-xgboost" title="Permanent link">&para;</a></h3>
+<p>Consider XGBoost when:</p>
+<ul>
+<li><strong>You already have XGBoost pipelines</strong> you want to plug in to the framework</li>
+<li><strong>You need sklearn API compatibility</strong> for downstream tooling (GridSearch, SHAP, etc.)</li>
+<li><strong>You want a second boosting benchmark</strong> alongside LightGBM</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>XGBoost requires an optional dependency: <code>pip install energizados[xgboost]</code>. In terms of raw accuracy on fraud detection, LightGBM and CatBoost typically match or beat XGBoost with faster training. Prefer XGBoost when ecosystem compatibility outweighs raw performance.</p>
+</div>
+<h3 id="using-isolation-forest-as-a-feature-if_score">Using Isolation Forest as a Feature (<code>if_score</code>)<a class="headerlink" href="#using-isolation-forest-as-a-feature-if_score" title="Permanent link">&para;</a></h3>
+<p>Isolation Forest is available as a <strong>global_transformer</strong> (not a model type). Use <code>if_score</code> in <code>feature_engineering.preprocessing.global_transformers</code> to generate an anomaly score column that supervised models can use as input:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">global_transformers</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">if_score</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">      </span><span class="nt">contamination_from_target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># uses y.mean() as contamination</span>
+</code></pre></div>
+<p><strong>Benefits</strong>:
+- Produces a continuous anomaly score (higher = more anomalous)
+- Complements supervised models with unsupervised signal
+- Configurable <code>contamination_from_target</code> to leverage target labels</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The <code>isolation_forest</code> model type has been removed. Isolation Forest is now exclusively a feature engineering transformer (<code>if_score</code>), not a standalone model. It cannot be used in the <code>models:</code> section of <code>train.yaml</code>.</p>
+</div>
+<h3 id="when-to-try-neural-networks">When to Try Neural Networks<a class="headerlink" href="#when-to-try-neural-networks" title="Permanent link">&para;</a></h3>
+<p>Consider Neural Networks when:</p>
+<ul>
+<li><strong>You have a large dataset</strong> (100k+ samples, 50+ features)</li>
+<li><strong>You need to capture complex non-linear interactions</strong></li>
+<li><strong>Gradient boosting has plateaued</strong> (AUC stuck at ~0.80-0.82)</li>
+<li><strong>You have deep learning expertise</strong> to tune architecture</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Neural networks require significantly more data and tuning to outperform well-tuned LightGBM. Only use them if you have deep learning experience and have exhausted simpler options.</p>
+</div>
+<h3 id="when-to-try-lstm">When to Try LSTM<a class="headerlink" href="#when-to-try-lstm" title="Permanent link">&para;</a></h3>
+<p>Consider LSTM when:</p>
+<ul>
+<li><strong>Consumption sequence order is critical</strong> (temporal patterns matter)</li>
+<li><strong>You have long consumption histories</strong> (12+ months, preferably 24+)</li>
+<li><strong>Sudden changes in consumption are fraud signals</strong></li>
+<li><strong>You want to model sequential dependencies</strong></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>LSTM is most effective when the fraud signal is in the <strong>sequence itself</strong>, not just in aggregated statistics. If mean/std/sum of consumption captures most of the signal, LSTM may not provide significant improvement over LightGBM.</p>
+</div>
+<h2 id="model-selection-workflow">Model Selection Workflow<a class="headerlink" href="#model-selection-workflow" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-establish-a-baseline">Step 1: Establish a Baseline<a class="headerlink" href="#step-1-establish-a-baseline" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Start with LightGBM</strong> using the default configuration from <code>energizados init</code></li>
+<li><strong>Run with undersampling</strong> to handle class imbalance</li>
+<li><strong>Record baseline metrics</strong>: AUC, precision, recall, F1</li>
+<li><strong>Review feature importance</strong>: Identify top predictive features</li>
+</ol>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p>Baseline results might look like:
+- AUC: 0.78
+- Precision: 0.22
+- Recall: 0.70
+- F1: 0.34</p>
+</div>
+<h3 id="step-2-iterate-on-single-models">Step 2: Iterate on Single Models<a class="headerlink" href="#step-2-iterate-on-single-models" title="Permanent link">&para;</a></h3>
+<p>2.1 <strong>Improve LightGBM</strong>:
+   - Tune hyperparameters (<code>num_leaves</code>, <code>learning_rate</code>, <code>min_child_samples</code>)
+   - Add more features (consumption volatility, sudden drops, geographic features)
+    - Try different sampling strategies (over vs undersample vs smotetomek)</p>
+<p>2.2 <strong>Try CatBoost</strong>:
+   - Keep the same features and sampling strategy
+   - Compare AUC and training time
+   - If CatBoost outperforms LightGBM by &gt;0.02 AUC, consider switching</p>
+<p>2.3 <strong>Compare results</strong>:
+   - Use the run index (<code>output/index.html</code>) to compare runs
+   - Focus on AUC and the metric that matters most to your business</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If both LightGBM and CatBoost achieve similar AUC (±0.01), choose the faster one (usually LightGBM) for production.</p>
+</div>
+<h3 id="step-3-consider-ensembles">Step 3: Consider Ensembles<a class="headerlink" href="#step-3-consider-ensembles" title="Permanent link">&para;</a></h3>
+<p>If <strong>both LightGBM and CatBoost achieve AUC &gt; 0.80</strong>, consider an ensemble:</p>
+<ul>
+<li><strong>Stacking</strong>: Often improves AUC by 0.02-0.05</li>
+<li><strong>Soft voting</strong>: Simpler, but typically smaller gains (0.01-0.03)</li>
+</ul>
+<p>See <a href="../ensemble-models/">Ensemble Models</a> for details.</p>
+<h3 id="step-4-advanced-models-optional">Step 4: Advanced Models (Optional)<a class="headerlink" href="#step-4-advanced-models-optional" title="Permanent link">&para;</a></h3>
+<p>If you've exhausted ensemble options and still need better performance:</p>
+<ol>
+<li><strong>Neural Network</strong>: If you have 100k+ samples and complex feature interactions</li>
+<li><strong>LSTM</strong>: If temporal patterns in consumption history are critical</li>
+<li><strong>Custom models</strong>: Implement domain-specific models in <code>src/models/</code></li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Neural networks and LSTMs require significant expertise to tune properly. Only proceed if you have deep learning experience or have plateaued at ~0.82-0.85 AUC with ensembles.</p>
+</div>
+<h2 id="business-driven-model-selection">Business-Driven Model Selection<a class="headerlink" href="#business-driven-model-selection" title="Permanent link">&para;</a></h2>
+<p>The "best" model depends on your business constraints:</p>
+<h3 id="high-precision-use-case">High-Precision Use Case<a class="headerlink" href="#high-precision-use-case" title="Permanent link">&para;</a></h3>
+<p><strong>Scenario</strong>: Limited inspection capacity, high cost per inspection</p>
+<p><strong>Goal</strong>: Minimize false positives (wasted inspections)</p>
+<p><strong>Choose</strong>: Model with higher precision, even if recall is lower</p>
+<p><strong>Approach</strong>:
+1. Train LightGBM and CatBoost
+2. Increase decision threshold (e.g., 0.6-0.7) to improve precision
+3. Compare which model maintains better recall at high precision
+4. Use precision-recall curve in evaluation report to choose optimal threshold</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p>If you can only afford 500 inspections per month:
+- LightGBM at threshold 0.65: precision 0.35, recall 0.55
+- CatBoost at threshold 0.65: precision 0.38, recall 0.52</p>
+<p>Choose CatBoost (higher precision = fewer wasted inspections).</p>
+</div>
+<h3 id="high-recall-use-case">High-Recall Use Case<a class="headerlink" href="#high-recall-use-case" title="Permanent link">&para;</a></h3>
+<p><strong>Scenario</strong>: High revenue loss from undetected fraud, many inspectors available</p>
+<p><strong>Goal</strong>: Catch as many fraudsters as possible (minimize false negatives)</p>
+<p><strong>Choose</strong>: Model with higher recall, even if precision is lower</p>
+<p><strong>Approach</strong>:
+1. Train LightGBM and CatBoost
+2. Decrease decision threshold (e.g., 0.3-0.4) to improve recall
+3. Compare which model maintains better precision at high recall
+4. Use cumulative gains chart to estimate fraudsters caught at top X%</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p>If catching fraudsters is the priority:
+- LightGBM at threshold 0.35: precision 0.18, recall 0.85
+- CatBoost at threshold 0.35: precision 0.20, recall 0.80</p>
+<p>Choose LightGBM (higher recall = fewer fraudsters escape).</p>
+</div>
+<h3 id="balanced-use-case">Balanced Use Case<a class="headerlink" href="#balanced-use-case" title="Permanent link">&para;</a></h3>
+<p><strong>Scenario</strong>: Moderate inspection capacity, moderate revenue loss</p>
+<p><strong>Goal</strong>: Balance precision and recall (maximize F1 or expected profit)</p>
+<p><strong>Choose</strong>: Model with highest F1 or business-calibrated expected value</p>
+<p><strong>Approach</strong>:
+1. Train LightGBM, CatBoost, and optionally ensemble
+2. Use interactive threshold slider to find optimal balance
+3. Calculate expected profit: <code>(TP × savings_per_fraudster) - (FP × cost_per_inspection)</code>
+4. Choose model/threshold that maximizes expected profit</p>
+<h2 id="practical-recommendations">Practical Recommendations<a class="headerlink" href="#practical-recommendations" title="Permanent link">&para;</a></h2>
+<h3 id="for-small-teams-quick-wins">For Small Teams / Quick Wins<a class="headerlink" href="#for-small-teams-quick-wins" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Start with LightGBM</strong> (default in <code>energizados init</code>)</li>
+<li><strong>Focus on feature engineering</strong> (biggest performance lever)</li>
+<li><strong>Tune hyperparameters</strong> using randomized search (built-in)</li>
+<li><strong>Skip ensemble and neural networks</strong> unless you hit a plateau</li>
+</ol>
+<h3 id="for-large-teams-production-systems">For Large Teams / Production Systems<a class="headerlink" href="#for-large-teams-production-systems" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Train LightGBM and CatBoost in parallel</strong></li>
+<li><strong>Compare AUC and business metrics</strong></li>
+<li><strong>Build ensemble if both achieve AUC &gt; 0.80</strong></li>
+<li><strong>Consider LSTM if temporal patterns are strong</strong></li>
+<li><strong>Deploy A/B tests to measure real-world impact</strong></li>
+</ol>
+<h3 id="for-research-benchmarking">For Research / Benchmarking<a class="headerlink" href="#for-research-benchmarking" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Try all model types</strong> (LightGBM, CatBoost, NN, LSTM)</li>
+<li><strong>Use feature selection to reduce overfitting</strong></li>
+<li><strong>Compare with simple baselines</strong> (constant consumption, trend detection)</li>
+<li><strong>Document which features are most important per model</strong></li>
+</ol>
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<h3 id="over-engineering">Over-Engineering<a class="headerlink" href="#over-engineering" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Jumping straight to neural networks without a proper baseline.</p>
+<p><strong>Solution</strong>: Always start with LightGBM. Only move to complex models after establishing a solid baseline.</p>
+<h3 id="ignoring-business-constraints">Ignoring Business Constraints<a class="headerlink" href="#ignoring-business-constraints" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Optimizing for AUC alone without considering precision/recall tradeoffs.</p>
+<p><strong>Solution</strong>: Identify your business constraint (inspection capacity, revenue loss) and choose metrics accordingly.</p>
+<h3 id="neglecting-feature-engineering">Neglecting Feature Engineering<a class="headerlink" href="#neglecting-feature-engineering" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Expecting complex models to fix poor features.</p>
+<p><strong>Solution</strong>: 80% of performance comes from features. Focus on feature engineering before model selection.</p>
+<h3 id="not-comparing-properly">Not Comparing Properly<a class="headerlink" href="#not-comparing-properly" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Comparing models on different datasets, splits, or thresholds.</p>
+<p><strong>Solution</strong>: Always compare models on the same test split and threshold, or use the run index to ensure fair comparison.</p>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../ensemble-models/">Ensemble Models</a> - Combine multiple models for better performance</li>
+<li><a href="../end-to-end-example/">End-to-End Example</a> - Hands-on tutorial</li>
+<li><a href="../../user-guide/understanding-results/">Understanding Results</a> - Interpreting evaluation metrics</li>
+<li><a href="../configuration/">Configuration Guide</a> - Detailed configuration options</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
