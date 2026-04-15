@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-04-15
+
+### Fixed
+- `doctor` command now uses `importlib.metadata` for reliable package version detection instead of unreliable module-level attributes
+- Added `jsonschema` dependency for config validation
+
+## [0.2.1] - 2026-04-15
+
+### Changed
+- Updated license to new IDB template with AI_BID disclaimer
+
 ## [0.2.0] - 2026-04-15
 
 ### Core

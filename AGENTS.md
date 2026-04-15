@@ -623,6 +623,7 @@ The project documentation and comments are in English. The codebase uses Spanish
 | Skill | Description | Trigger |
 |-------|-------------|---------|
 | `experiment-results` | Generates a complete experiment results report with metrics, insights, next steps, and a business section with operational impact simulator. | When the user requests experiment results or to generate _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
+| `new-experiments` | Design and generate a complete set of ML training experiments (roadmap + YAMLs) for an Energizados project. | When the user says "new experiments", "nuevos experimentos", "crear experimentos". [SKILL.md](.claude/skills/new-experiments/SKILL.md) |
 
 ## Agent Rules (Always Apply)
 

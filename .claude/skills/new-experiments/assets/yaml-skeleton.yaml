@@ -1,0 +1,140 @@
+# =============================================================================
+# YAML Skeleton for experiment configs
+# This is a TEMPLATE — replace {placeholders} with actual values.
+# =============================================================================
+
+train:
+  schema_version: 1
+  enabled: true
+  input_path: "{DATASET_PATH}"
+  output_base_dir: "output/{VERSION}/exp/"
+  target_column: "{TARGET_COLUMN}"
+  periods_suffix: &period_suffix "{PERIODS_SUFFIX}"
+
+  description: |
+    {HYPOTHESIS_DESCRIPTION}
+
+  split:
+    method: "time_series"
+    date_column: "{DATE_COLUMN}"
+    train_period: ["{TRAIN_START}", "{TRAIN_END}"]
+    val_period: ["{VAL_START}", "{VAL_END}"]
+    test_period: ["{TEST_START}"]
+    save_splits: true
+    splits_dir: "output/{VERSION}/exp/temp/splits/"
+
+  feature_engineering:
+    enabled: true
+
+    preprocessing:
+      enabled: true
+      output_parquet: "output/{VERSION}/exp/temp/prep/fase{N}_exp{M}_prep.parquet"
+
+      drop_columns:
+        - { DROP_COL_1 }
+        - { DROP_COL_2 }
+
+      columns:
+        { COL_1 }:
+          - { ENCODING_STRATEGY }: {}
+        { COL_2 }:
+          - cardinality_reducer:
+              threshold: { THRESHOLD }
+          - target_encoding:
+              w: { W_VALUE }
+        { COL_LOW_CARD }:
+          - ordinal_encoding: {}
+
+      global_transformers:
+        # Phase 3+ only. Remove for phases 1-2.
+        - extra_vars:
+            num_periodos: 3
+            periods_suffix: *period_suffix
+        - extra_vars:
+            num_periodos: 6
+            periods_suffix: *period_suffix
+        - extra_vars:
+            num_periodos: 12
+            periods_suffix: *period_suffix
+        # - tsfel_vars:
+        #     num_periodos: 12
+        #     periods_suffix: *period_suffix
+        #     n_jobs: -1
+        #     chunk_size: 500
+        #     cache_dir: "output/{VERSION}/exp/.cache/tsfel"
+        # - consumption_patterns:
+        #     num_periodos: 12
+        #     periods_suffix: *period_suffix
+        # - clip_outliers:
+        #     threshold: 100000
+        #     periods_suffix: *period_suffix
+
+    feature_selection:
+      enabled: false
+      # Phase 5 only:
+      # steps:
+      #   - name: selector
+      #     method: "boruta"
+      #     params:
+      #       n_estimators: 100
+      #       max_iter: 100
+
+  # Single model (phases 1-7)
+  models:
+    - type: "{MODEL_TYPE}"
+      sampling:
+        method: "{SAMPLING_METHOD}"
+        threshold: 0.5
+      # class_weight: "balanced"  # Phase 2+ winner
+
+      hyperparams:
+        num_leaves: 31
+        max_depth: -1
+        learning_rate: 0.05
+        n_estimators: 500
+
+      hyperparam_search:
+        enabled: false
+        # Phase 6:
+        # enabled: true
+        # n_iter: 100
+        # cv: time_series
+        # n_splits: 5
+        # scoring: "roc_auc"
+        # random_state: 42
+
+  # Ensemble (phase 8 only — replace models section above)
+  # models:
+  #   - name: "model_a"
+  #     type: "lightgbm"
+  #     sampling: { method: "none", threshold: 0.5 }
+  #     class_weight: "balanced"
+  #     hyperparams: { num_leaves: 31, max_depth: -1, learning_rate: 0.05, n_estimators: 1000 }
+  #     hyperparam_search: { enabled: false }
+  #   - name: "model_b"
+  #     type: "catboost"
+  #     sampling: { method: "none", threshold: 0.5 }
+  #     hyperparams: { iterations: 1000, learning_rate: 0.05, depth: 6 }
+  #     hyperparam_search: { enabled: false }
+  # ensemble:
+  #   method: "stacking"
+  #   meta_learner:
+  #     type: "logistic_regression"
+  #     params: { C: 1.0, max_iter: 1000 }
+  #   use_val_as_oof: true
+  #   cv: 5
+
+  evaluation:
+    enabled: true
+    threshold: 0.5
+    metrics: [auc, precision, recall, f1, confusion_matrix, cumulative_gains]
+    generate_plots: true
+    generate_html_report: true
+    generate_json_report: true
+    # Phase 7+:
+    # calibration:
+    #   enabled: true
+    #   method: "cost_benefit"
+    #   params:
+    #     cost_fp: 1
+    #     cost_fn: 10

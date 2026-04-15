@@ -5,6 +5,7 @@ This module implements the 'doctor' command to check system information
 and validate the environment (Python version, required libraries).
 """
 
+import importlib.metadata
 import os
 import platform
 import shutil
@@ -306,18 +307,20 @@ def check_package(
 
     try:
         module = __import__(import_name)
-        installed = getattr(module, "__version__", "unknown")
 
-        if installed == "unknown":
-            # Try to get version from common attributes
-            for attr in ["version", "VERSION", "__version_info__"]:
-                ver = getattr(module, attr, None)
-                if ver:
-                    if isinstance(ver, tuple):
-                        installed = ".".join(map(str, ver))
-                    else:
-                        installed = str(ver)
-                    break
+        # Try importlib.metadata first — most reliable across all packages
+        try:
+            installed = importlib.metadata.version(package_name)
+        except importlib.metadata.PackageNotFoundError:
+            # Fall back to module-level version attributes
+            installed = getattr(module, "__version__", None)
+            if not installed:
+                for attr in ["version", "VERSION", "__version_info__"]:
+                    ver = getattr(module, attr, None)
+                    if ver:
+                        installed = ".".join(map(str, ver)) if isinstance(ver, tuple) else str(ver)
+                        break
+            installed = installed or "unknown"
 
         installed_ver = parse_version(installed)
         required_ver = parse_version(min_version)
