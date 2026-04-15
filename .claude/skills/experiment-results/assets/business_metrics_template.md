@@ -1,6 +1,6 @@
 # Business Metrics Template — For _results.md generation
 
-## Section: Para Negocio: Que significan estos numeros
+## Section: For Business: What do these numbers mean
 
 ### Generation Rules
 
@@ -12,52 +12,52 @@
 
 ### Required Subsections
 
-#### 1. Que hace el modelo (2-3 paragraphs)
+#### 1. What the model does (2-3 paragraphs)
 
 Explain:
 - The model ranks clients by fraud probability
 - It does NOT automatically detect fraud — it PRIORITIZES inspections
 - Higher rank = higher risk = inspect first
 
-#### 2. Metricas explicadas
+#### 2. Metrics explained
 
-For each metric, provide a "que significa" with a concrete example:
+For each metric, provide a "what it means" with a concrete example:
 
-- **AUC {value}**: "De cada 100 veces que comparemos un cliente fraudulento con uno que no lo es, el modelo identificara correctamente al fraudulento en {auc*100:.0f} ocasiones. Un modelo aleatorio acierta 50 veces de 100."
-- **Precision {value}** (at threshold): "De cada 100 clientes que el modelo marque como sospechosos, {prec*100:.0f} realmente cometieron fraude. Los otros {100-prec*100:.0f} son falsos alarmas."
-- **Recall {value}** (at threshold): "De cada 100 fraudes reales que ocurrieron, el modelo detecta {recall*100:.0f}. Se escapan {100-recall*100:.0f} sin detectar."
-- **Threshold**: "El modelo usa un punto de corte de {threshold}. Clientes con probabilidad mayor a {threshold*100:.0f}% se marcan como sospechosos."
+- **AUC {value}**: "Out of every 100 times we compare a fraudulent client against a non-fraudulent one, the model correctly identifies the fraudulent one {auc*100:.0f} times. A random model gets it right 50 times out of 100."
+- **Precision {value}** (at threshold): "Out of every 100 clients the model flags as suspicious, {prec*100:.0f} actually committed fraud. The other {100-prec*100:.0f} are false alarms."
+- **Recall {value}** (at threshold): "Out of every 100 real frauds that occurred, the model detects {recall*100:.0f}. The remaining {100-recall*100:.0f} go undetected."
+- **Threshold**: "The model uses a cutoff of {threshold}. Clients with probability above {threshold*100:.0f}% are flagged as suspicious."
 
-#### 3. Simulador de impacto operativo
+#### 3. Operational impact simulator
 
 Generate a table from cumulative_gains:
 
-| % Clientes inspeccionados | % Fraudes detectados | Ventaja vs aleatorio | Inspecciones estimadas* | Fraudes encontrados* |
-|---------------------------|---------------------|---------------------|------------------------|---------------------|
-| 10%                       | XX%                 | +XX%                | NNN                    | NNN                 |
-| 20%                       | XX%                 | +XX%                | NNN                    | NNN                 |
-| ...                       | ...                 | ...                 | ...                    | ...                 |
+| % Clients inspected | % Frauds detected | Advantage vs. random | Estimated inspections* | Frauds found* |
+|---------------------|-------------------|----------------------|------------------------|---------------|
+| 10%                 | XX%               | +XX%                 | NNN                    | NNN           |
+| 20%                 | XX%               | +XX%                 | NNN                    | NNN           |
+| ...                 | ...               | ...                  | ...                    | ...           |
 
 *Estimated using total test set size and fraud rate.
 
 Formula:
-- fraudes_en_test = TP + FN from confusion_matrix
+- frauds_in_test = TP + FN from confusion_matrix
 - total_test = TP + FP + FN + TN
-- fraud_rate = fraudes_en_test / total_test
+- fraud_rate = frauds_in_test / total_test
 - For decile N (top N*10%):
-  - inspecciones = total_test * N * 0.1
-  - fraudes_encontrados = fraudes_en_test * cumulative_gain[N-1]
+  - inspections = total_test * N * 0.1
+  - frauds_found = frauds_in_test * cumulative_gain[N-1]
 
-Add "aleatorio" row for comparison:
-- aleatorio: N*10% inspecciones → N*10% de fraudes (linear)
+Add a "random" row for comparison:
+- random: N*10% inspections → N*10% of frauds (linear)
 
-#### 4. Recomendacion operativa
+#### 4. Operational recommendation
 
 Based on the cost_benefit calibration (if available) or the cumulative gains curve:
 
-- "Inspeccionando el top 20% de clientes (los de mayor riesgo), se detectan ~XX% de los fraudes. Esto es XX veces mejor que inspeccionar al azar."
-- Suggest a threshold based on the cost_benefit analysis if available.
-- Estimate resource savings: "En vez de inspeccionar 100% de los clientes, con el mismo recurso pueden enfocarse en el 20% de mayor riesgo y capturar XX% de los fraudes."
+- "By inspecting the top 20% of clients (highest-risk), we detect ~XX% of frauds. This is XX times better than random inspection."
+- Suggest a threshold based on cost_benefit analysis if available.
+- Estimate resource savings: "Instead of inspecting 100% of clients, with the same resources you can focus on the top 20% at highest risk and capture XX% of frauds."
 
 ### Template Variables
 

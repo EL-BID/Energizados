@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased] - 
+## [Unreleased]
+
+## [0.2.0] - 2026-04-15
 
 ### Core
 - Full redesign: Builder pattern, Pydantic validation, modular pipeline steps

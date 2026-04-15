@@ -622,7 +622,7 @@ The project documentation and comments are in English. The codebase uses Spanish
 
 | Skill | Description | Trigger |
 |-------|-------------|---------|
-| `experiment-results` | Genera reporte completo de experimentos con metricas, insights, proximos pasos y seccion para negocio. | Cuando el usuario pide resultados de experimentos o generar _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
+| `experiment-results` | Generates a complete experiment results report with metrics, insights, next steps, and a business section with operational impact simulator. | When the user requests experiment results or to generate _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
 
 ## Agent Rules (Always Apply)
 
