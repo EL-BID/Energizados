@@ -14,24 +14,30 @@ from typing import Dict, List, Tuple
 # Required packages from pyproject.toml
 REQUIRED_PACKAGES = {
     "boruta": "0.4.3",
-    "catboost": "1.2.8",
     "click": "8.0",
     "imblearn": "0.12.0",
+    "joblib": "1.3.0",
     "lightgbm": "4.6.0",
     "numpy": "1.20.0",
     "pandas": "2.0.0",
+    "plotly": "5.0.0",
     "pyarrow": "19.0.0",
     "yaml": "6.0",  # PyYAML imports as yaml
+    "requests": "2.32.0",
     "rich": "13.0",
     "sklearn": "1.4.2",  # scikit-learn imports as sklearn
     "scipy": "1.9.0",
+    "shap": "0.42.0",
     "tsfel": "0.1.9",
     "tqdm": "4.64.0",
     "unidecode": "1.4.0",
 }
 
-# Optional visualization packages
+# Optional packages (not in core dependencies or require extras)
 OPTIONAL_PACKAGES = {
+    "catboost": "1.2.8",  # pip install energizados[catboost]
+    "tensorflow": "2.17.0",  # pip install energizados[tensorflow]
+    "xgboost": "2.0.0",  # pip install energizados[xgboost]
     "matplotlib": "3.5.0",
     "seaborn": "0.11.2",
     "psutil": "5.9.0",
@@ -280,17 +286,24 @@ def check_python_version() -> CheckResult:
     )
 
 
-def check_package(import_name: str, package_name: str, min_version: str) -> CheckResult:
+def check_package(
+    import_name: str, package_name: str, min_version: str, install_hint: str = ""
+) -> CheckResult:
     """Check if a package is installed with minimum version.
 
     Args:
         import_name: Module name to import.
-        package_name: Package name for pip install.
+        package_name: Package name for display and pip install.
         min_version: Minimum required version.
+        install_hint: Override the pip install command (e.g. for extras like
+            'energizados[catboost]'). If empty, defaults to
+            'pip install {package_name}>={min_version}'.
 
     Returns:
         CheckResult with package validation.
     """
+    install_cmd = install_hint or f"'{package_name}>={min_version}'"
+
     try:
         module = __import__(import_name)
         installed = getattr(module, "__version__", "unknown")
@@ -320,7 +333,7 @@ def check_package(import_name: str, package_name: str, min_version: str) -> Chec
                 name=f"Package: {package_name}",
                 status="error",
                 message=f"Version {installed} (minimum required: {min_version})",
-                solution=f"pip install --upgrade '{package_name}>={min_version}'",
+                solution=f"pip install --upgrade {install_cmd}",
             )
 
     except ImportError:
@@ -328,7 +341,7 @@ def check_package(import_name: str, package_name: str, min_version: str) -> Chec
             name=f"Package: {package_name}",
             status="error",
             message="Not installed",
-            solution=f"pip install '{package_name}>={min_version}'",
+            solution=f"pip install {install_cmd}",
         )
 
 
@@ -347,19 +360,33 @@ def run_checks(include_optional: bool = False) -> DoctorReport:
     # Check Python version
     report.add_check(check_python_version())
 
+    # Map import name → pip package name (when they differ)
+    PACKAGE_NAME_MAP = {
+        "yaml": "pyyaml",
+        "sklearn": "scikit-learn",
+        "imblearn": "imbalanced-learn",
+    }
+
+    # Map import name → extras install hint (for optional framework extras)
+    EXTRAS_MAP = {
+        "catboost": "energizados[catboost]",
+        "tensorflow": "energizados[tensorflow]",
+        "xgboost": "energizados[xgboost]",
+    }
+
     # Check required packages
     for import_name, min_version in REQUIRED_PACKAGES.items():
-        # Map import name to package name for pip
-        package_name = {
-            "yaml": "pyyaml",
-            "sklearn": "scikit-learn",
-        }.get(import_name, import_name)
+        package_name = PACKAGE_NAME_MAP.get(import_name, import_name)
         report.add_check(check_package(import_name, package_name, min_version))
 
     # Check optional packages if requested
     if include_optional:
         for import_name, min_version in OPTIONAL_PACKAGES.items():
-            report.add_check(check_package(import_name, import_name, min_version))
+            package_name = PACKAGE_NAME_MAP.get(import_name, import_name)
+            install_hint = f"'energizados[{import_name}]'" if import_name in EXTRAS_MAP else ""
+            report.add_check(
+                check_package(import_name, package_name, min_version, install_hint=install_hint)
+            )
 
     return report
 

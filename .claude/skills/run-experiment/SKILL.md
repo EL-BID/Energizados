@@ -51,7 +51,7 @@ ls -t output/ | head -1
 
 Then read the JSON report:
 ```bash
-cat output/{run_dir}/reports/evaluation/report.json
+cat output/{run_dir}/reports/evaluation/evaluation_report.json
 ```
 
 Display a clean metrics summary:
@@ -59,16 +59,16 @@ Display a clean metrics summary:
 ```
 ## Experiment Results: {run_dir}
 
-| Metric     | Train | Val   | Test  |
-|------------|-------|-------|-------|
-| AUC        | ...   | ...   | ...   |
-| Precision  | ...   | ...   | ...   |
-| Recall     | ...   | ...   | ...   |
-| F1         | ...   | ...   | ...   |
+| Metric     | Val   | Test  |
+|------------|-------|-------|
+| AUC        | ...   | ...   |
+| Precision  | ...   | ...   |
+| Recall     | ...   | ...   |
+| F1         | ...   | ...   |
 
 **Threshold used**: {threshold}
 **Model**: {model_type}
-**Report**: output/{run_dir}/reports/evaluation/report.html
+**Report**: output/{run_dir}/reports/evaluation/evaluation_report.html
 ```
 
 ## Step 6: Next Steps
