@@ -428,10 +428,10 @@ Edit `pyproject.toml`:
 
 ```toml
 [project]
-version = "0.1.2"  # Update semantic version
+version = "0.2.0"  # Update semantic version
 ```
 
-Use `0.1.3.dev0` for development, `0.1.3` for release.
+Use `0.2.1.dev0` for development, `0.2.1` for release.
 
 ### 2. Build Package
 
@@ -458,8 +458,8 @@ twine upload dist/*
 ### 4. Create Git Tag (Optional but Recommended)
 
 ```bash
-git tag v0.1.2
-git push origin v0.1.2
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 **References:**
