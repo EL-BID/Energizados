@@ -1,0 +1,119 @@
+"""ETL Base Module.
+
+This module defines the abstract BaseETL class that users can inherit
+to implement their own custom ETL processes.
+"""
+
+from abc import ABC, abstractmethod
+
+import pandas as pd
+
+
+class BaseETL(ABC):
+    """Base class for custom ETL.
+
+    Users inherit and implement the abstract methods to define
+    their own Extract, Transform, and Load process.
+
+    Example:
+        >>> from energizados.etl.base import BaseETL
+        >>> class MyETL(BaseETL):
+        ...     def __init__(self, source_path: str):
+        ...         self.source_path = source_path
+        ...     def extract(self):
+        ...         return pd.read_csv(self.source_path)
+        ...     def transform(self, df):
+        ...         return df.dropna()
+        ...     def load(self, df, path):
+        ...         df.to_parquet(path)
+    """
+
+    def __init__(self):
+        """Initialize the ETL instance."""
+
+    @abstractmethod
+    def extract(self) -> pd.DataFrame:
+        """
+        Extracts data from the source.
+
+        Returns:
+            pd.DataFrame: Raw data
+
+        Raises:
+            ETLError: If an error occurs during extraction
+        """
+        pass
+
+    @abstractmethod
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transforms and cleans the data.
+
+        Args:
+            df: Raw DataFrame
+
+        Returns:
+            pd.DataFrame: Clean DataFrame with expected schema
+
+        Raises:
+            ETLError: If an error occurs during transformation
+        """
+        pass
+
+    @abstractmethod
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        """
+        Saves the transformed data.
+
+        Args:
+            df: Transformed DataFrame
+            path: Output path
+
+        Raises:
+            ETLError: If an error occurs during loading
+        """
+        pass
+
+    def _on_load_success(self) -> None:
+        """Hook called after load() completes successfully. Override to persist state."""
+        pass
+
+    def run(self, output_path: str) -> pd.DataFrame:
+        """
+        Executes the complete ETL pipeline.
+
+        This method can be overridden to add additional logic.
+
+        Args:
+            output_path: Path to save the transformed data
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame
+        """
+        import logging
+
+        from energizados.core.exceptions import ETLError
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            df = self.extract()
+
+            if len(df) == 0:
+                return df
+
+            # Apply sampling if 'sample' parameter was provided
+            sample = getattr(self, "sample", None)
+            if sample is not None:
+                original_len = len(df)
+                df = df.sample(n=min(sample, len(df)), random_state=42)
+                logger.info(f"  • Sampled {len(df)} records (was {original_len})")
+
+            df = self.transform(df)
+            self.load(df, output_path)
+            self._on_load_success()
+            return df
+        except ETLError:
+            raise
+        except Exception as e:
+            raise ETLError(f"Error running ETL: {str(e)}") from e

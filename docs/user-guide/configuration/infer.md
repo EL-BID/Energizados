@@ -1,0 +1,469 @@
+# Inference Configuration
+
+Complete reference for `infer.yaml` configuration.
+
+## Overview
+
+Inference configuration defines how to apply a trained model to new data. It specifies the input data, model paths, output location, and prediction threshold.
+
+## Configuration Structure
+
+```yaml
+infer:
+  enabled: false          # Set to true to run inference
+  input_path: "data/processed/sample_dataset.parquet"
+  output_path: "output/predictions.csv"
+  # Uncomment and set to point to a specific training run:
+  # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
+  # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
+  threshold: 0.5
+  type: "default"         # Use "default" or set custom_class
+```
+
+> **Note:** The template ships with `enabled: false`. You must set `enabled: true` and configure `model_path` and `feature_engineering_path` before running inference.
+
+## Required Fields
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `enabled` | boolean | Whether to execute inference |
+| `input_path` | string | Path to input data (parquet or CSV) |
+| `output_path` | string | Path where predictions will be saved |
+
+## Optional Fields
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `threshold` | float | `0.5` | Decision threshold (0.0 to 1.0) |
+| `model_path` | string | auto-detected | Path to trained model file. If omitted, auto-detects from latest training run. |
+| `feature_engineering_path` | string | auto-detected | Path to feature engineering pipeline. If omitted, auto-detects from same run as model. |
+| `output_base_dir` | string | `"output"` | Base directory to search for latest training run |
+| `output_include_input` | bool | `false` | Include original input columns in output |
+| `output_format` | string | `"csv"` | Output format: `"csv"` or `"parquet"` |
+| `columns_filter` | dict | `null` | Filter rows by column values BEFORE FE. Supports equality, operators (>, <, >=, <=, !=, like), and pandas `_expr` |
+| `output_columns` | list | `null` | Select specific columns for output |
+
+---
+
+## How Inference Works
+
+The inference process follows these steps:
+
+1. **Load Input Data**: Reads the input dataset from `input_path`
+2. **Apply Feature Engineering**: Loads the saved feature engineering pipeline and transforms the data
+3. **Load Model**: Loads the trained model from `model_path`
+4. **Generate Predictions**: Applies the model to the transformed data
+5. **Apply Threshold**: Converts probability scores to binary predictions (fraud/non-fraud)
+6. **Save Results**: Writes predictions to `output_path`
+
+> **Note:** The template ships with `enabled: false`. You must set `enabled: true` to run inference. Model paths are auto-detected from the latest training run if not specified.
+
+### Auto-Detect Model
+
+If you omit `model_path` and `feature_engineering_path`, the system will automatically detect the latest training run:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  # model_path and feature_engineering_path are auto-detected
+  # from output/train-YYYYMMDD_HHMM/
+  threshold: 0.5
+```
+
+### Single Model Inference
+
+For a single model, the directory structure is:
+
+```
+output/train-20260317_1430/
+├── models/
+│   ├── feature_engineering.pkl
+│   └── model.pkl
+```
+
+Configuration:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+```
+
+### Ensemble Model Inference
+
+For an ensemble model, the directory structure is:
+
+```
+output/train-20260317_1430/
+├── models/
+│   ├── feature_engineering.pkl
+│   ├── lgbm/
+│   │   └── model.pkl
+│   ├── cat/
+│   │   └── model.pkl
+│   └── ensemble.pkl
+```
+
+Configuration:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/ensemble.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+```
+
+> ⚠️ **IMPORTANT:** For ensembles, specify the path to `ensemble.pkl`, not individual model files.
+
+---
+
+## Output Format
+
+The inference output is saved as a CSV file with the following columns:
+
+| Column | Description |
+|--------|-------------|
+| `prediction` | Binary prediction (0 or 1) based on threshold |
+| `probability` | Probability score (0.0 to 1.0) |
+
+### Example Output
+
+```csv
+prediction,probability
+0,0.12
+0,0.08
+1,0.87
+0,0.23
+1,0.91
+```
+
+If your input data has an index column, the output will preserve that index. Otherwise, row numbers are used.
+
+---
+
+## Running Inference
+
+### Using the CLI
+
+```bash
+energizados run infer
+```
+
+### Using the Python Script
+
+```bash
+python src/run/03_inference.py --run-dir output/train-YYYYMMDD_HHMM
+```
+
+---
+
+## Configuration Examples
+
+### Basic Inference
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+```
+
+### Inference with Custom Threshold
+
+Use a higher threshold to reduce false positives (fewer unnecessary inspections):
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.7  # Higher threshold = fewer false positives
+```
+
+Use a lower threshold to reduce false negatives (catch more fraud):
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.3  # Lower threshold = catch more fraud
+```
+
+### Inference with Calibrated Threshold
+
+If you used threshold calibration during training, use the calibrated threshold:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.42  # Calibrated threshold from evaluation report
+```
+
+Check the evaluation report (`output/train-YYYYMMDD_HHMM/reports/evaluation/report.json`) to find the calibrated threshold.
+
+### Batch Inference
+
+Process multiple files by updating the configuration:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/batch/january_2024.parquet"
+  output_path: "predictions/january_2024.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+```
+
+Then run for each month, updating paths accordingly.
+
+### Inference with Filters (Optimization)
+
+Filter records BEFORE feature engineering to avoid expensive operations like tsfel on records you don't need:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  
+  # Filter BEFORE feature engineering (optimization)
+  columns_filter:
+    zona: ["FLORIANOPOLIS", "PALHOCA"]
+```
+
+### Filtering with Operators
+
+Filter by comparison operators (`>`, `<`, `>=`, `<=`, `!=`, `like`):
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  
+  columns_filter:
+    # Simple equality (list of values)
+    zona: ["FLORIANOPOLIS", "PALHOCA"]
+    nivel_tension: ["BT"]
+    
+    # Comparison operators
+    consumo_1_anterior:
+      ">": 0                    # consumption > 0
+      "<=": 10000               # and consumption <= 10000
+    
+    fecha_inspeccion:
+      ">=": "2026-01-01"        # date >= 2026-01-01
+      "!=": null                # not null
+    
+    # Pattern matching ( LIKE %pattern% )
+    actividad:
+      like: "INDUSTRI"
+```
+
+### Filtering with Pandas Expression
+
+Use pandas query syntax for complex filters:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  threshold: 0.5
+  
+  columns_filter:
+    _expr: "(zona == 'FLORIANOPOLIS') & (consumo_1_anterior > 500)"
+```
+
+### Inference with Custom Output Columns
+
+Select specific columns for the output CSV:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  
+  # Include input columns in output
+  output_include_input: true
+  
+  # Select specific columns for output
+  output_columns:
+    - cliente
+    - actividad
+    - zona
+    - prediction
+    - probability
+```
+
+---
+
+## Custom Inference
+
+To implement custom inference logic, edit `src/inference/custom_inference.py`:
+
+```python
+from energizados.inference.base import BaseInference
+import pandas as pd
+
+class CustomInference(BaseInference):
+    def predict(self, data: pd.DataFrame) -> pd.DataFrame:
+        # Apply feature engineering
+        transformed = self.feature_engineering.transform(data)
+
+        # Get probability scores
+        probabilities = self.model.predict_proba(transformed)[:, 1]
+
+        # Apply threshold
+        predictions = (probabilities >= self.threshold).astype(int)
+
+        # Create output DataFrame
+        result = pd.DataFrame({
+            'prediction': predictions,
+            'probability': probabilities
+        })
+
+        # Add custom logic here
+        # For example: filter out low-risk customers
+        high_risk = result[result['probability'] >= 0.8]
+
+        return high_risk
+```
+
+Update `infer.yaml` to use your custom class:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+  custom_class: "inference.custom_inference.CustomInference"
+```
+
+---
+
+## Best Practices
+
+### 1. Model Versioning
+
+Keep track of which model was used for infer:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/new_data.parquet"
+  output_path: "predictions_model_v1.csv"
+  model_path: "output/train-20260317_1430/models/model.pkl"
+  feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
+  threshold: 0.5
+```
+
+### 2. Data Quality Checks
+
+Ensure input data matches training data schema:
+
+- Same columns
+- Same data types
+- Similar value ranges
+- No new categories in categorical columns
+
+### 3. Threshold Tuning
+
+Adjust threshold based on business needs:
+
+- **High precision** (fewer false positives): Use threshold 0.7-0.9
+- **High recall** (catch more fraud): Use threshold 0.2-0.4
+- **Balanced**: Use threshold 0.5 or calibrated threshold
+
+### 4. Batch Processing
+
+For large datasets, consider splitting into batches:
+
+```bash
+# Run inference on first batch
+energizados run infer_batch1
+
+# Run inference on second batch
+energizados run infer_batch2
+```
+
+### 5. Monitoring
+
+Track inference results over time to detect model drift:
+
+- Monitor prediction distribution
+- Track fraud rate in predictions
+- Compare with historical performance
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue:** Feature engineering pipeline fails
+
+**Solution:** Ensure input data has the same columns and types as training data.
+
+**Issue:** Model loading fails
+
+**Solution:** Verify the `model_path` points to the correct file:
+- Single model: `models/model.pkl`
+- Ensemble: `models/ensemble.pkl`
+
+**Issue:** All predictions are the same
+
+**Solution:** Check that:
+- Input data is not empty
+- Feature engineering is applying correctly
+- Threshold is not set to 0.0 or 1.0
+
+**Issue:** Out of memory error
+
+**Solution:** Process data in smaller batches:
+```python
+# In custom_inference.py
+for chunk in pd.read_csv(input_path, chunksize=10000):
+    predictions = self.predict(chunk)
+    predictions.to_csv(output_path, mode='a', header=not exists)
+```
+
+---
+
+← [Configuration: Evaluation](evaluation.md) | [Troubleshooting](../troubleshooting.md) →

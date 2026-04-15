@@ -1,0 +1,115 @@
+site_name: Energizados
+site_description: Machine learning framework for detecting non-technical losses in energy distribution
+site_url: https://bid-code4dev.github.io/energizados/
+repo_url: https://github.com/bid-code4dev/energizados
+repo_name: bid-code4dev/energizados
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  # i18n: Uncomment and install mkdocs-material-extensions when adding Spanish/Portuguese
+  # - i18n:
+  #     docs_structure: folder
+  #     languages:
+  #       - locale: en
+  #         default: true
+  #         name: English
+  #         build: true
+  #       - locale: es
+  #         name: Español
+  #         build: true
+  #       - locale: pt
+  #         name: Português
+  #         build: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  version:
+    provider: mike
+  # alternate: Uncomment when i18n plugin is enabled
+  # alternate:
+  #   - name: English
+  #     link: /en/
+  #     lang: en
+  #   - name: Español
+  #     link: /es/
+  #     lang: es
+  #   - name: Português
+  #     link: /pt/
+  #     lang: pt
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Your First Project: getting-started/first-project.md
+  - User Guide:
+      - Project Structure: user-guide/project-structure.md
+      - CLI Reference: user-guide/cli-reference.md
+      - Configuration:
+          - ETLs: user-guide/configuration/etls.md
+          - Training: user-guide/configuration/training.md
+          - Evaluation: user-guide/configuration/evaluation.md
+          - Inference: user-guide/configuration/inference.md
+      - EDA Module: user-guide/eda.md
+      - Understanding Results: user-guide/understanding-results.md
+      - Troubleshooting: user-guide/troubleshooting.md
+  - Tutorials:
+      - End-to-End Example: tutorials/end-to-end-example.md
+      - Model Selection Guide: tutorials/model-selection-guide.md
+      - Ensemble Models: tutorials/ensemble-models.md
+  - Advanced:
+      - Architecture: advanced/architecture.md
+      - Development Setup: advanced/development-setup.md
+      - Extending the Framework:
+          - Custom ETL: advanced/extending/custom-etl.md
+          - Custom Model: advanced/extending/custom-model.md
+          - Custom Feature Engineering: advanced/extending/custom-feature-engineering.md
+          - Custom Preprocessing: advanced/extending/custom-preprocessing.md
+          - Custom Inference: advanced/extending/custom-inference.md
+      - Contributing: advanced/contributing.md
+      - PyPI Publishing: advanced/pypi-publishing.md

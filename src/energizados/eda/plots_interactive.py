@@ -1,0 +1,1781 @@
+"""
+Interactive Plots Module - Energizados EDA Framework.
+
+Generates interactive Plotly charts for the EDA HTML report.
+All methods return HTML strings (not file paths).
+"""
+
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+
+def _get_plotly_js_args(first: bool = False) -> Dict:
+    """Return Plotly to_html arguments. CDN is loaded in the HTML <head>."""
+    return {"full_html": False, "include_plotlyjs": False}
+
+
+class EDAInteractivePlots:
+    """
+    Generates interactive Plotly charts for the EDA report.
+
+    All methods return HTML string of the chart (not file paths).
+    The first chart call should include the Plotly.js CDN; subsequent calls should not.
+
+    Args:
+        output_dir: Output directory (kept for API consistency, not used for HTML charts)
+        template: Plotly template name
+
+    Example:
+        >>> plotter = EDAInteractivePlots("output/eda/")
+        >>> html = plotter.class_balance_chart(class_counts, class_pcts)
+    """
+
+    def __init__(self, output_dir: str, template: str = "plotly_white"):
+        self.output_dir = Path(output_dir)
+        self.template = template
+
+    def _to_html(self, fig) -> str:
+        """Convert figure to HTML. Plotly.js is loaded from CDN in the HTML <head>."""
+        args = _get_plotly_js_args()
+        try:
+            return fig.to_html(**args)
+        except Exception as e:
+            logger.warning("Error converting figure to HTML: %s", e)
+            return ""
+
+    def class_balance_chart(self, class_counts: Dict, class_pcts: Dict) -> str:
+        """
+        Bar chart showing class distribution.
+
+        Args:
+            class_counts: {label: count}
+            class_pcts: {label: percentage}
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            labels = list(class_counts.keys())
+            counts = [class_counts[label] for label in labels]
+            pcts = [class_pcts.get(label, 0) for label in labels]
+
+            colors = ["#2196F3", "#F44336", "#FF9800", "#4CAF50"]
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Bar(
+                    x=labels,
+                    y=counts,
+                    text=[f"{c:,}<br>({p:.1f}%)" for c, p in zip(counts, pcts)],
+                    textposition="outside",
+                    marker_color=colors[: len(labels)],
+                    name="Count",
+                )
+            )
+
+            fig.update_layout(
+                title="Class Distribution (Target Variable)",
+                xaxis_title="Class",
+                yaxis_title="Number of Records",
+                template=self.template,
+                showlegend=False,
+                height=400,
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping class balance chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating class balance chart: %s", e)
+            return ""
+
+    def iv_ranking_chart(self, ranking_df: pd.DataFrame) -> str:
+        """
+        Horizontal bar chart of feature IV ranking with threshold lines.
+
+        Args:
+            ranking_df: DataFrame with columns [feature, iv, type]
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if ranking_df is None or "iv" not in ranking_df.columns or len(ranking_df) == 0:
+                return ""
+
+            top = ranking_df.dropna(subset=["iv"]).nlargest(30, "iv")
+
+            colors = {"numeric": "#2196F3", "categorical": "#FF9800"}
+            bar_colors = [colors.get(t, "#9C27B0") for t in top.get("type", ["numeric"] * len(top))]
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Bar(
+                    y=top["feature"],
+                    x=top["iv"],
+                    orientation="h",
+                    marker_color=bar_colors,
+                    text=[f"{v:.4f}" for v in top["iv"]],
+                    textposition="outside",
+                    name="IV",
+                )
+            )
+
+            # Threshold lines
+            iv_thresholds = {
+                "No power (< 0.02)": 0.02,
+                "Weak (0.1)": 0.1,
+                "Moderate (0.3)": 0.3,
+                "Strong (0.5)": 0.5,
+            }
+            for label, val in iv_thresholds.items():
+                fig.add_vline(
+                    x=val,
+                    line_dash="dash",
+                    line_color="red",
+                    annotation_text=label,
+                    annotation_position="top",
+                    annotation_font_size=9,
+                )
+
+            fig.update_layout(
+                title="Variable Ranking by Information Value (IV)",
+                xaxis_title="Information Value",
+                yaxis_title="Variable",
+                template=self.template,
+                height=max(400, len(top) * 22),
+                yaxis={"categoryorder": "total ascending"},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping IV ranking chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating IV ranking chart: %s", e)
+            return ""
+
+    def woe_chart(self, woe_table: pd.DataFrame, col: str) -> str:
+        """
+        Bar chart of WoE by bin.
+
+        Args:
+            woe_table: DataFrame with columns [bin, woe, event_rate]
+            col: Feature column name (for title)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            if woe_table is None or len(woe_table) == 0:
+                return ""
+
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+            colors = ["#2196F3" if w >= 0 else "#F44336" for w in woe_table["woe"]]
+
+            fig.add_trace(
+                go.Bar(
+                    x=woe_table["bin"].astype(str),
+                    y=woe_table["woe"],
+                    name="WoE",
+                    marker_color=colors,
+                ),
+                secondary_y=False,
+            )
+
+            if "event_rate" in woe_table.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=woe_table["bin"].astype(str),
+                        y=woe_table["event_rate"],
+                        name="Event Rate",
+                        mode="lines+markers",
+                        line={"color": "orange", "width": 2},
+                    ),
+                    secondary_y=True,
+                )
+
+            fig.update_layout(
+                title=f"Weight of Evidence (WoE): {col}",
+                xaxis_title="Bin",
+                template=self.template,
+                height=400,
+            )
+            fig.update_yaxes(title_text="WoE", secondary_y=False)
+            fig.update_yaxes(title_text="Event Rate", secondary_y=True)
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping WoE chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating WoE chart for '%s': %s", col, e)
+            return ""
+
+    def missing_funnel(self, nulls_by_col: List[Dict]) -> str:
+        """
+        Funnel chart showing data loss progression from 100% to complete cases.
+
+        Args:
+            nulls_by_col: List of dicts [{col, null_count, null_pct}]
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not nulls_by_col:
+                return ""
+
+            # Sort by null_pct descending (most missing first)
+            sorted_cols = sorted(nulls_by_col, key=lambda x: x.get("null_pct", 0), reverse=True)
+            top_cols = sorted_cols[:20]
+
+            labels = [d["col"] for d in top_cols]
+            values = [100.0 - d.get("null_pct", 0) for d in top_cols]
+
+            fig = go.Figure(
+                go.Funnel(
+                    y=labels,
+                    x=values,
+                    textinfo="label+value+percent initial",
+                    hovertemplate="<b>%{y}</b><br>Complete: %{x:.1f}%<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title="Complete Data Funnel by Column",
+                template=self.template,
+                height=max(400, len(top_cols) * 30),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping missing funnel")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating missing funnel: %s", e)
+            return ""
+
+    def null_correlation_heatmap(self, corr_matrix: pd.DataFrame) -> str:
+        """
+        Interactive heatmap of null indicator correlations.
+
+        Args:
+            corr_matrix: Pre-computed correlation matrix of null indicators
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if corr_matrix is None or corr_matrix.empty:
+                return ""
+
+            fig = go.Figure(
+                go.Heatmap(
+                    z=corr_matrix.values,
+                    x=list(corr_matrix.columns),
+                    y=list(corr_matrix.index),
+                    colorscale="RdBu",
+                    zmid=0,
+                    zmin=-1,
+                    zmax=1,
+                    colorbar={"title": "Correlation"},
+                    hovertemplate="<b>%{x}</b> × <b>%{y}</b><br>Correlation: %{z:.3f}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title="Correlation between Missing Indicators",
+                template=self.template,
+                height=max(400, len(corr_matrix) * 30),
+                xaxis={"tickangle": -45},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping null correlation heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating null correlation heatmap: %s", e)
+            return ""
+
+    def consumption_heatmap(
+        self,
+        df: pd.DataFrame,
+        consumption_cols: List[str],
+        sample_n: int = 200,
+    ) -> str:
+        """
+        Heatmap of sampled consumption patterns across periods.
+
+        Args:
+            df: Input DataFrame
+            consumption_cols: Ordered list of consumption column names
+            sample_n: Number of rows to sample for display
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not consumption_cols:
+                return ""
+
+            sub = df[consumption_cols].dropna()
+            if len(sub) > sample_n:
+                sub = sub.sample(sample_n, random_state=42)
+
+            fig = go.Figure(
+                go.Heatmap(
+                    z=sub.values,
+                    x=consumption_cols,
+                    y=[f"Row {i}" for i in range(len(sub))],
+                    colorscale="Blues",
+                    colorbar={"title": "Consumption"},
+                    hovertemplate="Period: <b>%{x}</b><br>Consumption: %{z:.2f}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=f"Consumption Heatmap ({len(sub)} customer sample)",
+                xaxis_title="Period",
+                yaxis_title="Customer (sample)",
+                template=self.template,
+                height=max(400, min(sample_n * 4, 800)),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping consumption heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating consumption heatmap: %s", e)
+            return ""
+
+    def temporal_line(self, temporal_data: List[Dict], title: str = "") -> str:
+        """
+        Line chart of temporal data (e.g., fraud rate over time).
+
+        Args:
+            temporal_data: List of dicts with keys: period, total, positive, rate
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            if not temporal_data:
+                return ""
+
+            periods = [d["period"] for d in temporal_data]
+            rates = [d.get("rate", 0) for d in temporal_data]
+            totals = [d.get("total", 0) for d in temporal_data]
+
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+            fig.add_trace(
+                go.Scatter(
+                    x=periods,
+                    y=rates,
+                    mode="lines+markers",
+                    name="Fraud Rate (%)",
+                    line={"color": "#F44336", "width": 2},
+                    marker={"size": 6},
+                ),
+                secondary_y=False,
+            )
+
+            fig.add_trace(
+                go.Bar(
+                    x=periods,
+                    y=totals,
+                    name="Total Records",
+                    marker_color="rgba(33, 150, 243, 0.4)",
+                    opacity=0.6,
+                ),
+                secondary_y=True,
+            )
+
+            fig.update_layout(
+                title=title or "Temporal Evolution of Fraud Rate",
+                template=self.template,
+                height=400,
+                xaxis={"tickangle": -45},
+            )
+            fig.update_yaxes(title_text="Fraud Rate (%)", secondary_y=False)
+            fig.update_yaxes(title_text="Total Records", secondary_y=True)
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping temporal line chart")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating temporal line chart: %s", e)
+            return ""
+
+    def categorical_treemap(self, df: pd.DataFrame, col: str) -> str:
+        """Horizontal bar chart showing top 50 category distribution (replaces treemap)."""
+        try:
+            series = df[col].dropna()
+            if len(series) == 0:
+                return ""
+            vc = series.value_counts().head(50)
+            return self.categorical_bar_chart(vc, col, top_n=50)
+        except Exception as e:
+            logger.warning("Error generating categorical treemap for '%s': %s", col, e)
+            return ""
+
+    def inspection_sunburst(self, hierarchy: Dict, title: str = "Inspection Hierarchy") -> str:
+        """
+        Sunburst chart showing inspection process hierarchy.
+
+        Args:
+            hierarchy: Nested dict structure {tipo: {acao: {categories...}}}
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not hierarchy:
+                return ""
+
+            # Flatten hierarchy into sunburst format
+            labels = ["Total"]
+            parents = [""]
+            values = [
+                sum(
+                    sum(
+                        (
+                            sum(c.values())
+                            if isinstance(c, dict) and "categories" in c
+                            else (c.get("count", 0) if isinstance(c, dict) else 0)
+                        )
+                        for c in acao.values()
+                        if isinstance(acao, dict)
+                    )
+                    for acao in tipo.values()
+                )
+                for tipo in hierarchy.values()
+            ]
+
+            for tipo, acao_dict in hierarchy.items():
+                labels.append(str(tipo))
+                parents.append("Total")
+
+                tipo_count = 0
+                for acao, acao_data in acao_dict.items():
+                    if isinstance(acao_data, dict):
+                        count = acao_data.get("count", 0)
+                        categories = acao_data.get("categories", {})
+                        tipo_count += count
+
+                        labels.append(str(acao))
+                        parents.append(str(tipo))
+
+                        for cat, cat_count in categories.items():
+                            labels.append(str(cat))
+                            parents.append(str(acao))
+                            values.append(cat_count)
+
+                    if isinstance(acao_data, dict):
+                        values.append(acao_data.get("count", 0))
+
+            fig = go.Figure(
+                go.Sunburst(
+                    labels=labels,
+                    parents=parents,
+                    values=values,
+                    branchvalues="total",
+                    hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=title,
+                template=self.template,
+                height=600,
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping inspection sunburst")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating inspection sunburst: %s", e)
+            return ""
+
+    def inspection_funnel(self, funnel_data: List[Dict], title: str = "Inspection Funnel") -> str:
+        """
+        Funnel chart showing inspection process progression.
+
+        Args:
+            funnel_data: List of dicts [{stage, count, pct_of_total}]
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not funnel_data:
+                return ""
+
+            fig = go.Figure(
+                go.Funnel(
+                    y=[d.get("stage", "") for d in funnel_data],
+                    x=[d.get("count", 0) for d in funnel_data],
+                    textinfo="label+value+percent initial",
+                    hovertemplate="<b>%{y}</b><br>Count: %{x}<br>Initial percentage: %{percentInitial:.1%}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title=title,
+                template=self.template,
+                height=max(400, len(funnel_data) * 50),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping inspection funnel")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating inspection funnel: %s", e)
+            return ""
+
+    def scatter_mapbox(
+        self,
+        df: pd.DataFrame,
+        lat_col: str,
+        lon_col: str,
+        color_col: Optional[str] = None,
+        id_col: Optional[str] = None,
+        clustering: Optional[Dict] = None,
+        title: str = "Geographic Distribution",
+    ) -> str:
+        """
+        Scatter mapbox chart of geographic data.
+
+        Args:
+            df: Input DataFrame
+            lat_col: Latitude column
+            lon_col: Longitude column
+            color_col: Column to use for color (optional, e.g., target or zone).
+                       Binary (0/1) columns get semantic colors: blue=0, red=1.
+            id_col: Client ID column shown in hover tooltip (optional)
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.express as px
+
+            base_cols = [lat_col, lon_col]
+            if color_col and color_col in df.columns:
+                base_cols.append(color_col)
+            if id_col and id_col in df.columns:
+                base_cols.append(id_col)
+
+            sub = df[base_cols].copy()
+
+            # Force numeric types — lat/lon may arrive as object/string from ETL
+            sub[lat_col] = pd.to_numeric(sub[lat_col], errors="coerce")
+            sub[lon_col] = pd.to_numeric(sub[lon_col], errors="coerce")
+
+            sub = sub.dropna(subset=[lat_col, lon_col])
+            sub = sub[(sub[lat_col] != 0) & (sub[lon_col] != 0)]
+
+            if len(sub) == 0:
+                return ""
+
+            # Sample if too many points
+            if len(sub) > 10000:
+                sub = sub.sample(10000, random_state=42)
+
+            # Detect binary target (0/1) → semantic colors blue=0, red=1
+            color_discrete_map = None
+            if color_col and color_col in sub.columns:
+                unique_vals = set(sub[color_col].dropna().unique())
+                if unique_vals.issubset({0, 1, 0.0, 1.0, True, False}):
+                    sub[color_col] = sub[color_col].astype(int).astype(str)
+                    color_discrete_map = {"0": "#2196F3", "1": "#E53935"}
+
+            # Count per category (after possible int→str conversion)
+            counts: Optional[pd.Series] = None
+            if color_col and color_col in sub.columns:
+                counts = sub[color_col].value_counts()
+
+            # Build custom_data and hovertemplate for precise tooltip control
+            custom_cols: List[str] = []
+            if id_col and id_col in sub.columns:
+                custom_cols.append(id_col)
+
+            # Always suppress raw lat/lon from auto-tooltip; build explicit template
+            hover_data: dict = {lat_col: False, lon_col: False}
+
+            scatter_kwargs = dict(
+                lat=lat_col,
+                lon=lon_col,
+                color=color_col if color_col else None,
+                hover_data=hover_data,
+                custom_data=custom_cols if custom_cols else None,
+                title=title,
+                height=600,
+            )
+            if color_discrete_map:
+                scatter_kwargs["color_discrete_map"] = color_discrete_map
+            else:
+                scatter_kwargs["color_discrete_sequence"] = px.colors.qualitative.Bold
+
+            # Use scatter_map (new API) with fallback to deprecated scatter_mapbox
+            try:
+                fig = px.scatter_map(sub, map_style="carto-positron", **scatter_kwargs)
+            except AttributeError:
+                # plotly < 5.24 doesn't have scatter_map yet
+                fig = px.scatter_mapbox(sub, mapbox_style="carto-positron", **scatter_kwargs)
+
+            # Inject id_col into hovertemplate for every scatter trace
+            if custom_cols:
+                id_label = id_col or "ID"
+                for trace in fig.data:
+                    existing = getattr(trace, "hovertemplate", None) or ""
+                    trace.hovertemplate = f"<b>{id_label}</b>: %{{customdata[0]}}<br>" + existing
+
+            # Add client counts to legend labels
+            if counts is not None:
+                for trace in fig.data:
+                    n = counts.get(trace.name, 0)
+                    trace.name = f"{trace.name} ({n:,} clients)"
+
+            # Overlay cluster convex hulls + centroids
+            cluster_points = (clustering or {}).get("cluster_points")
+            cluster_stats = (clustering or {}).get("cluster_stats", [])
+            if cluster_points:
+                self._add_cluster_overlay(fig, cluster_points, cluster_stats)
+
+            fig.update_layout(
+                template=self.template,
+                margin={"r": 0, "t": 50, "l": 0, "b": 0},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping scatter mapbox")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating scatter mapbox: %s", e)
+            return ""
+
+    def _add_cluster_overlay(
+        self,
+        fig,
+        cluster_points: List[Dict],
+        cluster_stats: List[Dict],
+    ) -> None:
+        """
+        Add K-Means cluster convex hulls and centroid markers to an existing map figure.
+
+        Hulls are drawn as semi-transparent filled polygons (opacity 0.10) with a
+        visible border, inserted BEFORE the scatter traces so points render on top.
+        Centroids are labeled star markers in a separate trace.
+
+        Args:
+            fig: Plotly figure with scatter_map / scatter_mapbox traces
+            cluster_points: List of {lat, lon, cluster_id} dicts from geo_analyzer
+            cluster_stats: List of cluster stat dicts (for centroid labels and hover)
+        """
+        try:
+            from collections import defaultdict
+
+            import numpy as np
+            import plotly.graph_objects as go
+
+            CLUSTER_COLORS = [
+                "#E91E63",
+                "#9C27B0",
+                "#3F51B5",
+                "#009688",
+                "#FF5722",
+                "#795548",
+                "#607D8B",
+                "#F44336",
+                "#673AB7",
+                "#00BCD4",
+                "#8BC34A",
+                "#FF9800",
+            ]
+
+            # Group points by cluster_id
+            groups: Dict[int, List] = defaultdict(list)
+            for pt in cluster_points:
+                groups[int(pt["cluster_id"])].append((pt["lat"], pt["lon"]))
+
+            stat_by_id = {s["cluster_id"]: s for s in cluster_stats}
+
+            hull_lats: List = []
+            hull_lons: List = []
+            hull_texts: List = []
+            centroid_lats: List = []
+            centroid_lons: List = []
+            centroid_texts: List = []
+            centroid_colors: List = []
+            centroid_labels: List = []
+
+            for cluster_id, pts in sorted(groups.items()):
+                color = CLUSTER_COLORS[cluster_id % len(CLUSTER_COLORS)]
+                pts_arr = np.array(pts)
+
+                stat = stat_by_id.get(cluster_id, {})
+                fraud_str = (
+                    f"<br>Fraud rate: {stat['fraud_rate']:.1%}"
+                    if stat.get("fraud_rate") is not None
+                    else ""
+                )
+                hover = (
+                    f"<b>Cluster {cluster_id}</b><br>"
+                    f"Clients: {stat.get('count', len(pts)):,}"
+                    f"{fraud_str}"
+                )
+
+                # Convex hull vertices (requires ≥3 distinct points)
+                hull_pts = None
+                if len(pts_arr) >= 3:
+                    try:
+                        from scipy.spatial import ConvexHull
+
+                        hull = ConvexHull(pts_arr)
+                        verts = pts_arr[hull.vertices]
+                        hull_pts = np.vstack([verts, verts[0]])  # close polygon
+                    except Exception:  # nosec B110
+                        pass
+
+                if hull_pts is None:
+                    # Fallback: bounding box
+                    lat_min, lat_max = pts_arr[:, 0].min(), pts_arr[:, 0].max()
+                    lon_min, lon_max = pts_arr[:, 1].min(), pts_arr[:, 1].max()
+                    hull_pts = np.array(
+                        [
+                            [lat_min, lon_min],
+                            [lat_max, lon_min],
+                            [lat_max, lon_max],
+                            [lat_min, lon_max],
+                            [lat_min, lon_min],
+                        ]
+                    )
+
+                # Append hull + None separator (disconnects polygons in one trace)
+                hull_lats.extend(hull_pts[:, 0].tolist() + [None])
+                hull_lons.extend(hull_pts[:, 1].tolist() + [None])
+                hull_texts.extend([hover] * len(hull_pts) + [None])
+
+                centroid_lats.append(stat.get("lat_center", float(pts_arr[:, 0].mean())))
+                centroid_lons.append(stat.get("lon_center", float(pts_arr[:, 1].mean())))
+                centroid_texts.append(hover)
+                centroid_colors.append(color)
+                centroid_labels.append(str(cluster_id))
+
+            # Detect API: scatter_map (new) vs scatter_mapbox (legacy)
+            # scatter_map does NOT support fill or marker.line
+            use_mapbox = any(t.type == "scattermapbox" for t in fig.data)
+            TraceType = go.Scattermapbox if use_mapbox else go.Scattermap
+
+            hull_kwargs: Dict = dict(
+                lat=hull_lats,
+                lon=hull_lons,
+                mode="lines",
+                line={"width": 1.5, "color": "rgba(100,100,100,0.45)"},
+                hoverinfo="text",
+                hovertext=hull_texts,
+                name="Clusters",
+                legendgroup="clusters",
+                showlegend=True,
+            )
+            if use_mapbox:
+                hull_kwargs["fill"] = "toself"
+                hull_kwargs["fillcolor"] = "rgba(100,100,100,0.10)"
+
+            centroid_marker: Dict = {
+                "size": 16,
+                "symbol": "star",
+                "color": centroid_colors,
+                "opacity": 0.95,
+            }
+            if use_mapbox:
+                centroid_marker["line"] = {"width": 1.5, "color": "white"}
+
+            centroid_trace = TraceType(
+                lat=centroid_lats,
+                lon=centroid_lons,
+                mode="markers+text",
+                marker=centroid_marker,
+                text=centroid_labels,
+                textposition="middle center",
+                textfont={"size": 8, "color": "white"},
+                hoverinfo="text",
+                hovertext=centroid_texts,
+                name="Cluster centers",
+                legendgroup="clusters",
+                showlegend=True,
+            )
+
+            hull_trace = TraceType(**hull_kwargs)
+
+            # Add traces then move them to the front so scatter points render on top
+            fig.add_trace(hull_trace)
+            fig.add_trace(centroid_trace)
+            # Reorder: last 2 (hull, centroids) → front
+            data = list(fig.data)
+            fig.data = tuple(data[-2:] + data[:-2])
+
+        except Exception as e:
+            logger.warning("Could not add cluster overlay: %s", e)
+
+    # ------------------------------------------------------------------
+    # Column detail charts (matplotlib/seaborn — embedded as base64 PNG)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _fig_to_html(fig, alt: str = "") -> str:
+        """Convert a matplotlib Figure to an <img> HTML tag with base64 PNG."""
+        import base64
+        import io
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode("utf-8")
+        buf.close()
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+        return f'<img src="data:image/png;base64,{b64}" alt="{alt}" style="max-width:100%;height:auto;"/>'
+
+    def histogram_interactive(
+        self,
+        series: pd.Series,
+        col_name: str,
+        target_series: Optional[pd.Series] = None,
+    ) -> str:
+        """Histogram with KDE, split by binary target when available."""
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            data = series.dropna()
+            if len(data) == 0:
+                return ""
+
+            fig, ax = plt.subplots(figsize=(7, 4))
+            colors = ["#2196F3", "#F44336"]
+
+            if target_series is not None:
+                mask = target_series.reindex(data.index).dropna()
+                common = data.index.intersection(mask.index)
+                for i, v in enumerate(sorted(mask.unique())):
+                    subset = data.loc[common[mask.loc[common] == v]]
+                    if len(subset) > 0:
+                        ax.hist(
+                            subset,
+                            bins=30,
+                            alpha=0.5,
+                            color=colors[i % len(colors)],
+                            label=f"Class {int(v)}",
+                            density=True,
+                        )
+                ax.legend()
+            else:
+                ax.hist(data, bins=30, color="#2196F3", alpha=0.7, density=True)
+
+            ax.set_title(f"Distribution: {col_name}", fontsize=12)
+            ax.set_xlabel(col_name)
+            ax.set_ylabel("Density")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"histogram {col_name}")
+        except Exception as e:
+            logger.warning("Error generating histogram for '%s': %s", col_name, e)
+            return ""
+
+    def boxplot_interactive(
+        self,
+        series: pd.Series,
+        col_name: str,
+        target_series: Optional[pd.Series] = None,
+    ) -> str:
+        """Boxplot split by binary target when available."""
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            data = series.dropna()
+            if len(data) == 0:
+                return ""
+
+            fig, ax = plt.subplots(figsize=(5, 4))
+
+            if target_series is not None:
+                mask = target_series.reindex(data.index).dropna()
+                common = data.index.intersection(mask.index)
+                groups = [
+                    data.loc[common[mask.loc[common] == v]].values for v in sorted(mask.unique())
+                ]
+                labels = [f"Class {int(v)}" for v in sorted(mask.unique())]
+                groups = [g for g in groups if len(g) > 0]
+                ax.boxplot(
+                    groups,
+                    labels=labels[: len(groups)],
+                    patch_artist=True,
+                    boxprops={"facecolor": "#bbdefb"},
+                )
+            else:
+                ax.boxplot(
+                    data.values,
+                    labels=[col_name],
+                    patch_artist=True,
+                    boxprops={"facecolor": "#bbdefb"},
+                )
+
+            ax.set_title(f"Boxplot: {col_name}", fontsize=12)
+            ax.set_ylabel(col_name)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"boxplot {col_name}")
+        except Exception as e:
+            logger.warning("Error generating boxplot for '%s': %s", col_name, e)
+            return ""
+
+    def categorical_bar_chart(self, value_counts: pd.Series, col_name: str, top_n: int = 30) -> str:
+        """Horizontal bar chart of top N category frequencies."""
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            if value_counts is None or len(value_counts) == 0:
+                return ""
+
+            top = value_counts.head(top_n)
+            total = value_counts.sum()
+            pcts = (top / total * 100).round(1)
+
+            height = max(4, len(top) * 0.35)
+            fig, ax = plt.subplots(figsize=(8, height))
+            y_pos = range(len(top))
+            bars = ax.barh(list(y_pos), top.values, color="#2196F3", alpha=0.8)
+            ax.set_yticks(list(y_pos))
+            ax.set_yticklabels([str(v)[:40] for v in top.index], fontsize=9)
+            for bar, pct in zip(bars, pcts):
+                ax.text(
+                    bar.get_width() * 1.01,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{pct:.1f}%",
+                    va="center",
+                    fontsize=8,
+                )
+            ax.set_title(f"Frequencies: {col_name} (top {len(top)})", fontsize=12)
+            ax.set_xlabel("Count")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"bar chart {col_name}")
+        except Exception as e:
+            logger.warning("Error generating bar chart for '%s': %s", col_name, e)
+            return ""
+
+    def target_rate_by_category(
+        self,
+        df: pd.DataFrame,
+        col: str,
+        target_col: str,
+        top_n: int = 30,
+    ) -> str:
+        """Bar chart of target rate per category value."""
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            if col not in df.columns or target_col not in df.columns:
+                return ""
+
+            sub = df[[col, target_col]].dropna()
+            if len(sub) == 0:
+                return ""
+
+            grouped = sub.groupby(col, observed=True)[target_col].agg(["mean", "count"])
+            grouped = grouped.sort_values("mean", ascending=False).head(top_n)
+            rates = (grouped["mean"] * 100).round(2)
+            median_rate = float(rates.median())
+            colors = ["#F44336" if r > median_rate else "#2196F3" for r in rates.values]
+
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.bar(range(len(rates)), rates.values, color=colors, alpha=0.85)
+            ax.set_xticks(range(len(rates)))
+            ax.set_xticklabels(
+                [str(v)[:20] for v in grouped.index], rotation=45, ha="right", fontsize=8
+            )
+            ax.set_title(f"Target Rate by: {col}", fontsize=12)
+            ax.set_ylabel("Target Rate (%)")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"target rate {col}")
+        except Exception as e:
+            logger.warning("Error generating target rate chart for '%s': %s", col, e)
+            return ""
+
+    def woe_by_bins_chart(self, woe_table: pd.DataFrame, col: str) -> str:
+        """WoE chart for numeric column bins (delegates to existing woe_chart)."""
+        return self.woe_chart(woe_table, col)
+
+    def temporal_distribution_chart(self, series: pd.Series, col_name: str) -> str:
+        """Line chart showing record count over time (monthly)."""
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            data = pd.to_datetime(series, errors="coerce", format="mixed", dayfirst=True).dropna()
+            if len(data) == 0:
+                return ""
+
+            counts = data.dt.to_period("M").value_counts().sort_index()
+            periods = [str(p) for p in counts.index]
+
+            fig, ax = plt.subplots(figsize=(9, 4))
+            ax.plot(
+                range(len(periods)),
+                counts.values,
+                color="#1a237e",
+                linewidth=2,
+                marker="o",
+                markersize=4,
+            )
+            step = max(1, len(periods) // 12)
+            ax.set_xticks(range(0, len(periods), step))
+            ax.set_xticklabels(periods[::step], rotation=45, ha="right", fontsize=8)
+            ax.set_title(f"Temporal Distribution: {col_name}", fontsize=12)
+            ax.set_xlabel("Period")
+            ax.set_ylabel("Records")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            fig.tight_layout()
+            return self._fig_to_html(fig, alt=f"temporal {col_name}")
+        except Exception as e:
+            logger.warning("Error generating temporal distribution for '%s': %s", col_name, e)
+            return ""
+
+    # ------------------------------------------------------------------
+    # Hierarchy / Related columns charts
+    # ------------------------------------------------------------------
+
+    def sunburst_hierarchy(
+        self,
+        df: pd.DataFrame,
+        columns: List[str],
+        title: str = "Hierarchy",
+    ) -> str:
+        """Generic sunburst chart from a DataFrame and ordered list of hierarchy columns."""
+        try:
+            import plotly.express as px
+
+            sub = df[columns].dropna().copy()
+            if len(sub) == 0:
+                return ""
+
+            # Add prefixes to avoid label collision between levels
+            renamed_cols = []
+            for i, col in enumerate(columns):
+                new_col = f"_lvl{i}_{col}"
+                sub[new_col] = sub[col].astype(str)
+                renamed_cols.append(new_col)
+
+            sub["_count"] = 1
+            grouped = sub.groupby(renamed_cols, as_index=False)["_count"].sum()
+
+            fig = px.sunburst(
+                grouped,
+                path=renamed_cols,
+                values="_count",
+                title=title,
+                template=self.template,
+            )
+            # Clean labels: remove prefix
+            fig.update_traces(
+                textinfo="label+percent parent",
+                hovertemplate="<b>%{label}</b><br>Count: %{value}<br>% of parent: %{percentParent:.1%}<extra></extra>",
+            )
+            fig.update_layout(height=600)
+            # Remove prefixes from displayed labels
+            fig.for_each_trace(
+                lambda t: t.update(
+                    labels=[
+                        lbl.split("_", 2)[-1] if lbl.startswith("_lvl") else lbl
+                        for lbl in (t.labels if t.labels is not None else [])
+                    ]
+                )
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating sunburst: %s", e)
+            return ""
+
+    def sankey_hierarchy(
+        self,
+        df: pd.DataFrame,
+        columns: List[str],
+        title: str = "Flow between Levels",
+    ) -> str:
+        """Sankey diagram showing flow between adjacent hierarchy levels."""
+        try:
+            import plotly.graph_objects as go
+
+            if len(columns) < 2:
+                return ""
+
+            sub = df[columns].dropna().copy()
+            if len(sub) == 0:
+                return ""
+
+            # Build per-adjacent-pair flows, aggregate small categories as "Otros"
+            all_labels: List[str] = []
+            sources: List[int] = []
+            targets: List[int] = []
+            values: List[int] = []
+            label_index: Dict[str, int] = {}
+
+            def _get_idx(label: str) -> int:
+                if label not in label_index:
+                    label_index[label] = len(all_labels)
+                    all_labels.append(label)
+                return label_index[label]
+
+            for i in range(len(columns) - 1):
+                src_col, tgt_col = columns[i], columns[i + 1]
+                pair = sub.groupby([src_col, tgt_col]).size().reset_index(name="count")
+                total = pair["count"].sum()
+
+                # Aggregate categories < 1% into "Otros"
+                threshold = total * 0.01
+                for col_name in [src_col, tgt_col]:
+                    col_totals = pair.groupby(col_name)["count"].sum()
+                    small = col_totals[col_totals < threshold].index
+                    if len(small) > 0:
+                        pair[col_name] = pair[col_name].apply(
+                            lambda x, s=small, cn=col_name: f"Others ({cn})" if x in s else x
+                        )
+                        pair = pair.groupby([src_col, tgt_col], as_index=False)["count"].sum()
+
+                for _, row in pair.iterrows():
+                    src_label = f"{src_col}: {row[src_col]}"
+                    tgt_label = f"{tgt_col}: {row[tgt_col]}"
+                    sources.append(_get_idx(src_label))
+                    targets.append(_get_idx(tgt_label))
+                    values.append(int(row["count"]))
+
+            if not values:
+                return ""
+
+            fig = go.Figure(
+                go.Sankey(
+                    node={"label": all_labels, "pad": 15, "thickness": 20},
+                    link={"source": sources, "target": targets, "value": values},
+                )
+            )
+            fig.update_layout(
+                title=title, template=self.template, height=max(500, len(all_labels) * 20)
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating sankey: %s", e)
+            return ""
+
+    def hierarchy_target_heatmap(
+        self,
+        cross_target: pd.DataFrame,
+        title: str = "Target Rate by Combination",
+    ) -> str:
+        """Heatmap of target rate by hierarchy combination (2D crosstab)."""
+        try:
+            import plotly.graph_objects as go
+
+            if cross_target is None or cross_target.empty:
+                return ""
+
+            fig = go.Figure(
+                go.Heatmap(
+                    z=cross_target.values,
+                    x=[str(c) for c in cross_target.columns],
+                    y=[str(i) for i in cross_target.index],
+                    colorscale="RdYlGn_r",
+                    colorbar={"title": "Target Rate"},
+                    hovertemplate="<b>%{y}</b> × <b>%{x}</b><br>Rate: %{z:.2%}<extra></extra>",
+                )
+            )
+            fig.update_layout(
+                title=title,
+                template=self.template,
+                height=max(400, len(cross_target) * 25),
+                xaxis={"tickangle": -45},
+            )
+            return self._to_html(fig)
+        except Exception as e:
+            logger.warning("Error generating hierarchy target heatmap: %s", e)
+            return ""
+
+    def segment_barplot(
+        self, segment_stats: List[Dict], title: str = "Fraud Rate by Segment"
+    ) -> str:
+        """
+        Bar chart showing fraud rate by segment.
+
+        Args:
+            segment_stats: List of dicts [{segment, size, target_rate, z_score}]
+            title: Chart title
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not segment_stats:
+                return ""
+
+            top_segments = sorted(
+                segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True
+            )[:20]
+
+            segments = [s["segment"] for s in top_segments]
+            rates = [s.get("target_rate", 0) * 100 for s in top_segments]
+            sizes = [s.get("size", 0) for s in top_segments]
+
+            fig = go.Figure()
+
+            fig.add_trace(
+                go.Bar(
+                    x=segments,
+                    y=rates,
+                    text=[f"{r:.1f}%<br>(n={s:,})" for r, s in zip(rates, sizes)],
+                    textposition="outside",
+                    marker_color=["#F44336" if r > 5 else "#2196F3" for r in rates],
+                )
+            )
+
+            fig.update_layout(
+                title=title,
+                xaxis_title="Segment",
+                yaxis_title="Fraud Rate (%)",
+                template=self.template,
+                height=max(400, len(segments) * 25),
+                xaxis={"tickangle": -45},
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping segment barplot")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating segment barplot: %s", e)
+            return ""
+
+    # ------------------------------------------------------------------
+    # Outlier Analysis Interactive Charts
+    # ------------------------------------------------------------------
+
+    def outlier_heatmap(
+        self,
+        outlier_masks: Dict[str, pd.Series],
+        max_rows: int = 500,
+        max_cols: int = 20,
+    ) -> str:
+        """
+        Binary heatmap showing outlier detection results per column and row.
+
+        Each cell = 1 if that row's value in that column was flagged as an outlier
+        by the IQR method (default), 0 otherwise. Useful to spot rows that are
+        flagged across many columns (global anomalies) and columns that flag many
+        rows (systematic outlier sources).
+
+        Args:
+            outlier_masks: Dict of {col_name: boolean pd.Series} — True = outlier
+            max_rows: Maximum rows to display (sampled, for performance). Default 500.
+            max_cols: Maximum columns to display. Default 20.
+
+        Returns:
+            str: HTML string of the Plotly heatmap
+        """
+        try:
+            import numpy as np
+            import plotly.graph_objects as go
+
+            if not outlier_masks:
+                return ""
+
+            cols = list(outlier_masks.keys())[:max_cols]
+
+            # Build a DataFrame of outlier flags
+            masks = []
+            labels = []
+            for col in cols:
+                s = outlier_masks[col]
+                masks.append(s.astype(int).values)
+                labels.append(col)
+
+            matrix = np.array(masks, dtype=float).T  # shape: (rows, cols)
+
+            total_rows = matrix.shape[0]
+            if total_rows > max_rows:
+                np.random.seed(42)
+                idx = np.random.choice(total_rows, max_rows, replace=False)
+                matrix = matrix[idx]
+            else:
+                idx = np.arange(total_rows)
+
+            heatmap = go.Heatmap(
+                z=matrix,
+                x=cols,
+                y=[f"Row {i}" for i in idx],
+                colorscale=[
+                    [0.0, "#E8F5E9"],
+                    [1.0, "#E53935"],
+                ],
+                colorbar=dict(
+                    title="Outlier",
+                    tickvals=[0, 1],
+                    ticktext=["Normal", "Outlier"],
+                ),
+                showscale=True,
+                hovertemplate="<b>%{y}</b><br>Column: %{x}<br>Status: %{z:text}<extra></extra>",
+                text=[["Outlier" if v == 1 else "Normal" for v in row] for row in matrix],
+            )
+
+            fig = go.Figure(data=[heatmap])
+            fig.update_layout(
+                title=dict(text="Outlier Detection Heatmap (IQR Method)", font=dict(size=15)),
+                template=self.template,
+                height=max(350, min(len(idx) * 4 + 80, 700)),
+                xaxis=dict(tickangle=-35, side="bottom"),
+                yaxis=dict(autorange="reversed", showticklabels=False, ticks=""),
+                margin=dict(l=20, r=20, t=60, b=120),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping outlier heatmap")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating outlier heatmap: %s", e)
+            return ""
+
+    def plotly_outlier_boxplots(
+        self,
+        df: pd.DataFrame,
+        numeric_cols: List[str],
+        outlier_masks: Dict[str, pd.Series],
+        max_cols: int = 12,
+    ) -> str:
+        """
+        Interactive violin + box chart per column, outlier points overlaid in red.
+
+        Each column becomes one violin+box showing the full distribution, with
+        detected outlier points jittered on top in red. Hover shows value and
+        outlier status. Columns are sorted by outlier % and limited to max_cols
+        for performance. Data is sampled to max 2000 rows per column.
+
+        Args:
+            df: Input DataFrame
+            numeric_cols: List of numeric column names
+            outlier_masks: Dict of {col: pd.Series(boolean)} indicating outliers
+            max_cols: Maximum columns to display (default 12, sorted by outlier %)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            # Sort by outlier % descending and take top N
+            col_pcts = []
+            for col in numeric_cols:
+                if col not in df.columns:
+                    continue
+                mask = outlier_masks.get(col, pd.Series(False, index=df.index))
+                total = len(mask)
+                n = int(mask.sum())
+                pct = n / total * 100 if total > 0 else 0.0
+                col_pcts.append((pct, col))
+
+            col_pcts.sort(reverse=True)
+            display_cols = [c for _, c in col_pcts[:max_cols]]
+
+            fig = go.Figure()
+            sample_size = min(2000, len(df))
+
+            for col in display_cols:
+                if col not in df.columns:
+                    continue
+
+                # Sample data for performance
+                df_sample = df.sample(sample_size, random_state=42) if len(df) > sample_size else df
+                clean_data = df_sample[col].dropna()
+                outlier_mask = outlier_masks.get(col, pd.Series(False, index=df_sample.index))
+                is_outlier = outlier_mask.reindex(clean_data.index).fillna(False)
+                outlier_pct = is_outlier.sum() / len(is_outlier) * 100 if len(is_outlier) > 0 else 0
+
+                label = f"{col}<br>({outlier_pct:.1f}%)"
+
+                # Violin + box for sampled data
+                fig.add_trace(
+                    go.Violin(
+                        y=clean_data.values,
+                        x=[label] * len(clean_data),
+                        name=col,
+                        box_visible=True,
+                        meanline_visible=True,
+                        fillcolor="rgba(33,150,243,0.2)",
+                        line_color="#1565C0",
+                        points=False,
+                        showlegend=False,
+                        hoverinfo="skip",
+                    )
+                )
+
+                # Outlier points on top
+                outlier_vals = clean_data[is_outlier]
+                if len(outlier_vals) > 0:
+                    sample = (
+                        outlier_vals
+                        if len(outlier_vals) <= 200
+                        else outlier_vals.sample(200, random_state=42)
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            y=sample.values,
+                            x=[label] * len(sample),
+                            mode="markers",
+                            marker=dict(color="#E53935", size=5, opacity=0.7, symbol="circle"),
+                            name=f"Outliers ({col})",
+                            showlegend=False,
+                            hovertemplate=f"<b>{col}</b><br>Value: %{{y:.3f}}<br><i>Outlier</i><extra></extra>",
+                        )
+                    )
+
+            fig.update_layout(
+                title=dict(
+                    text="Outlier Distribution by Column (Top N by % Outliers)", font=dict(size=15)
+                ),
+                template=self.template,
+                height=max(400, 350 + len(display_cols) * 35),
+                yaxis=dict(title="Value", zeroline=False),
+                xaxis=dict(tickangle=-35),
+                margin=dict(l=60, r=30, t=60, b=120),
+                violingap=0.2,
+                violinmode="group",
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping interactive outlier boxplots")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating interactive outlier boxplots: %s", e)
+            return ""
+
+    def plotly_outlier_summary_bar(
+        self,
+        multi_method_masks: Dict[str, Dict[str, pd.Series]],
+    ) -> str:
+        """
+        Horizontal grouped bar chart showing % of outliers per column,
+        grouped by detection method (IQR, Z-score, Modified Z-score).
+
+        Accepts Dict[col -> {method -> mask}] format where each column can have
+        results from multiple methods. Each method gets its own bar segment.
+
+        Args:
+            multi_method_masks: Dict of {col: {method: boolean pd.Series}}
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+
+            if not multi_method_masks:
+                return ""
+
+            cols = list(multi_method_masks.keys())
+            method_names = []
+            for col in cols:
+                for m in multi_method_masks[col]:
+                    if m not in method_names:
+                        method_names.append(m)
+
+            if not method_names:
+                return ""
+
+            method_colors = {"iqr": "#2196F3", "zscore": "#FF9800", "modified_zscore": "#9C27B0"}
+            default_colors = ["#2196F3", "#FF9800", "#9C27B0", "#4CAF50", "#F44336"]
+            method_color_map = {
+                m: method_colors.get(m.lower(), default_colors[i % len(default_colors)])
+                for i, m in enumerate(method_names)
+            }
+
+            pct_data = {}
+            count_data = {}
+            for col in cols:
+                pcts_col = []
+                counts_col = []
+                for method in method_names:
+                    mask = multi_method_masks[col].get(method)
+                    if mask is not None:
+                        total = len(mask)
+                        n = int(mask.sum())
+                        pcts_col.append(round(n / total * 100, 2) if total > 0 else 0.0)
+                        counts_col.append(n)
+                    else:
+                        pcts_col.append(0.0)
+                        counts_col.append(0)
+                pct_data[col] = pcts_col
+                count_data[col] = counts_col
+
+            cols_sorted = sorted(cols, key=lambda c: max(pct_data.get(c, [0])), reverse=True)
+
+            fig = go.Figure()
+            for i, method in enumerate(method_names):
+                pcts = [pct_data[c][i] for c in cols_sorted]
+                fig.add_trace(
+                    go.Bar(
+                        name=method.replace("_", " ").title(),
+                        x=pcts,
+                        y=cols_sorted,
+                        orientation="h",
+                        marker_color=method_color_map.get(
+                            method, default_colors[i % len(default_colors)]
+                        ),
+                        text=[f"{p:.1f}%" if p > 0 else "" for p in pcts],
+                        textposition="outside",
+                        hovertemplate=f"<b>{{=y}}</b><br>Method: {method}<br>Outliers: %{{x:.2f}}%<extra></extra>",
+                        offsetgroup=str(i),
+                    )
+                )
+
+            fig.add_vline(
+                x=10,
+                line_dash="dash",
+                line_color="#E53935",
+                annotation_text="Alert threshold (10%)",
+                annotation_position="top right",
+                annotation_font_size=11,
+            )
+
+            fig.update_layout(
+                title=dict(text="Outlier % by Column and Method", font=dict(size=15)),
+                template=self.template,
+                xaxis=dict(title="% Outliers", range=[0, 25]),
+                yaxis=dict(autorange="reversed"),
+                barmode="group",
+                height=max(350, len(cols_sorted) * 28 + 120),
+                margin=dict(l=20, r=80, t=60, b=50),
+                legend=dict(
+                    title="Method",
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                ),
+            )
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping outlier summary bar")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating outlier summary bar: %s", e)
+            return ""
+
+    def plotly_consumption_anomalies(
+        self,
+        df: pd.DataFrame,
+        consumption_cols: List[str],
+        outlier_mask: Optional[pd.Series] = None,
+        target_col: Optional[str] = None,
+        sample_n: int = 500,
+        id_col: Optional[str] = None,
+    ) -> str:
+        """
+        Interactive scatter plots of consumption anomalies with linked brushing.
+
+        Args:
+            df: Input DataFrame
+            consumption_cols: List of consumption column names (ordered)
+            outlier_mask: Boolean series indicating outlier rows (optional)
+            target_col: Binary target column for coloring (optional)
+            sample_n: Number of rows to sample (for performance)
+            id_col: Column name to show as identifier in tooltip (optional)
+
+        Returns:
+            str: HTML string of the Plotly chart
+        """
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            # Sample if too many rows
+            if len(df) > sample_n:
+                sample_df = df.sample(sample_n, random_state=42)
+            else:
+                sample_df = df.copy()
+
+            # Determine color column
+            if target_col and target_col in sample_df.columns:
+                color_col = target_col
+                color_map = {0: "Normal", 1: "Fraud"}
+            elif outlier_mask is not None:
+                color_col = "outlier_status"
+                sample_df = sample_df.copy()
+                sample_df["outlier_status"] = (
+                    outlier_mask.reindex(sample_df.index)
+                    .fillna(False)
+                    .map({False: "Normal", True: "Outlier"})
+                )
+                color_map = None
+            else:
+                color_col = None
+                color_map = None
+                _ = color_map  # noqa: F841
+
+            # Create subplots - one per period
+            display_cols = consumption_cols
+            n_cols = 3
+            n_rows = (len(display_cols) + n_cols - 1) // n_cols
+
+            fig = make_subplots(
+                rows=n_rows,
+                cols=n_cols,
+                subplot_titles=display_cols,
+                vertical_spacing=0.12,
+                horizontal_spacing=0.1,
+            )
+
+            for i, col in enumerate(display_cols):
+                if col not in sample_df.columns:
+                    continue
+
+                row = i // n_cols + 1
+                col_pos = i % n_cols + 1
+
+                has_id = id_col and id_col in sample_df.columns
+                id_label = id_col if has_id else None
+
+                if color_col and color_col in sample_df.columns:
+                    # Separate traces for legend
+                    for val in sample_df[color_col].unique():
+                        subset = sample_df[sample_df[color_col] == val]
+                        color = (
+                            "#F44336"
+                            if val == 1 or val == "Fraud" or val == "Outlier"
+                            else "#2196F3"
+                        )
+                        id_prefix = f"<b>{id_label}</b>: %{{customdata[0]}}<br>" if has_id else ""
+                        fig.add_trace(
+                            go.Scatter(
+                                x=list(range(len(subset))),
+                                y=subset[col],
+                                mode="markers",
+                                name=f"{val}" if i == 0 else None,
+                                marker={"color": color, "opacity": 0.6, "size": 6},
+                                showlegend=(i == 0),
+                                customdata=(subset[[id_col]].values if has_id else None),
+                                hovertemplate=f"{id_prefix}Row: %{{x}}<br>Consumption: %{{y:.2f}}<br>Status: {val}<extra></extra>",
+                            ),
+                            row=row,
+                            col=col_pos,
+                        )
+                else:
+                    id_prefix = f"<b>{id_label}</b>: %{{customdata[0]}}<br>" if has_id else ""
+                    fig.add_trace(
+                        go.Scatter(
+                            x=list(range(len(sample_df))),
+                            y=sample_df[col],
+                            mode="markers",
+                            name="Consumption" if i == 0 else None,
+                            marker={"color": "#2196F3", "opacity": 0.6, "size": 6},
+                            showlegend=(i == 0),
+                            customdata=(sample_df[[id_col]].values if has_id else None),
+                            hovertemplate=f"{id_prefix}Row: %{{x}}<br>Consumption: %{{y:.2f}}<extra></extra>",
+                        ),
+                        row=row,
+                        col=col_pos,
+                    )
+
+            fig.update_layout(
+                title="Consumption Anomalies by Period (Interactive)",
+                template=self.template,
+                height=max(400, n_rows * 350),
+                hovermode="closest",
+            )
+
+            fig.update_xaxes(title_text="Row Index")
+            fig.update_yaxes(title_text="Consumption")
+
+            return self._to_html(fig)
+
+        except ImportError:
+            logger.warning("plotly not available, skipping interactive consumption anomalies")
+            return ""
+        except Exception as e:
+            logger.warning("Error generating interactive consumption anomalies: %s", e)
+            return ""
