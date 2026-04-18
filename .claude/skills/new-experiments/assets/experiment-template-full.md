@@ -53,7 +53,9 @@
 | exp7 | kitchen-sink         | All available transformers                               | Maximum feature extraction               |
 
 **Decision criterion**: Compare AUC incrementally. If exp6 > max(exp4, exp5), all 3 are needed.
-**Optional**: exp_geo (geo_features) if lat/lon available and GeoFeaturesETL ran.
+**Optional geo features**: If lat/lon are available, add `GeoFeaturesETL` to `etl.yaml` and re-run ETL first.
+The output dataset will include `geo_cluster`, `geo_estado`, etc. as regular columns — no YAML change needed in training.
+**NEVER use `geo_features` inside `global_transformers`** — it does not exist as a preprocessing transformer.
 
 ### FASE 4 — Encoding Optimization (3 experiments, parallel)
 

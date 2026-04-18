@@ -138,6 +138,11 @@ etl:
   # # Run AFTER your main ETL and BEFORE training.
   # # Generates: geo_cluster (int), geo_estado, geo_municipio, geo_regiao, geo_dist_* columns.
   # # geo_cluster is required if using method: "stratified_time" in split config.
+  # #
+  # # geo_regiao assignment priority:
+  # #   1. regions_file  → match IBGE municipality to CITY column in CSV (most precise)
+  # #   2. region_cities → assign nearest city by haversine distance
+  # #   3. (default)     → IBGE macro-region (Norte, Sul, Sudeste, etc.)
   # geo_features:
   #   enabled: false
   #   description: "Geographic features: clusters, hierarchy and distances from lat/lon"
@@ -149,14 +154,30 @@ etl:
   #     lon_col: "longitude"         # longitude column name
   #     n_clusters: 10               # number of geographic KMeans clusters
   #     random_state: 42
-  #     include_hierarchy: true      # geo_estado, geo_municipio, geo_regiao (IBGE)
+  #     include_hierarchy: true      # true = all (estado, municipio, regiao); false = none
+  #     # include_hierarchy:          # or pick specific levels (Spanish or English accepted):
+  #     #   - state        # or: estado
+  #     #   - municipality # or: municipio / city
+  #     #   - region       # or: regiao
   #     include_distances: true      # haversine distances to reference cities
   #     distance_cities:             # available: sao_paulo, rio_de_janeiro, brasilia,
   #       - sao_paulo                #   salvador, belo_horizonte, fortaleza, recife,
   #       - rio_de_janeiro           #   curitiba, manaus, porto_alegre, florianopolis,
-  #       - brasilia                 #   blumenau, joinville, criciuma, chapeco, itajai, lages
+  #       - brasilia                 #   blumenau, joinville, criciuma, chapeco, itajai, lages,
+  #                                  #   concordia, jaragua_do_sul, joacaba, videira,
+  #                                  #   sao_miguel_do_oeste, tubarao, rio_do_sul, mafra,
+  #                                  #   sao_bento_do_sul
   #     include_coords: false        # keep original lat/lon in output
   #     cache_dir: ".cache/ibge"     # persist IBGE shapefiles to disk (avoids re-download)
+  #     # --- geo_regiao override options (choose one) ---
+  #     # Option A: CSV mapping (REGION;CITY) — most precise
+  #     # regions_file: "data/raw/regioes.csv"
+  #     # Option B: nearest-city by haversine — when no city-level CSV is available
+  #     # region_cities:
+  #     #   - florianopolis
+  #     #   - blumenau
+  #     #   - joinville
+  #     #   - chapeco
   #   depends_on: []
   #
   # # ETL 8: Quick testing with sample

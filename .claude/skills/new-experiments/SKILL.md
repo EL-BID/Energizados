@@ -53,6 +53,43 @@ metadata:
 # =============================================================================
 ```
 
+### Available Global Transformers (framework constraint)
+
+**ONLY these transformers can be used under `global_transformers:` in preprocessing config:**
+
+| Transformer | Purpose | Notes |
+|-------------|---------|-------|
+| `clip_outliers` | Clip extreme consumption values | Run FIRST — before if_score |
+| `if_score` | Isolation Forest anomaly score | Appends `if_score` column |
+| `extra_vars` | Statistical features per time window | Use with num_periodos: 3, 6, 12 |
+| `consumption_patterns` | Domain fraud features | caídas abruptas, zero_ratio, etc. |
+| `tsfel_vars` | Advanced temporal/frequency features | Slow — test last in kitchen-sink |
+| `cast_dtype` | Column dtype conversion | Per-column use only |
+| `cardinality_reducer` | Group infrequent categories | Per-column use only |
+| `to_dummy` | One-hot encoding | Per-column use only |
+| `target_encoding` | Target probability encoding | Per-column use only |
+| `ordinal_encoding` | Ordinal integer encoding | Per-column use only |
+| `minmax_scaler_row` | Row-wise MinMax scaling | Per-column use only |
+
+**`geo_features` is NOT a global transformer** — it was moved to ETL.
+
+### Class Imbalance per Model Type
+
+Each model handles class imbalance differently — **do NOT use `class_weight: "balanced"` for CatBoost**:
+
+| Model | Correct YAML |
+|-------|-------------|
+| `lightgbm` | `class_weight: "balanced"` at model level |
+| `catboost` | `auto_class_weights: "Balanced"` inside `hyperparams` |
+| `xgboost` | `class_weight: <float>` (scale_pos_weight) at model level |
+
+`class_weight: "balanced"` is a scikit-learn convention that only LightGBM understands natively.
+CatBoost receives it as `class_weights` (a list/None), so `"balanced"` causes a parse error.
+Use `auto_class_weights: "Balanced"` in `hyperparams` for CatBoost — it's the native CatBoost param.
+To use geographic features: add `GeoFeaturesETL` to `etl.yaml` FIRST, then the output dataset
+will already contain `geo_cluster`, `geo_estado`, etc. as regular columns.
+Never reference `geo_features` inside `global_transformers:`.
+
 ### Key YAML Sections That Change Per Phase
 
 | Phase | What Changes | Fixed Sections |
@@ -157,6 +194,8 @@ Before finishing, verify:
 - Dependencies in mermaid match actual phase progression
 - No duplicate experiment names
 - Run commands match actual filenames
+- **No `geo_features` under `global_transformers`** — it's ETL-only (`GeoFeaturesETL`)
+- All `global_transformers` entries are in the Available Transformers table above
 
 ## Code Examples
 

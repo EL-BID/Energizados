@@ -11,7 +11,7 @@ import glob
 import json
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -1532,8 +1532,14 @@ class GeoFeaturesETL(BaseETL):
         lon_col: Longitude column name (default: ``"longitud"``).
         n_clusters: Number of geographic KMeans clusters (default: ``10``).
         random_state: Random seed for KMeans (default: ``42``).
-        include_hierarchy: Add ``geo_estado``, ``geo_municipio``, ``geo_regiao``
-            columns via IBGE spatial join (default: ``True``).
+        include_hierarchy: Add hierarchy columns via IBGE spatial join (default: ``True``).
+            Accepts a bool (``True`` = all three levels, ``False`` = none) or a list
+            of level names to include only specific levels. Level names accept
+            Portuguese (``"estado"``, ``"municipio"``, ``"regiao"``) and English
+            aliases (``"state"``, ``"municipality"``/``"city"``, ``"region"``).
+            Output columns are named ``geo_{level}`` using the name as specified
+            in config — e.g. ``["municipality", "region"]`` produces
+            ``geo_municipality`` and ``geo_region``.
         include_distances: Add haversine distance columns to reference cities
             (default: ``True``).
         distance_cities: List of city names for distance calculation. If ``None``,
@@ -1543,6 +1549,18 @@ class GeoFeaturesETL(BaseETL):
             chapeco, itajai, lages.
         include_coords: Keep original lat/lon columns in output (default: ``False``).
         cache_dir: Directory to persist IBGE shapefiles on disk (default: ``None``).
+        regions_file: Path to a CSV (semicolon separator) or Parquet file with ``REGION``/``CITY`` columns. When
+            provided, ``geo_regiao`` is assigned by matching each point's IBGE
+            municipality name to the ``CITY`` column (accent- and
+            case-insensitive). Takes priority over ``region_cities``.
+            On ``fit()``, logs matched/unmatched municipalities and stores
+            ``unmatched_municipalities_`` and ``matched_municipalities_``
+            attributes on the underlying ``GeoFeatures`` transformer for
+            diagnostics.
+        region_cities: When set (and ``regions_file`` is not provided),
+            ``geo_regiao`` is assigned as the nearest city from this list instead
+            of the IBGE macro-region. Each entry must be a key in
+            ``REFERENCE_CITIES``.
         **kwargs: Additional parameters (ignored).
 
     Example YAML:
@@ -1559,6 +1577,9 @@ class GeoFeaturesETL(BaseETL):
             lon_col: "longitude"
             n_clusters: 10
             include_hierarchy: true
+            # include_hierarchy:               # or pick specific levels
+            #   - estado
+            #   - municipio
             include_distances: true
             distance_cities:
               - sao_paulo
@@ -1578,11 +1599,13 @@ class GeoFeaturesETL(BaseETL):
         lon_col: str = "longitud",
         n_clusters: int = 10,
         random_state: int = 42,
-        include_hierarchy: bool = True,
+        include_hierarchy: Union[bool, List[str]] = True,
         include_distances: bool = True,
         distance_cities: Optional[List[str]] = None,
         include_coords: bool = False,
         cache_dir: Optional[str] = None,
+        region_cities: Optional[List[str]] = None,
+        regions_file: Optional[str] = None,
         **kwargs,
     ):
         self.name = name
@@ -1597,6 +1620,8 @@ class GeoFeaturesETL(BaseETL):
         self.distance_cities = distance_cities
         self.include_coords = include_coords
         self.cache_dir = cache_dir
+        self.region_cities = region_cities
+        self.regions_file = regions_file
         self.kwargs = kwargs
 
     def extract(self) -> pd.DataFrame:
@@ -1688,6 +1713,8 @@ class GeoFeaturesETL(BaseETL):
                 distance_cities=self.distance_cities,
                 include_coords=self.include_coords,
                 cache_dir=self.cache_dir,
+                region_cities=self.region_cities,
+                regions_file=self.regions_file,
             )
             df = transformer.fit_transform(df)
             logger.info("  ✓ GeoFeaturesETL: geographic features added")

@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-04-18
+
+### ETL
+- `GeoFeaturesETL`: `include_hierarchy` now accepts a list of level names (`"estado"`, `"municipio"`, `"regiao"`) to include only specific hierarchy columns — `true`/`false` still work as before
+- `GeoFeaturesETL`: new `regions_file` param — assign `geo_regiao` from a `REGION;CITY` CSV/Parquet file with accent- and case-insensitive municipality matching; stores `matched_municipalities_` and `unmatched_municipalities_` for diagnostics
+- `GeoFeaturesETL`: new `region_cities` param — assign `geo_regiao` as the nearest city from a subset of `REFERENCE_CITIES` (alternative to IBGE macro-region)
+- `GeoFeatures` transformer: same `include_hierarchy`, `regions_file`, and `region_cities` params propagated from ETL layer
+- Added 9 new reference cities for Santa Catarina (`concordia`, `jaragua_do_sul`, `joacaba`, `videira`, `sao_miguel_do_oeste`, `tubarao`, `rio_do_sul`, `mafra`, `sao_bento_do_sul`)
+
+### EDA
+- `classify_columns`: fixed misclassification of `string` and `CategoricalDtype` columns (now correctly sent to `categorical` instead of `other`)
+- `report.py`: replaced raw dict lookups with `_fmt()` helper — numeric stats now render with 4 decimal places and `—` for `None`/`NaN` instead of Python `None` literals
+
+### Tests
+- Added comprehensive test suite for `GeoFeaturesETL` covering `include_hierarchy` (bool/list/aliases), `regions_file`, `region_cities`, invalid inputs, and edge cases
+
+### Docs & Skills
+- Updated `new-experiments` skill: documented valid `global_transformers`, clarified `geo_features` is ETL-only, added class imbalance guidance per model type
+- Updated `docs/user-guide/configuration/etl.md`: `include_hierarchy` list syntax example
+
 ## [0.2.2] - 2026-04-15
 
 ### Fixed
