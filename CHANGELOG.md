@@ -4,23 +4,15 @@
 
 ## [0.2.3] - 2026-04-18
 
-### ETL
-- `GeoFeaturesETL`: `include_hierarchy` now accepts a list of level names (`"estado"`, `"municipio"`, `"regiao"`) to include only specific hierarchy columns — `true`/`false` still work as before
-- `GeoFeaturesETL`: new `regions_file` param — assign `geo_regiao` from a `REGION;CITY` CSV/Parquet file with accent- and case-insensitive municipality matching; stores `matched_municipalities_` and `unmatched_municipalities_` for diagnostics
-- `GeoFeaturesETL`: new `region_cities` param — assign `geo_regiao` as the nearest city from a subset of `REFERENCE_CITIES` (alternative to IBGE macro-region)
-- `GeoFeatures` transformer: same `include_hierarchy`, `regions_file`, and `region_cities` params propagated from ETL layer
-- Added 9 new reference cities for Santa Catarina (`concordia`, `jaragua_do_sul`, `joacaba`, `videira`, `sao_miguel_do_oeste`, `tubarao`, `rio_do_sul`, `mafra`, `sao_bento_do_sul`)
+### Added
+- `GeoFeaturesETL`: `regions_file` param — assign `geo_regiao` from a `REGION;CITY` CSV/Parquet (accent/case-insensitive matching, logs matched/unmatched municipalities)
+- `GeoFeaturesETL`: `region_cities` param — assign `geo_regiao` as nearest city from a `REFERENCE_CITIES` subset
+- `GeoFeaturesETL`: `include_hierarchy` now accepts a list of level names (`"estado"`, `"municipio"`, `"regiao"`)
+- 9 new Santa Catarina reference cities
 
-### EDA
-- `classify_columns`: fixed misclassification of `string` and `CategoricalDtype` columns (now correctly sent to `categorical` instead of `other`)
-- `report.py`: replaced raw dict lookups with `_fmt()` helper — numeric stats now render with 4 decimal places and `—` for `None`/`NaN` instead of Python `None` literals
-
-### Tests
-- Added comprehensive test suite for `GeoFeaturesETL` covering `include_hierarchy` (bool/list/aliases), `regions_file`, `region_cities`, invalid inputs, and edge cases
-
-### Docs & Skills
-- Updated `new-experiments` skill: documented valid `global_transformers`, clarified `geo_features` is ETL-only, added class imbalance guidance per model type
-- Updated `docs/user-guide/configuration/etl.md`: `include_hierarchy` list syntax example
+### Fixed
+- EDA: `string` and `CategoricalDtype` columns now correctly classified as categorical
+- EDA report: numeric stats render with 4 decimal places; `None`/`NaN` shown as `—`
 
 ## [0.2.2] - 2026-04-15
 
@@ -35,54 +27,18 @@
 
 ## [0.2.0] - 2026-04-15
 
-### Core
-- Full redesign: Builder pattern, Pydantic validation, modular pipeline steps
-- CLI: `init`, `run`, `validate`, `eda` commands with wildcard support and custom run naming (`-n`)
-- Config files: `etl.yaml`, `train.yaml`, `infer.yaml`, `eda.yaml` — three separate files, each evolving independently
-- Schema versioning: each config section carries `schema_version`; the CLI blocks execution if the project schema is newer than the installed framework
-- Run scripts in `src/run/` for direct execution without CLI (`ConfigPipelineBuilder` API)
+Full framework redesign.
 
-### ETL
-- Multi-ETL orchestration with DAG dependency resolution (topological sort)
-
-### Feature Engineering
-- Column transformers: cardinality reducer, dummies, target/ordinal encoding, MinMax scaler, cast dtype
-- Global transformers: `tsfel_vars`, `extra_vars`, `consumption_patterns`, `clip_outliers`, `geo_features`
-- Feature selection: Boruta, Correlation, Constant
-- `feature_engineering` moved inside `train.yaml` (no separate `feature_pipeline.yaml`)
-
-### Modeling
-- Models: LightGBM, CatBoost, **XGBoost** (optional dep: `pip install energizados[xgboost]`), Neural Networks, LSTM
-- Unsupervised: **IsolationForest** (trains without labels; uses `contamination` param)
-- Rule-based baselines: `simple_trend` (ChangeTrend), `simple_constant` (ConstantConsumption)
-- Ensemble: stacking (OOF or blending) and soft voting via `EnsembleModel`
-- Sampling: `undersample`, `oversample`, `none` per-model
-- Hyperparameter search: `RandomizedSearchCV` with configurable `n_iter` and `cv`
-
-### Splits
-- `time_series`, `stratified`, `random`, `group_based`, `stratified_time` (requires `geo_cluster` from GeoFeaturesETL)
-
-### EDA
-- 7-phase interactive HTML report (Plotly + Matplotlib)
-- Phase 5: IV, KS, Cramér's V feature importance ranking
-- Phase 6: population segmentation and drift analysis
-- Phase 7: configurable hierarchical column relationships (`RelatedColumnsAnalyzer`)
-
-### Evaluation
-- Metrics: AUC, Precision, Recall, F1, confusion matrix, cumulative gains
-- HTML + JSON reports per training run
-- Per-run index (`output/index.html`) for multi-experiment comparison
-- Threshold calibration
-- 
-### Inference
-- Configurable pipeline with auto-loading of feature engineering + model artifacts
-- `columns_filter` with comparison operators for record-level filtering
-- Enriched output with original columns alongside predictions
-
-### Quality
-- Comprehensive test suite: `test_source_etl.py`, `test_etl_orchestrator.py`, `test_cli_init.py`, `test_default_inference.py`
-- Pre-commit hooks (black, flake8, mypy, bandit)
-- Secure pickle: SHA-256 verified load/save for model artifacts
+- **CLI**: `init`, `run`, `validate`, `eda` — wildcard support, custom run names (`-n`)
+- **Config**: three independent YAML files (`etl.yaml`, `train.yaml`, `infer.yaml`) with per-section `schema_version`
+- **ETL**: multi-ETL DAG with dependency resolution; `SourceETL` (concat/merge/incremental), `GeoFeaturesETL`, `ClipOutliersETL`, `CleanFilesETL`
+- **Feature engineering**: column + global transformers (`tsfel_vars`, `extra_vars`, `consumption_patterns`, `clip_outliers`); Boruta/Correlation/Constant selection — all inside `train.yaml`
+- **Models**: LightGBM, CatBoost, XGBoost, Neural Network, LSTM; ensemble (stacking/soft voting); rule-based baselines
+- **Splits**: `time_series`, `stratified`, `random`, `group_based`, `stratified_time`
+- **EDA**: 7-phase interactive HTML report with IV/KS/Cramér's V, segmentation, and hierarchical column analysis
+- **Evaluation**: AUC, Precision, Recall, F1, confusion matrix, cumulative gains; HTML + JSON reports; per-run index
+- **Inference**: auto-loads feature engineering + model artifacts; `columns_filter` support
+- **Quality**: pre-commit hooks, SHA-256 verified pickle, comprehensive test suite
 
 
 ## [0.1.0] - 2024-01-01
