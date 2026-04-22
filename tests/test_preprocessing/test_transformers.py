@@ -1303,3 +1303,60 @@ class TestConsumptionPatternsNew:
         t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
         result = t.fit_transform(df)
         assert result.loc[0, "autocorr_lag1_3"] < -0.9
+
+    # ---- seasonal_ratio ----
+
+    def test_seasonal_ratio_disabled_by_default(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3)
+        result = t.fit_transform(df_simple)
+        assert "seasonal_ratio_3" not in result.columns
+
+    def test_seasonal_ratio_skipped_without_date_column(self, df_simple):
+        """If date_column not set, feature silently skipped even when enabled."""
+        t = ConsumptionPatterns(num_periodos=3, enable_seasonal_ratio=True)
+        result = t.fit_transform(df_simple)
+        assert "seasonal_ratio_3" not in result.columns
+
+    def test_seasonal_ratio_skipped_if_column_missing(self):
+        """If the date column name is set but absent from X, silently skipped."""
+        df = pd.DataFrame({"3_anterior": [100.0], "2_anterior": [100.0], "1_anterior": [100.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_seasonal_ratio=True, date_column="no_existe")
+        result = t.fit_transform(df)
+        assert "seasonal_ratio_3" not in result.columns
+
+    def test_seasonal_ratio_is_numeric_no_nan(self):
+        """Output must be numeric and contain no NaN."""
+        data = {"fecha_inspeccion": ["2024-06-15", "2024-06-15"]}
+        for i in range(12, 0, -1):
+            data[f"{i}_anterior"] = [100.0, 100.0]
+        df = pd.DataFrame(data)
+        t = ConsumptionPatterns(
+            num_periodos=12,
+            enable_seasonal_ratio=True,
+            date_column="fecha_inspeccion",
+        )
+        result = t.fit_transform(df)
+        assert "seasonal_ratio_12" in result.columns
+        assert result["seasonal_ratio_12"].isna().sum() == 0
+        assert pd.api.types.is_float_dtype(result["seasonal_ratio_12"])
+
+    def test_seasonal_ratio_no_season_months_is_zero(self):
+        """If no consumption columns map to summer or winter months, ratio = 0."""
+        # Inspection in October(10), 3 periods:
+        # i=1 → (10-1-1)%12+1 = 9 (Sep) — neither summer nor winter
+        # i=2 → (10-2-1)%12+1 = 8 (Aug) — WINTER
+        # i=3 → (10-3-1)%12+1 = 7 (Jul) — WINTER
+        # Has winter but no summer → ratio = 0 (summer_mean=nan)
+        df = pd.DataFrame(
+            {
+                "fecha_inspeccion": ["2024-10-15"],
+                "3_anterior": [100.0],
+                "2_anterior": [100.0],
+                "1_anterior": [100.0],
+            }
+        )
+        t = ConsumptionPatterns(
+            num_periodos=3, enable_seasonal_ratio=True, date_column="fecha_inspeccion"
+        )
+        result = t.fit_transform(df)
+        assert result.loc[0, "seasonal_ratio_3"] == 0.0

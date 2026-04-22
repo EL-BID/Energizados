@@ -1021,6 +1021,9 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
     - drastic_threshold: float, threshold for drastic changes (default=0.5 = 50%).
     - enable_last_period_zscore: bool, enable z-score of last period vs history (default=False).
     - enable_autocorr_lag1: bool, enable lag-1 autocorrelation feature (default=False).
+    - enable_seasonal_ratio: bool, enable summer/winter seasonal ratio feature (default=False).
+      Southern hemisphere context (Brazil): summer={Dec,Jan,Feb}, winter={Jun,Jul,Aug}.
+    - date_column: str, column containing inspection date; required when enable_seasonal_ratio=True.
     """
 
     def __init__(
@@ -1037,6 +1040,8 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         drastic_threshold: float = 0.5,
         enable_last_period_zscore: bool = False,
         enable_autocorr_lag1: bool = False,
+        enable_seasonal_ratio: bool = False,
+        date_column: str = None,
     ):
         self.periods_suffix = periods_suffix
         self.num_periodos = num_periodos
@@ -1050,6 +1055,8 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         self.drastic_threshold = drastic_threshold
         self.enable_last_period_zscore = enable_last_period_zscore
         self.enable_autocorr_lag1 = enable_autocorr_lag1
+        self.enable_seasonal_ratio = enable_seasonal_ratio
+        self.date_column = date_column
 
     def fit(self, X, y=None):
         """No-op fit. ConsumptionPatterns is stateless.
@@ -1176,6 +1183,42 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
                 return float(np.corrcoef(x, y)[0, 1])
 
             df[f"autocorr_lag1_{self.num_periodos}"] = df.apply(_autocorr_lag1, axis=1).fillna(0.0)
+
+        # 10. Summer/winter seasonal ratio (southern hemisphere: summer=Dec-Feb, winter=Jun-Aug)
+        if self.enable_seasonal_ratio and self.date_column and self.date_column in df.columns:
+            _SUMMER = {12, 1, 2}
+            _WINTER = {6, 7, 8}
+            dt = pd.to_datetime(df[self.date_column], errors="coerce")
+            inspection_month = dt.dt.month  # Series[int], NaT rows → NaN
+
+            summer_sum = pd.Series(0.0, index=df.index)
+            summer_cnt = pd.Series(0.0, index=df.index)
+            winter_sum = pd.Series(0.0, index=df.index)
+            winter_cnt = pd.Series(0.0, index=df.index)
+
+            for i in range(1, self.num_periodos + 1):
+                col = f"{i}{self.periods_suffix}"
+                if col not in df.columns:
+                    continue
+                actual_month = ((inspection_month - i - 1) % 12 + 1).astype("Int64")
+                is_summer = actual_month.isin(_SUMMER)
+                is_winter = actual_month.isin(_WINTER)
+                vals = df[col].fillna(0.0)
+                has_val = df[col].notna()
+
+                summer_sum += np.where(is_summer & has_val, vals, 0.0)
+                summer_cnt += np.where(is_summer & has_val, 1.0, 0.0)
+                winter_sum += np.where(is_winter & has_val, vals, 0.0)
+                winter_cnt += np.where(is_winter & has_val, 1.0, 0.0)
+
+            summer_mean = np.where(summer_cnt > 0, summer_sum / summer_cnt, np.nan)
+            winter_mean = np.where(winter_cnt > 0, winter_sum / winter_cnt, np.nan)
+
+            df[f"seasonal_ratio_{self.num_periodos}"] = np.where(
+                (winter_mean > 0) & ~np.isnan(summer_mean) & ~np.isnan(winter_mean),
+                summer_mean / winter_mean,
+                0.0,
+            )
 
         return df
 
