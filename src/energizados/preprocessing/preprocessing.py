@@ -1211,8 +1211,16 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
                 winter_sum += np.where(is_winter & has_val, vals, 0.0)
                 winter_cnt += np.where(is_winter & has_val, 1.0, 0.0)
 
-            summer_mean = np.where(summer_cnt > 0, summer_sum / summer_cnt, np.nan)
-            winter_mean = np.where(winter_cnt > 0, winter_sum / winter_cnt, np.nan)
+            summer_mean = np.where(
+                summer_cnt > 0,
+                summer_sum / np.where(summer_cnt > 0, summer_cnt, 1.0),
+                np.nan,
+            )
+            winter_mean = np.where(
+                winter_cnt > 0,
+                winter_sum / np.where(winter_cnt > 0, winter_cnt, 1.0),
+                np.nan,
+            )
 
             df[f"seasonal_ratio_{self.num_periodos}"] = np.where(
                 (winter_mean > 0) & ~np.isnan(summer_mean) & ~np.isnan(winter_mean),

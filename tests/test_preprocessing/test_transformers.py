@@ -1360,3 +1360,30 @@ class TestConsumptionPatternsNew:
         )
         result = t.fit_transform(df)
         assert result.loc[0, "seasonal_ratio_3"] == 0.0
+
+    def test_seasonal_ratio_value_correct(self):
+        """Verify ratio calculation: known summer/winter consumption → exact ratio."""
+        # Inspection January (1), 6 periods:
+        # i=1 → (1-1-1)%12+1 = 12 (Dec) — summer
+        # i=2 → (1-2-1)%12+1 = 11 (Nov) — neither
+        # i=3 → (1-3-1)%12+1 = 10 (Oct) — neither
+        # i=4 → (1-4-1)%12+1 = 9 (Sep)  — neither
+        # i=5 → (1-5-1)%12+1 = 8 (Aug)  — winter
+        # i=6 → (1-6-1)%12+1 = 7 (Jul)  — winter
+        # summer_mean = 180, winter_mean = (80+100)/2 = 90 → ratio = 2.0
+        df = pd.DataFrame(
+            {
+                "fecha_inspeccion": ["2024-01-15"],
+                "6_anterior": [80.0],  # Jul — winter
+                "5_anterior": [100.0],  # Aug — winter  → winter_mean = 90
+                "4_anterior": [50.0],  # Sep — neither
+                "3_anterior": [50.0],  # Oct — neither
+                "2_anterior": [50.0],  # Nov — neither
+                "1_anterior": [180.0],  # Dec — summer  → summer_mean = 180
+            }
+        )
+        t = ConsumptionPatterns(
+            num_periodos=6, enable_seasonal_ratio=True, date_column="fecha_inspeccion"
+        )
+        result = t.fit_transform(df)
+        assert result.loc[0, "seasonal_ratio_6"] == pytest.approx(2.0, rel=1e-5)
