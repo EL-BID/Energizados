@@ -1239,11 +1239,18 @@ class TestConsumptionPatternsNew:
         result = t.fit_transform(df_simple)
         assert result.loc[0, "zscore_last_vs_history_3"] < 0
 
-    def test_zscore_last_stable_near_zero(self, df_simple):
-        """Client 1: constant 100 → mean=100, last=100 → zscore=0."""
+    def test_zscore_last_equals_mean_is_zero(self):
+        """Last period equals the mean: zscore must be 0 regardless of std > 0."""
+        df = pd.DataFrame(
+            {
+                "3_anterior": [80.0],
+                "2_anterior": [120.0],
+                "1_anterior": [100.0],  # mean of [80, 120, 100] = 100 = last
+            }
+        )
         t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
-        result = t.fit_transform(df_simple)
-        assert abs(result.loc[1, "zscore_last_vs_history_3"]) < 0.01
+        result = t.fit_transform(df)
+        assert abs(result.loc[0, "zscore_last_vs_history_3"]) < 1e-10
 
     def test_zscore_last_zero_std_is_zero(self):
         """Constant series → std=0 → result must be 0.0, not NaN."""
