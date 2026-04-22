@@ -12,6 +12,7 @@ import pytest
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
+    ConsumptionPatterns,
     ExtraVars,
     MinMaxScalerRow,
     TeEncoder,
@@ -1206,3 +1207,53 @@ class TestTemporalFeatures:
 
         assert "value" in result.columns
         assert list(result["value"]) == list(df_dates["value"])
+
+
+class TestConsumptionPatternsNew:
+    """Tests for Sprint 1 features added to ConsumptionPatterns."""
+
+    @pytest.fixture
+    def df_simple(self):
+        """3-period dataset: client 0 drops sharply, client 1 is stable."""
+        return pd.DataFrame(
+            {
+                "3_anterior": [100.0, 100.0],
+                "2_anterior": [100.0, 100.0],
+                "1_anterior": [10.0, 100.0],
+            }
+        )
+
+    def test_zscore_last_disabled_by_default(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3)
+        result = t.fit_transform(df_simple)
+        assert "zscore_last_vs_history_3" not in result.columns
+
+    def test_zscore_last_enabled(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df_simple)
+        assert "zscore_last_vs_history_3" in result.columns
+
+    def test_zscore_last_drop_is_negative(self, df_simple):
+        """Client 0: mean=(100+100+10)/3≈70, last=10 → zscore negative."""
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df_simple)
+        assert result.loc[0, "zscore_last_vs_history_3"] < 0
+
+    def test_zscore_last_stable_near_zero(self, df_simple):
+        """Client 1: constant 100 → mean=100, last=100 → zscore=0."""
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df_simple)
+        assert abs(result.loc[1, "zscore_last_vs_history_3"]) < 0.01
+
+    def test_zscore_last_zero_std_is_zero(self):
+        """Constant series → std=0 → result must be 0.0, not NaN."""
+        df = pd.DataFrame(
+            {
+                "3_anterior": [50.0],
+                "2_anterior": [50.0],
+                "1_anterior": [50.0],
+            }
+        )
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "zscore_last_vs_history_3"] == 0.0

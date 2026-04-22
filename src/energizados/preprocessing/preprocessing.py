@@ -1019,6 +1019,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
     - enable_consistency: bool, enable consistency score feature (default=True).
     - enable_drastic_changes: bool, enable drastic changes count feature (default=True).
     - drastic_threshold: float, threshold for drastic changes (default=0.5 = 50%).
+    - enable_last_period_zscore: bool, enable z-score of last period vs history (default=False).
     """
 
     def __init__(
@@ -1033,6 +1034,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         enable_consistency: bool = True,
         enable_drastic_changes: bool = True,
         drastic_threshold: float = 0.5,
+        enable_last_period_zscore: bool = False,
     ):
         self.periods_suffix = periods_suffix
         self.num_periodos = num_periodos
@@ -1044,6 +1046,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         self.enable_consistency = enable_consistency
         self.enable_drastic_changes = enable_drastic_changes
         self.drastic_threshold = drastic_threshold
+        self.enable_last_period_zscore = enable_last_period_zscore
 
     def fit(self, X, y=None):
         """No-op fit. ConsumptionPatterns is stateless.
@@ -1146,6 +1149,15 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
                 change = np.abs(df[current] - df[prev]) / (df[prev] + 1e-6)
                 changes.append(change > self.drastic_threshold)
             df[f"drastic_changes_count_{self.num_periodos}"] = np.sum(changes, axis=0)
+
+        # 8. Z-score of last period vs client's own history
+        if self.enable_last_period_zscore:
+            last_col = f"1{self.periods_suffix}"
+            df[f"zscore_last_vs_history_{self.num_periodos}"] = np.where(
+                df[std_col] > 0,
+                (df[last_col] - df[mean_col]) / df[std_col],
+                0.0,
+            )
 
         return df
 
