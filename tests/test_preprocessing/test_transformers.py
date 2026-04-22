@@ -1296,3 +1296,10 @@ class TestConsumptionPatternsNew:
         t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
         result = t.fit_transform(df_simple)
         assert result["autocorr_lag1_3"].isna().sum() == 0
+
+    def test_autocorr_lag1_alternating_negative(self):
+        """Alternating series → strong negative autocorrelation."""
+        df = pd.DataFrame({"3_anterior": [10.0], "2_anterior": [1.0], "1_anterior": [10.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "autocorr_lag1_3"] < -0.9
