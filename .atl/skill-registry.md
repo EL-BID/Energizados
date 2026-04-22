@@ -16,6 +16,7 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 | Adding a new ETL block to config/etl.yaml | new-etl | /home/vvv/Develop/bid/energizados/.claude/skills/new-etl/SKILL.md |
 | Running a full Energizados pipeline experiment (validate → ETL → train) | run-experiment | /home/vvv/Develop/bid/energizados/.claude/skills/run-experiment/SKILL.md |
 | Genera reporte completo de resultados de experimentos | experiment-results | /home/vvv/Develop/bid/energizados/.claude/skills/experiment-results/SKILL.md |
+| "new experiments", "create experiments", "nuevos experimentos", "crear experimentos", "experiment design", "experiment roadmap" | new-experiments | /home/vvv/Develop/bid/energizados/.claude/skills/new-experiments/SKILL.md |
 
 ## Compact Rules
 
@@ -87,6 +88,14 @@ Pre-digested rules per skill. Delegators copy matching blocks into sub-agent pro
 - Generate ASCII chart for AUC evolution across phases
 - Business section: explain metrics in plain language, include operational simulator using cumulative_gains
 - Output: `_results.md` with executive summary, detailed tables, insights, next steps, business section
+
+### new-experiments
+- Ask ALL questions in ONE message before generating any YAML (phases, complexity level, dataset path, target column, date column, encoding columns)
+- Three templates: quick (6-8 exp), standard (12-15 exp), full (32 exp)
+- Each phase has a **Standard Decision Protocol**: run → compare vs previous-phase winner on AUC test → carry forward if no improvement (tiebreaker <0.001: prefer simpler)
+- Never use `geo_features` inside `global_transformers` — it doesn't exist as a preprocessing transformer; use `GeoFeaturesETL` in etl.yaml instead
+- Output: `_experiments.md` roadmap + one YAML per experiment in `config/experiments/`
+- Naming convention: `faseN_expM_<description>.yaml`
 
 ## Project Conventions
 

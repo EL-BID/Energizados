@@ -12,6 +12,7 @@ from energizados.preprocessing.preprocessing import (
     ConsumptionPatterns,
     ExtraVars,
     MinMaxScalerRow,
+    TemporalFeatures,
     ToDummy,
     TsfelVars,
     fill_empty_values_cycle,
@@ -27,6 +28,7 @@ __all__ = [
     "TsfelVars",
     "ExtraVars",
     "ConsumptionPatterns",
+    "TemporalFeatures",
     "GeoFeatures",
     "IsolationForestScore",
     # Utility functions

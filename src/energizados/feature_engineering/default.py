@@ -21,6 +21,7 @@ from energizados.preprocessing.preprocessing import (
     ConsumptionPatterns,
     ExtraVars,
     TeEncoder,
+    TemporalFeatures,
     ToDummy,
     TsfelVars,
 )
@@ -84,6 +85,15 @@ def _build_transformer_from_config(
         "consumption_patterns": (
             ConsumptionPatterns,
             {"num_periodos": 12, "periods_suffix": "_anterior"},
+        ),
+        "temporal_features": (
+            TemporalFeatures,
+            {
+                "date_column": None,
+                "features": ["month", "quarter", "week", "dayofweek"],
+                "encoding": "both",
+                "drop_date_column": False,
+            },
         ),
         "if_score": (
             IsolationForestScore,
