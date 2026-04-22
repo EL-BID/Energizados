@@ -154,6 +154,7 @@ train:
         # - extra_vars:
         #     num_periodos: 3
         #     periods_suffix: *period_suffix
+        #     count_nulls: false   # adds cant_null_N column (NaN count per row)
         # - extra_vars:
         #     num_periodos: 6
         #     periods_suffix: *period_suffix
@@ -161,10 +162,24 @@ train:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
 
-        # Domain-specific consumption patterns for fraud detection
+        # Domain-specific fraud detection patterns (Sprint 1: new optional flags)
         # - consumption_patterns:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
+        #     enable_last_period_zscore: false   # zscore of last month vs client history
+        #     enable_autocorr_lag1: false        # lag-1 autocorr (low = manipulation signal)
+        #     enable_seasonal_ratio: false       # summer/winter ratio (southern hemisphere)
+        #     date_column: "fecha_inspeccion"    # required for enable_seasonal_ratio
+
+        # Calendar features from inspection date (flat + cyclic encoding)
+        # encoding: "flat" | "cyclic" | "both"
+        # Available features: month, quarter, week, dayofweek, day, year
+        # Cyclic encoding (sin/cos) preserves calendar circularity (Dec & Jan are neighbors)
+        # - temporal_features:
+        #     date_column: "fecha_inspeccion"
+        #     features: ["month", "quarter", "week", "dayofweek"]
+        #     encoding: "both"
+        #     drop_date_column: false
 
         # Isolation Forest anomaly score (unsupervised feature)
         # Appends an if_score column with inverted anomaly scores (higher = more anomalous)
