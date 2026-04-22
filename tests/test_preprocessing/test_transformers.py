@@ -1264,3 +1264,35 @@ class TestConsumptionPatternsNew:
         t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
         result = t.fit_transform(df)
         assert result.loc[0, "zscore_last_vs_history_3"] == 0.0
+
+    # ---- autocorr_lag1 ----
+
+    def test_autocorr_lag1_disabled_by_default(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3)
+        result = t.fit_transform(df_simple)
+        assert "autocorr_lag1_3" not in result.columns
+
+    def test_autocorr_lag1_enabled(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df_simple)
+        assert "autocorr_lag1_3" in result.columns
+
+    def test_autocorr_lag1_monotone_positive(self):
+        """Monotonically increasing series → autocorr close to 1."""
+        df = pd.DataFrame({"3_anterior": [1.0], "2_anterior": [2.0], "1_anterior": [3.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "autocorr_lag1_3"] > 0.9
+
+    def test_autocorr_lag1_constant_is_zero(self):
+        """Constant series → undefined autocorr → filled with 0."""
+        df = pd.DataFrame({"3_anterior": [5.0], "2_anterior": [5.0], "1_anterior": [5.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "autocorr_lag1_3"] == 0.0
+
+    def test_autocorr_lag1_no_nan_in_output(self, df_simple):
+        """Output column must not contain NaN values."""
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df_simple)
+        assert result["autocorr_lag1_3"].isna().sum() == 0

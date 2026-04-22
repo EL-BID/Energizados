@@ -1020,6 +1020,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
     - enable_drastic_changes: bool, enable drastic changes count feature (default=True).
     - drastic_threshold: float, threshold for drastic changes (default=0.5 = 50%).
     - enable_last_period_zscore: bool, enable z-score of last period vs history (default=False).
+    - enable_autocorr_lag1: bool, enable lag-1 autocorrelation feature (default=False).
     """
 
     def __init__(
@@ -1035,6 +1036,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         enable_drastic_changes: bool = True,
         drastic_threshold: float = 0.5,
         enable_last_period_zscore: bool = False,
+        enable_autocorr_lag1: bool = False,
     ):
         self.periods_suffix = periods_suffix
         self.num_periodos = num_periodos
@@ -1047,6 +1049,7 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         self.enable_drastic_changes = enable_drastic_changes
         self.drastic_threshold = drastic_threshold
         self.enable_last_period_zscore = enable_last_period_zscore
+        self.enable_autocorr_lag1 = enable_autocorr_lag1
 
     def fit(self, X, y=None):
         """No-op fit. ConsumptionPatterns is stateless.
@@ -1158,6 +1161,21 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
                 (df[last_col] - df[mean_col]) / df[std_col],
                 0.0,
             )
+
+        # 9. Lag-1 autocorrelation (legitimate consumption has high autocorr)
+        if self.enable_autocorr_lag1:
+            cons_cols = self._get_cons_cols()  # ['N_anterior', ..., '1_anterior']
+
+            def _autocorr_lag1(row):
+                vals = row[cons_cols].values.astype(float)
+                if len(vals) < 2:
+                    return 0.0
+                x, y = vals[:-1], vals[1:]
+                if np.std(x) == 0 or np.std(y) == 0:
+                    return 0.0
+                return float(np.corrcoef(x, y)[0, 1])
+
+            df[f"autocorr_lag1_{self.num_periodos}"] = df.apply(_autocorr_lag1, axis=1).fillna(0.0)
 
         return df
 
