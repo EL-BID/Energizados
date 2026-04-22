@@ -15,6 +15,7 @@ from energizados.preprocessing.preprocessing import (
     ExtraVars,
     MinMaxScalerRow,
     TeEncoder,
+    TemporalFeatures,
     ToDummy,
     TsfelVars,
 )
@@ -986,6 +987,49 @@ class TestExtraVars:
 
         assert result.loc[0, "kurt_cons6"] == 0.0
 
+    def test_count_nulls_disabled_by_default(self):
+        df = pd.DataFrame(
+            {
+                "3_anterior": [1.0, None],
+                "2_anterior": [2.0, 2.0],
+                "1_anterior": [3.0, None],
+            }
+        )
+        extra = ExtraVars(num_periodos=3)
+        result = extra.fit_transform(df)
+        assert "cant_null_3" not in result.columns
+
+    def test_count_nulls_enabled(self):
+        df = pd.DataFrame(
+            {
+                "3_anterior": [1.0, None],
+                "2_anterior": [2.0, 2.0],
+                "1_anterior": [3.0, None],
+            }
+        )
+        extra = ExtraVars(num_periodos=3, count_nulls=True)
+        result = extra.fit_transform(df)
+        assert "cant_null_3" in result.columns
+        assert list(result["cant_null_3"]) == [0, 2]
+
+    def test_count_nulls_no_nans(self):
+        df = pd.DataFrame(
+            {
+                "3_anterior": [1.0, 4.0],
+                "2_anterior": [2.0, 5.0],
+                "1_anterior": [3.0, 6.0],
+            }
+        )
+        extra = ExtraVars(num_periodos=3, count_nulls=True)
+        result = extra.fit_transform(df)
+        assert list(result["cant_null_3"]) == [0, 0]
+
+    def test_count_nulls_init_param(self):
+        extra = ExtraVars(num_periodos=3, count_nulls=True)
+        assert extra.count_nulls is True
+        extra2 = ExtraVars(num_periodos=3)
+        assert extra2.count_nulls is False
+
 
 class TestTsfelVarsZeroSeries:
     """Tests for TsfelVars behavior with all-zero consumption series."""
@@ -1016,3 +1060,149 @@ class TestTsfelVarsZeroSeries:
         tsfel_cols = [c for c in result.columns if c not in df.columns]
         nan_count = result[tsfel_cols].isnull().sum().sum()
         assert nan_count == 0, f"Expected 0 NaN in tsfel features for mixed series, got {nan_count}"
+
+
+class TestTemporalFeatures:
+    """Test suite for TemporalFeatures transformer."""
+
+    @pytest.fixture
+    def df_dates(self):
+        return pd.DataFrame(
+            {
+                "fecha_inspeccion": pd.to_datetime(
+                    [
+                        "2024-01-15",  # Monday, week 3, Q1
+                        "2024-04-10",  # Wednesday, week 15, Q2
+                        "2024-07-25",  # Thursday, week 30, Q3
+                        "2024-12-31",  # Tuesday, week 1 (ISO), Q4
+                    ]
+                ),
+                "value": [10, 20, 30, 40],
+            }
+        )
+
+    def test_init_default_params(self):
+        t = TemporalFeatures(date_column="fecha_inspeccion")
+        assert t.date_column == "fecha_inspeccion"
+        assert t.features is None
+        assert t.encoding == "both"
+        assert t.drop_date_column is False
+
+    def test_fit_without_date_column_raises(self, df_dates):
+        t = TemporalFeatures(date_column=None)
+        with pytest.raises(ValueError, match="date_column"):
+            t.fit(df_dates)
+
+    def test_fit_invalid_encoding_raises(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", encoding="weird")
+        with pytest.raises(ValueError, match="encoding"):
+            t.fit(df_dates)
+
+    def test_fit_unsupported_feature_raises(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month", "century"])
+        with pytest.raises(ValueError, match="unsupported"):
+            t.fit(df_dates)
+
+    def test_fit_missing_column_raises(self, df_dates):
+        t = TemporalFeatures(date_column="no_existe")
+        with pytest.raises(ValueError, match="not found"):
+            t.fit(df_dates)
+
+    def test_transform_flat_only(self, df_dates):
+        t = TemporalFeatures(
+            date_column="fecha_inspeccion",
+            features=["month", "quarter", "dayofweek"],
+            encoding="flat",
+        )
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_month" in result.columns
+        assert "fecha_inspeccion_quarter" in result.columns
+        assert "fecha_inspeccion_dayofweek" in result.columns
+        assert "fecha_inspeccion_month_sin" not in result.columns
+
+        assert list(result["fecha_inspeccion_month"]) == [1, 4, 7, 12]
+        assert list(result["fecha_inspeccion_quarter"]) == [1, 2, 3, 4]
+        assert list(result["fecha_inspeccion_dayofweek"]) == [0, 2, 3, 1]
+
+    def test_transform_cyclic_only(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month"], encoding="cyclic")
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_month" not in result.columns
+        assert "fecha_inspeccion_month_sin" in result.columns
+        assert "fecha_inspeccion_month_cos" in result.columns
+
+        # sin(2*pi*1/12) == sin(2*pi*13/12), so December (12) and January (1) should be close.
+        jan = (
+            result.loc[0, "fecha_inspeccion_month_sin"],
+            result.loc[0, "fecha_inspeccion_month_cos"],
+        )
+        dec = (
+            result.loc[3, "fecha_inspeccion_month_sin"],
+            result.loc[3, "fecha_inspeccion_month_cos"],
+        )
+        dist_jan_dec = np.hypot(jan[0] - dec[0], jan[1] - dec[1])
+        apr = (
+            result.loc[1, "fecha_inspeccion_month_sin"],
+            result.loc[1, "fecha_inspeccion_month_cos"],
+        )
+        dist_jan_apr = np.hypot(jan[0] - apr[0], jan[1] - apr[1])
+        assert dist_jan_dec < dist_jan_apr
+
+    def test_transform_both(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month"], encoding="both")
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_month" in result.columns
+        assert "fecha_inspeccion_month_sin" in result.columns
+        assert "fecha_inspeccion_month_cos" in result.columns
+
+    def test_transform_coerces_string_dates(self):
+        df = pd.DataFrame({"fecha": ["2024-01-15", "2024-06-20", "2024-12-31"]})
+        t = TemporalFeatures(date_column="fecha", features=["month"], encoding="flat")
+        result = t.fit_transform(df)
+
+        assert list(result["fecha_month"]) == [1, 6, 12]
+
+    def test_transform_nat_produces_nan(self):
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-15", pd.NaT, "2024-06-20"])})
+        t = TemporalFeatures(date_column="fecha", features=["month"], encoding="both")
+        result = t.fit_transform(df)
+
+        assert (
+            pd.isna(result.loc[1, "fecha_month"])
+            or result.loc[1, "fecha_month"] != result.loc[1, "fecha_month"]
+        )
+        assert pd.isna(result.loc[1, "fecha_month_sin"])
+        assert pd.isna(result.loc[1, "fecha_month_cos"])
+
+    def test_transform_year_cyclic_warns_but_flat_works(self, df_dates, caplog):
+        import logging
+
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["year"], encoding="both")
+        with caplog.at_level(logging.WARNING):
+            result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_year" in result.columns
+        assert "fecha_inspeccion_year_sin" not in result.columns
+        assert any("year" in r.message for r in caplog.records)
+
+    def test_drop_date_column_removes_source(self, df_dates):
+        t = TemporalFeatures(
+            date_column="fecha_inspeccion",
+            features=["month"],
+            encoding="flat",
+            drop_date_column=True,
+        )
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion" not in result.columns
+        assert "fecha_inspeccion_month" in result.columns
+
+    def test_other_columns_preserved(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month"], encoding="flat")
+        result = t.fit_transform(df_dates)
+
+        assert "value" in result.columns
+        assert list(result["value"]) == list(df_dates["value"])

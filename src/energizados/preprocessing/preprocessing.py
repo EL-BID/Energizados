@@ -12,6 +12,8 @@ Classes:
 - ExtraVars: Creates additional features based on previous values.
 - ConsumptionPatterns: Generates domain-specific fraud detection features.
 - ClipOutliers: Clips extreme values in consumption columns (data reading errors).
+- TemporalFeatures: Extracts calendar features (month/quarter/week/dayofweek/year/day)
+  from a date column with flat and/or cyclic (sin/cos) encoding.
 
 Functions:
 - fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent
@@ -802,9 +804,12 @@ class ExtraVars(BaseEstimator, TransformerMixin):
     - aggregation_functions: dict, dictionary mapping new feature names to aggregation functions.
     """
 
-    def __init__(self, num_periodos=3, periods_suffix: str = "_anterior"):
+    def __init__(
+        self, num_periodos=3, periods_suffix: str = "_anterior", count_nulls: bool = False
+    ):
         self.num_periodos = num_periodos
         self.periods_suffix = periods_suffix
+        self.count_nulls = count_nulls
 
     def fit(self, X, y=None):
         """No-op fit. ExtraVars is stateless and does not learn from training data.
@@ -933,6 +938,11 @@ class ExtraVars(BaseEstimator, TransformerMixin):
         if self.num_periodos > 3:
             df_total_super.loc[:, "kurt_cons" + num_periodos_str] = (
                 df_total_super[cols_3_anterior].kurt(axis=1).fillna(0)
+            )
+
+        if self.count_nulls:
+            df_total_super.loc[:, "cant_null_" + num_periodos_str] = (
+                df_total_super[cols_3_anterior].isna().sum(axis=1)
             )
 
         return df_total_super
@@ -1216,4 +1226,166 @@ class ClipOutliers(BaseEstimator, TransformerMixin):
                 f"in {len(cols)} columns"
             )
 
+        return df
+
+
+class TemporalFeatures(BaseEstimator, TransformerMixin):
+    """Extracts calendar features from a datetime column with flat and/or cyclic encoding.
+
+    Flat encoding produces integer-valued columns (e.g., ``month`` → 1..12).
+    Cyclic encoding produces ``sin``/``cos`` pairs that preserve the circular
+    nature of calendar features (December and January are neighbors).
+
+    Useful for models that cannot learn seasonality from raw date values
+    (tree-based models treat them as ordinal, which breaks near year boundaries).
+
+    Parameters
+    ----------
+    date_column : str
+        Name of the column containing dates (or strings parseable as dates).
+    features : list[str], default=["month", "quarter", "week", "dayofweek"]
+        Calendar parts to extract. Supported: ``month``, ``quarter``, ``week``,
+        ``dayofweek``, ``day``, ``year``.
+    encoding : str, default="both"
+        ``"flat"`` → integer columns only.
+        ``"cyclic"`` → sin/cos columns only.
+        ``"both"`` → both variants.
+    drop_date_column : bool, default=False
+        If True, the source date column is dropped from the output.
+
+    Notes
+    -----
+    Cyclic encoding is skipped for ``year`` (not a cyclic feature) with a warning.
+    Non-datetime columns are coerced via ``pd.to_datetime(..., errors="coerce")``.
+    NaT values propagate as NaN in all generated columns.
+    """
+
+    _SUPPORTED_FEATURES = ("month", "quarter", "week", "dayofweek", "day", "year")
+    _CYCLIC_PERIODS = {
+        "month": 12,
+        "quarter": 4,
+        "week": 52,
+        "dayofweek": 7,
+        "day": 31,
+    }
+
+    def __init__(
+        self,
+        date_column: str = None,
+        features: list = None,
+        encoding: str = "both",
+        drop_date_column: bool = False,
+    ):
+        self.date_column = date_column
+        self.features = features
+        self.encoding = encoding
+        self.drop_date_column = drop_date_column
+
+    def _resolve_features(self):
+        return list(self.features) if self.features else ["month", "quarter", "week", "dayofweek"]
+
+    def _validate(self):
+        if not self.date_column:
+            raise ValueError("TemporalFeatures: 'date_column' is required")
+        if self.encoding not in ("flat", "cyclic", "both"):
+            raise ValueError(
+                f"TemporalFeatures: 'encoding' must be 'flat', 'cyclic' or 'both' "
+                f"(got {self.encoding!r})"
+            )
+        unsupported = [f for f in self._resolve_features() if f not in self._SUPPORTED_FEATURES]
+        if unsupported:
+            raise ValueError(
+                f"TemporalFeatures: unsupported features {unsupported}. "
+                f"Available: {list(self._SUPPORTED_FEATURES)}"
+            )
+
+    def fit(self, X, y=None):
+        """Stateless fit — only validates configuration.
+
+        Args:
+            X: Input DataFrame (must contain ``date_column``).
+            y: Ignored.
+
+        Returns:
+            self
+        """
+        self._validate()
+        if self.date_column not in X.columns:
+            raise ValueError(
+                f"TemporalFeatures: column '{self.date_column}' not found in input DataFrame"
+            )
+        return self
+
+    def _extract(self, dt: pd.Series, feature: str) -> pd.Series:
+        if feature == "month":
+            return dt.dt.month
+        if feature == "quarter":
+            return dt.dt.quarter
+        if feature == "week":
+            return dt.dt.isocalendar().week.astype("Int64")
+        if feature == "dayofweek":
+            return dt.dt.dayofweek
+        if feature == "day":
+            return dt.dt.day
+        if feature == "year":
+            return dt.dt.year
+        raise ValueError(f"TemporalFeatures: unknown feature {feature!r}")
+
+    def transform(self, X):
+        """Generate temporal features and append to DataFrame.
+
+        Args:
+            X: Input DataFrame with ``date_column``.
+
+        Returns:
+            pd.DataFrame: Input DataFrame with the generated columns appended.
+        """
+        self._validate()
+        if self.date_column not in X.columns:
+            raise ValueError(
+                f"TemporalFeatures: column '{self.date_column}' not found in input DataFrame"
+            )
+
+        df = X.copy()
+        dt = df[self.date_column]
+        if not pd.api.types.is_datetime64_any_dtype(dt):
+            dt = pd.to_datetime(dt, errors="coerce")
+
+        features = self._resolve_features()
+        want_flat = self.encoding in ("flat", "both")
+        want_cyclic = self.encoding in ("cyclic", "both")
+
+        generated = []
+        for feat in features:
+            values = self._extract(dt, feat)
+            if want_flat:
+                col = f"{self.date_column}_{feat}"
+                df[col] = values
+                generated.append(col)
+
+            if want_cyclic:
+                if feat not in self._CYCLIC_PERIODS:
+                    logger.warning(
+                        "TemporalFeatures: skipping cyclic encoding for '%s' "
+                        "(not a cyclic feature)",
+                        feat,
+                    )
+                    continue
+                period = self._CYCLIC_PERIODS[feat]
+                angle = 2 * np.pi * values.astype("float64") / period
+                sin_col = f"{self.date_column}_{feat}_sin"
+                cos_col = f"{self.date_column}_{feat}_cos"
+                df[sin_col] = np.sin(angle)
+                df[cos_col] = np.cos(angle)
+                generated.extend([sin_col, cos_col])
+
+        if self.drop_date_column:
+            df = df.drop(columns=[self.date_column])
+
+        logger.info(
+            "TemporalFeatures: generated %d columns from '%s' (%s)",
+            len(generated),
+            self.date_column,
+            self.encoding,
+        )
         return df
