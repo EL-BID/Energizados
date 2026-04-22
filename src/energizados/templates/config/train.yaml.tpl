@@ -162,7 +162,7 @@ train:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
 
-        # Domain-specific fraud detection patterns (Sprint 1: new optional flags)
+        # Domain-specific fraud detection patterns (optional flags)
         # - consumption_patterns:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
