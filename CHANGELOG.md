@@ -2,17 +2,24 @@
 
 ## [Unreleased]
 
-## [0.2.3] - 2026-04-18
+## [0.2.3] - 2026-04-23
 
 ### Added
 - `GeoFeaturesETL`: `regions_file` param — assign `geo_regiao` from a `REGION;CITY` CSV/Parquet (accent/case-insensitive matching, logs matched/unmatched municipalities)
 - `GeoFeaturesETL`: `region_cities` param — assign `geo_regiao` as nearest city from a `REFERENCE_CITIES` subset
 - `GeoFeaturesETL`: `include_hierarchy` now accepts a list of level names (`"estado"`, `"municipio"`, `"regiao"`)
 - 9 new Santa Catarina reference cities
+- `TemporalFeatures`: new transformer for calendar features from a date column — flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding; registered in `feature_engineering/default.py` and exported from `preprocessing.__init__`
+- `ExtraVars`: `count_nulls` param (default `False`) — adds `cant_null_N` column with count of NaN values per row across the `N` consumption periods
+- `ConsumptionPatterns`: `enable_last_period_zscore` param (default `False`) — adds `zscore_last_vs_history_N`: z-score of the last month vs the client's own history mean/std; 0.0 when std==0
+- `ConsumptionPatterns`: `enable_autocorr_lag1` param (default `False`) — adds `autocorr_lag1_N`: lag-1 autocorrelation; low values signal irregular/manipulated consumption; 0.0 for constant series
+- `ConsumptionPatterns`: `enable_seasonal_ratio` + `date_column` params (both default off/`None`) — adds `seasonal_ratio_N`: mean summer consumption / mean winter consumption (southern hemisphere — summer Dec–Feb, winter Jun–Aug); silently skipped if `date_column` is absent or not in the dataset
+- `CATModel`: `class_weight="balanced"` now resolved at fit time from label distribution (previously it was passed raw to CatBoost, which does not accept the string shorthand)
 
 ### Fixed
 - EDA: `string` and `CategoricalDtype` columns now correctly classified as categorical
 - EDA report: numeric stats render with 4 decimal places; `None`/`NaN` shown as `—`
+- `ConsumptionPatterns.seasonal_ratio`: safe division when winter mean is zero or a season has no mapped months
 
 ## [0.2.2] - 2026-04-15
 
