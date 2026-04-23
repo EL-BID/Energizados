@@ -5,11 +5,8 @@
 ## [0.2.3] - 2026-04-23
 
 ### Added
-- `GeoFeaturesETL`: `regions_file` param — assign `geo_regiao` from a `REGION;CITY` CSV/Parquet (accent/case-insensitive matching, logs matched/unmatched municipalities)
-- `GeoFeaturesETL`: `region_cities` param — assign `geo_regiao` as nearest city from a `REFERENCE_CITIES` subset
 - `GeoFeaturesETL`: `include_hierarchy` now accepts a list of level names (`"estado"`, `"municipio"`, `"regiao"`)
-- 9 new Santa Catarina reference cities
-- `TemporalFeatures`: new transformer for calendar features from a date column — flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding; registered in `feature_engineering/default.py` and exported from `preprocessing.__init__`
+- `TemporalFeatures`: new transformer for calendar features from a date column — flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding
 - `ExtraVars`: `count_nulls` param (default `False`) — adds `cant_null_N` column with count of NaN values per row across the `N` consumption periods
 - `ConsumptionPatterns`: `enable_last_period_zscore` param (default `False`) — adds `zscore_last_vs_history_N`: z-score of the last month vs the client's own history mean/std; 0.0 when std==0
 - `ConsumptionPatterns`: `enable_autocorr_lag1` param (default `False`) — adds `autocorr_lag1_N`: lag-1 autocorrelation; low values signal irregular/manipulated consumption; 0.0 for constant series
