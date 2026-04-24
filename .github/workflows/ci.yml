@@ -7,6 +7,26 @@ on:
     branches: [main]
 
 jobs:
+  commitlint:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    # Run on every push and PR; skip if there are no new commits
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install commitlint
+        run: npm ci
+
+      - name: Validate last 10 commits
+        run: npx commitlint --from HEAD~10 --to HEAD --verbose
+
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest

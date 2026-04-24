@@ -18,6 +18,14 @@ pip install -e ".[dev]"
 jupyter lab
 ```
 
+### Testing & Quality
+```bash
+pytest tests/                    # Run all tests
+pytest tests/ -x                 # Stop on first failure
+pytest tests/ -k "test_etl"      # Run specific tests
+pre-commit run --all-files       # Run all linters (isort, black, bandit, flake8)
+```
+
 ### Running the Project
 The project is primarily run through Jupyter notebooks:
 - `notebooks/ejecucion_paso_paso.ipynb` - Local execution
@@ -93,6 +101,15 @@ src/energizados/
 ├── core/              # Core framework components
 │   ├── base.py        # Base classes for pipeline, models, inference
 │   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
+│   ├── builders/      # Step-specific builder implementations
+│   │   ├── etl_builder.py
+│   │   ├── training_builder.py
+│   │   ├── evaluation_builder.py
+│   │   ├── inference_builder.py
+│   │   └── run_manager.py
+│   ├── schemas/       # Pydantic config schemas & validator
+│   │   ├── schemas.py
+│   │   └── config_validator.py
 │   ├── steps/         # Pipeline step implementations
 │   │   ├── split.py   # SplitStep
 │   │   └── training.py # TrainingStep
@@ -101,6 +118,8 @@ src/energizados/
 │   └── utils/         # Internal utilities
 │       ├── import_utils.py   # Dynamic class import with allowlist
 │       └── secure_pickle.py  # SHA-256 verified pickle save/load
+├── explainability/    # SHAP-based model explainability
+│   └── shap_explainer.py
 ├── cli/               # Command-line interface
 │   ├── main.py        # CLI commands
 │   ├── init.py        # Project initialization
@@ -233,10 +252,10 @@ etl:
        mode: "incremental"
        incremental_key: "fecha_actualizacion"  # datetime column to filter new records
        incremental_format: null                # optional: explicit strftime for date parsing (e.g. "%d/%m/%Y")
-        incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
-        reprocess: false                        # true = re-read all files; false = only pending
-        write_mode: "append"                    # "append" = concat to existing; "replace" = overwrite
-        state_file: ".cache/etl_states/consumos.json"
+       incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
+       reprocess: false                        # true = re-read all files; false = only pending
+       write_mode: "append"                    # "append" = concat to existing; "replace" = overwrite
+       state_file: ".cache/etl_states/consumos.json"
        # last_processed: "2024-01-01"  # optional: initial cutoff on first run
    ```
 
@@ -559,7 +578,7 @@ sections:
 
 ### Key Modules
 
-**`src/preprocessing/preprocessing.py`** - Core preprocessing transformers:
+**`src/energizados/preprocessing/preprocessing.py`** - Core preprocessing transformers:
 - `ToDummy`: Converts categorical variables to dummy variables
 - `TeEncoder`: Target encoding for categorical variables
 - `CardinalityReducer`: Reduces cardinality of categorical features
@@ -568,30 +587,30 @@ sections:
 - `ExtraVars`: Creates statistical features from consumption time series (mean, slope, std, zeros count, etc.)
 - `MinMaxScalerRow`: Row-wise MinMax scaling transformer
 
-**`src/modeling/supervised_models.py`** - Supervised model classes:
+**`src/energizados/modeling/supervised_models.py`** - Supervised model classes:
 - `LGBMModel`: LightGBM with imbalanced-learn sampling (undersample/over)
 - `CATModel`: CatBoost with native categorical handling
 - `XGBModel`: XGBoost with imbalanced-learn sampling (optional dependency: `pip install energizados[xgboost]`)
 - `NNModel`: Feedforward neural network (TensorFlow/Keras)
 - `LSTMNNModel`: LSTM + Dense neural network for sequential consumption data
 
-**`src/modeling/adapters.py`** - Model adapters implementing BaseModel interface:
+**`src/energizados/modeling/adapters.py`** - Model adapters implementing BaseModel interface:
 - `LGBMModelAdapter`, `CATModelAdapter`, `XGBModelAdapter`: Wrap supervised models
 - `NNModelAdapter`, `LSTMNNModelAdapter`: Wrap neural network models
 - `SimpleTrendAdapter`, `SimpleConstantAdapter`: Rule-based baseline models
 
-**`src/modeling/ensemble.py`** - Ensemble model combining multiple base models:
+**`src/energizados/modeling/ensemble.py`** - Ensemble model combining multiple base models:
 - `EnsembleModel`: Combines N base models via soft voting or stacking with meta-learner
   - `method`: `"soft_voting"` (weighted average) or `"stacking"` (meta-learner trained on base predictions)
   - `use_val_as_oof`: True=blending (fast, uses val set); False=proper K-fold OOF (slower, no leakage)
   - `skip_base_fit`: When True, assumes base models are pre-fitted; only trains meta-learner
   - `ensemble_description` property: Human-readable format like `"Ensemble (lightgbm, catboost)"`
 
-**`src/modeling/simple_models.py`** - Rule-based baseline models:
+**`src/energizados/modeling/simple_models.py`** - Rule-based baseline models:
 - `ChangeTrendPercentajeIdentifierWide`: Detects dramatic consumption drops
 - `ConstantConsumptionClassifierWide`: Identifies constant consumption patterns
 
-**`src/modeling/feature_selection.py`** - Feature selection methods:
+**`src/energizados/feature_selection/methods.py`** - Feature selection methods:
 - `feature_selection_by_correlation()`: Removes highly correlated features
 - `feature_selection_by_constant()`: Removes low-variance features
 - `feature_selection_by_boruta()`: Boruta algorithm for feature selection
@@ -647,6 +666,7 @@ The project documentation and comments are in English. The codebase uses Spanish
 |-------|-------------|---------|
 | `experiment-results` | Generates a complete experiment results report with metrics, insights, next steps, and a business section with operational impact simulator. | When the user requests experiment results or to generate _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
 | `new-experiments` | Design and generate a complete set of ML training experiments (roadmap + YAMLs) for an Energizados project. | When the user says "new experiments", "nuevos experimentos", "crear experimentos". [SKILL.md](.claude/skills/new-experiments/SKILL.md) |
+| `run-experiment` | Run a full training experiment (validate → ETL → train) and surface key metrics from the JSON report. | When the user wants to kick off a pipeline run and see results. [SKILL.md](.claude/skills/run-experiment/SKILL.md) |
 
 ## Agent Rules (Always Apply)
 
@@ -654,3 +674,68 @@ The project documentation and comments are in English. The codebase uses Spanish
 - Check and fix tests.
 - Check pre-commit rules and ensure controls pass.
 - Do NOT use `print` for logging. Use the Python `logging` module instead.
+
+## Release & Changelog Conventions
+
+This project follows [Keep a Changelog](https://keepachangelog.com/) and
+[Semantic Versioning](https://semver.org/). All commit messages must adhere to
+the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+### Commit Message Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer]
+```
+
+| Type       | Description          | Changelog Section |
+|------------|---------------------|--------------------|
+| `feat`     | New feature         | **Features**       |
+| `fix`      | Bug fix             | **Bug Fixes**      |
+| `refactor` | Code restructure    | **Refactoring**    |
+| `perf`     | Performance         | **Performance**    |
+| `revert`   | Revert commit       | **Reverts**        |
+| `docs`     | Documentation       | **Documentation**  |
+| `test`     | Tests               | **Testing**        |
+| `ci`       | CI changes          | **CI/CD**          |
+| `chore`    | Maintenance         | (excluded from CHANGELOG) |
+| `build`    | Build system        | (excluded)         |
+| `style`    | Formatting          | (excluded)         |
+
+**Examples:**
+
+```bash
+# Feature
+feat(preprocessing): add enable_last_period_zscore to ConsumptionPatterns
+
+# Bug fix with body
+fix(correlation): always keep the feature with higher target correlation
+
+When two features are highly correlated the greedy selector previously
+could drop either one arbitrarily. The algorithm now sorts by target
+correlation (descending) and greedily keeps non-redundant ones.
+
+Closes #15
+
+# Breaking change
+feat(api)!: change model.predict return shape
+
+BREAKING CHANGE: ... migration guide ...
+```
+
+### Release Process
+
+1. **Conventional Commits** are validated by commitlint (pre-commit hook + CI).
+2. **Changelog** is automatically regenerated by `git-cliff` via
+   `.github/scripts/bump_version.py` during a manual release or tag push.
+3. **Three-version source of truth**: `pyproject.toml`, `src/energizados/_version.py`,
+   and the version tag — all kept in sync by the release script.
+4. **To cut a release** (any maintainer):
+   - Go to GitHub → Actions → **Release** workflow → Run workflow → choose type
+     (`patch` / `minor` / `major`).
+   - The workflow bumps the three version files, regenerates `CHANGELOG.md`,
+     commits, and pushes a version tag. GitHub automatically publishes the
+     release notes from the tag.

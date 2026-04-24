@@ -1,0 +1,69 @@
+# git-cliff configuration — generates CHANGELOG.md from conventional commits.
+#
+# How to use:
+#   git cliff                           → preview to stdout (dry run)
+#   git cliff -o CHANGELOG.md           → write changelog
+#   git cliff -u v0.2.3 -o CHANGELOG.md → changelog from last tag
+#   git cliff --unreleased             → preview [Unreleased] section
+#
+# CI integration (GitHub Actions):
+#   git cliff -o CHANGELOG.md           → overwrite entire file with all releases
+#   git cliff -t vX.Y.Z -o CHANGELOG.md → update from a specific tag onward
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+"""
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}**{{ commit.scope }}:** {% endif %}\
+            {{ commit.message | upper_first }}\
+            {% if commit.remote.pr_number %} ([#{{ commit.remote.pr_number }}](https://github.com/EL-BID/Energizados/pull/{{ commit.remote.pr_number }})){% endif %}\
+    {% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+sort_commits = "oldest"
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^revert", group = "Reverts" },
+    { message = "^docs", group = "Documentation" },
+    { message = "^test", group = "Testing" },
+    { message = "^ci", group = "CI/CD" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", group = "Miscellaneous" },
+    { message = "^build", group = "Build System" },
+    { message = "^style", group = "Styling" },
+]
+protect_commits = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+
+[github]
+owner = "EL-BID"
+repo = "Energizados"
