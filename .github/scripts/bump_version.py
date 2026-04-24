@@ -66,6 +66,8 @@ def run_git_cliff(target_tag: str) -> None:
     """
     Run `git-cliff -t <tag> -o CHANGELOG.md` to regenerate the full changelog
     from the beginning up to (and including) the given tag.
+
+    If git-cliff is not available, skips changelog regeneration gracefully.
     """
     result = subprocess.run(  # nosec B603 B607
         ["git-cliff", "-t", target_tag, "-o", "CHANGELOG.md"],
@@ -74,8 +76,10 @@ def run_git_cliff(target_tag: str) -> None:
         text=True,
     )
     if result.returncode != 0:
-        print("STDERR:", result.stderr, sep="\n")
-        raise RuntimeError(f"git-cliff failed: {result.stderr}")
+        print("WARNING: git-cliff failed or not installed — skipping changelog regeneration")
+        print(f"  Run manually: git-cliff -t {target_tag} -o CHANGELOG.md")
+        print("  Or install: cargo install git-cliff")
+        return
     print("Regenerated CHANGELOG.md via git-cliff")
 
 

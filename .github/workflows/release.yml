@@ -61,6 +61,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff
+        with:
+          version: latest
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
