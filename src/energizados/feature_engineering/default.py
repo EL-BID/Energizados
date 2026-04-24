@@ -260,7 +260,7 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
 
         # Split global_transformers into pre/post based on each transformer's pipeline_stage.
         # Transformers with pipeline_stage="pre" run before column encoding (need raw cols).
-        global_config = preprocessing_config.get("global_transformers", [])
+        global_config = preprocessing_config.get("global_transformers") or []
         pre_global_pipeline, post_global_pipeline = _build_split_global_pipelines(global_config)
 
         # Assemble: [pre_global?] → column_transformer → [post_global?]

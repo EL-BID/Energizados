@@ -10,6 +10,9 @@ jobs:
   commitlint:
     name: Conventional Commits
     runs-on: ubuntu-latest
+    # Opt into Node.js 24 (Node.js 20 is deprecated)
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     # Run on every push and PR; skip if there are no new commits
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +33,8 @@ jobs:
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +56,8 @@ jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -80,6 +87,8 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     needs: [lint]
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
