@@ -65,7 +65,7 @@ class _CalibratedWrapper:
 def _date_columns_needed_by_preprocessing(preprocessing_config: dict) -> set:
     """Return date_column values referenced by temporal_features in global_transformers."""
     needed = set()
-    global_transformers = preprocessing_config.get("global_transformers", [])
+    global_transformers = preprocessing_config.get("global_transformers") or []
     for entry in global_transformers:
         if isinstance(entry, dict) and "temporal_features" in entry:
             params = entry["temporal_features"]
