@@ -17,11 +17,6 @@ import re
 import subprocess  # nosec B404
 from pathlib import Path
 
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore[no-redef]  # noqa: F401
-
 ROOT = Path(__file__).parent.parent.parent
 
 
@@ -84,6 +79,16 @@ def run_git_cliff(target_tag: str) -> None:
     print("Regenerated CHANGELOG.md via git-cliff")
 
 
+def get_current_version() -> str:
+    """Read version from pyproject.toml."""
+    toml_path = ROOT / "pyproject.toml"
+    content = toml_path.read_text()
+    m = re.search(r'^version\s*=\s*"([^"]+)"', content, flags=re.MULTILINE)
+    if not m:
+        raise RuntimeError("Could not find version in pyproject.toml")
+    return m.group(1)
+
+
 # ----------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------
@@ -91,8 +96,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Bump version and update changelog")
     parser.add_argument(
         "--current",
-        required=True,
-        help="Current version (read from pyproject.toml if omitted)",
+        required=False,
+        help="Current version (auto-detected from pyproject.toml if omitted)",
     )
     parser.add_argument(
         "--type",
@@ -102,8 +107,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    new_version = bump(args.current, args.type)
-    print(f"Bumping {args.current} → {new_version} ({args.type})")
+    current = args.current or get_current_version()
+    new_version = bump(current, args.type)
+    print(f"Bumping {current} → {new_version} ({args.type})")
 
     update_pyproject(new_version)
     update_version_py(new_version)
