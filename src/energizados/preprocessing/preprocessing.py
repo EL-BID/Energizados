@@ -395,6 +395,11 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         scaler = MinMaxScaler(feature_range=self.feature_range)
         X_scaled = scaler.fit_transform(X.T).T
 
+        # Fill NaN for constant rows (min == max) with the midpoint of feature_range
+        if np.isnan(X_scaled).any():
+            midpoint = (self.feature_range[0] + self.feature_range[1]) / 2
+            X_scaled = np.nan_to_num(X_scaled, nan=midpoint)
+
         # If X is a DataFrame, return a DataFrame with same names and index
         if hasattr(X, "columns") and hasattr(X, "index"):
             import pandas as pd
@@ -1059,15 +1064,27 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         self.date_column = date_column
 
     def fit(self, X, y=None):
-        """No-op fit. ConsumptionPatterns is stateless.
+        """Fit the transformer by computing global statistics for z-score features.
+
+        Stores the global mean of row-level mean and std columns so that
+        z-score computation in transform() uses training-set statistics
+        instead of leaking information from test/validation data.
 
         Args:
-            X: Input DataFrame (not used).
+            X: Input DataFrame with consumption columns and stat columns
+               (e.g., mean_N, std_consN).
             y: Ignored. Kept for API compatibility.
 
         Returns:
-            self: Returns the transformer unchanged.
+            self: Returns the fitted transformer.
         """
+        df_temp = X.copy()
+        df_temp = self._ensure_stat_columns(df_temp)
+        n = str(self.num_periodos)
+        mean_col = f"mean_{n}"
+        std_col = f"std_cons{n}"
+        self._zscore_mean_global = float(df_temp[mean_col].mean())
+        self._zscore_std_global = float(df_temp[std_col].mean())
         return self
 
     def _get_cons_cols(self):
@@ -1128,11 +1145,25 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
 
         # 3. Z-score of mean consumption (outliers)
         if self.enable_zscore:
-            mean_global = df[mean_col].mean()
-            std_global = df[std_col].mean()
-            df[f"zscore_mean_{self.num_periodos}"] = np.where(
-                df[std_col] > 0, (df[mean_col] - mean_global) / std_global, 0
-            )
+            if hasattr(self, "_zscore_mean_global"):
+                mean_global = self._zscore_mean_global
+                std_global = self._zscore_std_global
+            else:
+                logger.warning(
+                    "ConsumptionPatterns: _zscore_mean_global not found — fit() was not called. "
+                    "Using current DataFrame statistics as fallback (may introduce data leakage)."
+                )
+                mean_global = df[mean_col].mean()
+                std_global = df[std_col].mean()
+
+            if std_global > 0:
+                df[f"zscore_mean_{self.num_periodos}"] = np.where(
+                    df[std_col] > 0,
+                    (df[mean_col] - mean_global) / std_global,
+                    0,
+                )
+            else:
+                df[f"zscore_mean_{self.num_periodos}"] = 0.0
 
         # 4. Zero ratio (proportion of months with zero consumption)
         if self.enable_zero_ratio:

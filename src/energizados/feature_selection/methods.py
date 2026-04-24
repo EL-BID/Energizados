@@ -70,20 +70,25 @@ class CorrelationSelector(BaseFeatureSelector):
         X["target"] = y.values
         df_corr = X[variables + ["target"]].corr(method=self.method)
 
-        # Find most correlated variables
-        vars_to_drop_corr = []
-        for x in variables:
-            for y_var in variables:
-                if x != y_var:
-                    c_value = df_corr[x][y_var]
-                    if np.abs(c_value) > self.threshold:
-                        corr_x_t = np.abs(df_corr[x]["target"])
-                        corr_y_t = np.abs(df_corr[y_var]["target"])
-                        if corr_x_t > corr_y_t:
-                            vars_to_drop_corr.append(y_var)
+        target_corr = df_corr["target"].drop("target").abs().sort_values(ascending=False)
 
-        self.vars_to_drop_ = list(set(vars_to_drop_corr))
-        self.selected_features_ = [v for v in variables if v not in self.vars_to_drop_]
+        selected = []
+        dropped = []
+        for feat in target_corr.index:
+            if feat in dropped:
+                continue
+            keep = True
+            for sel_feat in selected:
+                if np.abs(df_corr.loc[feat, sel_feat]) > self.threshold:
+                    keep = False
+                    break
+            if keep:
+                selected.append(feat)
+            else:
+                dropped.append(feat)
+
+        self.vars_to_drop_ = dropped
+        self.selected_features_ = selected
 
         logger.info(f"Removing {len(self.vars_to_drop_)} Highly Correlated Variables")
         return self
@@ -161,9 +166,13 @@ class ConstantSelector(BaseFeatureSelector):
         num_rows = X.shape[0]
         all_labels = X.columns.tolist()
 
-        constant_per_feature = {
-            label: X[label].value_counts().iloc[0] / num_rows for label in all_labels
-        }
+        constant_per_feature = {}
+        for label in all_labels:
+            vc = X[label].value_counts()
+            if len(vc) == 0:
+                constant_per_feature[label] = 1.0
+            else:
+                constant_per_feature[label] = vc.iloc[0] / num_rows
 
         self.vars_to_drop_ = [
             label for label in all_labels if constant_per_feature[label] > self.threshold

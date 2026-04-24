@@ -17,6 +17,11 @@
 - EDA: `string` and `CategoricalDtype` columns now correctly classified as categorical
 - EDA report: numeric stats render with 4 decimal places; `None`/`NaN` shown as `—`
 - `ConsumptionPatterns.seasonal_ratio`: safe division when winter mean is zero or a season has no mapped months
+- `CorrelationSelector`: algorithm rewritten — now sorts features by target correlation (descending) and greedily keeps non-redundant ones; previously could drop the feature with higher target correlation instead of the weaker one
+- `ConstantSelector`: crash on all-NaN columns (`value_counts()` empty → `IndexError`); now treated as 100 % constant and dropped
+- `IsolationForestScore`: all-NaN training columns produced `NaN` medians; now logs a warning and fills with `0.0`; `transform()` also has a final `fillna(0.0)` guard for unseen all-NaN columns
+- `MinMaxScalerRow`: constant rows (min == max) produced `NaN` output due to 0/0 division; now fills with the midpoint of `feature_range`
+- `ConsumptionPatterns`: `fit()` now stores global z-score statistics from training data (`_zscore_mean_global`, `_zscore_std_global`); `transform()` uses them to prevent data leakage on val/test sets; falls back to current-batch stats with a warning if `fit()` was skipped
 
 ## [0.2.2] - 2026-04-15
 
