@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags:
       - "v*" # Run when a version tag is pushed
   workflow_dispatch:
@@ -41,7 +41,7 @@ jobs:
           tag_name: ${{ github.ref }}
           generate_release_notes: true
           body: |
-            See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+            See the [CHANGELOG](https://github.com/${{ github.repository }}/blob/master/CHANGELOG.md) for details.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -93,7 +93,7 @@ jobs:
           fi
           git commit -m "chore(release): ${{ env.version }}"
           git tag "v${{ env.version }}"
-          git push --follow-tags origin main
+          git push --follow-tags origin master
 
   # -----------------------------------------------------------------------
   # CI changelog: update [Unreleased] on every push to main (non-tag)
@@ -130,5 +130,5 @@ jobs:
             echo "No changelog changes — skipping."
           else
             git commit -m "docs(changelog): update unreleased section"
-            git push origin main
+            git push origin master
           fi
