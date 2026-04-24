@@ -2104,7 +2104,17 @@
 <tr>
 <td><code>extra_vars</code></td>
 <td>Statistical features for different time windows</td>
-<td><code>num_periodos</code> (int, default=3), <code>periods_suffix</code> (str, default="_anterior")</td>
+<td><code>num_periodos</code> (int, default=3), <code>periods_suffix</code> (str, default="_anterior"), <code>count_nulls</code> (bool, default=False)</td>
+</tr>
+<tr>
+<td><code>group_relative_consumption</code></td>
+<td>Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates <code>prop_cons_{window}_{metric}_{group_column}</code></td>
+<td><code>group_column</code> (str, default="actividad"), <code>windows</code> (list[int], default=[3,6,12]), <code>metrics</code> (list[str], default=["mean","max"]), <code>periods_suffix</code> (str, default="_anterior")</td>
+</tr>
+<tr>
+<td><code>seasonal_anomaly</code></td>
+<td>Seasonal z-score for each month vs group mean/std for that calendar month. Generates <code>seasonal_anomaly_{i}_anterior</code></td>
+<td><code>group_column</code> (str, default="actividad"), <code>date_column</code> (str, required), <code>periods_suffix</code> (str, default="_anterior")</td>
 </tr>
 </tbody>
 </table>
@@ -2139,10 +2149,23 @@
 <a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">extra_vars</span><span class="p">:</span>
 <a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="w">            </span><span class="nt">num_periodos</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
 <a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a>
-<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">        </span><span class="c1"># Custom global transformer</span>
-<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;preprocessing.CustomGlobalTransformer&quot;</span>
-<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">          </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">            </span><span class="nt">custom_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">        </span><span class="c1"># Consumption relative to peer group (e.g. actividad, tarifa, zona)</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group_relative_consumption</span><span class="p">:</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">            </span><span class="nt">group_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;actividad&quot;</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">            </span><span class="nt">windows</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">6</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">12</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">            </span><span class="nt">metrics</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;mean&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;max&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">            </span><span class="nt">periods_suffix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;_anterior&quot;</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">        </span><span class="c1"># Seasonal anomaly: z-score vs group mean/std for each calendar month</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">seasonal_anomaly</span><span class="p">:</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">            </span><span class="nt">group_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;actividad&quot;</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="w">            </span><span class="nt">date_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;fecha_inspeccion&quot;</span>
+<a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a><span class="w">            </span><span class="nt">periods_suffix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;_anterior&quot;</span>
+<a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a>
+<a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a><span class="w">        </span><span class="c1"># Custom global transformer</span>
+<a id="__codelineno-6-44" name="__codelineno-6-44" href="#__codelineno-6-44"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;preprocessing.CustomGlobalTransformer&quot;</span>
+<a id="__codelineno-6-45" name="__codelineno-6-45" href="#__codelineno-6-45"></a><span class="w">          </span><span class="nt">params</span><span class="p">:</span>
+<a id="__codelineno-6-46" name="__codelineno-6-46" href="#__codelineno-6-46"></a><span class="w">            </span><span class="nt">custom_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
 </code></pre></div>
 <p>See <a href="../custom-preprocessing/">Custom Preprocessing</a> for more details on global transformers.</p>
 <h2 id="testing-custom-feature-engineering">Testing Custom Feature Engineering<a class="headerlink" href="#testing-custom-feature-engineering" title="Permanent link">&para;</a></h2>

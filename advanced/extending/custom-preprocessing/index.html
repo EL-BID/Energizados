@@ -1489,6 +1489,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#controlling-the-execution-stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controlling the Execution Stage
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1828,6 +1839,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#controlling-the-execution-stage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controlling the Execution Stage
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2156,6 +2178,25 @@
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;consumption_mean&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;consumption_std&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;*&quot;</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;peak_hour&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;off_peak_hour&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;/&quot;</span><span class="p p-Indicator">]</span>
 </code></pre></div>
+<h3 id="controlling-the-execution-stage">Controlling the Execution Stage<a class="headerlink" href="#controlling-the-execution-stage" title="Permanent link">&para;</a></h3>
+<p>By default, custom global transformers run <strong>after</strong> column encoding (<code>pipeline_stage = "post"</code>). If your transformer needs to see original categorical columns (e.g., to <code>groupby("actividad")</code> before it becomes <code>actividad_prob</code> after <code>target_encoding</code>), declare <code>pipeline_stage = "pre"</code> as a class attribute:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyGroupTransformer</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">):</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">pipeline_stage</span> <span class="o">=</span> <span class="s2">&quot;pre&quot;</span>  <span class="c1"># runs before column_transformer</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="c1"># X still has the original categorical &quot;actividad&quot; here</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">stats_</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;actividad&quot;</span><span class="p">)[</span><span class="s2">&quot;1_anterior&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="k">return</span> <span class="bp">self</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="n">df</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;my_feature&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;actividad&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_</span><span class="p">)</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+<p>The framework automatically splits <code>global_transformers</code> into two groups and assembles the pipeline as:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>[pre-encoding transformers] → column_transformer → [post-encoding transformers]
+</code></pre></div>
+<p>No YAML changes are needed — the stage is entirely declared in Python.</p>
 <h2 id="the-security-allowlist">The Security Allowlist<a class="headerlink" href="#the-security-allowlist" title="Permanent link">&para;</a></h2>
 <h3 id="why-it-exists">Why It Exists<a class="headerlink" href="#why-it-exists" title="Permanent link">&para;</a></h3>
 <p>The <code>custom_class</code> plugin system uses Python's dynamic import capability to load classes from string references (e.g., <code>"src.models.custom.CustomModel"</code>). Without controls, this could allow arbitrary code execution from untrusted YAML configuration files.</p>
@@ -2169,32 +2210,32 @@
 <li><strong>Adds project directories to sys.path temporarily</strong>: Supports local projects not installed as packages</li>
 </ol>
 <h3 id="what-paths-are-allowed-by-default">What Paths Are Allowed by Default<a class="headerlink" href="#what-paths-are-allowed-by-default" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">ALLOWED_PREFIXES</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">&quot;energizados.&quot;</span><span class="p">,</span>      <span class="c1"># Framework modules</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">&quot;src.&quot;</span><span class="p">,</span>              <span class="c1"># Generated project src/ directory</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">&quot;data.&quot;</span><span class="p">,</span>             <span class="c1"># Custom data modules</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="s2">&quot;features.&quot;</span><span class="p">,</span>          <span class="c1"># Custom feature modules</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="s2">&quot;models.&quot;</span><span class="p">,</span>           <span class="c1"># Custom model modules</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="s2">&quot;inference.&quot;</span><span class="p">,</span>         <span class="c1"># Custom inference modules</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="s2">&quot;preprocessing.&quot;</span><span class="p">,</span>     <span class="c1"># Custom preprocessing modules</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="s2">&quot;etl.&quot;</span><span class="p">,</span>              <span class="c1"># Custom ETL modules</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="s2">&quot;tests.&quot;</span><span class="p">,</span>             <span class="c1"># Test modules</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">ALLOWED_PREFIXES</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="s2">&quot;energizados.&quot;</span><span class="p">,</span>      <span class="c1"># Framework modules</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="s2">&quot;src.&quot;</span><span class="p">,</span>              <span class="c1"># Generated project src/ directory</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="s2">&quot;data.&quot;</span><span class="p">,</span>             <span class="c1"># Custom data modules</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="s2">&quot;features.&quot;</span><span class="p">,</span>          <span class="c1"># Custom feature modules</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="s2">&quot;models.&quot;</span><span class="p">,</span>           <span class="c1"># Custom model modules</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="s2">&quot;inference.&quot;</span><span class="p">,</span>         <span class="c1"># Custom inference modules</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="s2">&quot;preprocessing.&quot;</span><span class="p">,</span>     <span class="c1"># Custom preprocessing modules</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="s2">&quot;etl.&quot;</span><span class="p">,</span>              <span class="c1"># Custom ETL modules</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="s2">&quot;tests.&quot;</span><span class="p">,</span>             <span class="c1"># Test modules</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">]</span>
 </code></pre></div>
 <h3 id="how-to-add-new-paths">How to Add New Paths<a class="headerlink" href="#how-to-add-new-paths" title="Permanent link">&para;</a></h3>
 <p>If you need to add new module prefixes, edit <code>src/energizados/core/utils/import_utils.py</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">ALLOWED_PREFIXES</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;energizados.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s2">&quot;src.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="s2">&quot;data.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="s2">&quot;features.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="s2">&quot;models.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="s2">&quot;inference.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="s2">&quot;preprocessing.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="s2">&quot;etl.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="s2">&quot;tests.&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="s2">&quot;my_custom_prefix.&quot;</span><span class="p">,</span>  <span class="c1"># Add your custom prefix here</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">ALLOWED_PREFIXES</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="s2">&quot;energizados.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">&quot;src.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;data.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">&quot;features.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="s2">&quot;models.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="s2">&quot;inference.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="s2">&quot;preprocessing.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="s2">&quot;etl.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="s2">&quot;tests.&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="s2">&quot;my_custom_prefix.&quot;</span><span class="p">,</span>  <span class="c1"># Add your custom prefix here</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="p">]</span>
 </code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Security Warning</p>
@@ -2202,45 +2243,45 @@
 </div>
 <h3 id="what-happens-when-a-class-is-not-in-the-allowlist">What Happens When a Class Is Not in the Allowlist<a class="headerlink" href="#what-happens-when-a-class-is-not-in-the-allowlist" title="Permanent link">&para;</a></h3>
 <p>You'll get an <code>ImportError</code> with a clear message:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>ImportError: Class &#39;malicious.package.Attacker&#39; is not in the allowed module prefixes.
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Allowed prefixes: [&#39;energizados.&#39;, &#39;src.&#39;, &#39;data.&#39;, &#39;features.&#39;, &#39;models.&#39;, &#39;inference.&#39;, &#39;preprocessing.&#39;, &#39;etl.&#39;, &#39;tests.&#39;]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ImportError: Class &#39;malicious.package.Attacker&#39; is not in the allowed module prefixes.
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>Allowed prefixes: [&#39;energizados.&#39;, &#39;src.&#39;, &#39;data.&#39;, &#39;features.&#39;, &#39;models.&#39;, &#39;inference.&#39;, &#39;preprocessing.&#39;, &#39;etl.&#39;, &#39;tests.&#39;]
 </code></pre></div>
 <h2 id="testing-custom-transformers">Testing Custom Transformers<a class="headerlink" href="#testing-custom-transformers" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># tests/test_custom_transformers.py</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">preprocessing.interaction_transformer</span><span class="w"> </span><span class="kn">import</span> <span class="n">CustomInteractionTransformer</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">sample_data</span><span class="p">():</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create sample data for testing.&quot;&quot;&quot;</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="s1">&#39;col1&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s1">&#39;col2&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="s1">&#39;col3&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">]</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="p">})</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_custom_interaction_transformer</span><span class="p">(</span><span class="n">sample_data</span><span class="p">):</span>
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test CustomInteractionTransformer creates interaction features.&quot;&quot;&quot;</span>
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>    <span class="n">transformer</span> <span class="o">=</span> <span class="n">CustomInteractionTransformer</span><span class="p">(</span>
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>        <span class="n">interactions</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;col1&quot;</span><span class="p">,</span> <span class="s2">&quot;col2&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;col1&quot;</span><span class="p">,</span> <span class="s2">&quot;col2&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)]</span>
-<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="p">)</span>
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">sample_data</span><span class="p">)</span>
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>    <span class="c1"># Check that interaction columns were created</span>
-<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="k">assert</span> <span class="s1">&#39;col1_x_col2&#39;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span>
-<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>    <span class="k">assert</span> <span class="s1">&#39;col1_plus_col2&#39;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span>
-<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>
-<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>    <span class="c1"># Check values</span>
-<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>    <span class="n">expected_product</span> <span class="o">=</span> <span class="n">sample_data</span><span class="p">[</span><span class="s1">&#39;col1&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">sample_data</span><span class="p">[</span><span class="s1">&#39;col2&#39;</span><span class="p">]</span>
-<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>    <span class="n">pd</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_series_equal</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;col1_x_col2&#39;</span><span class="p">],</span> <span class="n">expected_product</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># tests/test_custom_transformers.py</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">preprocessing.interaction_transformer</span><span class="w"> </span><span class="kn">import</span> <span class="n">CustomInteractionTransformer</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">sample_data</span><span class="p">():</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create sample data for testing.&quot;&quot;&quot;</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="s1">&#39;col1&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>        <span class="s1">&#39;col2&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="s1">&#39;col3&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">]</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="p">})</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_custom_interaction_transformer</span><span class="p">(</span><span class="n">sample_data</span><span class="p">):</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test CustomInteractionTransformer creates interaction features.&quot;&quot;&quot;</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>    <span class="n">transformer</span> <span class="o">=</span> <span class="n">CustomInteractionTransformer</span><span class="p">(</span>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>        <span class="n">interactions</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;col1&quot;</span><span class="p">,</span> <span class="s2">&quot;col2&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;col1&quot;</span><span class="p">,</span> <span class="s2">&quot;col2&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">)]</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>    <span class="p">)</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">sample_data</span><span class="p">)</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>    <span class="c1"># Check that interaction columns were created</span>
+<a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>    <span class="k">assert</span> <span class="s1">&#39;col1_x_col2&#39;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span>
+<a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>    <span class="k">assert</span> <span class="s1">&#39;col1_plus_col2&#39;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span>
+<a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>
+<a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>    <span class="c1"># Check values</span>
+<a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>    <span class="n">expected_product</span> <span class="o">=</span> <span class="n">sample_data</span><span class="p">[</span><span class="s1">&#39;col1&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">sample_data</span><span class="p">[</span><span class="s1">&#39;col2&#39;</span><span class="p">]</span>
+<a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>    <span class="n">pd</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_series_equal</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;col1_x_col2&#39;</span><span class="p">],</span> <span class="n">expected_product</span><span class="p">)</span>
 </code></pre></div>
 <p>Run tests:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pytest<span class="w"> </span>tests/test_custom_transformers.py<span class="w"> </span>-v
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pytest<span class="w"> </span>tests/test_custom_transformers.py<span class="w"> </span>-v
 </code></pre></div></p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
