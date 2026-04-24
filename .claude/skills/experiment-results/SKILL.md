@@ -76,15 +76,22 @@ calibration            → Calibration info (if present)
    ├── Prioritized next steps
    └── Winning pipeline
 
-5. Generate business section
+5. Generate business section (inside _results.md)
    ├── Explain metrics in non-technical language
    ├── Operational impact simulator
    └── Actionable recommendations
+
+6. Generate business slides (separate file: _slides_negocio.md)
+   ├── Translate results into presentation-ready slides
+   ├── Use neutral, professional language
+   └── Focus on operational impact and next steps
 ```
 
 ### Output Format
 
-The output file is `_results.md` in the same directory as `_experiments.md`.
+Two files are generated in the same directory as `_experiments.md`:
+
+**1. `_results.md`** — Full technical report.
 
 Structure:
 ```
@@ -119,6 +126,13 @@ Structure:
 ## Missing Experiments
 ```
 
+**2. `_slides_negocio.md`** — Business-facing slide deck in Markdown.
+
+- Generated **after** `_results.md` is complete.
+- Uses the same data but written as presentation slides (10–12 slides).
+- Language must match the project language (Spanish if the results are in Spanish).
+- See [Slides Section](#slides-section) below for detailed guidelines.
+
 ### Business Section — Guidelines
 
 The business section MUST include:
@@ -139,6 +153,55 @@ The business section MUST include:
    - Suggested operational threshold
    - Estimated resources required
    - False positive/negative risk
+
+### Slides Section
+
+The `_slides_negocio.md` file is a **presentation-ready slide deck** derived from `_results.md`, designed for a non-technical business audience.
+
+#### Generation Rules
+
+1. **Generate only after `_results.md` is complete** — the slides are a derivative artifact.
+2. **Language**: match the project language (e.g., Spanish for Spanish-language results).
+3. **Tone**: neutral, professional, and presentation-oriented. Avoid:
+   - Colloquialisms (e.g., "al pedo", "de onda").
+   - Sarcasm or irony.
+   - Overly casual phrasing (e.g., "es así de fácil").
+4. **Format**: each slide is a level-2 heading (`## Slide N: Title`) separated by `---`.
+5. **Length**: 10–12 slides maximum. Keep each slide scannable (tables, bullets, short paragraphs).
+
+#### Required Slides
+
+| # | Slide | Content |
+|---|-------|---------|
+| 1 | **El Problema** / **The Problem** | Business context, cost of fraud, why the model is needed. |
+| 2 | **Qué Hicimos** / **What We Did** | Number of experiments, methodology, split strategy. |
+| 3 | **Resultado Principal** / **Key Results** | Best AUC, Precision, Recall, F1 with plain-language interpretation. |
+| 4 | **Mayor Driver de Performance** / **Key Driver** | What moved the needle most (usually feature engineering). |
+| 5 | **Simulador de Impacto** / **Impact Simulator** | Concrete scenario with total clients, inspections, and frauds found vs. random. |
+| 6 | **Curva de Ganancia** / **Cumulative Gains** | Decile table showing sweet spot (typically top 20–30%). |
+| 7 | **Recomendaciones Operativas** / **Operational Recommendations** | Threshold, expected false-positive rate, retraining cadence, risk of false negatives. |
+| 8 | **Roadmap** / **What’s Next** | Prioritized next steps with impact and effort. |
+| 9 | **Preguntas Frecuentes** / **FAQ** | 2–3 anticipated objections answered with data (e.g., low precision, high false positives). |
+| 10 | **Próximos Pasos Inmediatos** / **Immediate Next Steps** | Pilot, integration, feedback loop. |
+
+#### FAQ Guidelines
+
+Anticipate and neutrally address typical business concerns:
+
+- **"Why is precision low?"** → Explain the base rate. If fraud is 9%, even a perfect model would have low precision. Show the multiplier vs. baseline.
+- **"Won’t most inspections be wasted?"** → Contrast with random selection. Without a model, the false-positive rate is even higher because the base rate is low.
+- **"Is this better than what we do today?"** → Provide the efficiency multiplier (e.g., 1.8x more detections per inspection).
+
+#### Operational Recommendations Slide
+
+- State the recommended threshold and its rationale (cost-benefit analysis if available).
+- Frame the false-positive rate as expected and manageable, not as a failure.
+- Suggest a concrete retraining frequency (e.g., monthly).
+- Mention the need for complementary business rules to cover undetected frauds.
+
+#### Template Reference
+
+See [assets/slides_template.md](assets/slides_template.md) for a complete example in Spanish.
 
 ## Code Examples
 
@@ -187,5 +250,5 @@ done
 
 ## Resources
 
-- **Templates**: See [assets/](assets/) for _results.md template structure
-- **Scripts**: See [scripts/](scripts/) for metric extraction helpers
+- **Templates**: See [assets/](assets/) for `_results.md` and `_slides_negocio.md` template structures.
+- **Scripts**: See [scripts/](scripts/) for metric extraction helpers.

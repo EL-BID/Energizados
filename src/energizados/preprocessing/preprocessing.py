@@ -12,6 +12,8 @@ Classes:
 - ExtraVars: Creates additional features based on previous values.
 - ConsumptionPatterns: Generates domain-specific fraud detection features.
 - ClipOutliers: Clips extreme values in consumption columns (data reading errors).
+- TemporalFeatures: Extracts calendar features (month/quarter/week/dayofweek/year/day)
+  from a date column with flat and/or cyclic (sin/cos) encoding.
 
 Functions:
 - fill_empty_values_cycle: Fills empty values in consumption columns with previous or subsequent
@@ -392,6 +394,11 @@ class MinMaxScalerRow(OneToOneFeatureMixin, BaseEstimator, TransformerMixin):
         """
         scaler = MinMaxScaler(feature_range=self.feature_range)
         X_scaled = scaler.fit_transform(X.T).T
+
+        # Fill NaN for constant rows (min == max) with the midpoint of feature_range
+        if np.isnan(X_scaled).any():
+            midpoint = (self.feature_range[0] + self.feature_range[1]) / 2
+            X_scaled = np.nan_to_num(X_scaled, nan=midpoint)
 
         # If X is a DataFrame, return a DataFrame with same names and index
         if hasattr(X, "columns") and hasattr(X, "index"):
@@ -802,9 +809,12 @@ class ExtraVars(BaseEstimator, TransformerMixin):
     - aggregation_functions: dict, dictionary mapping new feature names to aggregation functions.
     """
 
-    def __init__(self, num_periodos=3, periods_suffix: str = "_anterior"):
+    def __init__(
+        self, num_periodos=3, periods_suffix: str = "_anterior", count_nulls: bool = False
+    ):
         self.num_periodos = num_periodos
         self.periods_suffix = periods_suffix
+        self.count_nulls = count_nulls
 
     def fit(self, X, y=None):
         """No-op fit. ExtraVars is stateless and does not learn from training data.
@@ -935,6 +945,11 @@ class ExtraVars(BaseEstimator, TransformerMixin):
                 df_total_super[cols_3_anterior].kurt(axis=1).fillna(0)
             )
 
+        if self.count_nulls:
+            df_total_super.loc[:, "cant_null_" + num_periodos_str] = (
+                df_total_super[cols_3_anterior].isna().sum(axis=1)
+            )
+
         return df_total_super
 
 
@@ -1009,6 +1024,11 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
     - enable_consistency: bool, enable consistency score feature (default=True).
     - enable_drastic_changes: bool, enable drastic changes count feature (default=True).
     - drastic_threshold: float, threshold for drastic changes (default=0.5 = 50%).
+    - enable_last_period_zscore: bool, enable z-score of last period vs history (default=False).
+    - enable_autocorr_lag1: bool, enable lag-1 autocorrelation feature (default=False).
+    - enable_seasonal_ratio: bool, enable summer/winter seasonal ratio feature (default=False).
+      Southern hemisphere context (Brazil): summer={Dec,Jan,Feb}, winter={Jun,Jul,Aug}.
+    - date_column: str, column containing inspection date; required when enable_seasonal_ratio=True.
     """
 
     def __init__(
@@ -1023,6 +1043,10 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         enable_consistency: bool = True,
         enable_drastic_changes: bool = True,
         drastic_threshold: float = 0.5,
+        enable_last_period_zscore: bool = False,
+        enable_autocorr_lag1: bool = False,
+        enable_seasonal_ratio: bool = False,
+        date_column: str = None,
     ):
         self.periods_suffix = periods_suffix
         self.num_periodos = num_periodos
@@ -1034,17 +1058,33 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
         self.enable_consistency = enable_consistency
         self.enable_drastic_changes = enable_drastic_changes
         self.drastic_threshold = drastic_threshold
+        self.enable_last_period_zscore = enable_last_period_zscore
+        self.enable_autocorr_lag1 = enable_autocorr_lag1
+        self.enable_seasonal_ratio = enable_seasonal_ratio
+        self.date_column = date_column
 
     def fit(self, X, y=None):
-        """No-op fit. ConsumptionPatterns is stateless.
+        """Fit the transformer by computing global statistics for z-score features.
+
+        Stores the global mean of row-level mean and std columns so that
+        z-score computation in transform() uses training-set statistics
+        instead of leaking information from test/validation data.
 
         Args:
-            X: Input DataFrame (not used).
+            X: Input DataFrame with consumption columns and stat columns
+               (e.g., mean_N, std_consN).
             y: Ignored. Kept for API compatibility.
 
         Returns:
-            self: Returns the transformer unchanged.
+            self: Returns the fitted transformer.
         """
+        df_temp = X.copy()
+        df_temp = self._ensure_stat_columns(df_temp)
+        n = str(self.num_periodos)
+        mean_col = f"mean_{n}"
+        std_col = f"std_cons{n}"
+        self._zscore_mean_global = float(df_temp[mean_col].mean())
+        self._zscore_std_global = float(df_temp[std_col].mean())
         return self
 
     def _get_cons_cols(self):
@@ -1105,11 +1145,25 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
 
         # 3. Z-score of mean consumption (outliers)
         if self.enable_zscore:
-            mean_global = df[mean_col].mean()
-            std_global = df[std_col].mean()
-            df[f"zscore_mean_{self.num_periodos}"] = np.where(
-                df[std_col] > 0, (df[mean_col] - mean_global) / std_global, 0
-            )
+            if hasattr(self, "_zscore_mean_global"):
+                mean_global = self._zscore_mean_global
+                std_global = self._zscore_std_global
+            else:
+                logger.warning(
+                    "ConsumptionPatterns: _zscore_mean_global not found — fit() was not called. "
+                    "Using current DataFrame statistics as fallback (may introduce data leakage)."
+                )
+                mean_global = df[mean_col].mean()
+                std_global = df[std_col].mean()
+
+            if std_global > 0:
+                df[f"zscore_mean_{self.num_periodos}"] = np.where(
+                    df[std_col] > 0,
+                    (df[mean_col] - mean_global) / std_global,
+                    0,
+                )
+            else:
+                df[f"zscore_mean_{self.num_periodos}"] = 0.0
 
         # 4. Zero ratio (proportion of months with zero consumption)
         if self.enable_zero_ratio:
@@ -1136,6 +1190,74 @@ class ConsumptionPatterns(BaseEstimator, TransformerMixin):
                 change = np.abs(df[current] - df[prev]) / (df[prev] + 1e-6)
                 changes.append(change > self.drastic_threshold)
             df[f"drastic_changes_count_{self.num_periodos}"] = np.sum(changes, axis=0)
+
+        # 8. Z-score of last period vs client's own history
+        if self.enable_last_period_zscore:
+            last_col = f"1{self.periods_suffix}"
+            df[f"zscore_last_vs_history_{self.num_periodos}"] = np.where(
+                df[std_col] > 0,
+                (df[last_col] - df[mean_col]) / df[std_col],
+                0.0,
+            )
+
+        # 9. Lag-1 autocorrelation (legitimate consumption has high autocorr)
+        if self.enable_autocorr_lag1:
+            cons_cols = self._get_cons_cols()  # ['N_anterior', ..., '1_anterior']
+
+            def _autocorr_lag1(row):
+                vals = row[cons_cols].values.astype(float)
+                if len(vals) < 2:
+                    return 0.0
+                x, y = vals[:-1], vals[1:]
+                if np.std(x) == 0 or np.std(y) == 0:
+                    return 0.0
+                return float(np.corrcoef(x, y)[0, 1])
+
+            df[f"autocorr_lag1_{self.num_periodos}"] = df.apply(_autocorr_lag1, axis=1).fillna(0.0)
+
+        # 10. Summer/winter seasonal ratio (southern hemisphere: summer=Dec-Feb, winter=Jun-Aug)
+        if self.enable_seasonal_ratio and self.date_column and self.date_column in df.columns:
+            _SUMMER = {12, 1, 2}
+            _WINTER = {6, 7, 8}
+            dt = pd.to_datetime(df[self.date_column], errors="coerce")
+            inspection_month = dt.dt.month  # Series[int], NaT rows → NaN
+
+            summer_sum = pd.Series(0.0, index=df.index)
+            summer_cnt = pd.Series(0.0, index=df.index)
+            winter_sum = pd.Series(0.0, index=df.index)
+            winter_cnt = pd.Series(0.0, index=df.index)
+
+            for i in range(1, self.num_periodos + 1):
+                col = f"{i}{self.periods_suffix}"
+                if col not in df.columns:
+                    continue
+                actual_month = ((inspection_month - i - 1) % 12 + 1).astype("Int64")
+                is_summer = actual_month.isin(_SUMMER)
+                is_winter = actual_month.isin(_WINTER)
+                vals = df[col].fillna(0.0)
+                has_val = df[col].notna()
+
+                summer_sum += np.where(is_summer & has_val, vals, 0.0)
+                summer_cnt += np.where(is_summer & has_val, 1.0, 0.0)
+                winter_sum += np.where(is_winter & has_val, vals, 0.0)
+                winter_cnt += np.where(is_winter & has_val, 1.0, 0.0)
+
+            summer_mean = np.where(
+                summer_cnt > 0,
+                summer_sum / np.where(summer_cnt > 0, summer_cnt, 1.0),
+                np.nan,
+            )
+            winter_mean = np.where(
+                winter_cnt > 0,
+                winter_sum / np.where(winter_cnt > 0, winter_cnt, 1.0),
+                np.nan,
+            )
+
+            df[f"seasonal_ratio_{self.num_periodos}"] = np.where(
+                (winter_mean > 0) & ~np.isnan(summer_mean) & ~np.isnan(winter_mean),
+                summer_mean / winter_mean,
+                0.0,
+            )
 
         return df
 
@@ -1216,4 +1338,166 @@ class ClipOutliers(BaseEstimator, TransformerMixin):
                 f"in {len(cols)} columns"
             )
 
+        return df
+
+
+class TemporalFeatures(BaseEstimator, TransformerMixin):
+    """Extracts calendar features from a datetime column with flat and/or cyclic encoding.
+
+    Flat encoding produces integer-valued columns (e.g., ``month`` → 1..12).
+    Cyclic encoding produces ``sin``/``cos`` pairs that preserve the circular
+    nature of calendar features (December and January are neighbors).
+
+    Useful for models that cannot learn seasonality from raw date values
+    (tree-based models treat them as ordinal, which breaks near year boundaries).
+
+    Parameters
+    ----------
+    date_column : str
+        Name of the column containing dates (or strings parseable as dates).
+    features : list[str], default=["month", "quarter", "week", "dayofweek"]
+        Calendar parts to extract. Supported: ``month``, ``quarter``, ``week``,
+        ``dayofweek``, ``day``, ``year``.
+    encoding : str, default="both"
+        ``"flat"`` → integer columns only.
+        ``"cyclic"`` → sin/cos columns only.
+        ``"both"`` → both variants.
+    drop_date_column : bool, default=False
+        If True, the source date column is dropped from the output.
+
+    Notes
+    -----
+    Cyclic encoding is skipped for ``year`` (not a cyclic feature) with a warning.
+    Non-datetime columns are coerced via ``pd.to_datetime(..., errors="coerce")``.
+    NaT values propagate as NaN in all generated columns.
+    """
+
+    _SUPPORTED_FEATURES = ("month", "quarter", "week", "dayofweek", "day", "year")
+    _CYCLIC_PERIODS = {
+        "month": 12,
+        "quarter": 4,
+        "week": 52,
+        "dayofweek": 7,
+        "day": 31,
+    }
+
+    def __init__(
+        self,
+        date_column: str = None,
+        features: list = None,
+        encoding: str = "both",
+        drop_date_column: bool = False,
+    ):
+        self.date_column = date_column
+        self.features = features
+        self.encoding = encoding
+        self.drop_date_column = drop_date_column
+
+    def _resolve_features(self):
+        return list(self.features) if self.features else ["month", "quarter", "week", "dayofweek"]
+
+    def _validate(self):
+        if not self.date_column:
+            raise ValueError("TemporalFeatures: 'date_column' is required")
+        if self.encoding not in ("flat", "cyclic", "both"):
+            raise ValueError(
+                f"TemporalFeatures: 'encoding' must be 'flat', 'cyclic' or 'both' "
+                f"(got {self.encoding!r})"
+            )
+        unsupported = [f for f in self._resolve_features() if f not in self._SUPPORTED_FEATURES]
+        if unsupported:
+            raise ValueError(
+                f"TemporalFeatures: unsupported features {unsupported}. "
+                f"Available: {list(self._SUPPORTED_FEATURES)}"
+            )
+
+    def fit(self, X, y=None):
+        """Stateless fit — only validates configuration.
+
+        Args:
+            X: Input DataFrame (must contain ``date_column``).
+            y: Ignored.
+
+        Returns:
+            self
+        """
+        self._validate()
+        if self.date_column not in X.columns:
+            raise ValueError(
+                f"TemporalFeatures: column '{self.date_column}' not found in input DataFrame"
+            )
+        return self
+
+    def _extract(self, dt: pd.Series, feature: str) -> pd.Series:
+        if feature == "month":
+            return dt.dt.month
+        if feature == "quarter":
+            return dt.dt.quarter
+        if feature == "week":
+            return dt.dt.isocalendar().week.astype("Int64")
+        if feature == "dayofweek":
+            return dt.dt.dayofweek
+        if feature == "day":
+            return dt.dt.day
+        if feature == "year":
+            return dt.dt.year
+        raise ValueError(f"TemporalFeatures: unknown feature {feature!r}")
+
+    def transform(self, X):
+        """Generate temporal features and append to DataFrame.
+
+        Args:
+            X: Input DataFrame with ``date_column``.
+
+        Returns:
+            pd.DataFrame: Input DataFrame with the generated columns appended.
+        """
+        self._validate()
+        if self.date_column not in X.columns:
+            raise ValueError(
+                f"TemporalFeatures: column '{self.date_column}' not found in input DataFrame"
+            )
+
+        df = X.copy()
+        dt = df[self.date_column]
+        if not pd.api.types.is_datetime64_any_dtype(dt):
+            dt = pd.to_datetime(dt, errors="coerce")
+
+        features = self._resolve_features()
+        want_flat = self.encoding in ("flat", "both")
+        want_cyclic = self.encoding in ("cyclic", "both")
+
+        generated = []
+        for feat in features:
+            values = self._extract(dt, feat)
+            if want_flat:
+                col = f"{self.date_column}_{feat}"
+                df[col] = values
+                generated.append(col)
+
+            if want_cyclic:
+                if feat not in self._CYCLIC_PERIODS:
+                    logger.warning(
+                        "TemporalFeatures: skipping cyclic encoding for '%s' "
+                        "(not a cyclic feature)",
+                        feat,
+                    )
+                    continue
+                period = self._CYCLIC_PERIODS[feat]
+                angle = 2 * np.pi * values.astype("float64") / period
+                sin_col = f"{self.date_column}_{feat}_sin"
+                cos_col = f"{self.date_column}_{feat}_cos"
+                df[sin_col] = np.sin(angle)
+                df[cos_col] = np.cos(angle)
+                generated.extend([sin_col, cos_col])
+
+        if self.drop_date_column:
+            df = df.drop(columns=[self.date_column])
+
+        logger.info(
+            "TemporalFeatures: generated %d columns from '%s' (%s)",
+            len(generated),
+            self.date_column,
+            self.encoding,
+        )
         return df

@@ -149,7 +149,15 @@ class IsolationForestScore(BaseEstimator, TransformerMixin):
         X_selected = X[self.selected_columns_].copy()
         self.train_medians_ = X_selected.median()
 
-        # Handle all-NaN columns (median will be NaN)
+        # Handle all-NaN columns (median will be NaN → replace with 0)
+        all_nan_cols = self.train_medians_[self.train_medians_.isna()].index.tolist()
+        if all_nan_cols:
+            logger.warning(
+                f"IsolationForestScore: {len(all_nan_cols)} columns are entirely NaN "
+                f"in training data, filling with 0: {all_nan_cols}"
+            )
+            self.train_medians_ = self.train_medians_.fillna(0.0)
+
         X_imputed = X_selected.fillna(self.train_medians_)
 
         # 4. Train Isolation Forest
@@ -200,6 +208,7 @@ class IsolationForestScore(BaseEstimator, TransformerMixin):
         # 2. Select columns and impute NaN
         X_selected = X[self.selected_columns_].copy()
         X_imputed = X_selected.fillna(self.train_medians_)
+        X_imputed = X_imputed.fillna(0.0)
 
         # 3. Compute scores (inverted so higher = more anomalous)
         scores = -self.if_model_.score_samples(X_imputed)

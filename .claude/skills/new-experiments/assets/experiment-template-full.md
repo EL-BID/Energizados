@@ -17,8 +17,12 @@
 | exp4 | simple-constant          | Rule-based: constant consumption pattern       |
 | exp5 | lgbm-encoding            | LightGBM + TE high-card + ordinal low-card     |
 
-**Decision criterion**: Highest AUC test. If LightGBM > CatBoost, use LightGBM for F2.
-**Recommended carry-forward**: exp5 (best encoding + best model type).
+**Protocolo de decision**:
+1. Correr todos en paralelo.
+2. Comparar cada uno vs. **AUC del mejor modelo de v_anterior** (o 0.5 si es la primera version) en AUC test.
+3. Ganador = mayor AUC test. Si ninguno supera el baseline de version anterior → revisar dataset/ETL antes de continuar.
+4. Empate (<0.001): preferir el modelo mas simple (menor numero de features/hiperparametros).
+5. Si LightGBM > CatBoost → usar LightGBM como modelo base para F2–F6. Registrar decision.
 
 ### FASE 2 — Sampling (4 experiments, parallel)
 
@@ -33,8 +37,12 @@
 | exp3 | smotetomek      | `sampling.method: smotetomek, threshold: 0.5` |
 | exp4 | class-weight    | `sampling.method: none` + `class_weight: balanced` |
 
-**Decision criterion**: Highest AUC test.
-**Common outcome**: `class_weight: balanced` often wins (no data loss).
+**Protocolo de decision**:
+1. Correr todos en paralelo.
+2. Comparar cada uno vs. el **ganador de F1** en AUC test.
+3. Ganador = mayor AUC test. Si ninguno supera F1-winner → llevar F1-winner a F3 con su balance original.
+4. Empate (<0.001): preferir la estrategia con mejor **Recall** (detectar fraude es el objetivo operacional).
+5. Registrar la estrategia ganadora en "Decisiones Acumuladas" — todas las fases siguientes usan ese balance.
 
 ### FASE 3 — Feature Engineering Incremental (7 experiments, partial sequential)
 
@@ -52,8 +60,16 @@
 | exp6 | extra-patterns-tsfel | `extra_vars(3,6,12)` + `consumption_patterns` + `tsfel` | All 3 transformers complement each other |
 | exp7 | kitchen-sink         | All available transformers                               | Maximum feature extraction               |
 
-**Decision criterion**: Compare AUC incrementally. If exp6 > max(exp4, exp5), all 3 are needed.
-**Optional**: exp_geo (geo_features) if lat/lon available and GeoFeaturesETL ran.
+**Protocolo de decision**:
+1. Correr exp1–3 en paralelo (independientes entre si). Correr exp4 después de evaluar exp1–3.
+2. Comparar exp1–3 vs. el **ganador de F2** en AUC test. Marcar cada componente como "util" (mejora) o "descartado" (no mejora).
+3. Ajustar exp4–exp7 para incluir solo componentes utiles. Correr exp4, luego exp5–6 en paralelo, luego exp7.
+4. Ganador = mayor AUC test entre todos los experimentos **y** el baseline F2. Si ninguno supera F2 → llevar F2 a F4 sin FE nuevo.
+5. Empate (<0.001): preferir el experimento con **menos transformers** (menos riesgo de overfit).
+
+**Optional geo features**: Si lat/lon disponibles, agregar `GeoFeaturesETL` a `etl.yaml` y re-correr ETL primero.
+El dataset de salida incluirá `geo_cluster`, `geo_estado`, etc. como columnas regulares — sin cambio en los YAMLs de training.
+**NUNCA usar `geo_features` dentro de `global_transformers`** — no existe como transformer de preprocessing.
 
 ### FASE 4 — Encoding Optimization (3 experiments, parallel)
 
@@ -66,7 +82,11 @@
 | exp2 | dummy-plus-te           | to_dummy low-card + TE high-card             |
 | exp3 | cardinality-thresholds  | More aggressive cardinality_reducer thresholds|
 
-**Decision criterion**: Highest AUC test. Often the F1 encoding is already optimal.
+**Protocolo de decision**:
+1. Correr todos en paralelo.
+2. Comparar cada uno vs. el **ganador de F3** en AUC test.
+3. Ganador = mayor AUC test. Si ninguno supera F3-winner → llevar F3-winner a F5 con su encoding original.
+4. Empate (<0.001): preferir el encoding mas simple (menos transformaciones).
 
 ### FASE 5 — Feature Selection (4 experiments, sequential)
 
@@ -81,8 +101,12 @@
 | exp3 | boruta               | `boruta(n_estimators=100, max_iter=100)`            |
 | exp4 | selection-pipeline   | `constant` → `correlation` → `boruta` → union      |
 
-**Decision criterion**: If AUC drops, DON'T use feature selection.
-**Common outcome**: Feature selection often doesn't help with tree-based models.
+**Protocolo de decision**:
+1. Correr en secuencia (exp1 → exp2 → exp3 → exp4).
+2. Comparar cada uno vs. el **ganador de F4** (sin feature selection) en AUC test.
+3. Feature selection SOLO se adopta si AUC test > F4-winner — la barra es alta.
+4. Ganador = mayor AUC test **si supera F4-winner**; de lo contrario → llevar F4-winner a F6 sin seleccion.
+5. Empate (<0.001): preferir el metodo con **menos features finales**.
 
 ### FASE 6 — Model Tuning (6 experiments, two groups parallel)
 
@@ -100,8 +124,15 @@
 | exp5 | catboost-tuned    | CatBoost  | 100 iter, 5-fold TSS |
 | exp6 | xgboost-tuned     | XGBoost   | 100 iter, 5-fold TSS |
 
-**IMPORTANT**: exp4-6 MUST use the SAME pipeline for direct comparability.
-**TSS** = TimeSeriesSplit, respects temporal order (avoids leakage).
+**Protocolo de decision**:
+1. Correr exp1–3 en paralelo (no-search, rapidos). Evaluar. Correr exp4–6 en paralelo (con search, lentos).
+2. Comparar todos vs. el **ganador de F5** en AUC test. El tuning SOLO se adopta si AUC > F5-winner.
+3. Ganador = mayor AUC test. Si ninguno supera F5-winner → llevar F5-winner a F7 con hiperparametros default.
+4. Empate (<0.001): preferir exp sin search (menos riesgo de overfit en validacion).
+5. Registrar el modelo ganador (tipo + hiperparametros) en "Decisiones Acumuladas".
+
+**IMPORTANTE**: exp4–6 deben usar el MISMO pipeline para ser directamente comparables.
+**TSS** = TimeSeriesSplit, respeta orden temporal (evita leakage).
 
 ### FASE 7 — Calibration (2 experiments, sequential)
 
@@ -113,7 +144,12 @@
 | exp1 | threshold-calibration | `evaluation.calibration: cost_benefit(fp=1, fn=10)` |
 | exp2 | prob-calibration      | `model.calibration: sigmoid(cv=3)` + cost_benefit |
 
-**Decision criterion**: Best F1 or business metric (depends on cost ratio).
+**Protocolo de decision**:
+1. Correr exp1 primero (establece threshold optimo sobre F6-winner). Correr exp2 despues.
+2. Comparar exp1 y exp2 vs. **F6-winner con threshold=0.5** en AUC test + F1.
+3. El threshold optimizado de exp1 es el **piso garantizado** — nunca salir peor que F6-winner.
+4. Ganador = mejor F1 (o metrica de negocio definida). Si exp2 no supera exp1 → usar solo threshold calibration.
+5. Registrar el threshold final en la tabla de resultados (columna "Threshold").
 
 ### FASE 8 — Ensemble (1+ experiments)
 
@@ -122,6 +158,13 @@
 | Exp  | Name                | What varies                                    |
 |------|---------------------|------------------------------------------------|
 | exp1 | stacking-ensemble   | TOP2 models + stacking + logistic meta-learner |
+
+**Protocolo de decision**:
+1. Correr el ensemble con los TOP 2 modelos de F6.
+2. Comparar vs. el **ganador de F7** en AUC test + F1.
+3. Ensemble se adopta SOLO si AUC test >= F7-winner Y F1 no degrada.
+4. Si el ensemble no supera al modelo individual → entregar F7-winner como modelo final.
+5. Registrar modelo final y threshold en "Decisiones Acumuladas".
 
 **Optional follow-ups**: soft_voting ensemble, 3-model stacking.
 

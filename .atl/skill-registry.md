@@ -8,101 +8,107 @@ See `_shared/skill-resolver.md` for the full resolution protocol.
 
 | Trigger | Skill | Path |
 |---------|-------|------|
-| Writing Go tests, using teatest, adding test coverage | go-testing | /home/vvv/.claude/skills/go-testing/SKILL.md |
-| User asks to create a new skill, add agent instructions, document patterns for AI | skill-creator | /home/vvv/.claude/skills/skill-creator/SKILL.md |
-| Creating a pull request, opening a PR, preparing changes for review | branch-pr | /home/vvv/.claude/skills/branch-pr/SKILL.md |
-| Creating a GitHub issue, reporting a bug, requesting a feature | issue-creation | /home/vvv/.claude/skills/issue-creation/SKILL.md |
-| "judgment day", "dual review", "doble review", "juzgar", "adversarial review", "que lo juzguen" | judgment-day | /home/vvv/.claude/skills/judgment-day/SKILL.md |
-| Adding a new ETL block to config/etl.yaml | new-etl | /home/vvv/Develop/bid/energizados/.claude/skills/new-etl/SKILL.md |
-| Running a full Energizados pipeline experiment (validate → ETL → train) | run-experiment | /home/vvv/Develop/bid/energizados/.claude/skills/run-experiment/SKILL.md |
-| Genera reporte completo de resultados de experimentos | experiment-results | /home/vvv/Develop/bid/energizados/.claude/skills/experiment-results/SKILL.md |
+| Creating a PR, opening a pull request, preparing changes for review | branch-pr | ~/.claude/skills/branch-pr/SKILL.md |
+| Writing Go tests, using teatest, adding test coverage, Bubbletea TUI testing | go-testing | ~/.claude/skills/go-testing/SKILL.md |
+| Creating a GitHub issue, reporting a bug, requesting a feature | issue-creation | ~/.claude/skills/issue-creation/SKILL.md |
+| "judgment day", "judgment-day", "review adversarial", "dual review", "doble review", "juzgar", "que lo juzguen" | judgment-day | ~/.claude/skills/judgment-day/SKILL.md |
+| Creating a new skill, adding agent instructions, documenting patterns for AI | skill-creator | ~/.claude/skills/skill-creator/SKILL.md |
+
+## Project Skills
+
+| Trigger | Skill | Path |
+|---------|-------|------|
+| "generate results", "experiment results", "create experiment report", "results report", "experiment analysis", "generate _results.md" | experiment-results | .claude/skills/experiment-results/SKILL.md |
+| Adding a new ETL block to etl.yaml, scaffolding ETL config | new-etl | .claude/skills/new-etl/SKILL.md |
+| "new experiments", "create experiments", "nuevos experimentos", "crear experimentos", "experiment design", "experiment roadmap", "set up experiments" | new-experiments | .claude/skills/new-experiments/SKILL.md |
+| Running a training experiment, kick off pipeline run, see experiment results | run-experiment | .claude/skills/run-experiment/SKILL.md |
 
 ## Compact Rules
 
 Pre-digested rules per skill. Delegators copy matching blocks into sub-agent prompts as `## Project Standards (auto-resolved)`.
 
-### skill-creator
-- Structure: `skills/{skill-name}/SKILL.md` + optional `assets/` and `references/`
-- Frontmatter requires: `name`, `description` (must include "Trigger:"), `license: Apache-2.0`, `metadata.author`, `metadata.version`
-- `references/` must point to LOCAL files only — never web URLs
-- Never add a Keywords section; agent searches frontmatter, not body
-- Don't create for one-off tasks, trivial patterns, or where docs already exist
-- After creating: add entry to the project's `AGENTS.md`
-- Start with Critical Patterns; keep code examples minimal and focused
-
-### judgment-day
-- Launch EXACTLY TWO judge agents in PARALLEL (async) — never sequential, never solo
-- Neither judge may know about the other — strict blind protocol, no cross-contamination
-- Orchestrator synthesizes: Confirmed (both found), Suspect A/B (one only), Contradiction (disagree on same thing)
-- WARNING (real) = normal user can trigger it → fix required; WARNING (theoretical) = contrived/unlikely scenario → report as INFO only, no fix, no re-judge
-- Round 1: present verdict table, ASK user to confirm before fixing anything
-- Only re-judge (Round 2+) if confirmed CRITICALs remain; real WARNINGs fixed inline without re-judge
-- Resolve skill registry BEFORE launching judges; inject `## Project Standards` into BOTH judges AND Fix Agent
-- After 2 fix iterations with remaining issues: ASK user whether to continue or escalate
-- APPROVED = 0 confirmed CRITICALs + 0 confirmed real WARNINGs
-
-### issue-creation
-- MUST use a template (bug_report.yml or feature_request.yml) — blank issues are disabled
-- Every issue gets `status:needs-review` automatically; maintainer must add `status:approved` before any PR
-- Search for duplicates before creating any issue
-- Questions go to Discussions, not issues
-- Required fields for bugs: description, steps to reproduce, expected vs actual behavior, OS, agent, shell
-
 ### branch-pr
-- Every PR MUST link an approved issue: `Closes #N`, `Fixes #N`, or `Resolves #N`
-- Branch name regex: `^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)\/[a-z0-9._-]+$`
-- Every PR MUST have exactly ONE `type:*` label (type:bug, type:feature, type:docs, type:refactor, type:chore, type:breaking-change)
-- Conventional commits: `type(scope): description` — no `Co-Authored-By` trailers
-- Run `shellcheck scripts/*.sh` on any modified shell scripts before pushing
-- Linked issue MUST have `status:approved` label or automated checks will block merge
+- Every PR MUST link a `status:approved` issue — use `Closes #N`, `Fixes #N`, or `Resolves #N` in the body
+- Branch name MUST match `^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)\/[a-z0-9._-]+$`
+- PR body MUST include: linked issue, exactly one `type:*` label, summary (1-3 bullets), changes table, test plan, contributor checklist
+- Run `shellcheck` on all modified shell scripts before opening the PR
+- Commits MUST follow conventional commits: `type(scope): description`
+- Never add `Co-Authored-By` trailers to commits
+- Four automated checks must pass: issue reference, `status:approved` label, `type:*` label, shellcheck
 
 ### go-testing
-- Always use table-driven tests (`[]struct{ name, input, expected, wantErr }`) for multi-case scenarios
-- TUI state changes: test `Model.Update()` directly with `tea.KeyMsg{}`
-- Full TUI interaction flows: use `teatest.NewTestModel(t, m)` + `tm.Send()` + `tm.WaitFinished()`
-- Visual output: golden files in `testdata/` with `-update` flag to regenerate
-- File operations in tests: always use `t.TempDir()`, never a fixed path
-- Always test both success and error code paths for any function returning `error`
+- Use table-driven tests: `tests := []struct{ name, input, expected string; wantErr bool }{ ... }`
+- Run subtests with `t.Run(tt.name, func(t *testing.T) { ... })` for each case
+- For Bubbletea TUI: use `teatest` — create model with `teatest.NewTestModel(t, model, opts...)`
+- Use `tm.WaitFor(...)` to assert on output; `tm.Send(...)` to send messages
+- Use golden files (`testdata/*.golden`) for complex output assertions; update with `-update` flag
+- Never use `time.Sleep` in tests — use `WaitFor` with a timeout instead
+- Prefer `require` over `assert` when the test cannot continue after failure
 
-### new-etl
-- Ask ALL required questions in ONE message before generating any YAML
-- Validate before generating: snake_case name; merge needs ≥2 inputs + `merge_config`; incremental needs `incremental_key`
-- concat/merge → output must be a `.parquet` file; incremental → output must be a directory (no extension)
-- Always use `custom_class: "energizados.etl.pipeline.SourceETL"` — no other class for standard ETLs
-- `@etl_name` syntax references another ETL's output path automatically
-- Remind user to add under the `etl:` key, validate with `energizados validate etl`, and gitignore state files
+### issue-creation
+- Blank issues are disabled — MUST use a template (bug report or feature request)
+- Every issue gets `status:needs-review` automatically on creation
+- A maintainer MUST add `status:approved` before any PR can be opened
+- Search for duplicates before creating a new issue
+- Questions go to Discussions, not issues
+- Bug report required fields: Pre-flight checks, Bug Description, Steps to Reproduce, Expected Behavior, Actual Behavior, OS
+- Feature request required fields: Pre-flight checks, Feature Description, Problem it Solves, Proposed Solution, Acceptance Criteria
 
-### run-experiment
-- Always validate config FIRST: `energizados validate etl,train` — stop immediately if it fails
-- Execution order is strict: validate → ETL → train; never skip validation
-- After training, find latest run: `ls -t output/ | head -1`, then read `reports/evaluation/report.json`
-- Display a clean metrics table with Train/Val/Test columns: AUC, Precision, Recall, F1
-- Suggest HTML report for interactive charts, `/ml-config-reviewer` if metrics are below expectations
+### judgment-day
+- Launch TWO independent judge sub-agents in parallel (never sequential, never do the review yourself)
+- Each judge receives the same target but works independently — no cross-contamination
+- Resolve the skill registry BEFORE launching judges; inject matching compact rules into BOTH judge prompts AND the fix agent prompt
+- Synthesize findings as: Confirmed (both found), Suspect A/B (one found), Contradiction (disagree)
+- Apply fixes via a dedicated Fix Agent (not the orchestrator) after synthesis
+- Re-judge after fixes — max 2 iterations, then escalate unresolved contradictions to the user
+- If no registry exists, warn user and proceed with generic review only
+
+### skill-creator
+- Skill files go in `skills/{skill-name}/SKILL.md` with frontmatter: `name`, `description` (include "Trigger:" text), `license`, `metadata.author`, `metadata.version`
+- Optional: `assets/` for templates/schemas, `references/` for doc links
+- Compact rules are the most important output — 5-15 lines, actionable only, no motivation or examples
+- Description MUST include a "Trigger:" line so the registry can match it
+- Do NOT create a skill for trivial, one-off, or already-documented patterns
 
 ### experiment-results
-- Generate report AFTER running experiments (energizados run train)
-- Read ALL `evaluation_report.json` files from experiment directories
-- Group experiments by phase (naming: faseX_expN_*)
-- Extract: AUC test/val, precision, recall, F1, threshold, model_info, calibration
-- Generate ASCII chart for AUC evolution across phases
-- Business section: explain metrics in plain language, include operational simulator using cumulative_gains
-- Output: `_results.md` with executive summary, detailed tables, insights, next steps, business section
+- Read ALL `evaluation_report.json` files from `output/{version}/exp/` subdirectories (fallback: `output/train-YYYYMMDD_HHMM/`)
+- Extract: `metrics.auc`, `metrics.auc_val`, `metrics.precision`, `metrics.recall`, `metrics.f1`, `metrics.threshold`, `metrics.auc_diff`, `metrics.confusion_matrix`, `metrics.cumulative_gains`, `model_info.model_class`
+- Group experiments by phase using naming convention `phaseX_expN_*`
+- Generate TWO files: `_results.md` (full technical report) and `_slides_negocio.md` (business slide deck, 10-12 slides)
+- Business section MUST include non-technical metric explanations, operational impact simulator using cumulative_gains deciles, and actionable recommendations
+- `_slides_negocio.md`: generate AFTER `_results.md`; neutral professional tone (no colloquialisms); language matches project language
+- AUC → "out of 100 pairs, model ranks fraud case correctly X times"; Precision → "X of 100 flagged clients actually committed fraud"
+
+### new-etl
+- Ask for all info in ONE message: name, mode, input(s), output, depends_on, plus mode-specific fields
+- Validate before generating: `merge` needs ≥2 inputs + `merge_config`; `incremental` needs `incremental_key`; `concat`/`merge` output must end in `.parquet`; `incremental` output must be a directory (no extension)
+- Use `custom_class: "energizados.etl.pipeline.SourceETL"` for all SourceETL blocks
+- For incremental: output is `output_dir/partition=YYYY-MM/data.parquet`; state file goes in `.cache/etl_states/{name}.json`
+- `@etl_name` syntax references another ETL's output as input
+- Remind user to run `energizados validate etl` after pasting the block
+
+### new-experiments
+- Directory: `.proyects/{project}/config/{version}/` — never regenerate existing `etl.yaml`, `eda.yaml`, `infer.yaml`
+- File naming: `fase{N}_exp{M}_{kebab-name}.yaml`; run names: `fase{N}-exp{M}-{kebab-name}`
+- YAML header: 4-line comment block with phase, hypothesis, run command, dependency
+- `geo_features` is NOT a global transformer — use `GeoFeaturesETL` in `etl.yaml` instead; never reference it under `global_transformers:`
+- Class imbalance per model: LightGBM → `class_weight: "balanced"`; CatBoost → `auto_class_weights: "Balanced"` inside `hyperparams`; XGBoost → `class_weight: <float>` (scale_pos_weight)
+- Winner selection: highest AUC test (not val); tiebreaker < 0.001 → prefer simpler model; carry winner forward unchanged to next phase
+- Phase progression: Baselines → Sampling → Feature Engineering → Encoding → Selection → Tuning → Calibration → Ensemble
+- `output_base_dir`: `"output/{version}/exp/"` shared across all YAMLs in a version
+- Generate `_experiments.md` FIRST with roadmap, Mermaid diagram, "Decisiones Acumuladas" table, then generate all YAMLs
+
+### run-experiment
+- Always validate config FIRST: `energizados validate etl,train` — stop if validation fails
+- Run sequence: validate → ETL (optional) → training
+- Use `energizados run train -n {experiment_name}` when a custom name is provided
+- After training, find the latest run: `ls -t output/ | head -1`, then read `output/{run_dir}/reports/evaluation/evaluation_report.json`
+- Surface a clean metrics table: AUC val/test, Precision, Recall, F1, Threshold, Model type
+- Suggest opening the HTML report and running `ml-config-reviewer` if metrics are below expectations
 
 ## Project Conventions
 
 | File | Path | Notes |
 |------|------|-------|
-| AGENTS.md | /home/vvv/Develop/bid/energizados/AGENTS.md | Main AI instructions — full architecture, ETL config, CLI, preprocessing, models, directory structure |
-| pyproject.toml | /home/vvv/Develop/bid/energizados/pyproject.toml | Package config, linters (black/ruff/flake8/mypy), testing, coverage |
-| .pre-commit-config.yaml | /home/vvv/Develop/bid/energizados/.pre-commit-config.yaml | Pre-commit hooks: isort → black → bandit → flake8 → prettier |
-
-### Stack Summary (for quick injection)
-
-- **Language**: Python 3.10+ | **Formatter**: black (line-length 100) | **Linter**: ruff + flake8 | **Type checker**: mypy
-- **Logging**: `logging` module ONLY — never `print()`
-- **Commits**: Conventional commits, no AI attribution, no `Co-Authored-By`
-- **Models**: LightGBM, CatBoost, XGBoost (optional), TensorFlow/Keras (optional)
-- **Data**: pandas 2.x + pyarrow, parquet format throughout
-- **ETL**: SourceETL with concat/merge/incremental modes; always requires `custom_class`
-- **Tests**: pytest + pytest-cov; `--strict-markers` on; always declare markers
-- **Feature names**: Spanish (actividad, tipo_tarifa, zona); class/method names: English
+| CLAUDE.md / AGENTS.md | /home/vvv/Develop/bid/energizados/CLAUDE.md | Project conventions, architecture, ETL config reference, preprocessing transformers, model training pipeline |
+| CLAUDE.local.md | /home/vvv/Develop/bid/energizados/CLAUDE.local.md | Local-only: RTK token-killer commands (always prefix shell commands with `rtk`) |

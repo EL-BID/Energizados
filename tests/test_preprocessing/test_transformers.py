@@ -9,12 +9,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from energizados.preprocessing.group_features import (
+    GroupRelativeConsumption,
+    SeasonalAnomaly,
+)
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
+    ConsumptionPatterns,
     ExtraVars,
     MinMaxScalerRow,
     TeEncoder,
+    TemporalFeatures,
     ToDummy,
     TsfelVars,
 )
@@ -986,6 +992,49 @@ class TestExtraVars:
 
         assert result.loc[0, "kurt_cons6"] == 0.0
 
+    def test_count_nulls_disabled_by_default(self):
+        df = pd.DataFrame(
+            {
+                "3_anterior": [1.0, None],
+                "2_anterior": [2.0, 2.0],
+                "1_anterior": [3.0, None],
+            }
+        )
+        extra = ExtraVars(num_periodos=3)
+        result = extra.fit_transform(df)
+        assert "cant_null_3" not in result.columns
+
+    def test_count_nulls_enabled(self):
+        df = pd.DataFrame(
+            {
+                "3_anterior": [1.0, None],
+                "2_anterior": [2.0, 2.0],
+                "1_anterior": [3.0, None],
+            }
+        )
+        extra = ExtraVars(num_periodos=3, count_nulls=True)
+        result = extra.fit_transform(df)
+        assert "cant_null_3" in result.columns
+        assert list(result["cant_null_3"]) == [0, 2]
+
+    def test_count_nulls_no_nans(self):
+        df = pd.DataFrame(
+            {
+                "3_anterior": [1.0, 4.0],
+                "2_anterior": [2.0, 5.0],
+                "1_anterior": [3.0, 6.0],
+            }
+        )
+        extra = ExtraVars(num_periodos=3, count_nulls=True)
+        result = extra.fit_transform(df)
+        assert list(result["cant_null_3"]) == [0, 0]
+
+    def test_count_nulls_init_param(self):
+        extra = ExtraVars(num_periodos=3, count_nulls=True)
+        assert extra.count_nulls is True
+        extra2 = ExtraVars(num_periodos=3)
+        assert extra2.count_nulls is False
+
 
 class TestTsfelVarsZeroSeries:
     """Tests for TsfelVars behavior with all-zero consumption series."""
@@ -1016,3 +1065,642 @@ class TestTsfelVarsZeroSeries:
         tsfel_cols = [c for c in result.columns if c not in df.columns]
         nan_count = result[tsfel_cols].isnull().sum().sum()
         assert nan_count == 0, f"Expected 0 NaN in tsfel features for mixed series, got {nan_count}"
+
+
+class TestTemporalFeatures:
+    """Test suite for TemporalFeatures transformer."""
+
+    @pytest.fixture
+    def df_dates(self):
+        return pd.DataFrame(
+            {
+                "fecha_inspeccion": pd.to_datetime(
+                    [
+                        "2024-01-15",  # Monday, week 3, Q1
+                        "2024-04-10",  # Wednesday, week 15, Q2
+                        "2024-07-25",  # Thursday, week 30, Q3
+                        "2024-12-31",  # Tuesday, week 1 (ISO), Q4
+                    ]
+                ),
+                "value": [10, 20, 30, 40],
+            }
+        )
+
+    def test_init_default_params(self):
+        t = TemporalFeatures(date_column="fecha_inspeccion")
+        assert t.date_column == "fecha_inspeccion"
+        assert t.features is None
+        assert t.encoding == "both"
+        assert t.drop_date_column is False
+
+    def test_fit_without_date_column_raises(self, df_dates):
+        t = TemporalFeatures(date_column=None)
+        with pytest.raises(ValueError, match="date_column"):
+            t.fit(df_dates)
+
+    def test_fit_invalid_encoding_raises(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", encoding="weird")
+        with pytest.raises(ValueError, match="encoding"):
+            t.fit(df_dates)
+
+    def test_fit_unsupported_feature_raises(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month", "century"])
+        with pytest.raises(ValueError, match="unsupported"):
+            t.fit(df_dates)
+
+    def test_fit_missing_column_raises(self, df_dates):
+        t = TemporalFeatures(date_column="no_existe")
+        with pytest.raises(ValueError, match="not found"):
+            t.fit(df_dates)
+
+    def test_transform_flat_only(self, df_dates):
+        t = TemporalFeatures(
+            date_column="fecha_inspeccion",
+            features=["month", "quarter", "dayofweek"],
+            encoding="flat",
+        )
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_month" in result.columns
+        assert "fecha_inspeccion_quarter" in result.columns
+        assert "fecha_inspeccion_dayofweek" in result.columns
+        assert "fecha_inspeccion_month_sin" not in result.columns
+
+        assert list(result["fecha_inspeccion_month"]) == [1, 4, 7, 12]
+        assert list(result["fecha_inspeccion_quarter"]) == [1, 2, 3, 4]
+        assert list(result["fecha_inspeccion_dayofweek"]) == [0, 2, 3, 1]
+
+    def test_transform_cyclic_only(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month"], encoding="cyclic")
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_month" not in result.columns
+        assert "fecha_inspeccion_month_sin" in result.columns
+        assert "fecha_inspeccion_month_cos" in result.columns
+
+        # sin(2*pi*1/12) == sin(2*pi*13/12), so December (12) and January (1) should be close.
+        jan = (
+            result.loc[0, "fecha_inspeccion_month_sin"],
+            result.loc[0, "fecha_inspeccion_month_cos"],
+        )
+        dec = (
+            result.loc[3, "fecha_inspeccion_month_sin"],
+            result.loc[3, "fecha_inspeccion_month_cos"],
+        )
+        dist_jan_dec = np.hypot(jan[0] - dec[0], jan[1] - dec[1])
+        apr = (
+            result.loc[1, "fecha_inspeccion_month_sin"],
+            result.loc[1, "fecha_inspeccion_month_cos"],
+        )
+        dist_jan_apr = np.hypot(jan[0] - apr[0], jan[1] - apr[1])
+        assert dist_jan_dec < dist_jan_apr
+
+    def test_transform_both(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month"], encoding="both")
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_month" in result.columns
+        assert "fecha_inspeccion_month_sin" in result.columns
+        assert "fecha_inspeccion_month_cos" in result.columns
+
+    def test_transform_coerces_string_dates(self):
+        df = pd.DataFrame({"fecha": ["2024-01-15", "2024-06-20", "2024-12-31"]})
+        t = TemporalFeatures(date_column="fecha", features=["month"], encoding="flat")
+        result = t.fit_transform(df)
+
+        assert list(result["fecha_month"]) == [1, 6, 12]
+
+    def test_transform_nat_produces_nan(self):
+        df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-15", pd.NaT, "2024-06-20"])})
+        t = TemporalFeatures(date_column="fecha", features=["month"], encoding="both")
+        result = t.fit_transform(df)
+
+        assert (
+            pd.isna(result.loc[1, "fecha_month"])
+            or result.loc[1, "fecha_month"] != result.loc[1, "fecha_month"]
+        )
+        assert pd.isna(result.loc[1, "fecha_month_sin"])
+        assert pd.isna(result.loc[1, "fecha_month_cos"])
+
+    def test_transform_year_cyclic_warns_but_flat_works(self, df_dates, caplog):
+        import logging
+
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["year"], encoding="both")
+        with caplog.at_level(logging.WARNING):
+            result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion_year" in result.columns
+        assert "fecha_inspeccion_year_sin" not in result.columns
+        assert any("year" in r.message for r in caplog.records)
+
+    def test_drop_date_column_removes_source(self, df_dates):
+        t = TemporalFeatures(
+            date_column="fecha_inspeccion",
+            features=["month"],
+            encoding="flat",
+            drop_date_column=True,
+        )
+        result = t.fit_transform(df_dates)
+
+        assert "fecha_inspeccion" not in result.columns
+        assert "fecha_inspeccion_month" in result.columns
+
+    def test_other_columns_preserved(self, df_dates):
+        t = TemporalFeatures(date_column="fecha_inspeccion", features=["month"], encoding="flat")
+        result = t.fit_transform(df_dates)
+
+        assert "value" in result.columns
+        assert list(result["value"]) == list(df_dates["value"])
+
+
+class TestConsumptionPatternsNew:
+    """Tests for Sprint 1 features added to ConsumptionPatterns."""
+
+    @pytest.fixture
+    def df_simple(self):
+        """3-period dataset: client 0 drops sharply, client 1 is stable."""
+        return pd.DataFrame(
+            {
+                "3_anterior": [100.0, 100.0],
+                "2_anterior": [100.0, 100.0],
+                "1_anterior": [10.0, 100.0],
+            }
+        )
+
+    def test_zscore_last_disabled_by_default(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3)
+        result = t.fit_transform(df_simple)
+        assert "zscore_last_vs_history_3" not in result.columns
+
+    def test_zscore_last_enabled(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df_simple)
+        assert "zscore_last_vs_history_3" in result.columns
+
+    def test_zscore_last_drop_is_negative(self, df_simple):
+        """Client 0: mean=(100+100+10)/3≈70, last=10 → zscore negative."""
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df_simple)
+        assert result.loc[0, "zscore_last_vs_history_3"] < 0
+
+    def test_zscore_last_equals_mean_is_zero(self):
+        """Last period equals the mean: zscore must be 0 regardless of std > 0."""
+        df = pd.DataFrame(
+            {
+                "3_anterior": [80.0],
+                "2_anterior": [120.0],
+                "1_anterior": [100.0],  # mean of [80, 120, 100] = 100 = last
+            }
+        )
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df)
+        assert abs(result.loc[0, "zscore_last_vs_history_3"]) < 1e-10
+
+    def test_zscore_last_zero_std_is_zero(self):
+        """Constant series → std=0 → result must be 0.0, not NaN."""
+        df = pd.DataFrame(
+            {
+                "3_anterior": [50.0],
+                "2_anterior": [50.0],
+                "1_anterior": [50.0],
+            }
+        )
+        t = ConsumptionPatterns(num_periodos=3, enable_last_period_zscore=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "zscore_last_vs_history_3"] == 0.0
+
+    # ---- autocorr_lag1 ----
+
+    def test_autocorr_lag1_disabled_by_default(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3)
+        result = t.fit_transform(df_simple)
+        assert "autocorr_lag1_3" not in result.columns
+
+    def test_autocorr_lag1_enabled(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df_simple)
+        assert "autocorr_lag1_3" in result.columns
+
+    def test_autocorr_lag1_monotone_positive(self):
+        """Monotonically increasing series → autocorr close to 1."""
+        df = pd.DataFrame({"3_anterior": [1.0], "2_anterior": [2.0], "1_anterior": [3.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "autocorr_lag1_3"] > 0.9
+
+    def test_autocorr_lag1_constant_is_zero(self):
+        """Constant series → undefined autocorr → filled with 0."""
+        df = pd.DataFrame({"3_anterior": [5.0], "2_anterior": [5.0], "1_anterior": [5.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "autocorr_lag1_3"] == 0.0
+
+    def test_autocorr_lag1_no_nan_in_output(self, df_simple):
+        """Output column must not contain NaN values."""
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df_simple)
+        assert result["autocorr_lag1_3"].isna().sum() == 0
+
+    def test_autocorr_lag1_alternating_negative(self):
+        """Alternating series → strong negative autocorrelation."""
+        df = pd.DataFrame({"3_anterior": [10.0], "2_anterior": [1.0], "1_anterior": [10.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_autocorr_lag1=True)
+        result = t.fit_transform(df)
+        assert result.loc[0, "autocorr_lag1_3"] < -0.9
+
+    # ---- seasonal_ratio ----
+
+    def test_seasonal_ratio_disabled_by_default(self, df_simple):
+        t = ConsumptionPatterns(num_periodos=3)
+        result = t.fit_transform(df_simple)
+        assert "seasonal_ratio_3" not in result.columns
+
+    def test_seasonal_ratio_skipped_without_date_column(self, df_simple):
+        """If date_column not set, feature silently skipped even when enabled."""
+        t = ConsumptionPatterns(num_periodos=3, enable_seasonal_ratio=True)
+        result = t.fit_transform(df_simple)
+        assert "seasonal_ratio_3" not in result.columns
+
+    def test_seasonal_ratio_skipped_if_column_missing(self):
+        """If the date column name is set but absent from X, silently skipped."""
+        df = pd.DataFrame({"3_anterior": [100.0], "2_anterior": [100.0], "1_anterior": [100.0]})
+        t = ConsumptionPatterns(num_periodos=3, enable_seasonal_ratio=True, date_column="no_existe")
+        result = t.fit_transform(df)
+        assert "seasonal_ratio_3" not in result.columns
+
+    def test_seasonal_ratio_is_numeric_no_nan(self):
+        """Output must be numeric and contain no NaN."""
+        data = {"fecha_inspeccion": ["2024-06-15", "2024-06-15"]}
+        for i in range(12, 0, -1):
+            data[f"{i}_anterior"] = [100.0, 100.0]
+        df = pd.DataFrame(data)
+        t = ConsumptionPatterns(
+            num_periodos=12,
+            enable_seasonal_ratio=True,
+            date_column="fecha_inspeccion",
+        )
+        result = t.fit_transform(df)
+        assert "seasonal_ratio_12" in result.columns
+        assert result["seasonal_ratio_12"].isna().sum() == 0
+        assert pd.api.types.is_float_dtype(result["seasonal_ratio_12"])
+
+    def test_seasonal_ratio_no_season_months_is_zero(self):
+        """If no consumption columns map to summer or winter months, ratio = 0."""
+        # Inspection in October(10), 3 periods:
+        # i=1 → (10-1-1)%12+1 = 9 (Sep) — neither summer nor winter
+        # i=2 → (10-2-1)%12+1 = 8 (Aug) — WINTER
+        # i=3 → (10-3-1)%12+1 = 7 (Jul) — WINTER
+        # Has winter but no summer → ratio = 0 (summer_mean=nan)
+        df = pd.DataFrame(
+            {
+                "fecha_inspeccion": ["2024-10-15"],
+                "3_anterior": [100.0],
+                "2_anterior": [100.0],
+                "1_anterior": [100.0],
+            }
+        )
+        t = ConsumptionPatterns(
+            num_periodos=3, enable_seasonal_ratio=True, date_column="fecha_inspeccion"
+        )
+        result = t.fit_transform(df)
+        assert result.loc[0, "seasonal_ratio_3"] == 0.0
+
+    def test_seasonal_ratio_value_correct(self):
+        """Verify ratio calculation: known summer/winter consumption → exact ratio."""
+        # Inspection January (1), 6 periods:
+        # i=1 → (1-1-1)%12+1 = 12 (Dec) — summer
+        # i=2 → (1-2-1)%12+1 = 11 (Nov) — neither
+        # i=3 → (1-3-1)%12+1 = 10 (Oct) — neither
+        # i=4 → (1-4-1)%12+1 = 9 (Sep)  — neither
+        # i=5 → (1-5-1)%12+1 = 8 (Aug)  — winter
+        # i=6 → (1-6-1)%12+1 = 7 (Jul)  — winter
+        # summer_mean = 180, winter_mean = (80+100)/2 = 90 → ratio = 2.0
+        df = pd.DataFrame(
+            {
+                "fecha_inspeccion": ["2024-01-15"],
+                "6_anterior": [80.0],  # Jul — winter
+                "5_anterior": [100.0],  # Aug — winter  → winter_mean = 90
+                "4_anterior": [50.0],  # Sep — neither
+                "3_anterior": [50.0],  # Oct — neither
+                "2_anterior": [50.0],  # Nov — neither
+                "1_anterior": [180.0],  # Dec — summer  → summer_mean = 180
+            }
+        )
+        t = ConsumptionPatterns(
+            num_periodos=6, enable_seasonal_ratio=True, date_column="fecha_inspeccion"
+        )
+        result = t.fit_transform(df)
+        assert result.loc[0, "seasonal_ratio_6"] == pytest.approx(2.0, rel=1e-5)
+
+
+class TestGroupRelativeConsumption:
+    """Test suite for GroupRelativeConsumption transformer."""
+
+    @pytest.fixture
+    def df_group(self):
+        """Simple dataset with group column and 3 consumption periods."""
+        return pd.DataFrame(
+            {
+                "actividad": ["A", "A", "B", "B"],
+                "3_anterior": [100.0, 200.0, 10.0, 20.0],
+                "2_anterior": [110.0, 210.0, 11.0, 21.0],
+                "1_anterior": [120.0, 220.0, 12.0, 22.0],
+            }
+        )
+
+    def test_init_default_params(self):
+        t = GroupRelativeConsumption()
+        assert t.group_column == "actividad"
+        assert t.windows == [3, 6, 12]
+        assert t.metrics == ["mean", "max"]
+        assert t.periods_suffix == "_anterior"
+
+    def test_init_custom_params(self):
+        t = GroupRelativeConsumption(
+            group_column="zona", windows=[3], metrics=["mean"], periods_suffix="_prev"
+        )
+        assert t.group_column == "zona"
+        assert t.windows == [3]
+        assert t.metrics == ["mean"]
+        assert t.periods_suffix == "_prev"
+
+    def test_fit_missing_group_column_raises(self):
+        df = pd.DataFrame({"3_anterior": [1.0]})
+        t = GroupRelativeConsumption(group_column="no_existe")
+        with pytest.raises(ValueError, match="group column"):
+            t.fit(df)
+
+    def test_fit_invalid_metric_raises(self):
+        df = pd.DataFrame({"actividad": ["A"], "3_anterior": [1.0]})
+        t = GroupRelativeConsumption(metrics=["median"])
+        with pytest.raises(ValueError, match="unsupported metrics"):
+            t.fit(df)
+
+    def test_transform_mean_metric_correct(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        result = t.fit_transform(df_group)
+
+        assert "prop_cons_3_mean_actividad" in result.columns
+        # Group A mean = mean of [100,110,120, 200,210,220] = (100+110+120+200+210+220)/6 = 160
+        # Client 0 (A) mean = (100+110+120)/3 = 110 → ratio = 110/160 = 0.6875
+        # Client 1 (A) mean = (200+210+220)/3 = 210 → ratio = 210/160 = 1.3125
+        assert result.loc[0, "prop_cons_3_mean_actividad"] == pytest.approx(110 / 160, rel=1e-5)
+        assert result.loc[1, "prop_cons_3_mean_actividad"] == pytest.approx(210 / 160, rel=1e-5)
+
+    def test_transform_max_metric_correct(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["max"])
+        result = t.fit_transform(df_group)
+
+        assert "prop_cons_3_max_actividad" in result.columns
+        # Group A max = max of all A values = 220
+        # Client 0 (A) max = 120 → ratio = 120/220
+        # Client 1 (A) max = 220 → ratio = 220/220 = 1
+        assert result.loc[0, "prop_cons_3_max_actividad"] == pytest.approx(120 / 220, rel=1e-5)
+        assert result.loc[1, "prop_cons_3_max_actividad"] == pytest.approx(1.0, rel=1e-5)
+
+    def test_transform_missing_group_column_warns_and_skips(self, df_group, caplog):
+        import logging
+
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        t.fit(df_group)
+        df_bad = df_group.drop(columns=["actividad"])
+        with caplog.at_level(logging.WARNING):
+            result = t.transform(df_bad)
+        assert "prop_cons_3_mean_actividad" not in result.columns
+        assert any("group column" in r.message for r in caplog.records)
+
+    def test_transform_unseen_group_gets_zero(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        t.fit(df_group)
+        df_test = pd.DataFrame(
+            {
+                "actividad": ["C"],
+                "3_anterior": [100.0],
+                "2_anterior": [100.0],
+                "1_anterior": [100.0],
+            }
+        )
+        result = t.transform(df_test)
+        assert result.loc[0, "prop_cons_3_mean_actividad"] == 0.0
+
+    def test_fit_transform_equivalence(self, df_group):
+        t1 = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        t2 = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        result1 = t1.fit_transform(df_group)
+        t2.fit(df_group)
+        result2 = t2.transform(df_group)
+        pd.testing.assert_frame_equal(result1, result2)
+
+    def test_transform_preserves_original_columns(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        result = t.fit_transform(df_group)
+        assert "actividad" in result.columns
+        assert "3_anterior" in result.columns
+        assert "2_anterior" in result.columns
+        assert "1_anterior" in result.columns
+
+    def test_fit_missing_cons_cols_warns(self, df_group, caplog):
+        """If consumption columns for a window are missing, skip that window."""
+        import logging
+
+        t = GroupRelativeConsumption(windows=[3, 12], metrics=["mean"])
+        with caplog.at_level(logging.WARNING):
+            t.fit(df_group)
+        # Window 12 should be skipped (no 12_anterior..4_anterior columns)
+        assert (12, "mean") not in t.group_stats_
+        assert (3, "mean") in t.group_stats_
+        assert any("window=12" in r.message for r in caplog.records)
+
+    def test_fit_no_matching_windows_warns(self, caplog):
+        """If no window has matching columns, group_stats_ stays empty."""
+        import logging
+
+        df = pd.DataFrame({"actividad": ["A"], "x_col": [1.0]})
+        t = GroupRelativeConsumption(windows=[12], metrics=["mean"])
+        with caplog.at_level(logging.WARNING):
+            t.fit(df)
+        assert t.group_stats_ == {}
+        assert any("no group statistics" in r.message for r in caplog.records)
+
+    def test_get_feature_names_out(self):
+        t = GroupRelativeConsumption(group_column="zona", windows=[3, 6], metrics=["mean", "max"])
+        names = t.get_feature_names_out()
+        expected = [
+            "prop_cons_3_mean_zona",
+            "prop_cons_3_max_zona",
+            "prop_cons_6_mean_zona",
+            "prop_cons_6_max_zona",
+        ]
+        assert list(names) == expected
+
+
+class TestSeasonalAnomaly:
+    """Test suite for SeasonalAnomaly transformer."""
+
+    @pytest.fixture
+    def df_seasonal(self):
+        """Dataset where group A has clear monthly pattern."""
+        return pd.DataFrame(
+            {
+                "actividad": ["A", "A", "A", "A"],
+                "fecha_inspeccion": pd.to_datetime(
+                    ["2024-03-15", "2024-03-15", "2024-02-15", "2024-02-15"]
+                ),
+                # For inspection March (3):
+                # i=1 → month 2 (Feb), i=2 → month 1 (Jan), i=3 → month 12 (Dec)
+                "3_anterior": [10.0, 10.0, 10.0, 10.0],  # Dec
+                "2_anterior": [20.0, 20.0, 20.0, 20.0],  # Jan
+                "1_anterior": [30.0, 30.0, 30.0, 30.0],  # Feb
+            }
+        )
+
+    def test_init_default_params(self):
+        t = SeasonalAnomaly()
+        assert t.group_column == "actividad"
+        assert t.date_column is None
+        assert t.periods_suffix == "_anterior"
+
+    def test_init_custom_params(self):
+        t = SeasonalAnomaly(group_column="zona", date_column="fecha_corte", periods_suffix="_prev")
+        assert t.group_column == "zona"
+        assert t.date_column == "fecha_corte"
+        assert t.periods_suffix == "_prev"
+
+    def test_fit_missing_date_column_raises(self):
+        df = pd.DataFrame({"actividad": ["A"], "3_anterior": [1.0]})
+        t = SeasonalAnomaly(date_column="no_existe")
+        with pytest.raises(ValueError, match="date column"):
+            t.fit(df)
+
+    def test_fit_missing_group_column_raises(self):
+        df = pd.DataFrame({"fecha": ["2024-01-01"], "3_anterior": [1.0]})
+        t = SeasonalAnomaly(date_column="fecha")
+        with pytest.raises(ValueError, match="group column"):
+            t.fit(df)
+
+    def test_transform_appends_anomaly_columns(self, df_seasonal):
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df_seasonal)
+        assert "seasonal_anomaly_1_anterior" in result.columns
+        assert "seasonal_anomaly_2_anterior" in result.columns
+        assert "seasonal_anomaly_3_anterior" in result.columns
+
+    def test_transform_no_nan_in_output(self, df_seasonal):
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df_seasonal)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert result[anomaly_cols].isna().sum().sum() == 0
+
+    def test_transform_missing_date_column_warns_and_skips(self, df_seasonal, caplog):
+        import logging
+
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        t.fit(df_seasonal)
+        df_bad = df_seasonal.drop(columns=["fecha_inspeccion"])
+        with caplog.at_level(logging.WARNING):
+            result = t.transform(df_bad)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert len(anomaly_cols) == 0
+        assert any("date column" in r.message for r in caplog.records)
+
+    def test_transform_missing_group_column_warns_and_skips(self, df_seasonal, caplog):
+        import logging
+
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        t.fit(df_seasonal)
+        df_bad = df_seasonal.drop(columns=["actividad"])
+        with caplog.at_level(logging.WARNING):
+            result = t.transform(df_bad)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert len(anomaly_cols) == 0
+        assert any("group column" in r.message for r in caplog.records)
+
+    def test_fit_transform_equivalence(self, df_seasonal):
+        t1 = SeasonalAnomaly(date_column="fecha_inspeccion")
+        t2 = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result1 = t1.fit_transform(df_seasonal)
+        t2.fit(df_seasonal)
+        result2 = t2.transform(df_seasonal)
+        pd.testing.assert_frame_equal(result1, result2)
+
+    def test_transform_value_correct(self):
+        # Simple case: 2 rows, same group, same inspection date
+        # Period 1 maps to month 1 (Jan)
+        df = pd.DataFrame(
+            {
+                "actividad": ["A", "A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-02-15", "2024-02-15"]),
+                # i=1 → month 1 (Jan)
+                "1_anterior": [10.0, 30.0],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df)
+        # Group A, month 1: mean=20, std=14.1421...
+        # Row 0: (10-20)/14.1421 = -0.7071
+        # Row 1: (30-20)/14.1421 = +0.7071
+        assert result.loc[0, "seasonal_anomaly_1_anterior"] == pytest.approx(-0.7071, rel=1e-3)
+        assert result.loc[1, "seasonal_anomaly_1_anterior"] == pytest.approx(0.7071, rel=1e-3)
+
+    def test_transform_preserves_original_columns(self, df_seasonal):
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df_seasonal)
+        assert "actividad" in result.columns
+        assert "fecha_inspeccion" in result.columns
+        assert "3_anterior" in result.columns
+
+    def test_fit_no_matching_cons_cols_raises(self):
+        """If no consumption columns match suffix, raise ValueError."""
+        df = pd.DataFrame(
+            {
+                "actividad": ["A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-01-01"]),
+                "x_col": [1.0],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        with pytest.raises(ValueError, match="no consumption columns"):
+            t.fit(df)
+
+    def test_fit_all_nan_consumption_raises(self):
+        """If all consumption values are NaN, raise ValueError."""
+        df = pd.DataFrame(
+            {
+                "actividad": ["A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-01-01"]),
+                "1_anterior": [np.nan],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        with pytest.raises(ValueError, match="no valid consumption"):
+            t.fit(df)
+
+    def test_fit_nat_date_column_skipped_in_transform(self, df_seasonal):
+        """NaT in date_column produces valid anomaly columns (month=NaN rows skipped in fit)."""
+        df = df_seasonal.copy()
+        df.loc[0, "fecha_inspeccion"] = pd.NaT
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        # fit should work (row 0 skipped from long_df but row 1-3 still valid)
+        result = t.fit_transform(df)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert len(anomaly_cols) > 0
+        assert result[anomaly_cols].isna().sum().sum() == 0
+
+    def test_single_observation_group_std_zero(self):
+        """Group with single observation has std=0 → anomaly should be 0.0."""
+        df = pd.DataFrame(
+            {
+                "actividad": ["A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-02-15"]),
+                "1_anterior": [50.0],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df)
+        assert result.loc[0, "seasonal_anomaly_1_anterior"] == 0.0
+
+    def test_get_feature_names_out(self):
+        t = SeasonalAnomaly(periods_suffix="_prev")
+        names = t.get_feature_names_out()
+        expected = [f"seasonal_anomaly_{i}_prev" for i in range(1, 13)]
+        assert list(names) == expected

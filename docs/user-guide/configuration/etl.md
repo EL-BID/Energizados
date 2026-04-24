@@ -516,7 +516,10 @@ geo_features:
     lon_col: "longitud"    # default — Spanish spelling
     n_clusters: 10
     random_state: 42
-    include_hierarchy: true
+    include_hierarchy: true                    # all three levels
+    # include_hierarchy:                       # or pick specific levels:
+    #   - estado
+    #   - municipio
     include_distances: true
     distance_cities:
       - sao_paulo
@@ -537,7 +540,7 @@ geo_features:
 | `lon_col` | string | `"longitud"` | Longitude column name (Spanish spelling by default) |
 | `n_clusters` | int | `10` | Number of KMeans geographic clusters |
 | `random_state` | int | `42` | Random seed for KMeans |
-| `include_hierarchy` | bool | `true` | Add `geo_estado`, `geo_municipio`, `geo_regiao` columns via IBGE spatial join |
+| `include_hierarchy` | bool / list | `true` | Add IBGE hierarchy columns. `true` = all three (`geo_estado`, `geo_municipio`, `geo_regiao`), `false` = none, or a list of level names (`"estado"`, `"municipio"`, `"regiao"`) to include only specific levels. |
 | `include_distances` | bool | `true` | Add haversine distance columns to reference cities |
 | `distance_cities` | list | `null` (top-5) | Cities for distance calculation (see available list below). If `null`, defaults to the top 5. |
 | `include_coords` | bool | `false` | Keep original lat/lon columns in output |

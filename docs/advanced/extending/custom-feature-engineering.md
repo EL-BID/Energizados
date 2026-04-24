@@ -231,7 +231,9 @@ train:
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=None — inline `{domain: [names]}` selection; if null uses all domains and logs the list), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
-| `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior") |
+| `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior"), `count_nulls` (bool, default=False) |
+| `group_relative_consumption` | Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` | `group_column` (str, default="actividad"), `windows` (list[int], default=[3,6,12]), `metrics` (list[str], default=["mean","max"]), `periods_suffix` (str, default="_anterior") |
+| `seasonal_anomaly` | Seasonal z-score for each month vs group mean/std for that calendar month. Generates `seasonal_anomaly_{i}_anterior` | `group_column` (str, default="actividad"), `date_column` (str, required), `periods_suffix` (str, default="_anterior") |
 
 ## Global Transformers
 
@@ -266,6 +268,19 @@ train:
             num_periodos: 6
         - extra_vars:
             num_periodos: 12
+
+        # Consumption relative to peer group (e.g. actividad, tarifa, zona)
+        - group_relative_consumption:
+            group_column: "actividad"
+            windows: [3, 6, 12]
+            metrics: ["mean", "max"]
+            periods_suffix: "_anterior"
+
+        # Seasonal anomaly: z-score vs group mean/std for each calendar month
+        - seasonal_anomaly:
+            group_column: "actividad"
+            date_column: "fecha_inspeccion"
+            periods_suffix: "_anterior"
 
         # Custom global transformer
         - custom_class: "preprocessing.CustomGlobalTransformer"

@@ -6,12 +6,17 @@ before analysis and modeling.
 """
 
 from energizados.preprocessing.geo_features import GeoFeatures
+from energizados.preprocessing.group_features import (
+    GroupRelativeConsumption,
+    SeasonalAnomaly,
+)
 from energizados.preprocessing.isolation_forest_score import IsolationForestScore
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     ConsumptionPatterns,
     ExtraVars,
     MinMaxScalerRow,
+    TemporalFeatures,
     ToDummy,
     TsfelVars,
     fill_empty_values_cycle,
@@ -27,8 +32,11 @@ __all__ = [
     "TsfelVars",
     "ExtraVars",
     "ConsumptionPatterns",
+    "TemporalFeatures",
     "GeoFeatures",
     "IsolationForestScore",
+    "GroupRelativeConsumption",
+    "SeasonalAnomaly",
     # Utility functions
     "fill_empty_values_cycle",
     "fill_empty_values_str",

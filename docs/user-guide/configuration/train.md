@@ -207,9 +207,33 @@ Available per-column transformations:
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
 
+**Global transformers:**
+
+All transformers are listed under `global_transformers`. The framework automatically determines their execution stage:
+
+- **Pre-encoding** (`pipeline_stage = "pre"`): run before column-level encoding, so they see the original categorical columns. Use when the transformer needs to `groupby` on a column that would otherwise be target-encoded.
+- **Post-encoding** (default): run after column-level encoding, on the fully transformed feature set.
+
+| Transformation | Stage | Description | Parameters |
+|----------------|-------|-------------|------------|
+| `clip_outliers` | post | Clips extreme values in consumption columns | `threshold` (float, default=100000), `columns` (list, default=null), `periods_suffix` (str, default="_anterior") |
+| `tsfel_vars` | post | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=null), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=null) |
+| `extra_vars` | post | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior"), `count_nulls` (bool, default=false) |
+| `consumption_patterns` | post | Domain-specific fraud detection features | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior"), plus enable flags |
+| `group_relative_consumption` | **pre** | Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` | `group_column` (str, default="actividad"), `windows` (list[int], default=[3,6,12]), `metrics` (list[str], default=["mean","max"]), `periods_suffix` (str, default="_anterior") |
+| `seasonal_anomaly` | **pre** | Seasonal z-score for each month vs group mean/std for that calendar month. Generates `seasonal_anomaly_{i}_anterior` | `group_column` (str, default="actividad"), `date_column` (str, required), `periods_suffix` (str, default="_anterior") |
+| `if_score` | post | Isolation Forest anomaly score | `columns` (list, default=null), `n_estimators` (int, default=100), `contamination` (float/str, default="auto"), `output_column` (str, default="if_score"), `periods_suffix` (str, default="_anterior") |
+
 ### Global Transformers
 
-Global transformers act on the entire dataset and generate new features. They are executed AFTER column-based preprocessing.
+Global transformers act on the entire dataset and generate new features. They are all listed under the single `global_transformers` key — no manual ordering between stages is needed.
+
+The framework splits them into two internal stages based on each transformer's `pipeline_stage` class attribute:
+
+1. **Pre-encoding** (`pipeline_stage = "pre"`): runs *before* `column_transformer`. These transformers need the original categorical columns (e.g., to `groupby("actividad")` before it becomes `actividad_prob` after target encoding). `SeasonalAnomaly` and `GroupRelativeConsumption` use this stage.
+2. **Post-encoding** (default): runs *after* `column_transformer`, on the fully encoded feature set. All other built-in transformers use this stage.
+
+The assembled pipeline is always: **[pre-encoding?] → column_transformer → [post-encoding?]**
 
 #### clip_outliers
 
@@ -339,6 +363,60 @@ Domain-specific fraud detection features derived from the consumption time serie
 - `slope_normalized_X`: Slope normalized by mean
 - `consistency_score_X`: Consistency score (low variability = suspicious)
 - `drastic_changes_count_X`: Count of changes exceeding threshold
+
+#### group_relative_consumption
+
+Computes the ratio between each client's own consumption aggregate (mean or max over a window) and the corresponding aggregate for the peer group defined by `group_column` (e.g., `actividad`, `tipo_tarifa`, `zona`).
+
+This is a strong fraud signal: a residential customer consuming like an industrial one is a red flag.
+
+> **Stage:** `pre` — runs before column encoding. `group_column` must be a column present in the raw dataset (before target encoding renames it).
+
+```yaml
+- group_relative_consumption:
+    group_column: "actividad"
+    windows: [3, 6, 12]
+    metrics: ["mean", "max"]
+    periods_suffix: "_anterior"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `group_column` | string | `"actividad"` | Column defining the peer group (must be categorical, pre-encoding) |
+| `windows` | list[int] | `[3, 6, 12]` | Window sizes (number of recent periods) |
+| `metrics` | list[str] | `["mean", "max"]` | Group statistics to compare against. Supported: `"mean"`, `"max"` |
+| `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
+
+**Generated features:** `prop_cons_{window}_{metric}_{group_column}`
+
+> **Anti-leakage note:** Group statistics are learned from the data passed to `fit()` (typically the training set). To use population-level statistics, ensure the training data includes the full population.
+
+#### seasonal_anomaly
+
+For each consumption month, computes a z-score relative to the group's historical mean and standard deviation for that calendar month. Tells the model *"this client consumes 30% less than expected for its type in this month"*.
+
+> **Stage:** `pre` — runs before column encoding. `group_column` must be a column present in the raw dataset (before target encoding renames it).
+
+```yaml
+- seasonal_anomaly:
+    group_column: "actividad"
+    date_column: "fecha_inspeccion"
+    periods_suffix: "_anterior"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `group_column` | string | `"actividad"` | Column defining the peer group (must be categorical, pre-encoding) |
+| `date_column` | string | *(required)* | Inspection/cutoff date column (maps each period to a calendar month) |
+| `periods_suffix` | string | `"_anterior"` | Suffix of time series columns |
+
+**Generated features:** `seasonal_anomaly_{i}_anterior` (one per consumption period)
+
+> **Anti-leakage note:** Group monthly statistics are learned from the training data passed to `fit()`. Ensure temporal ordering is respected.
 
 #### geo_features (moved to ETL)
 

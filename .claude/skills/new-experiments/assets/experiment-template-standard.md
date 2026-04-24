@@ -16,7 +16,11 @@
 | exp2 | catboost-vanilla    | CatBoost + encoding                  |
 | exp3 | xgboost-vanilla     | XGBoost + encoding                   |
 
-**Decision criterion**: Highest AUC test.
+**Protocolo de decision**:
+1. Correr todos en paralelo.
+2. Comparar cada uno vs. AUC del mejor modelo de version anterior (o 0.5 si es la primera). Si ninguno supera → revisar dataset/ETL.
+3. Ganador = mayor AUC test. Empate (<0.001): preferir modelo mas simple.
+4. Registrar tipo de modelo ganador en "Decisiones Acumuladas" — todas las fases siguientes lo usan.
 
 ### FASE 2 — Feature Engineering (4 experiments, partial sequential)
 
@@ -30,8 +34,11 @@
 | exp3 | full-fe             | `extra_vars` + `patterns` + `tsfel`    | All FE combined is best           |
 | exp4 | kitchen-sink        | All + `clip_outliers` + `if_score`     | Maximum feature extraction        |
 
-**Decision criterion**: Highest AUC test.
-**Common outcome**: exp3 (full FE without outliers) often wins.
+**Protocolo de decision**:
+1. Correr exp1–3 en paralelo. Correr exp4 despues de evaluar exp1–3.
+2. Comparar cada uno vs. el **ganador de F1** en AUC test. Marcar componentes como "util" o "descartado".
+3. Ganador = mayor AUC test. Si ninguno supera F1-winner → llevar F1-winner a F3 sin FE nuevo.
+4. Empate (<0.001): preferir el experimento con menos transformers.
 
 ### FASE 3 — Model Tuning (3 experiments, parallel)
 
@@ -45,7 +52,13 @@
 | exp2 | catboost-tuned | CatBoost  | 80 iter, 5-fold TSS  |
 | exp3 | xgboost-tuned  | XGBoost   | 80 iter, 5-fold TSS  |
 
-**IMPORTANT**: Same pipeline, same encoding, same FE. Only model type + search varies.
+**Protocolo de decision**:
+1. Correr todos en paralelo (mismo pipeline — solo cambia tipo de modelo + search).
+2. Comparar cada uno vs. el **ganador de F2** en AUC test. El tuning SOLO se adopta si AUC > F2-winner.
+3. Ganador = mayor AUC test. Si ninguno supera F2-winner → llevar F2-winner a F4 con hiperparametros default.
+4. Empate (<0.001): preferir el modelo mas simple (menos hiperparametros tuneados).
+
+**IMPORTANTE**: Mismo pipeline, mismo encoding, mismo FE. Solo cambia tipo de modelo + search.
 
 ### FASE 4 — Calibration (1 experiment)
 

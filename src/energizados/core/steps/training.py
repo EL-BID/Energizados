@@ -62,6 +62,18 @@ class _CalibratedWrapper:
         return self._adapter.predict(X)
 
 
+def _date_columns_needed_by_preprocessing(preprocessing_config: dict) -> set:
+    """Return date_column values referenced by temporal_features in global_transformers."""
+    needed = set()
+    global_transformers = preprocessing_config.get("global_transformers", [])
+    for entry in global_transformers:
+        if isinstance(entry, dict) and "temporal_features" in entry:
+            params = entry["temporal_features"]
+            if isinstance(params, dict) and params.get("date_column"):
+                needed.add(params["date_column"])
+    return needed
+
+
 class TrainingStep(PipelineStep):
     """
     Unified training step.
@@ -197,11 +209,21 @@ class TrainingStep(PipelineStep):
 
         datetime_cols = X_train.select_dtypes(include=["datetime64", "datetimetz"]).columns.tolist()
         if datetime_cols:
-            logger.info(f"Dropping datetime columns before feature engineering: {datetime_cols}")
-            X_train = X_train.drop(columns=datetime_cols)
-            X_val = X_val.drop(columns=datetime_cols)
-            if X_test is not None:
-                X_test = X_test.drop(columns=datetime_cols)
+            needed_by_temporal = _date_columns_needed_by_preprocessing(
+                self.feature_engineering_config.get("preprocessing", {})
+            )
+            cols_to_drop = [c for c in datetime_cols if c not in needed_by_temporal]
+            if cols_to_drop:
+                logger.info(f"Dropping datetime columns before feature engineering: {cols_to_drop}")
+                X_train = X_train.drop(columns=cols_to_drop)
+                X_val = X_val.drop(columns=cols_to_drop)
+                if X_test is not None:
+                    X_test = X_test.drop(columns=cols_to_drop)
+            if needed_by_temporal & set(datetime_cols):
+                logger.info(
+                    f"Keeping datetime columns required by temporal_features: "
+                    f"{sorted(needed_by_temporal & set(datetime_cols))}"
+                )
 
         self._report_phase(context, "loading", 10)
 
@@ -244,6 +266,20 @@ class TrainingStep(PipelineStep):
         X_train_transformed = feature_engineering.transform(X_train)
         X_val_transformed = feature_engineering.transform(X_val)
         X_test_transformed = feature_engineering.transform(X_test) if X_test is not None else None
+
+        # Drop any datetime columns that survived feature engineering (e.g. date columns used
+        # by temporal_features with drop_date_column=False — models can't consume them).
+        residual_dt_cols = X_train_transformed.select_dtypes(
+            include=["datetime64", "datetimetz"]
+        ).columns.tolist()
+        if residual_dt_cols:
+            logger.info(
+                f"Dropping residual datetime columns after feature engineering: {residual_dt_cols}"
+            )
+            X_train_transformed = X_train_transformed.drop(columns=residual_dt_cols)
+            X_val_transformed = X_val_transformed.drop(columns=residual_dt_cols)
+            if X_test_transformed is not None:
+                X_test_transformed = X_test_transformed.drop(columns=residual_dt_cols)
 
         logger.info(f"Train transformed shape: {X_train_transformed.shape}")
         logger.info(f"Val transformed shape: {X_val_transformed.shape}")

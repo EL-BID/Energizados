@@ -17,7 +17,11 @@
 
 **Optional**: Add `exp3: xgboost-vanilla` if XGBoost is installed.
 
-**Decision criterion**: Highest AUC test. If AUC < 0.60, the dataset may need more work.
+**Protocolo de decision**:
+1. Correr todos en paralelo.
+2. Comparar cada uno vs. AUC del mejor modelo de version anterior (o 0.5 si es la primera).
+3. Ganador = mayor AUC test. Si AUC < 0.60 → revisar dataset/ETL antes de continuar.
+4. Empate (<0.001): preferir LightGBM (mas inspeccionable que CatBoost para iteraciones rapidas).
 
 ### FASE 2 — Feature Engineering (2 experiments, sequential)
 
@@ -29,7 +33,11 @@
 | exp1 | extra-vars    | `extra_vars(3,6,12)`                          | Basic stats add signal         |
 | exp2 | full-fe       | `extra_vars(3,6,12)` + `tsfel_vars(12)`       | Full FE is significantly better|
 
-**Decision criterion**: AUC improvement over baseline. If < 0.02 gain, FE may not be needed.
+**Protocolo de decision**:
+1. Correr exp1 primero. Si no mejora vs F1-winner → no correr exp2 (FE no ayuda en este dataset).
+2. Si exp1 mejora → correr exp2 y comparar ambos vs el **ganador de F1**.
+3. Ganador = mayor AUC test. Si ninguno supera F1-winner → llevar F1-winner a F3.
+4. Umbral minimo practico: ganancia < 0.01 AUC no justifica la complejidad adicional.
 
 ### FASE 3 — Model Tuning (2-3 experiments, parallel)
 
@@ -43,7 +51,13 @@
 
 **Optional**: Add `exp3: xgboost-tuned` if installed.
 
-**IMPORTANT**: Reduced search (50 iter vs 100) for speed.
+**Protocolo de decision**:
+1. Correr todos en paralelo.
+2. Comparar cada uno vs. el **ganador de F2** en AUC test. Tuning SOLO se adopta si AUC > F2-winner.
+3. Ganador = mayor AUC test. Si ninguno supera F2-winner → entregar F2-winner como modelo final.
+4. Empate (<0.001): preferir el modelo mas simple (menos iter / menos fold).
+
+**IMPORTANTE**: Search reducido (50 iter vs 100) para velocidad — prioridad es iterar rapido.
 
 ## Total Experiments: 6-8
 

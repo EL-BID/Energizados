@@ -53,6 +53,45 @@ metadata:
 # =============================================================================
 ```
 
+### Available Global Transformers (framework constraint)
+
+**ONLY these transformers can be used under `global_transformers:` in preprocessing config:**
+
+| Transformer | Purpose | Notes |
+|-------------|---------|-------|
+| `clip_outliers` | Clip extreme consumption values | Run FIRST — before if_score |
+| `if_score` | Isolation Forest anomaly score | Appends `if_score` column |
+| `extra_vars` | Statistical features per time window | Use with num_periodos: 3, 6, 12 |
+| `consumption_patterns` | Domain fraud features | caídas abruptas, zero_ratio, etc. |
+| `group_relative_consumption` | Client vs group mean/max ratio | Strong fraud signal; use full population in fit |
+| `seasonal_anomaly` | Z-score vs group mean/std per calendar month | Requires `date_column`; tells model "consumes X% less than expected" |
+| `tsfel_vars` | Advanced temporal/frequency features | Slow — test last in kitchen-sink |
+| `cast_dtype` | Column dtype conversion | Per-column use only |
+| `cardinality_reducer` | Group infrequent categories | Per-column use only |
+| `to_dummy` | One-hot encoding | Per-column use only |
+| `target_encoding` | Target probability encoding | Per-column use only |
+| `ordinal_encoding` | Ordinal integer encoding | Per-column use only |
+| `minmax_scaler_row` | Row-wise MinMax scaling | Per-column use only |
+
+**`geo_features` is NOT a global transformer** — it was moved to ETL.
+
+### Class Imbalance per Model Type
+
+Each model handles class imbalance differently — **do NOT use `class_weight: "balanced"` for CatBoost**:
+
+| Model | Correct YAML |
+|-------|-------------|
+| `lightgbm` | `class_weight: "balanced"` at model level |
+| `catboost` | `auto_class_weights: "Balanced"` inside `hyperparams` |
+| `xgboost` | `class_weight: <float>` (scale_pos_weight) at model level |
+
+`class_weight: "balanced"` is a scikit-learn convention that only LightGBM understands natively.
+CatBoost receives it as `class_weights` (a list/None), so `"balanced"` causes a parse error.
+Use `auto_class_weights: "Balanced"` in `hyperparams` for CatBoost — it's the native CatBoost param.
+To use geographic features: add `GeoFeaturesETL` to `etl.yaml` FIRST, then the output dataset
+will already contain `geo_cluster`, `geo_estado`, etc. as regular columns.
+Never reference `geo_features` inside `global_transformers:`.
+
 ### Key YAML Sections That Change Per Phase
 
 | Phase | What Changes | Fixed Sections |
@@ -68,11 +107,25 @@ metadata:
 
 ### What Carries Forward
 
-Each phase builds on the **best configuration** from the previous phase:
-1. Run all experiments in a phase (parallel when possible)
-2. Compare AUC on test set
-3. Winner carries forward as the base for next phase
-4. Record decision in _experiments.md "Decisiones Acumuladas" table
+Each phase builds on the **best configuration** from the previous phase. Apply this protocol to every phase and record the winner in the "Decisiones Acumuladas" table.
+
+**Standard Decision Protocol (apply to every phase)**:
+
+1. **Run**: execute experiments as specified (parallel when independent, sequential when dependent).
+2. **Baseline**: compare each experiment vs. the **winner of the previous phase** on **AUC test** — not vs. other experiments in the same phase.
+3. **Winner**: experiment with highest AUC test **including the baseline**. If no experiment beats the baseline → carry the **baseline forward unchanged** (never force a change).
+4. **Tiebreaker** (AUC difference < 0.001):
+   - Phases 1–5: prefer **fewer features / simpler model** (less overfitting risk).
+   - Tuning phase: prefer **manual/explicit regularization** over search-tuned results.
+   - Calibration/Ensemble: prefer best **F1** or business metric (Recall when cost of FN >> FP).
+5. **Record**: write winner + rationale in "Decisiones Acumuladas" — all subsequent phases inherit this config exactly.
+
+**Why AUC test and not val?**
+Val is used for early stopping and hyperparameter tuning — it already informed training decisions, so selecting by val would reward models that overfit to val, not models that generalize. Test is the only set the model never saw.
+
+**Selection bias caveat**: When comparing many experiments on the same test set, the winner may have won by chance (the more experiments, the higher the risk). Two mitigations:
+- The tiebreaker threshold (< 0.001) treats small differences as noise — prefer simpler.
+- If the dataset is large enough, reserve a **final holdout** (e.g. last 3–6 months) that is NEVER used until the final model of the last phase. All phase-by-phase selection happens on val/test; the holdout gives an unbiased estimate of real-world performance at the end only.
 
 ### Path Conventions
 
@@ -157,6 +210,8 @@ Before finishing, verify:
 - Dependencies in mermaid match actual phase progression
 - No duplicate experiment names
 - Run commands match actual filenames
+- **No `geo_features` under `global_transformers`** — it's ETL-only (`GeoFeaturesETL`)
+- All `global_transformers` entries are in the Available Transformers table above
 
 ## Code Examples
 

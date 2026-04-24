@@ -360,6 +360,14 @@ class CATModel:
             .columns.tolist()
         )
 
+        if self.class_weight == "balanced":
+            classes, counts = np.unique(y_train, return_counts=True)
+            total = len(y_train)
+            self.class_weight = {
+                int(c): total / (len(classes) * cnt) for c, cnt in zip(classes, counts)
+            }
+            logger.info("CatBoost class_weight resolved from 'balanced': %s", self.class_weight)
+
         if self.sampling_method not in ["oversample", "undersample", "smotetomek"]:
             logger.warning(
                 "sampling_method '%s' is not one of ['oversample', 'undersample', 'smotetomek']."

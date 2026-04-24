@@ -7,9 +7,10 @@ and optional target-encoded categorical features using IBGE shapefiles via geobr
 
 import logging
 import math
+import unicodedata
 import warnings
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -36,6 +37,15 @@ REFERENCE_CITIES = {
     "chapeco": (-27.1008, -52.6152),
     "itajai": (-26.9082, -48.6626),
     "lages": (-27.8161, -50.3260),
+    "concordia": (-27.2339, -52.0278),
+    "jaragua_do_sul": (-26.4852, -49.0715),
+    "joacaba": (-27.1728, -51.5058),
+    "videira": (-27.0095, -51.1490),
+    "sao_miguel_do_oeste": (-26.7280, -53.5155),
+    "tubarao": (-28.4678, -49.0075),
+    "rio_do_sul": (-27.2147, -49.6435),
+    "mafra": (-26.1108, -49.8011),
+    "sao_bento_do_sul": (-26.2499, -49.3789),
 }
 
 # State capitals (UF → (name, lat, lon))
@@ -70,6 +80,90 @@ STATE_CAPITALS = {
 }
 
 # UF → macro region mapping
+_VALID_HIERARCHY_LEVELS = {"estado", "municipio", "regiao"}
+
+_HIERARCHY_ALIASES = {
+    "state": "estado",
+    "municipality": "municipio",
+    "city": "municipio",
+    "region": "regiao",
+}
+
+
+def _geo_column_name(level: str) -> str:
+    """Return the output column name for a hierarchy level (e.g. 'estado' → 'geo_estado')."""
+    return f"geo_{level}"
+
+
+def _normalize_name(name: str) -> str:
+    """Remove accents and uppercase — used to match IBGE municipality names to CSV city names."""
+    nfkd = unicodedata.normalize("NFKD", str(name))
+    return nfkd.encode("ascii", "ignore").decode("ascii").upper().strip()
+
+
+def _load_regions_mapping(path: str) -> Dict[str, str]:
+    """Load a ``region``/``city`` file (CSV with semicolon separator or Parquet) and return a normalized city → region dict."""
+    if path.endswith(".parquet"):
+        df = pd.read_parquet(path)
+    else:
+        df = pd.read_csv(path, sep=";", encoding="utf-8-sig")
+    df.columns = [c.strip().upper() for c in df.columns]
+
+    missing = [col for col in ["REGION", "CITY"] if col not in df.columns]
+    if missing:
+        raise ValueError(
+            f"regions_file '{path}' is missing required column(s): {missing}. "
+            f"Found columns: {df.columns.tolist()}. "
+            f"Expected 'REGION' and 'CITY' (semicolon-separated CSV)."
+        )
+
+    df["CITY"] = df["CITY"].str.strip().apply(_normalize_name)
+    df["REGION"] = df["REGION"].str.strip()
+    return dict(zip(df["CITY"], df["REGION"]))
+
+
+def _resolve_hierarchy_levels(
+    include_hierarchy: Union[bool, List[str]],
+) -> List[tuple]:
+    """Normalise *include_hierarchy* to a list of (display_name, data_key) pairs.
+
+    Each pair maps the user-facing level name (used for column naming) to the
+    internal data key (used for array lookups).  When ``True`` is passed, all
+    three levels are included with display names equal to data keys.
+
+    Args:
+        include_hierarchy: ``True`` → all three levels; ``False`` → empty list;
+            list of strings → validated subset.  Aliases like ``"municipality"``
+            resolve to ``("municipality", "municipio")`` — the original name
+            is preserved for column naming.
+
+    Returns:
+        List of ``(display_name, data_key)`` tuples sorted by data_key.
+
+    Raises:
+        ValueError: If the list contains invalid level names.
+    """
+    if isinstance(include_hierarchy, bool):
+        if not include_hierarchy:
+            return []
+        return [(lvl, lvl) for lvl in sorted(_VALID_HIERARCHY_LEVELS)]
+
+    result = []
+    seen_keys = set()
+    for lvl in include_hierarchy:
+        data_key = _HIERARCHY_ALIASES.get(lvl, lvl)
+        if data_key not in _VALID_HIERARCHY_LEVELS:
+            valid_display = sorted(_VALID_HIERARCHY_LEVELS) + sorted(_HIERARCHY_ALIASES)
+            raise ValueError(f"Invalid hierarchy level: '{lvl}'. " f"Valid levels: {valid_display}")
+        if data_key in seen_keys:
+            continue  # deduplicate
+        seen_keys.add(data_key)
+        result.append((lvl, data_key))
+
+    # Sort by data_key for deterministic order
+    return sorted(result, key=lambda pair: pair[1])
+
+
 UF_TO_REGIAO = {
     "AC": "Norte",
     "AM": "Norte",
@@ -291,8 +385,11 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         Name of the latitude column (default: "latitud").
     lon_col : str
         Name of the longitude column (default: "longitud").
-    include_hierarchy : bool
-        Include estado, município, região columns (default: True).
+    include_hierarchy : bool or list of str
+        ``True`` → include all three hierarchy columns (``geo_estado``,
+        ``geo_municipio``, ``geo_regiao``).  ``False`` → skip hierarchy.
+        A list of level names (``"estado"``, ``"municipio"``, ``"regiao"``)
+        enables only the specified levels (default: ``True``).
     include_target_encoding : bool
         Apply target encoding to categorical geo columns (default: True).
     te_w : int
@@ -310,6 +407,26 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         the first run saves the files to disk and subsequent runs load from
         there instead of re-downloading via geobr. Recommended: ".cache/ibge".
         If None (default), data is only cached in memory for the current process.
+    regions_file : str or None
+        Path to a CSV (semicolon separator) or Parquet file with columns
+        ``REGION`` and ``CITY``. When provided, ``geo_regiao`` is assigned by matching each
+        point's IBGE municipality name against the ``CITY`` column (accent- and
+        case-insensitive). Takes priority over ``region_cities``. Unmatched
+        municipalities get ``"sin_dato"``.
+    region_cities : list of str or None
+        When set (and ``regions_file`` is not provided), ``geo_regiao`` is assigned
+        as the **nearest city** from this list instead of the IBGE macro-region
+        (Norte/Sul/etc.). Each entry must be a key in ``REFERENCE_CITIES``.
+
+    Attributes (set after fit):
+    ---------------------------
+    unmatched_municipalities_ : list of str
+        Sorted list of IBGE municipality names (normalized) that were NOT found
+        in ``regions_file``. Empty when ``regions_file`` is not provided.
+        Useful for debugging missing matches.
+    matched_municipalities_ : list of str
+        Sorted list of IBGE municipality names (normalized) that WERE found
+        in ``regions_file``. Empty when ``regions_file`` is not provided.
 
     YAML configuration example:
     ---------------------------
@@ -320,7 +437,10 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         - geo_features:
             lat_col: "latitud"
             lon_col: "longitud"
-            include_hierarchy: true
+            include_hierarchy: true                # all three levels
+            # include_hierarchy:                   # or pick specific levels
+            #   - estado
+            #   - municipio
             include_target_encoding: true
             te_w: 20
             include_distances: true
@@ -336,17 +456,22 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         self,
         lat_col: str = "latitud",
         lon_col: str = "longitud",
-        include_hierarchy: bool = True,
+        include_hierarchy: Union[bool, List[str]] = True,
         include_target_encoding: bool = True,
         te_w: int = 20,
         include_distances: bool = True,
         distance_cities: Optional[List[str]] = None,
         include_coords: bool = False,
         cache_dir: Optional[str] = None,
+        region_cities: Optional[List[str]] = None,
+        regions_file: Optional[str] = None,
     ):
         self.lat_col = lat_col
         self.lon_col = lon_col
         self.include_hierarchy = include_hierarchy
+        self.hierarchy_levels_ = _resolve_hierarchy_levels(include_hierarchy)
+        # Convenience sets for internal checks (data_key only)
+        self._hierarchy_data_keys_ = {dk for _, dk in self.hierarchy_levels_}
         self.include_target_encoding = include_target_encoding
         self.te_w = te_w
         self.include_distances = include_distances
@@ -359,6 +484,90 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         ]
         self.include_coords = include_coords
         self.cache_dir = cache_dir
+        self.region_cities = region_cities
+        self.regions_file = regions_file
+
+    def _apply_regions_mapping(self, municipio_arr: np.ndarray, log: bool = False) -> np.ndarray:
+        """Map municipality names to regions using *regions_mapping_*.
+
+        Both the mapping keys and the municipality names are normalised with
+        :func:`_normalize_name` (NFKD + strip accents + upper + strip) so the
+        comparison is accent- and case-insensitive.
+
+        Parameters
+        ----------
+        municipio_arr : np.ndarray
+            Array of raw IBGE municipality names (may contain accents,
+            mixed case, etc.).
+        log : bool
+            If True, log matched and unmatched municipalities at INFO level.
+            Typically True on ``fit()`` and False on ``transform()``.
+
+        Returns
+        -------
+        np.ndarray
+            Array of region names (or ``"sin_dato"`` for unmatched).
+        """
+        result = np.array(
+            [self.regions_mapping_.get(_normalize_name(m), "sin_dato") for m in municipio_arr],
+            dtype=object,
+        )
+
+        if log and self.regions_mapping_:
+            normalized_munis = {_normalize_name(m) for m in municipio_arr if m != "sin_dato"}
+            mapping_keys = set(self.regions_mapping_.keys())
+            matched = sorted(normalized_munis & mapping_keys)
+            unmatched = sorted(normalized_munis - mapping_keys)
+            total = len(normalized_munis)
+            n_matched = len(matched)
+            n_unmatched = len(unmatched)
+
+            logger.info(
+                "regions_file match: %d/%d municipalities resolved " "(%d matched, %d unmatched)",
+                n_matched,
+                total,
+                n_matched,
+                n_unmatched,
+            )
+            if matched:
+                logger.info("Matched municipalities: %s", matched)
+            if unmatched:
+                logger.warning(
+                    "Unmatched municipalities (not found in regions_file): %s — "
+                    "these will get 'sin_dato'. "
+                    "Tip: check that your regions_file CITY column contains these "
+                    "names (accent/case does not matter, but spelling must match after "
+                    "removing accents and normalizing).",
+                    unmatched,
+                )
+
+        return result
+
+    def _compute_nearest_city(
+        self, lats: np.ndarray, lons: np.ndarray, valid_mask: np.ndarray
+    ) -> np.ndarray:
+        """Assign each valid point the name of its nearest city in ``region_cities``.
+
+        Args:
+            lats: Full latitude array (all rows).
+            lons: Full longitude array (all rows).
+            valid_mask: Boolean mask indicating valid coordinates.
+
+        Returns:
+            Object array of city names; invalid points get ``"sin_dato"``.
+        """
+        result = np.full(len(lats), "sin_dato", dtype=object)
+        if not valid_mask.any():
+            return result
+        valid_lats = lats[valid_mask]
+        valid_lons = lons[valid_mask]
+        city_names = self.region_cities
+        distances = np.column_stack(
+            [haversine_vectorized(valid_lats, valid_lons, *REFERENCE_CITIES[c]) for c in city_names]
+        )
+        nearest = np.argmin(distances, axis=1)
+        result[valid_mask] = [city_names[i] for i in nearest]
+        return result
 
     def fit(self, X: pd.DataFrame, y: pd.Series = None) -> "GeoFeatures":
         """Learn target encoding mappings from training data.
@@ -376,6 +585,12 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
                 raise ValueError(
                     f"Unknown city '{city}'. Available: {list(REFERENCE_CITIES.keys())}"
                 )
+        if self.region_cities:
+            for city in self.region_cities:
+                if city not in REFERENCE_CITIES:
+                    raise ValueError(
+                        f"Unknown region_city '{city}'. Available: {list(REFERENCE_CITIES.keys())}"
+                    )
 
         # Geocode all training points to learn the mapping
         lats = X[self.lat_col].values.astype(float)
@@ -384,10 +599,29 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         # Handle null coordinates
         valid_mask = ~(np.isnan(lats) | np.isnan(lons))
 
-        if self.include_hierarchy or self.include_target_encoding:
+        self.regions_mapping_: Dict[str, str] = (
+            _load_regions_mapping(self.regions_file) if self.regions_file else {}
+        )
+
+        # Track unmatched municipalities for diagnostics (empty list when no regions_file)
+        self.unmatched_municipalities_: List[str] = []
+        self.matched_municipalities_: List[str] = []
+
+        if self.hierarchy_levels_ or self.include_target_encoding:
             self.municipio_names_, self.uf_codes_, self.regiao_names_ = (
                 _IBGEGeocoder.geocode_points(lats[valid_mask], lons[valid_mask], self.cache_dir)
             )
+            if self.regions_mapping_ and "regiao" in self._hierarchy_data_keys_:
+                self.regiao_names_ = self._apply_regions_mapping(self.municipio_names_, log=True)
+                # Populate diagnostics attributes
+                normalized_munis = {
+                    _normalize_name(m) for m in self.municipio_names_ if m != "sin_dato"
+                }
+                mapping_keys = set(self.regions_mapping_.keys())
+                self.unmatched_municipalities_ = sorted(normalized_munis - mapping_keys)
+                self.matched_municipalities_ = sorted(normalized_munis & mapping_keys)
+            elif self.region_cities and "regiao" in self._hierarchy_data_keys_:
+                self.regiao_names_ = self._compute_nearest_city(lats, lons, valid_mask)[valid_mask]
 
             # Fit target encoding if enabled and y is provided
             if self.include_target_encoding and y is not None:
@@ -415,10 +649,15 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         self.te_mappings_ = {}
         global_mean = y.mean()
 
+        geo_arrays = {
+            "estado": self.uf_codes_,
+            "municipio": self.municipio_names_,
+            "regiao": self.regiao_names_,
+        }
+
         geo_columns = {
-            "geo_estado": self.uf_codes_,
-            "geo_municipio": self.municipio_names_,
-            "geo_regiao": self.regiao_names_,
+            _geo_column_name(display): geo_arrays[data_key]
+            for display, data_key in self.hierarchy_levels_
         }
 
         y_valid = y.values[valid_mask]
@@ -453,7 +692,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         valid_mask = ~(np.isnan(lats) | np.isnan(lons))
 
         # 1. Geographic hierarchy + distances (both may need estado_arr)
-        if self.include_hierarchy or self.include_target_encoding or self.include_distances:
+        if self.hierarchy_levels_ or self.include_target_encoding or self.include_distances:
             geocoded = _IBGEGeocoder.geocode_points(
                 lats[valid_mask], lons[valid_mask], self.cache_dir
             )
@@ -467,29 +706,38 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
 
             estado_arr[valid_mask] = geo_uf
             municipio_arr[valid_mask] = geo_municipio
-            regiao_arr[valid_mask] = geo_regiao
+            if self.regions_mapping_ and "regiao" in self._hierarchy_data_keys_:
+                regiao_arr = self._apply_regions_mapping(municipio_arr, log=False)
+            elif self.region_cities and "regiao" in self._hierarchy_data_keys_:
+                regiao_arr = self._compute_nearest_city(lats, lons, valid_mask)
+            else:
+                regiao_arr[valid_mask] = geo_regiao
 
-            if self.include_hierarchy:
-                df["geo_estado"] = pd.Categorical(estado_arr)
-                df["geo_municipio"] = pd.Categorical(municipio_arr)
-                df["geo_regiao"] = pd.Categorical(regiao_arr)
+            if self.hierarchy_levels_:
+                for display, data_key in self.hierarchy_levels_:
+                    col_name = _geo_column_name(display)
+                    arr = {"estado": estado_arr, "municipio": municipio_arr, "regiao": regiao_arr}[
+                        data_key
+                    ]
+                    df[col_name] = pd.Categorical(arr)
 
             # 2. Target encoding
             if self.include_target_encoding and self.te_mappings_:
-                for col_name, geo_values in [
-                    ("geo_estado", estado_arr),
-                    ("geo_municipio", municipio_arr),
-                    ("geo_regiao", regiao_arr),
-                ]:
-                    if col_name in self.te_mappings_:
-                        mapping = self.te_mappings_[col_name]
-                        global_mean = self.te_mappings_[col_name + "_global_mean"]
-                        te_col = col_name + "_prob"
-                        df[te_col] = np.array(
-                            [mapping.get(v, global_mean) for v in geo_values], dtype=float
-                        )
+                te_cols_to_drop = []
+                for display, data_key in self.hierarchy_levels_:
+                    col_name = _geo_column_name(display)
+                    if col_name not in self.te_mappings_:
+                        continue
+                    arr = {"estado": estado_arr, "municipio": municipio_arr, "regiao": regiao_arr}[
+                        data_key
+                    ]
+                    mapping = self.te_mappings_[col_name]
+                    global_mean = self.te_mappings_[col_name + "_global_mean"]
+                    te_col = col_name + "_prob"
+                    df[te_col] = np.array([mapping.get(v, global_mean) for v in arr], dtype=float)
+                    te_cols_to_drop.append(col_name)
                 # Drop raw string hierarchy columns — replaced by *_prob float columns
-                df = df.drop(columns=["geo_estado", "geo_municipio", "geo_regiao"], errors="ignore")
+                df = df.drop(columns=te_cols_to_drop, errors="ignore")
 
         # 3. Distance features
         if self.include_distances:

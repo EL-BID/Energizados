@@ -227,8 +227,8 @@ class TestNaNImputation:
         result = transformer.transform(X_new)
         assert "if_score" in result.columns
 
-    def test_all_nan_column_raises_error(self):
-        """All-NaN column should raise ValueError during fit."""
+    def test_all_nan_column_handled_gracefully(self):
+        """All-NaN column should be filled with 0 and not crash."""
         X = pd.DataFrame(
             {
                 "col": [np.nan, np.nan, np.nan],
@@ -236,9 +236,10 @@ class TestNaNImputation:
         )
 
         transformer = IsolationForestScore()
-        # All-NaN columns cannot be used (sklearn requires valid data)
-        with pytest.raises(ValueError, match="NaN"):
-            transformer.fit(X)
+        transformer.fit(X)
+        assert transformer.train_medians_["col"] == 0.0
+        result = transformer.transform(X)
+        assert "if_score" in result.columns
 
 
 class TestFitTransform:

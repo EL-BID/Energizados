@@ -137,6 +137,33 @@ train:
               - ["peak_hour", "off_peak_hour", "/"]
 ```
 
+### Controlling the Execution Stage
+
+By default, custom global transformers run **after** column encoding (`pipeline_stage = "post"`). If your transformer needs to see original categorical columns (e.g., to `groupby("actividad")` before it becomes `actividad_prob` after `target_encoding`), declare `pipeline_stage = "pre"` as a class attribute:
+
+```python
+class MyGroupTransformer(BaseEstimator, TransformerMixin):
+    pipeline_stage = "pre"  # runs before column_transformer
+
+    def fit(self, X, y=None):
+        # X still has the original categorical "actividad" here
+        self.stats_ = X.groupby("actividad")["1_anterior"].mean()
+        return self
+
+    def transform(self, X):
+        df = X.copy()
+        df["my_feature"] = df["actividad"].map(self.stats_)
+        return df
+```
+
+The framework automatically splits `global_transformers` into two groups and assembles the pipeline as:
+
+```
+[pre-encoding transformers] → column_transformer → [post-encoding transformers]
+```
+
+No YAML changes are needed — the stage is entirely declared in Python.
+
 ## The Security Allowlist
 
 ### Why It Exists

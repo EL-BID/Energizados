@@ -108,7 +108,14 @@ train:
           #- cast_dtype:
           #    dtype: "category"
 
-        # Option 2: Mix built-in and custom transformers on the same column
+        # Option 2: minmax_scaler_row — row-wise MinMax scaling on numeric columns
+        # Normalizes each row to [0, 1] across the selected columns (e.g. consumption series).
+        # Use feature_range to change the output range.
+        # columna_numerica:
+        #   - minmax_scaler_row:
+        #       feature_range: [0, 1]
+
+        # Option 3: Mix built-in and custom transformers on the same column
         # otra_columna:
         #   - cardinality_reducer:
         #       threshold: 0.01
@@ -154,6 +161,7 @@ train:
         # - extra_vars:
         #     num_periodos: 3
         #     periods_suffix: *period_suffix
+        #     count_nulls: false   # adds cant_null_N column (NaN count per row)
         # - extra_vars:
         #     num_periodos: 6
         #     periods_suffix: *period_suffix
@@ -161,9 +169,43 @@ train:
         #     num_periodos: 12
         #     periods_suffix: *period_suffix
 
-        # Domain-specific consumption patterns for fraud detection
+        # Domain-specific fraud detection patterns (optional flags)
         # - consumption_patterns:
         #     num_periodos: 12
+        #     periods_suffix: *period_suffix
+        #     enable_last_period_zscore: false   # zscore of last month vs client history
+        #     enable_autocorr_lag1: false        # lag-1 autocorr (low = manipulation signal)
+        #     enable_seasonal_ratio: false       # summer/winter ratio (southern hemisphere)
+        #     date_column: "fecha_inspeccion"    # required for enable_seasonal_ratio
+
+        # Calendar features from inspection date (flat + cyclic encoding)
+        # encoding: "flat" | "cyclic" | "both"
+        # Available features: month, quarter, week, dayofweek, day, year
+        # Cyclic encoding (sin/cos) preserves calendar circularity (Dec & Jan are neighbors)
+        # - temporal_features:
+        #     date_column: "fecha_inspeccion"
+        #     features: ["month", "quarter", "week", "dayofweek"]
+        #     encoding: "both"
+        #     drop_date_column: false
+
+        # Group-relative consumption (client vs group mean/max)
+        # Strong fraud signal: residential consuming like industrial is a red flag.
+        # Runs BEFORE column encoding (pipeline_stage="pre") — group_column must be
+        # the raw categorical column name (before target_encoding renames it to *_prob).
+        # group_column: actividad, tipo_tarifa, zona, geo_cluster, etc.
+        # - group_relative_consumption:
+        #     group_column: "actividad"
+        #     windows: [3, 6, 12]
+        #     metrics: ["mean", "max"]
+        #     periods_suffix: *period_suffix
+
+        # Seasonal anomaly: z-score of each month vs group's historical mean/std for that month
+        # Tells the model "this client consumes 30% less than expected for its type in this month"
+        # Runs BEFORE column encoding (pipeline_stage="pre") — group_column must be
+        # the raw categorical column name (before target_encoding renames it to *_prob).
+        # - seasonal_anomaly:
+        #     group_column: "actividad"
+        #     date_column: "fecha_inspeccion"
         #     periods_suffix: *period_suffix
 
         # Isolation Forest anomaly score (unsupervised feature)

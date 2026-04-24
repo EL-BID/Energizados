@@ -20,6 +20,18 @@ _esc = html.escape
 
 logger = logging.getLogger(__name__)
 
+
+def _fmt(val, decimals: int = 4) -> str:
+    if val is None:
+        return "—"
+    try:
+        if isinstance(val, float) and pd.isna(val):
+            return "—"
+        return f"{float(val):.{decimals}f}"
+    except (TypeError, ValueError):
+        return str(val)
+
+
 _EDA_CSS = SHARED_CSS + """
 /* ── Base ─────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
@@ -863,8 +875,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         rows = ""
         for d in numeric:
             iv_td = (
-                f"<td>{d.get('iv', '—') if d.get('iv') is not None else '—'}</td>"
-                f"<td>{d.get('ks_stat', '—') if d.get('ks_stat') is not None else '—'}</td>"
+                f"<td>{_fmt(d.get('iv'))}</td>" f"<td>{_fmt(d.get('ks_stat'))}</td>"
                 if has_iv
                 else ""
             )
@@ -880,13 +891,13 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
     <td><strong>{_esc(d.get("col", ""))}</strong>{f" {consumption_badge}" if consumption_badge else ""}</td>
     <td>{int(d["count"]) if isinstance(d.get("count"), (int, float)) and not pd.isna(d.get("count")) else "—"}</td>
     <td style="{null_color}">{d.get("null_pct", 0):.1f}%</td>
-    <td>{d.get("mean", "—")}</td>
-    <td>{d.get("std", "—")}</td>
-    <td>{d.get("min", "—")}</td>
-    <td>{d.get("max", "—")}</td>
-    <td>{d.get("p50", "—")}</td>
+    <td>{_fmt(d.get("mean"))}</td>
+    <td>{_fmt(d.get("std"))}</td>
+    <td>{_fmt(d.get("min"))}</td>
+    <td>{_fmt(d.get("max"))}</td>
+    <td>{_fmt(d.get("p50"))}</td>
     <td>{d.get("outlier_pct", 0):.1f}%</td>
-    <td>{d.get("skewness", "—")}</td>
+    <td>{_fmt(d.get("skewness"))}</td>
     {iv_td}
 </tr>"""
 
@@ -914,8 +925,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             top = d.get("top_categories", [])
             top_str = ", ".join(f"{_esc(c['value'])} ({c['pct']:.1f}%)" for c in top[:3])
             iv_td = (
-                f"<td>{d.get('iv', '—') if d.get('iv') is not None else '—'}</td>"
-                f"<td>{d.get('cramers_v', '—') if d.get('cramers_v') is not None else '—'}</td>"
+                f"<td>{_fmt(d.get('iv'))}</td>" f"<td>{_fmt(d.get('cramers_v'))}</td>"
                 if has_iv
                 else ""
             )
@@ -983,10 +993,10 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             stats_rows += f"""
 <tr>
     <td>{_esc(s.get("period", ""))}</td>
-    <td>{s.get("mean", "—")}</td>
-    <td>{s.get("std", "—")}</td>
-    <td>{s.get("min", "—")}</td>
-    <td>{s.get("max", "—")}</td>
+    <td>{_fmt(s.get("mean"))}</td>
+    <td>{_fmt(s.get("std"))}</td>
+    <td>{_fmt(s.get("min"))}</td>
+    <td>{_fmt(s.get("max"))}</td>
     <td>{s.get("zeros_pct", 0):.1f}%</td>
     <td>{s.get("nulls_pct", 0):.1f}%</td>
 </tr>"""

@@ -89,7 +89,12 @@ def classify_columns(
                 result["target_candidates"].append(col)
             else:
                 result["numeric"].append(col)
-        elif dtype == object or str(dtype) == "category":
+        elif (
+            dtype == object
+            or str(dtype) == "category"
+            or str(dtype).startswith("string")
+            or isinstance(dtype, pd.CategoricalDtype)
+        ):
             result["categorical"].append(col)
 
     return result
