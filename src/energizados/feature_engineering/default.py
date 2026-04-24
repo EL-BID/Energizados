@@ -13,6 +13,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 from energizados.feature_engineering.base import BaseFeatureEngineering
+from energizados.preprocessing.group_features import (
+    GroupRelativeConsumption,
+    SeasonalAnomaly,
+)
 from energizados.preprocessing.isolation_forest_score import IsolationForestScore
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
@@ -95,6 +99,23 @@ def _build_transformer_from_config(
                 "drop_date_column": False,
             },
         ),
+        "group_relative_consumption": (
+            GroupRelativeConsumption,
+            {
+                "group_column": "actividad",
+                "windows": [3, 6, 12],
+                "metrics": ["mean", "max"],
+                "periods_suffix": "_anterior",
+            },
+        ),
+        "seasonal_anomaly": (
+            SeasonalAnomaly,
+            {
+                "group_column": "actividad",
+                "date_column": None,
+                "periods_suffix": "_anterior",
+            },
+        ),
         "if_score": (
             IsolationForestScore,
             {
@@ -127,40 +148,54 @@ def _build_transformer_from_config(
     return cls(**params)
 
 
-def _build_global_transformers_pipeline(global_transformers_config: list) -> Pipeline:
-    """Builds a global transformers pipeline from YAML config.
-
-    Args:
-        global_transformers_config: List of dicts with global transformers configuration.
+def _instantiate_global_transformer(transformer_config: dict, index: int):
+    """Instantiate a single global transformer from a config dict.
 
     Returns:
-        Pipeline: Pipeline with global transformers (or None if no config).
+        tuple[str, transformer]: (step_name, fitted transformer instance)
+    """
+    if "custom_class" in transformer_config:
+        custom_class_path = transformer_config.get("custom_class")
+        custom_params = transformer_config.get("params", {})
+        transformer = _build_transformer_from_config(
+            "custom_class", custom_params, None, custom_class=custom_class_path
+        )
+        name = f"global_custom_{index}"
+    else:
+        for transform_name, params in transformer_config.items():
+            transformer = _build_transformer_from_config(transform_name, params, None)
+            name = f"global_{transform_name}_{index}"
+            break
+    return name, transformer
+
+
+def _build_split_global_pipelines(global_transformers_config: list):
+    """Split global transformers into pre/post column_transformer pipelines.
+
+    Transformers that declare ``pipeline_stage = "pre"`` on their class run
+    before the ColumnTransformer (they need raw categorical columns). All
+    others run after (default behaviour).
+
+    Args:
+        global_transformers_config: List of dicts from ``global_transformers`` YAML key.
+
+    Returns:
+        tuple[Pipeline | None, Pipeline | None]: (pre_pipeline, post_pipeline)
     """
     if not global_transformers_config:
-        return None
+        return None, None
 
-    steps = []
+    pre_steps, post_steps = [], []
     for i, transformer_config in enumerate(global_transformers_config):
-        # Custom class case
-        if "custom_class" in transformer_config:
-            custom_class_path = transformer_config.get("custom_class")
-            custom_params = transformer_config.get("params", {})
-            transformer = _build_transformer_from_config(
-                "custom_class", custom_params, None, custom_class=custom_class_path
-            )
-            name = f"global_custom_{i}"
+        name, transformer = _instantiate_global_transformer(transformer_config, i)
+        if getattr(transformer, "pipeline_stage", "post") == "pre":
+            pre_steps.append((name, transformer))
         else:
-            # Built-in transformers
-            for transform_name, params in transformer_config.items():
-                transformer = _build_transformer_from_config(transform_name, params, None)
-                name = f"global_{transform_name}_{i}"
-                break  # only one transformer per item
+            post_steps.append((name, transformer))
 
-        steps.append((name, transformer))
-
-    if steps:
-        return Pipeline(steps)
-    return None
+    pre_pipeline = Pipeline(pre_steps) if pre_steps else None
+    post_pipeline = Pipeline(post_steps) if post_steps else None
+    return pre_pipeline, post_pipeline
 
 
 def get_preprocesor(preprocessing_config: dict) -> Pipeline:
@@ -223,20 +258,20 @@ def get_preprocesor(preprocessing_config: dict) -> Pipeline:
         )
         ct.set_output(transform="pandas")
 
-        # Build global_transformers Pipeline
+        # Split global_transformers into pre/post based on each transformer's pipeline_stage.
+        # Transformers with pipeline_stage="pre" run before column encoding (need raw cols).
         global_config = preprocessing_config.get("global_transformers", [])
-        global_pipeline = _build_global_transformers_pipeline(global_config)
+        pre_global_pipeline, post_global_pipeline = _build_split_global_pipelines(global_config)
 
-        # Combine into final Pipeline
-        if global_pipeline is not None:
-            final_pipeline = Pipeline(
-                [("column_transformer", ct), ("global_transformers", global_pipeline)]
-            )
-        else:
-            # If no global transformers, wrap ct in Pipeline for consistency
-            final_pipeline = Pipeline([("column_transformer", ct)])
+        # Assemble: [pre_global?] → column_transformer → [post_global?]
+        steps = []
+        if pre_global_pipeline is not None:
+            steps.append(("pre_global_transformers", pre_global_pipeline))
+        steps.append(("column_transformer", ct))
+        if post_global_pipeline is not None:
+            steps.append(("global_transformers", post_global_pipeline))
 
-        return final_pipeline
+        return Pipeline(steps)
 
     # Error if no valid configuration
     raise ValueError(

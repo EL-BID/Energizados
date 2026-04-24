@@ -402,12 +402,18 @@ training:
 | `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency, z-score vs history, autocorrelation, seasonal ratio) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior"), `enable_diff_ratios` (bool, default=True), `enable_minmax_ratio` (bool, default=True), `enable_zscore` (bool, default=True), `enable_zero_ratio` (bool, default=True), `enable_slope` (bool, default=True), `enable_consistency` (bool, default=True), `enable_drastic_changes` (bool, default=True), `drastic_threshold` (float, default=0.5), `enable_last_period_zscore` (bool, default=False — `zscore_last_vs_history_N`: z-score of last month vs client's own mean/std), `enable_autocorr_lag1` (bool, default=False — `autocorr_lag1_N`: lag-1 autocorrelation; low = manipulation signal), `enable_seasonal_ratio` (bool, default=False — `seasonal_ratio_N`: summer/winter mean ratio for southern hemisphere; requires `date_column`), `date_column` (str, default=None — required when `enable_seasonal_ratio=True`) |
 | `temporal_features` | Calendar features from a date column with flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding. Cyclic encoding preserves calendar circularity (Dec & Jan are neighbors) | `date_column` (str, required), `features` (list, default=["month","quarter","week","dayofweek"] — also supports "day","year"), `encoding` (str, default="both" — "flat"/"cyclic"/"both"), `drop_date_column` (bool, default=False) |
 | `geo_features` | **Moved to ETL** — use `GeoFeaturesETL` in `etl.yaml`. For target encoding of geographic columns only, use `GeoFeatures` via `custom_class`. | — |
-| `clip_outliers` | Clips extreme values in consumption columns (data reading errors) — run FIRST in global_transformers | `threshold` (float, default=100000), `columns` (list, default=None — auto-detects `*_anterior`), `periods_suffix` (str, default="_anterior") |
+| `group_relative_consumption` | **[pre-encoding]** Consumption relative to group statistics (e.g., actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` — strong fraud signal when a client deviates from its peer group. Group stats are learned from `fit()` data (use full population for anti-leakage). Runs before column encoding — `group_column` must be the original categorical column name. | `group_column` (str, default="actividad"), `windows` (list[int], default=[3, 6, 12]), `metrics` (list[str], default=["mean", "max"] — supported: "mean", "max"), `periods_suffix` (str, default="_anterior") |
+| `seasonal_anomaly` | **[pre-encoding]** Seasonal z-score for each consumption month: `(consumo_mes - mean_grupo_mes) / std_grupo_mes` using `group_column × calendar_month` as group. Tells the model "this client consumes X% less than expected for its type in this month". Runs before column encoding — `group_column` must be the original categorical column name. | `group_column` (str, default="actividad"), `date_column` (str, required — inspection date to map periods to calendar months), `periods_suffix` (str, default="_anterior") |
+| `clip_outliers` | Clips extreme values in consumption columns (data reading errors) — run FIRST among post-encoding global_transformers | `threshold` (float, default=100000), `columns` (list, default=None — auto-detects `*_anterior`), `periods_suffix` (str, default="_anterior") |
 | `if_score` | Isolation Forest anomaly score (inverted, higher = more anomalous) — appends `if_score` column | `columns` (list, default=None — auto-detect by `periods_suffix`, fallback all numeric), `n_estimators` (int, default=100), `max_samples` (int/str, default="auto"), `max_features` (float, default=1.0), `contamination` (float/str, default="auto"), `random_state` (int, default=None), `contamination_from_target` (bool, default=False — uses `y.mean()`), `output_column` (str, default="if_score"), `periods_suffix` (str, default="_anterior") |
 
 **Global Transformers:**
 
-Global transformers act on the entire dataset and generate new features. They are executed AFTER column-based preprocessing.
+Global transformers are listed under a single `global_transformers` key. The framework automatically splits them into two stages based on each transformer's `pipeline_stage` class attribute:
+- **pre** (`pipeline_stage = "pre"`): runs before column encoding — sees original categorical columns. Used by `group_relative_consumption` and `seasonal_anomaly`.
+- **post** (default): runs after column encoding. Used by all other built-in transformers.
+
+Pipeline order: **[pre?] → column_transformer → [post?]**
 
 ```yaml
 preprocessing:
@@ -415,7 +421,23 @@ preprocessing:
     # ... column-based preprocessing
 
   global_transformers:
-    # Clip extreme values FIRST (removes data reading errors like 10^16 kWh)
+    # [pre-encoding] — runs BEFORE column_transformer, needs original categorical columns
+    # group_column must be the raw column name (e.g. "actividad", not "actividad_prob")
+    - group_relative_consumption:
+        group_column: "actividad"
+        windows: [3, 6, 12]
+        metrics: ["mean", "max"]
+        periods_suffix: "_anterior"
+
+    # [pre-encoding] — runs BEFORE column_transformer
+    - seasonal_anomaly:
+        group_column: "actividad"
+        date_column: "fecha_inspeccion"
+        periods_suffix: "_anterior"
+
+    # [post-encoding] — all transformers below run AFTER column_transformer
+
+    # Clip extreme values FIRST among post-encoding transformers (removes data reading errors)
     - clip_outliers:
         threshold: 100000
         periods_suffix: "_anterior"

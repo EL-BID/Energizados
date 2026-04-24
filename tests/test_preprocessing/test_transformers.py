@@ -9,6 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from energizados.preprocessing.group_features import (
+    GroupRelativeConsumption,
+    SeasonalAnomaly,
+)
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     CastDtype,
@@ -1387,3 +1391,316 @@ class TestConsumptionPatternsNew:
         )
         result = t.fit_transform(df)
         assert result.loc[0, "seasonal_ratio_6"] == pytest.approx(2.0, rel=1e-5)
+
+
+class TestGroupRelativeConsumption:
+    """Test suite for GroupRelativeConsumption transformer."""
+
+    @pytest.fixture
+    def df_group(self):
+        """Simple dataset with group column and 3 consumption periods."""
+        return pd.DataFrame(
+            {
+                "actividad": ["A", "A", "B", "B"],
+                "3_anterior": [100.0, 200.0, 10.0, 20.0],
+                "2_anterior": [110.0, 210.0, 11.0, 21.0],
+                "1_anterior": [120.0, 220.0, 12.0, 22.0],
+            }
+        )
+
+    def test_init_default_params(self):
+        t = GroupRelativeConsumption()
+        assert t.group_column == "actividad"
+        assert t.windows == [3, 6, 12]
+        assert t.metrics == ["mean", "max"]
+        assert t.periods_suffix == "_anterior"
+
+    def test_init_custom_params(self):
+        t = GroupRelativeConsumption(
+            group_column="zona", windows=[3], metrics=["mean"], periods_suffix="_prev"
+        )
+        assert t.group_column == "zona"
+        assert t.windows == [3]
+        assert t.metrics == ["mean"]
+        assert t.periods_suffix == "_prev"
+
+    def test_fit_missing_group_column_raises(self):
+        df = pd.DataFrame({"3_anterior": [1.0]})
+        t = GroupRelativeConsumption(group_column="no_existe")
+        with pytest.raises(ValueError, match="group column"):
+            t.fit(df)
+
+    def test_fit_invalid_metric_raises(self):
+        df = pd.DataFrame({"actividad": ["A"], "3_anterior": [1.0]})
+        t = GroupRelativeConsumption(metrics=["median"])
+        with pytest.raises(ValueError, match="unsupported metrics"):
+            t.fit(df)
+
+    def test_transform_mean_metric_correct(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        result = t.fit_transform(df_group)
+
+        assert "prop_cons_3_mean_actividad" in result.columns
+        # Group A mean = mean of [100,110,120, 200,210,220] = (100+110+120+200+210+220)/6 = 160
+        # Client 0 (A) mean = (100+110+120)/3 = 110 → ratio = 110/160 = 0.6875
+        # Client 1 (A) mean = (200+210+220)/3 = 210 → ratio = 210/160 = 1.3125
+        assert result.loc[0, "prop_cons_3_mean_actividad"] == pytest.approx(110 / 160, rel=1e-5)
+        assert result.loc[1, "prop_cons_3_mean_actividad"] == pytest.approx(210 / 160, rel=1e-5)
+
+    def test_transform_max_metric_correct(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["max"])
+        result = t.fit_transform(df_group)
+
+        assert "prop_cons_3_max_actividad" in result.columns
+        # Group A max = max of all A values = 220
+        # Client 0 (A) max = 120 → ratio = 120/220
+        # Client 1 (A) max = 220 → ratio = 220/220 = 1
+        assert result.loc[0, "prop_cons_3_max_actividad"] == pytest.approx(120 / 220, rel=1e-5)
+        assert result.loc[1, "prop_cons_3_max_actividad"] == pytest.approx(1.0, rel=1e-5)
+
+    def test_transform_missing_group_column_warns_and_skips(self, df_group, caplog):
+        import logging
+
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        t.fit(df_group)
+        df_bad = df_group.drop(columns=["actividad"])
+        with caplog.at_level(logging.WARNING):
+            result = t.transform(df_bad)
+        assert "prop_cons_3_mean_actividad" not in result.columns
+        assert any("group column" in r.message for r in caplog.records)
+
+    def test_transform_unseen_group_gets_zero(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        t.fit(df_group)
+        df_test = pd.DataFrame(
+            {
+                "actividad": ["C"],
+                "3_anterior": [100.0],
+                "2_anterior": [100.0],
+                "1_anterior": [100.0],
+            }
+        )
+        result = t.transform(df_test)
+        assert result.loc[0, "prop_cons_3_mean_actividad"] == 0.0
+
+    def test_fit_transform_equivalence(self, df_group):
+        t1 = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        t2 = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        result1 = t1.fit_transform(df_group)
+        t2.fit(df_group)
+        result2 = t2.transform(df_group)
+        pd.testing.assert_frame_equal(result1, result2)
+
+    def test_transform_preserves_original_columns(self, df_group):
+        t = GroupRelativeConsumption(windows=[3], metrics=["mean"])
+        result = t.fit_transform(df_group)
+        assert "actividad" in result.columns
+        assert "3_anterior" in result.columns
+        assert "2_anterior" in result.columns
+        assert "1_anterior" in result.columns
+
+    def test_fit_missing_cons_cols_warns(self, df_group, caplog):
+        """If consumption columns for a window are missing, skip that window."""
+        import logging
+
+        t = GroupRelativeConsumption(windows=[3, 12], metrics=["mean"])
+        with caplog.at_level(logging.WARNING):
+            t.fit(df_group)
+        # Window 12 should be skipped (no 12_anterior..4_anterior columns)
+        assert (12, "mean") not in t.group_stats_
+        assert (3, "mean") in t.group_stats_
+        assert any("window=12" in r.message for r in caplog.records)
+
+    def test_fit_no_matching_windows_warns(self, caplog):
+        """If no window has matching columns, group_stats_ stays empty."""
+        import logging
+
+        df = pd.DataFrame({"actividad": ["A"], "x_col": [1.0]})
+        t = GroupRelativeConsumption(windows=[12], metrics=["mean"])
+        with caplog.at_level(logging.WARNING):
+            t.fit(df)
+        assert t.group_stats_ == {}
+        assert any("no group statistics" in r.message for r in caplog.records)
+
+    def test_get_feature_names_out(self):
+        t = GroupRelativeConsumption(group_column="zona", windows=[3, 6], metrics=["mean", "max"])
+        names = t.get_feature_names_out()
+        expected = [
+            "prop_cons_3_mean_zona",
+            "prop_cons_3_max_zona",
+            "prop_cons_6_mean_zona",
+            "prop_cons_6_max_zona",
+        ]
+        assert list(names) == expected
+
+
+class TestSeasonalAnomaly:
+    """Test suite for SeasonalAnomaly transformer."""
+
+    @pytest.fixture
+    def df_seasonal(self):
+        """Dataset where group A has clear monthly pattern."""
+        return pd.DataFrame(
+            {
+                "actividad": ["A", "A", "A", "A"],
+                "fecha_inspeccion": pd.to_datetime(
+                    ["2024-03-15", "2024-03-15", "2024-02-15", "2024-02-15"]
+                ),
+                # For inspection March (3):
+                # i=1 → month 2 (Feb), i=2 → month 1 (Jan), i=3 → month 12 (Dec)
+                "3_anterior": [10.0, 10.0, 10.0, 10.0],  # Dec
+                "2_anterior": [20.0, 20.0, 20.0, 20.0],  # Jan
+                "1_anterior": [30.0, 30.0, 30.0, 30.0],  # Feb
+            }
+        )
+
+    def test_init_default_params(self):
+        t = SeasonalAnomaly()
+        assert t.group_column == "actividad"
+        assert t.date_column is None
+        assert t.periods_suffix == "_anterior"
+
+    def test_init_custom_params(self):
+        t = SeasonalAnomaly(group_column="zona", date_column="fecha_corte", periods_suffix="_prev")
+        assert t.group_column == "zona"
+        assert t.date_column == "fecha_corte"
+        assert t.periods_suffix == "_prev"
+
+    def test_fit_missing_date_column_raises(self):
+        df = pd.DataFrame({"actividad": ["A"], "3_anterior": [1.0]})
+        t = SeasonalAnomaly(date_column="no_existe")
+        with pytest.raises(ValueError, match="date column"):
+            t.fit(df)
+
+    def test_fit_missing_group_column_raises(self):
+        df = pd.DataFrame({"fecha": ["2024-01-01"], "3_anterior": [1.0]})
+        t = SeasonalAnomaly(date_column="fecha")
+        with pytest.raises(ValueError, match="group column"):
+            t.fit(df)
+
+    def test_transform_appends_anomaly_columns(self, df_seasonal):
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df_seasonal)
+        assert "seasonal_anomaly_1_anterior" in result.columns
+        assert "seasonal_anomaly_2_anterior" in result.columns
+        assert "seasonal_anomaly_3_anterior" in result.columns
+
+    def test_transform_no_nan_in_output(self, df_seasonal):
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df_seasonal)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert result[anomaly_cols].isna().sum().sum() == 0
+
+    def test_transform_missing_date_column_warns_and_skips(self, df_seasonal, caplog):
+        import logging
+
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        t.fit(df_seasonal)
+        df_bad = df_seasonal.drop(columns=["fecha_inspeccion"])
+        with caplog.at_level(logging.WARNING):
+            result = t.transform(df_bad)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert len(anomaly_cols) == 0
+        assert any("date column" in r.message for r in caplog.records)
+
+    def test_transform_missing_group_column_warns_and_skips(self, df_seasonal, caplog):
+        import logging
+
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        t.fit(df_seasonal)
+        df_bad = df_seasonal.drop(columns=["actividad"])
+        with caplog.at_level(logging.WARNING):
+            result = t.transform(df_bad)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert len(anomaly_cols) == 0
+        assert any("group column" in r.message for r in caplog.records)
+
+    def test_fit_transform_equivalence(self, df_seasonal):
+        t1 = SeasonalAnomaly(date_column="fecha_inspeccion")
+        t2 = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result1 = t1.fit_transform(df_seasonal)
+        t2.fit(df_seasonal)
+        result2 = t2.transform(df_seasonal)
+        pd.testing.assert_frame_equal(result1, result2)
+
+    def test_transform_value_correct(self):
+        # Simple case: 2 rows, same group, same inspection date
+        # Period 1 maps to month 1 (Jan)
+        df = pd.DataFrame(
+            {
+                "actividad": ["A", "A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-02-15", "2024-02-15"]),
+                # i=1 → month 1 (Jan)
+                "1_anterior": [10.0, 30.0],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df)
+        # Group A, month 1: mean=20, std=14.1421...
+        # Row 0: (10-20)/14.1421 = -0.7071
+        # Row 1: (30-20)/14.1421 = +0.7071
+        assert result.loc[0, "seasonal_anomaly_1_anterior"] == pytest.approx(-0.7071, rel=1e-3)
+        assert result.loc[1, "seasonal_anomaly_1_anterior"] == pytest.approx(0.7071, rel=1e-3)
+
+    def test_transform_preserves_original_columns(self, df_seasonal):
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df_seasonal)
+        assert "actividad" in result.columns
+        assert "fecha_inspeccion" in result.columns
+        assert "3_anterior" in result.columns
+
+    def test_fit_no_matching_cons_cols_raises(self):
+        """If no consumption columns match suffix, raise ValueError."""
+        df = pd.DataFrame(
+            {
+                "actividad": ["A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-01-01"]),
+                "x_col": [1.0],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        with pytest.raises(ValueError, match="no consumption columns"):
+            t.fit(df)
+
+    def test_fit_all_nan_consumption_raises(self):
+        """If all consumption values are NaN, raise ValueError."""
+        df = pd.DataFrame(
+            {
+                "actividad": ["A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-01-01"]),
+                "1_anterior": [np.nan],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        with pytest.raises(ValueError, match="no valid consumption"):
+            t.fit(df)
+
+    def test_fit_nat_date_column_skipped_in_transform(self, df_seasonal):
+        """NaT in date_column produces valid anomaly columns (month=NaN rows skipped in fit)."""
+        df = df_seasonal.copy()
+        df.loc[0, "fecha_inspeccion"] = pd.NaT
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        # fit should work (row 0 skipped from long_df but row 1-3 still valid)
+        result = t.fit_transform(df)
+        anomaly_cols = [c for c in result.columns if c.startswith("seasonal_anomaly_")]
+        assert len(anomaly_cols) > 0
+        assert result[anomaly_cols].isna().sum().sum() == 0
+
+    def test_single_observation_group_std_zero(self):
+        """Group with single observation has std=0 → anomaly should be 0.0."""
+        df = pd.DataFrame(
+            {
+                "actividad": ["A"],
+                "fecha_inspeccion": pd.to_datetime(["2024-02-15"]),
+                "1_anterior": [50.0],
+            }
+        )
+        t = SeasonalAnomaly(date_column="fecha_inspeccion")
+        result = t.fit_transform(df)
+        assert result.loc[0, "seasonal_anomaly_1_anterior"] == 0.0
+
+    def test_get_feature_names_out(self):
+        t = SeasonalAnomaly(periods_suffix="_prev")
+        names = t.get_feature_names_out()
+        expected = [f"seasonal_anomaly_{i}_prev" for i in range(1, 13)]
+        assert list(names) == expected

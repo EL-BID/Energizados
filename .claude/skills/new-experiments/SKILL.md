@@ -63,6 +63,8 @@ metadata:
 | `if_score` | Isolation Forest anomaly score | Appends `if_score` column |
 | `extra_vars` | Statistical features per time window | Use with num_periodos: 3, 6, 12 |
 | `consumption_patterns` | Domain fraud features | caídas abruptas, zero_ratio, etc. |
+| `group_relative_consumption` | Client vs group mean/max ratio | Strong fraud signal; use full population in fit |
+| `seasonal_anomaly` | Z-score vs group mean/std per calendar month | Requires `date_column`; tells model "consumes X% less than expected" |
 | `tsfel_vars` | Advanced temporal/frequency features | Slow — test last in kitchen-sink |
 | `cast_dtype` | Column dtype conversion | Per-column use only |
 | `cardinality_reducer` | Group infrequent categories | Per-column use only |

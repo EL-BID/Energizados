@@ -874,31 +874,52 @@ class SourceETL(BaseETL):
     def _acquire_lock(self, lock_path: Path) -> bool:
         """Acquire file lock for concurrent access safety.
 
-        Uses a simple lock file mechanism. Returns True if lock acquired.
+        Writes the current PID to the lock file so a dead-process lock is
+        detected immediately instead of waiting 5 minutes for a mtime timeout.
+        Returns True if lock acquired.
         """
+        import json
+        import os
         import time
 
         max_retries = 10
         retry_delay = 0.5
 
+        def _is_stale(path: Path) -> bool:
+            try:
+                data = json.loads(path.read_text())
+                pid = data.get("pid")
+                if pid is None:
+                    # Old-style empty lock file — treat as stale
+                    return True
+                # Check if the owning process is still alive
+                os.kill(pid, 0)
+                return False  # Process exists → lock is live
+            except (ProcessLookupError, PermissionError):
+                return True  # Process is dead → stale
+            except (OSError, ValueError, KeyError):
+                # Can't read/parse the file — fall back to mtime check
+                try:
+                    return time.time() - path.stat().st_mtime > 300
+                except OSError:
+                    return True
+
         for attempt in range(max_retries):
             try:
-                # Try to create lock file exclusively
-                lock_path.touch(exist_ok=False)
+                fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                try:
+                    os.write(fd, json.dumps({"pid": os.getpid()}).encode())
+                finally:
+                    os.close(fd)
                 return True
             except FileExistsError:
-                # Lock exists, check if stale (older than 5 minutes)
-                try:
-                    import time as time_module
-
-                    if time_module.time() - lock_path.stat().st_mtime > 300:
-                        # Lock is stale, remove it
+                if _is_stale(lock_path):
+                    try:
                         lock_path.unlink()
                         logger.warning(f"  • Removed stale lock file: {lock_path}")
-                        continue
-                except OSError:
-                    pass
-                # Wait and retry
+                    except OSError:
+                        pass
+                    continue
                 time.sleep(retry_delay)
 
         logger.warning(f"  • Could not acquire lock after {max_retries} attempts")
