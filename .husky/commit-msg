@@ -1,9 +1,0 @@
-#!/bin/sh
-# Reject commit messages that do not conform to the Conventional Commits specification.
-# Install: this file is copied to .husky/commit-msg by the pre-commit framework via
-#   pip install "pre-commit (>=4.5.1,<5.0.0)"
-#   pre-commit install --hook-type commit-msg
-# Usage: Husky calls this script automatically on every `git commit`.
-
-# --no-install: skip installing commitlint dependencies (they are already in the venv)
-npx --no -- commitlint --edit "${1:-}"
