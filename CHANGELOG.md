@@ -13,10 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.6] - 2026-04-25
 
-### Bug Fixes
-
-## [0.2.6] - 2026-04-25
-
 ### CI/CD
 
 - Opt into Node.js 24 for GitHub Actions (#10)
