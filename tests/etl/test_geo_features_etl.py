@@ -106,6 +106,30 @@ def test_geo_cluster_not_in_pipeline_imports():
     assert not hasattr(m, "GeoClusterETL"), "GeoClusterETL should be removed"
 
 
+def test_include_cluster_false_skips_clustering(tmp_path):
+    """When include_cluster=False, geo_cluster is NOT added and hierarchy/distances still work."""
+    df = _make_df(n=30)
+    input_path = str(tmp_path / "input.parquet")
+    output_path = str(tmp_path / "output.parquet")
+    df.to_parquet(input_path, index=False)
+
+    etl = GeoFeaturesETL(
+        name="test_geo",
+        input_paths=[input_path],
+        output_path=output_path,
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_cluster=False,
+        include_hierarchy=False,
+        include_distances=False,
+    )
+    raw = etl.extract()
+    result = etl.transform(raw)
+
+    assert "geo_cluster" not in result.columns
+
+
 # --- _resolve_hierarchy_levels ---
 
 

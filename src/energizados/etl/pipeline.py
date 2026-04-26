@@ -1552,6 +1552,8 @@ class GeoFeaturesETL(BaseETL):
         lat_col: Latitude column name (default: ``"latitud"``).
         lon_col: Longitude column name (default: ``"longitud"``).
         n_clusters: Number of geographic KMeans clusters (default: ``10``).
+        include_cluster: Add ``geo_cluster`` column via KMeans clustering (default: ``True``).
+            Set to ``False`` to skip clustering and keep only hierarchy/distances features.
         random_state: Random seed for KMeans (default: ``42``).
         include_hierarchy: Add hierarchy columns via IBGE spatial join (default: ``True``).
             Accepts a bool (``True`` = all three levels, ``False`` = none) or a list
@@ -1597,6 +1599,7 @@ class GeoFeaturesETL(BaseETL):
             lat_col: "latitude"
             lon_col: "longitude"
             n_clusters: 10
+            include_cluster: true   # set to false to skip geo_cluster (KMeans)
             include_hierarchy: true
             # include_hierarchy:               # or pick specific levels
             #   - estado
@@ -1619,6 +1622,7 @@ class GeoFeaturesETL(BaseETL):
         lat_col: str = "latitud",
         lon_col: str = "longitud",
         n_clusters: int = 10,
+        include_cluster: bool = True,
         random_state: int = 42,
         include_hierarchy: Union[bool, List[str]] = True,
         include_distances: bool = True,
@@ -1635,6 +1639,7 @@ class GeoFeaturesETL(BaseETL):
         self.lat_col = lat_col
         self.lon_col = lon_col
         self.n_clusters = n_clusters
+        self.include_cluster = include_cluster
         self.random_state = random_state
         self.include_hierarchy = include_hierarchy
         self.include_distances = include_distances
@@ -1672,8 +1677,6 @@ class GeoFeaturesETL(BaseETL):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Append geo_cluster and optional geographic feature columns."""
         import numpy as np
-        from sklearn.cluster import KMeans
-        from sklearn.preprocessing import StandardScaler
 
         df = df.copy()
 
@@ -1688,38 +1691,50 @@ class GeoFeaturesETL(BaseETL):
         valid_mask = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
 
         n_valid = int(valid_mask.sum())
-        if n_valid < 10:
-            raise ETLError(
-                f"GeoFeaturesETL '{self.name}': only {n_valid} valid coordinates found. "
-                "Need at least 10 to fit clusters."
-            )
 
         # --- Geographic clustering ---
-        coords = np.column_stack([lats[valid_mask], lons[valid_mask]])
-        n_clusters = min(self.n_clusters, n_valid)
+        if self.include_cluster:
+            from sklearn.cluster import KMeans
+            from sklearn.preprocessing import StandardScaler
 
-        scaler = StandardScaler()
-        coords_scaled = scaler.fit_transform(coords)
+            if n_valid < 10:
+                raise ETLError(
+                    f"GeoFeaturesETL '{self.name}': only {n_valid} valid coordinates found. "
+                    "Need at least 10 to fit clusters."
+                )
 
-        kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=10)
-        kmeans.fit(coords_scaled)
+            coords = np.column_stack([lats[valid_mask], lons[valid_mask]])
+            n_clusters = min(self.n_clusters, n_valid)
 
-        labels = np.full(len(df), -1, dtype=int)
-        labels[valid_mask] = kmeans.predict(coords_scaled)
-        df["geo_cluster"] = labels
+            scaler = StandardScaler()
+            coords_scaled = scaler.fit_transform(coords)
 
-        invalid_count = int((~valid_mask).sum())
-        logger.info(
-            "  ✓ GeoFeaturesETL: %d clusters fitted on %d valid coordinates (%d → label -1)",
-            n_clusters,
-            n_valid,
-            invalid_count,
-        )
-        for cluster_id in sorted(set(labels[valid_mask])):
-            count = int((labels == cluster_id).sum())
+            kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=10)
+            kmeans.fit(coords_scaled)
+
+            labels = np.full(len(df), -1, dtype=int)
+            labels[valid_mask] = kmeans.predict(coords_scaled)
+            df["geo_cluster"] = labels
+
+            invalid_count = int((~valid_mask).sum())
             logger.info(
-                "    Cluster %d: %d records (%.1f%%)", cluster_id, count, count / len(df) * 100
+                "  ✓ GeoFeaturesETL: %d clusters fitted on %d valid coordinates (%d → label -1)",
+                n_clusters,
+                n_valid,
+                invalid_count,
             )
+            for cluster_id in sorted(set(labels[valid_mask])):
+                count = int((labels == cluster_id).sum())
+                logger.info(
+                    "    Cluster %d: %d records (%.1f%%)", cluster_id, count, count / len(df) * 100
+                )
+        else:
+            if n_valid < 1:
+                raise ETLError(
+                    f"GeoFeaturesETL '{self.name}': no valid coordinates found. "
+                    "Cannot proceed without coordinates for hierarchy/distances features."
+                )
+            logger.info("  ✓ GeoFeaturesETL: clustering skipped (include_cluster=false)")
 
         # --- Geographic hierarchy and distances ---
         if self.include_hierarchy or self.include_distances:

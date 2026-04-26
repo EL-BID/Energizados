@@ -136,8 +136,9 @@ etl:
   #
   # # ETL 7: Geographic features - clusters + IBGE hierarchy + distances from lat/lon.
   # # Run AFTER your main ETL and BEFORE training.
-  # # Generates: geo_cluster (int), geo_estado, geo_municipio, geo_regiao, geo_dist_* columns.
+  # # Generates: geo_cluster (int, optional), geo_estado, geo_municipio, geo_regiao, geo_dist_* columns.
   # # geo_cluster is required if using method: "stratified_time" in split config.
+  # # Set include_cluster: false to skip KMeans clustering (keeps hierarchy and distances).
   # #
   # # geo_regiao assignment priority:
   # #   1. regions_file  → match IBGE municipality to CITY column in CSV (most precise)
@@ -153,6 +154,7 @@ etl:
   #     lat_col: "latitude"          # latitude column name
   #     lon_col: "longitude"         # longitude column name
   #     n_clusters: 10               # number of geographic KMeans clusters
+  #     include_cluster: true        # set to false to skip geo_cluster (KMeans) — keeps hierarchy/distances
   #     random_state: 42
   #     include_hierarchy: true      # true = all (estado, municipio, regiao); false = none
   #     # include_hierarchy:          # or pick specific levels (Spanish or English accepted):
