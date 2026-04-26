@@ -132,7 +132,7 @@ class RelatedColumnsAnalyzer(BaseExplorer):
             result["tree_breakdown"] = []
             return result
 
-        cross = sub.groupby(columns).size().reset_index(name="count")
+        cross = sub.groupby(columns, observed=True).size().reset_index(name="count")
         cross = cross.sort_values("count", ascending=False)
         result["cross_tabulation"] = cross.head(200).to_dict("records")
 

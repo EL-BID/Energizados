@@ -1198,19 +1198,23 @@ class EDAInteractivePlots:
 
             for i in range(len(columns) - 1):
                 src_col, tgt_col = columns[i], columns[i + 1]
-                pair = sub.groupby([src_col, tgt_col]).size().reset_index(name="count")
+                pair = (
+                    sub.groupby([src_col, tgt_col], observed=True).size().reset_index(name="count")
+                )
                 total = pair["count"].sum()
 
                 # Aggregate categories < 1% into "Otros"
                 threshold = total * 0.01
                 for col_name in [src_col, tgt_col]:
-                    col_totals = pair.groupby(col_name)["count"].sum()
+                    col_totals = pair.groupby(col_name, observed=True)["count"].sum()
                     small = col_totals[col_totals < threshold].index
                     if len(small) > 0:
                         pair[col_name] = pair[col_name].apply(
                             lambda x, s=small, cn=col_name: f"Others ({cn})" if x in s else x
                         )
-                        pair = pair.groupby([src_col, tgt_col], as_index=False)["count"].sum()
+                        pair = pair.groupby([src_col, tgt_col], as_index=False, observed=True)[
+                            "count"
+                        ].sum()
 
                 for _, row in pair.iterrows():
                     src_label = f"{src_col}: {row[src_col]}"
