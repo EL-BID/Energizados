@@ -58,6 +58,36 @@ train:
     save_splits: true
     splits_dir: "data/temp/splits/"
 
+    # -----------------------------------------------------------
+    # OPTIONAL: Unlabeled Negatives Injection (NEW in mejoras-3)
+    # -----------------------------------------------------------
+    # Inject external unlabeled contracts as negative samples (target=0)
+    # to reduce selection bias when labeled negatives are not representative.
+    #
+    # unlabeled_negatives:
+    #   enabled: true
+    #   source_path: "data/external/unlabeled_contracts.parquet"  # dataset WITHOUT target column
+    #   max_per_cutoff: 1500          # max rows to sample per cutoff
+    #   random_state: 42
+    #   date_column: "fecha_inspeccion"  # for time_series filtering
+    #   id_column: "contract_id"         # for dedup against val/test
+
+    # -----------------------------------------------------------
+    # OPTIONAL: Geo-Stratified Sampling (NEW in mejoras-3)
+    # -----------------------------------------------------------
+    # Balance geographic representation BEFORE model sampling.
+    # Applied ONLY to train set. Strategies:
+    #   - proportional: cap overrepresented strata to median size
+    #   - equal: reduce all strata to smallest size (WARNING: may drop >50% data)
+    #   - capped: cap each stratum at max_per_stratum
+    #
+    # geo_stratify:
+    #   enabled: true
+    #   column: "geo_region"            # geographic column to stratify by
+    #   strategy: "proportional"        # proportional | equal | capped
+    #   max_per_stratum: null           # required when strategy: capped
+    #   random_state: 42
+
   # ============================================
   # Feature Engineering Configuration
   # ============================================

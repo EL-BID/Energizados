@@ -4,6 +4,7 @@ Evaluator Module for Energizados Framework.
 Evaluates ML models using metrics, visualizations and reports.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -330,6 +331,17 @@ class DefaultEvaluator(PipelineStep):
             metrics_results["segment_metrics"] = segment_metrics
         if segmented_metrics:
             metrics_results["segmented_metrics"] = segmented_metrics
+
+        # 6d2. Export segment thresholds to JSON (mejoras-3 T-F2a)
+        if self.segmented_evaluation.get("enabled", False) and segmented_metrics:
+            seg_config = self.segmented_evaluation
+            threshold_mode = seg_config.get("threshold_mode", "global")
+            self._export_segment_thresholds(
+                segmented_metrics=segmented_metrics,
+                output_dir=self.output_dir,
+                global_threshold=threshold,
+                threshold_mode=threshold_mode,
+            )
 
         # 6e. Threshold sweep metrics
         logger.info("Calculating threshold sweep metrics...")
@@ -1141,3 +1153,51 @@ class DefaultEvaluator(PipelineStep):
                 info["n_estimators"] = inner.num_trees()
 
         return info
+
+    def _export_segment_thresholds(
+        self,
+        segmented_metrics: Dict,
+        output_dir: Path,
+        global_threshold: float,
+        threshold_mode: str,
+    ) -> List[Path]:
+        """Export segment threshold information to JSON files.
+
+        For each segment column in segmented_metrics, creates a JSON file with
+        the threshold configuration and per-segment metrics.
+
+        Args:
+            segmented_metrics: Dict mapping segment column names to their
+                segment values and metrics. Each segment value contains
+                threshold, threshold_mode, auc, n_samples, etc.
+            output_dir: Directory where JSON files will be written
+            global_threshold: The default/global threshold used for evaluation
+            threshold_mode: The threshold mode used (e.g., "youden", "global")
+
+        Returns:
+            List of Path objects for the written JSON files
+        """
+        written_files: List[Path] = []
+
+        if not segmented_metrics:
+            logger.debug("No segmented metrics to export")
+            return written_files
+
+        for segment_column, segment_data in segmented_metrics.items():
+            # Build the export structure
+            export_data = {
+                "segment_column": segment_column,
+                "threshold_mode": threshold_mode,
+                "default_threshold": global_threshold,
+                "segments": segment_data,
+            }
+
+            # Write to JSON file
+            json_path = output_dir / f"segment_thresholds_{segment_column}.json"
+            with open(json_path, "w") as f:
+                json.dump(export_data, f, indent=2)
+
+            logger.info(f"Exported segment thresholds to: {json_path}")
+            written_files.append(json_path)
+
+        return written_files

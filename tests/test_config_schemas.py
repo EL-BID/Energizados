@@ -273,3 +273,198 @@ class TestConfigSchemas:
 
         errors = validator.validate_config(config)
         assert len(errors) == 0, f"EDA outliers thresholds should be valid, got: {errors}"
+
+    # T-S1 Tests: SPLIT_SCHEMA extensions for unlabeled_negatives and geo_stratify
+
+    def test_split_unlabeled_negatives_valid(self):
+        """Verify that unlabeled_negatives config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "time_series",
+                    "date_column": "fecha_inspeccion",
+                    "train_period": ["2010-01-01", "2017-08-01"],
+                    "val_period": ["2017-09-01", "2017-12-31"],
+                    "test_period": ["2018-01-01", "2018-12-31"],
+                    "unlabeled_negatives": {
+                        "enabled": True,
+                        "source_path": "data/unlabeled.parquet",
+                        "max_per_cutoff": 1500,
+                        "random_state": 42,
+                        "date_column": "fecha_inspeccion",
+                        "id_column": "cliente_id",
+                    },
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"unlabeled_negatives config should be valid, got: {errors}"
+
+    def test_split_unlabeled_negatives_backward_compat(self):
+        """Verify that split WITHOUT unlabeled_negatives still passes (backward compatible)."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "stratified",
+                    "test_size": 0.2,
+                    "val_size": 0.1,
+                    "random_state": 42,
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"Split without unlabeled_negatives should be valid, got: {errors}"
+
+    def test_split_geo_stratify_valid(self):
+        """Verify that geo_stratify config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "stratified",
+                    "test_size": 0.2,
+                    "val_size": 0.1,
+                    "geo_stratify": {
+                        "enabled": True,
+                        "column": "geo_cluster",
+                        "strategy": "proportional",
+                        "max_per_stratum": 5000,
+                        "random_state": 42,
+                    },
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"geo_stratify config should be valid, got: {errors}"
+
+    def test_split_geo_stratify_all_strategies_valid(self):
+        """Verify all supported geo_stratify strategies are valid."""
+        validator = ConfigValidator()
+
+        valid_strategies = ["proportional", "equal", "capped"]
+
+        for strategy in valid_strategies:
+            config = {
+                "train": {
+                    "enabled": True,
+                    "input_path": "data/test.parquet",
+                    "target_column": "target",
+                    "split": {
+                        "method": "stratified",
+                        "test_size": 0.2,
+                        "geo_stratify": {
+                            "enabled": True,
+                            "column": "geo_cluster",
+                            "strategy": strategy,
+                        },
+                    },
+                    "models": [{"type": "lightgbm"}],
+                }
+            }
+
+            errors = validator.validate_config(config)
+            assert len(errors) == 0, f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
+
+    def test_split_geo_stratify_invalid_strategy_rejected(self):
+        """Verify that invalid geo_stratify strategy is rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "stratified",
+                    "test_size": 0.2,
+                    "geo_stratify": {
+                        "enabled": True,
+                        "column": "geo_cluster",
+                        "strategy": "invalid_strategy",
+                    },
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for invalid geo_stratify strategy"
+        assert any("strategy" in str(err).lower() for err in errors)
+
+    # T-S2 Tests: INFERENCE_SCHEMA extension for segment_thresholds
+
+    def test_inference_segment_thresholds_valid(self):
+        """Verify that segment_thresholds config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "segment_thresholds": {
+                    "enabled": True,
+                    "path": "config/thresholds.yaml",
+                    "fallback_threshold": 0.5,
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"segment_thresholds config should be valid, got: {errors}"
+
+    def test_inference_segment_thresholds_backward_compat(self):
+        """Verify that infer WITHOUT segment_thresholds still passes (backward compatible)."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"Inference without segment_thresholds should be valid, got: {errors}"
+
+    def test_inference_segment_thresholds_minimal(self):
+        """Verify that segment_thresholds with just enabled field is valid."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "segment_thresholds": {
+                    "enabled": False,
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"Minimal segment_thresholds config should be valid, got: {errors}"

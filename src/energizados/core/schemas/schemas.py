@@ -51,6 +51,30 @@ SPLIT_SCHEMA = {
             "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]
         },
         "save_splits": {"type": "boolean"},
+        "unlabeled_negatives": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "source_path": {"type": ["string", "null"]},
+                "max_per_cutoff": {"type": "integer", "default": 1500},
+                "random_state": {"type": "integer", "default": 42},
+                "date_column": {"type": ["string", "null"]},
+                "id_column": {"type": ["string", "null"]},
+            },
+        },
+        "geo_stratify": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "column": {"type": ["string", "null"]},
+                "strategy": {
+                    "type": "string",
+                    "enum": ["proportional", "equal", "capped"],
+                },
+                "max_per_stratum": {"type": ["integer", "null"]},
+                "random_state": {"type": "integer", "default": 42},
+            },
+        },
     },
     "if": {"properties": {"method": {"const": "group_based"}}, "required": ["method"]},
     "then": {"required": ["group_column"]},
@@ -365,6 +389,14 @@ INFERENCE_SCHEMA = {
         "threshold": {"type": "number", "minimum": 0, "maximum": 1},
         "custom_class": {"type": "string"},
         "params": {"type": "object"},
+        "segment_thresholds": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "path": {"type": ["string", "null"]},
+                "fallback_threshold": {"type": ["number", "null"]},
+            },
+        },
     },
 }
 

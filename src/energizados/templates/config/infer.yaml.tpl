@@ -100,6 +100,17 @@ infer:
   # Threshold for binary predictions
   threshold: 0.5
 
+  # -----------------------------------------------------------
+  # OPTIONAL: Per-Segment Thresholds (NEW in mejoras-3)
+  # -----------------------------------------------------------
+  # Apply different thresholds per segment (e.g., per region) instead of
+  # a single global threshold. Requires segment_thresholds.json from evaluation.
+  #
+  # segment_thresholds:
+  #   enabled: true
+  #   path: "output/train-YYYYMMDD_HHMM/reports/evaluation/segment_thresholds_zona.json"
+  #   fallback_threshold: 0.5         # threshold for unknown segments (null = use global)
+
   # Inference type
   type: "default"
 

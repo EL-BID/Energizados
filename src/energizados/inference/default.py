@@ -6,7 +6,7 @@ making predictions, and saving results.
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -142,3 +142,39 @@ class DefaultInference(BaseInference):
                 "probability": probas,
             }
         ).to_csv(output_path, index=False)
+
+
+def apply_segment_thresholds(
+    probas: np.ndarray,
+    segment_values: pd.Series,
+    thresholds_dict: Dict[str, float],
+    fallback_threshold: float,
+) -> np.ndarray:
+    """Apply per-segment thresholds to probability predictions.
+
+    Maps each row's segment value to its specific threshold from thresholds_dict.
+    Rows with unknown segment values use the fallback_threshold.
+
+    Args:
+        probas: Array of predicted probabilities (positive class).
+        segment_values: Series containing segment value for each row.
+        thresholds_dict: Dictionary mapping segment values to their thresholds.
+        fallback_threshold: Threshold to use for segment values not in thresholds_dict.
+
+    Returns:
+        np.ndarray: Binary predictions (0 or 1) based on per-row thresholds.
+
+    Example:
+        >>> probas = np.array([0.4, 0.6, 0.3])
+        >>> segments = pd.Series(["Norte", "Sul", "Norte"])
+        >>> thresholds = {"Norte": 0.3, "Sul": 0.7}
+        >>> apply_segment_thresholds(probas, segments, thresholds, 0.5)
+        array([1, 0, 0])  # Norte: 0.4>=0.3->1, 0.3<0.3->0; Sul: 0.6<0.7->0
+    """
+    # Map each row's segment value to its threshold
+    row_thresholds = segment_values.map(lambda x: thresholds_dict.get(x, fallback_threshold))
+
+    # Apply per-row thresholds to get binary predictions
+    predictions = (probas >= row_thresholds.values).astype(int)
+
+    return predictions

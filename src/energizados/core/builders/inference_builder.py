@@ -190,8 +190,18 @@ class InferenceBuilder(StepBuilder):
                     data = feature_engineering.transform(data)
 
                 # --- Make predictions ---
-                predictions = self.inference.predict(model, data)
                 probas = self.inference.predict_proba(model, data)
+
+                # Check if segment thresholds are enabled
+                segment_thresholds_config = self.config.get("segment_thresholds", {})
+                if segment_thresholds_config and segment_thresholds_config.get("enabled"):
+                    # Apply per-row segment thresholds
+                    predictions = self._apply_segment_thresholds(
+                        probas, data, segment_thresholds_config
+                    )
+                else:
+                    # Use global threshold (backward compatible)
+                    predictions = (probas >= self.inference.threshold).astype(int)
 
                 # --- Save to context ---
                 context["predictions"] = predictions
@@ -395,6 +405,102 @@ class InferenceBuilder(StepBuilder):
 
                 metadata_path = Path(str(output_path) + ".metadata.json")
                 metadata_path.write_text(json.dumps(metadata, indent=2))
+
+            def _load_segment_thresholds(self, path: str) -> Dict:
+                """Load and validate segment thresholds from JSON file.
+
+                Args:
+                    path: Path to the segment_thresholds JSON file.
+
+                Returns:
+                    Dict: Parsed JSON content with segment thresholds configuration.
+
+                Raises:
+                    ValueError: If the JSON file is missing required fields.
+                """
+                with open(path, "r") as f:
+                    config = json.load(f)
+
+                if "segment_column" not in config:
+                    raise ValueError(
+                        f"Segment thresholds JSON missing required field 'segment_column': {path}"
+                    )
+
+                return config
+
+            def _apply_segment_thresholds(
+                self,
+                probas: np.ndarray,
+                data: pd.DataFrame,
+                segment_config: Dict,
+            ) -> np.ndarray:
+                """Apply per-row segment thresholds to probability predictions.
+
+                Loads the segment thresholds JSON, maps each row's segment value
+                to its threshold, and returns binary predictions.
+
+                Args:
+                    probas: Array of predicted probabilities.
+                    data: DataFrame containing the segment column.
+                    segment_config: Configuration with 'path' and 'fallback_threshold'.
+
+                Returns:
+                    np.ndarray: Binary predictions using per-row thresholds.
+
+                Raises:
+                    ValueError: If the segment column is not found in data.
+                """
+                from energizados.inference.default import apply_segment_thresholds
+
+                # Load the JSON configuration
+                json_path = segment_config["path"]
+                thresholds_data = self._load_segment_thresholds(json_path)
+
+                segment_column = thresholds_data["segment_column"]
+
+                # Validate that segment column exists in data
+                if segment_column not in data.columns:
+                    raise ValueError(
+                        f"Segment column '{segment_column}' not found in data. "
+                        f"Available columns: {list(data.columns)}"
+                    )
+
+                # Extract thresholds from nested structure: segments.{value}.threshold
+                segments = thresholds_data.get("segments", {})
+                thresholds_dict = {
+                    segment_value: segment_info.get("threshold", 0.5)
+                    for segment_value, segment_info in segments.items()
+                }
+
+                # Determine fallback threshold
+                fallback = segment_config.get("fallback_threshold")
+                if fallback is None:
+                    fallback = self.inference.threshold  # Use global threshold
+
+                # Get segment values for each row
+                segment_values = data[segment_column]
+
+                # Count statistics for logging
+                total_rows = len(data)
+                matched_segments = set(segment_values.unique()) & set(thresholds_dict.keys())
+                rows_with_segment_threshold = data[
+                    segment_values.isin(thresholds_dict.keys())
+                ].shape[0]
+                rows_with_fallback = total_rows - rows_with_segment_threshold
+
+                logger.info(
+                    f"Applying segment thresholds: total={total_rows} rows, "
+                    f"{len(matched_segments)} segments matched, "
+                    f"{rows_with_segment_threshold} rows use segment thresholds, "
+                    f"{rows_with_fallback} rows use fallback ({fallback})"
+                )
+
+                # Apply per-row thresholds
+                predictions = apply_segment_thresholds(
+                    probas, segment_values, thresholds_dict, fallback
+                )
+
+                return predictions
 
             def get_required_keys(self) -> List[str]:
                 """Return the required context keys for inference.

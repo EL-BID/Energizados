@@ -79,6 +79,8 @@ class SplitBuilder(StepBuilder):
             val_period=split_config.get("val_period"),
             test_period=split_config.get("test_period"),
             save_splits=split_config.get("save_splits", True),
+            geo_stratify=split_config.get("geo_stratify"),
+            unlabeled_negatives=split_config.get("unlabeled_negatives"),
         )
 
     def is_enabled(self) -> bool:

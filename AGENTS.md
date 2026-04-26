@@ -324,6 +324,23 @@ training:
     # cluster_column: "geo_cluster"   # requiere GeoFeaturesETL ejecutado previamente
     # test_size: 0.15
     # val_size: 0.15
+    #
+    # Optional: inject unlabeled negatives as target=0 (reduces selection bias)
+    # unlabeled_negatives:
+    #   enabled: true
+    #   source_path: "data/external/unlabeled.parquet"
+    #   max_per_cutoff: 1500
+    #   random_state: 42
+    #   date_column: "fecha_inspeccion"
+    #   id_column: "contract_id"
+    #
+    # Optional: balance geographic representation in train set
+    # geo_stratify:
+    #   enabled: true
+    #   column: "geo_region"
+    #   strategy: "proportional"  # proportional | equal | capped
+    #   max_per_stratum: null     # required when strategy: capped
+    #   random_state: 42
 
   feature_engineering:
     enabled: true
