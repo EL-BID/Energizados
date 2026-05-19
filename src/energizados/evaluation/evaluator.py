@@ -1183,11 +1183,14 @@ class DefaultEvaluator(PipelineStep):
             logger.debug("No segmented metrics to export")
             return written_files
 
+        # Resolve threshold alias for export consistency
+        effective_mode = "youden" if threshold_mode == "segment" else threshold_mode
+
         for segment_column, segment_data in segmented_metrics.items():
             # Build the export structure
             export_data = {
                 "segment_column": segment_column,
-                "threshold_mode": threshold_mode,
+                "threshold_mode": effective_mode,
                 "default_threshold": global_threshold,
                 "segments": segment_data,
             }

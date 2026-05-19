@@ -292,7 +292,12 @@ class ETLOrchestrator:
 
             # Specific file
             else:
-                if not Path(path_spec).exists():
+                # Check if this path is the output of an upstream ETL
+                is_upstream_output = any(
+                    self.etl_configs.get(upstream, {}).get("output") == path_spec
+                    for upstream in self.etl_configs
+                )
+                if not is_upstream_output and not Path(path_spec).exists():
                     raise ETLError(f"ETL '{etl_name}': input file '{path_spec}' does not exist")
                 resolved_paths.append(path_spec)
 

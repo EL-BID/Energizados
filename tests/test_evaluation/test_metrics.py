@@ -921,3 +921,32 @@ class TestSegmentMetricsThresholdModes:
         for seg_data in seg_metrics.values():
             assert seg_data["threshold_mode"] == "recall_target"
             assert 0.0 <= seg_data["threshold"] <= 1.0
+
+    def test_segment_alias_threshold_mode(self, mixed_data_with_segments):
+        """Verify that 'segment' alias resolves to 'youden' without mutating the parameter.
+
+        Bug: threshold_mode='segment' used to mutate the parameter inside the loop,
+        causing incorrect behavior and 'Unknown threshold_mode' warnings. The fix
+        resolves the alias BEFORE the loop using a local variable.
+        """
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_metrics = metrics.segment_metrics(segments, threshold_mode="segment")
+
+        # All segments should report "youden" as the effective mode (alias resolved)
+        for seg_data in seg_metrics.values():
+            assert seg_data["threshold_mode"] == "youden", (
+                f"Expected 'youden' (resolved from 'segment'), "
+                f"got '{seg_data['threshold_mode']}'"
+            )
+            assert 0.0 <= seg_data["threshold"] <= 1.0
+
+        # Verify youden thresholds differ across segments (not all the same global value)
+        thresholds = [seg_data["threshold"] for seg_data in seg_metrics.values()]
+        unique_thresholds = set(round(t, 4) for t in thresholds)
+        # With mixed data, youden should produce varying thresholds per segment
+        assert len(unique_thresholds) > 1 or len(seg_metrics) <= 1, (
+            f"All segments got the same threshold ({thresholds[0]:.4f}), "
+            f"expected Youden to produce different thresholds. "
+            f"Thresholds: {thresholds}"
+        )

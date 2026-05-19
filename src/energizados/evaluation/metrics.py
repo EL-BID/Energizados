@@ -288,6 +288,7 @@ class Metrics:
                            "youden" = find optimal threshold per segment using Youden's J
                            "f1_optimal" = find threshold that maximizes F1 per segment
                            "recall_target" = find threshold that achieves target recall
+                           "segment" = alias for "youden" (optimal per-segment threshold)
             min_samples: Minimum number of samples in a segment to compute metrics
             recall_target: Target recall when threshold_mode="recall_target"
 
@@ -297,6 +298,10 @@ class Metrics:
         """
         segments = np.asarray(segments)
         results = {}
+
+        # Resolve threshold alias BEFORE the loop to avoid parameter mutation
+        # "segment" is a friendly alias for "youden" (optimal per-segment threshold)
+        effective_mode = "youden" if threshold_mode == "segment" else threshold_mode
 
         for segment_value in np.unique(segments):
             mask = segments == segment_value
@@ -312,18 +317,18 @@ class Metrics:
             y_proba_seg = self.y_proba[mask]
 
             # Determine threshold for this segment
-            if threshold_mode == "global":
+            if effective_mode == "global":
                 seg_threshold = self.threshold
-            elif threshold_mode == "youden":
+            elif effective_mode == "youden":
                 seg_threshold = find_optimal_threshold_youden(y_true_seg, y_proba_seg)
-            elif threshold_mode == "f1_optimal":
+            elif effective_mode == "f1_optimal":
                 seg_threshold = find_optimal_threshold_f1(y_true_seg, y_proba_seg)
-            elif threshold_mode == "recall_target":
+            elif effective_mode == "recall_target":
                 seg_threshold = find_optimal_threshold_recall_target(
                     y_true_seg, y_proba_seg, recall_target
                 )
             else:
-                logger.warning(f"Unknown threshold_mode '{threshold_mode}', using global")
+                logger.warning(f"Unknown threshold_mode '{effective_mode}', using global")
                 seg_threshold = self.threshold
 
             y_pred_seg = (y_proba_seg >= seg_threshold).astype(int)
@@ -339,7 +344,7 @@ class Metrics:
                 "recall": seg_calc.recall(),
                 "f1": seg_calc.f1(),
                 "threshold": seg_threshold,
-                "threshold_mode": threshold_mode,
+                "threshold_mode": effective_mode,
             }
 
         return results

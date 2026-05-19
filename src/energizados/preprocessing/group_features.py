@@ -193,7 +193,7 @@ class GroupRelativeConsumption(BaseEstimator, TransformerMixin):
                     continue
 
                 stats_map = self.group_stats_[key]
-                group_stat = df[self.group_column].map(stats_map).fillna(0.0)
+                group_stat = df[self.group_column].map(stats_map).astype(float).fillna(0.0)
 
                 if metric == "mean":
                     client_val = client_mean
