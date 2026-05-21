@@ -1,0 +1,258 @@
+/**
+ * @theme energizados
+ * @auto-scaling true
+ * @size 16:9 1280px 720px
+ */
+
+/* ── Base ────────────────────────────────────────────────────── */
+section {
+  width: 1280px;
+  height: 720px;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 26px;
+  line-height: 1.45;
+  color: #1e293b;
+  background: #ffffff;
+  padding: 50px 70px;
+}
+
+/* ── Headings ───────────────────────────────────────────────── */
+h1 {
+  font-size: 2.4em;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.4em;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.6em;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.5em;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.4em;
+}
+
+/* ── Emphasis ────────────────────────────────────────────────── */
+strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+em {
+  color: #475569;
+}
+
+/* ── Paragraphs & lists ──────────────────────────────────────── */
+p {
+  margin-bottom: 0.6em;
+}
+
+ul, ol {
+  margin-left: 0.3em;
+  padding-left: 1.2em;
+}
+
+li {
+  margin-bottom: 0.35em;
+}
+
+li::marker {
+  color: #6366f1;
+  font-weight: bold;
+}
+
+/* ── Blockquotes ─────────────────────────────────────────────── */
+blockquote {
+  border-left: 4px solid #6366f1;
+  background: #f8fafc;
+  padding: 16px 24px;
+  margin: 16px 0;
+  font-style: italic;
+  color: #475569;
+  border-radius: 0 8px 8px 0;
+}
+
+blockquote strong {
+  color: #6366f1;
+  font-style: normal;
+}
+
+/* ── Tables ───────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78em;
+  margin: 16px 0;
+}
+
+thead {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+th {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+td {
+  padding: 8px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+tr:hover td {
+  background: #ede9fe;
+}
+
+/* ── Code ─────────────────────────────────────────────────────── */
+code {
+  background: #f1f5f9;
+  color: #6366f1;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.88em;
+  font-weight: 600;
+}
+
+pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 20px 28px;
+  border-radius: 10px;
+  font-size: 0.75em;
+  line-height: 1.6;
+}
+
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: 1em;
+  font-weight: 400;
+}
+
+/* ── Horizonal rule (slide separator hidden) ─────────────────── */
+hr {
+  display: none;
+}
+
+/* ── Pagination ───────────────────────────────────────────────── */
+section::after {
+  font-size: 0.55em;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+/* ── Lead slide class ────────────────────────────────────────── */
+section.lead {
+  text-align: center;
+  justify-content: center;
+}
+
+section.lead h1 {
+  font-size: 2.8em;
+  color: #0f172a;
+  margin-bottom: 0.3em;
+}
+
+section.lead h2 {
+  font-size: 1.4em;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+/* ── Invert (dark mode) ──────────────────────────────────────── */
+section.invert {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
+  color: #e0e7ff;
+}
+
+section.invert h1,
+section.invert h2 {
+  color: #ffffff;
+}
+
+section.invert strong {
+  color: #a5b4fc;
+}
+
+section.invert table thead {
+  background: #4338ca;
+}
+
+section.invert td {
+  border-bottom-color: #4338ca;
+  color: #e0e7ff;
+}
+
+section.invert tr:nth-child(even) td {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+section.invert blockquote {
+  border-left-color: #818cf8;
+  background: rgba(99, 102, 241, 0.1);
+  color: #c7d2fe;
+}
+
+section.invert code {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+/* ── KPI / highlight slide class ──────────────────────────────── */
+section.kpi {
+  justify-content: center;
+  text-align: center;
+}
+
+section.kpi h2 {
+  font-size: 1.3em;
+  color: #475569;
+  margin-bottom: 0.3em;
+}
+
+section.kpi .metric {
+  font-size: 4em;
+  font-weight: 800;
+  color: #6366f1;
+  margin: 0.15em 0;
+}
+
+section.kpi .label {
+  font-size: 1.1em;
+  color: #64748b;
+}
+
+/* ── Closing slide ────────────────────────────────────────────── */
+section.closing {
+  justify-content: center;
+  text-align: center;
+}
+
+section.closing h1 {
+  font-size: 3em;
+  color: #6366f1;
+}
+
+section.closing h2 {
+  font-size: 1.3em;
+  color: #94a3b8;
+  font-weight: 400;
+}

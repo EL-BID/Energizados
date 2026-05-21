@@ -684,6 +684,7 @@ The project documentation and comments are in English. The codebase uses Spanish
 | `experiment-results` | Generates a complete experiment results report with metrics, insights, next steps, and a business section with operational impact simulator. | When the user requests experiment results or to generate _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
 | `new-experiments` | Design and generate a complete set of ML training experiments (roadmap + YAMLs) for an Energizados project. | When the user says "new experiments", "nuevos experimentos", "crear experimentos". [SKILL.md](.claude/skills/new-experiments/SKILL.md) |
 | `run-experiment` | Run a full training experiment (validate → ETL → train) and surface key metrics from the JSON report. | When the user wants to kick off a pipeline run and see results. [SKILL.md](.claude/skills/run-experiment/SKILL.md) |
+| `marp-slides` | Convert a slide-delimited markdown file into a professional Marp presentation (PDF/PPTX/HTML) with the energizados theme and quality validation. | When the user wants to generate slides, presentation, deck from markdown. [SKILL.md](.claude/skills/marp-slides/SKILL.md) |
 
 ## Agent Rules (Always Apply)
 
