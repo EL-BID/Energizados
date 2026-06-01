@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Split: Geo-stratified sampling** (`split.geo_stratify`) — balance geographic representation in train set with three strategies: `proportional` (cap to median), `equal` (reduce to min), `capped` (cap at `max_per_stratum`); logs WARNING if >50% data loss; metadata persisted in `split_metadata.json`
 - **Evaluation: Segment thresholds export** — export per-segment optimal thresholds as `segment_thresholds_{column}.json` during evaluation (for each column in `segmented_evaluation.by`); JSON includes `threshold_mode`, `default_threshold`, and per-segment `threshold`/`auc`/`n_samples`
 - **Inference: Per-segment thresholds** (`inference.segment_thresholds`) — load `segment_thresholds.json` and apply per-row thresholds based on segment column; `fallback_threshold` for unknown segments; `ValueError` raised if segment column missing from inference data
+- **Evaluation: `threshold_mode="segment"` alias** — friendly alias for `"youden"` in segmented metrics; resolved before the loop to avoid parameter mutation
+- **Skill: `version-deliverable`** — generate per-version deliverable documents with experiment summary and model comparison
+
+### Fixed
+
+- **Evaluation: `segment` alias mutation bug** — `threshold_mode="segment"` no longer mutates the parameter inside the loop, preventing incorrect "Unknown threshold_mode" warnings and wrong export values
+- **Preprocessing: `GroupRelativeConsumption` dtype** — explicit `.astype(float)` before `.fillna(0.0)` prevents TypeError on mixed-type group columns
+- **ETL: Upstream output validation** — orchestrator no longer raises "input file does not exist" for paths that are the declared output of an upstream ETL in the DAG
 
 ### Refactoring
 
