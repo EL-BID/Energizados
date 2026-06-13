@@ -2,257 +2,301 @@
  * @theme energizados
  * @auto-scaling true
  * @size 16:9 1280px 720px
+ *
+ * Generic default theme for Energizados presentations.
+ * Override with a project-specific CSS file when needed.
  */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 
 /* ── Base ────────────────────────────────────────────────────── */
 section {
-  width: 1280px;
-  height: 720px;
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 26px;
-  line-height: 1.45;
-  color: #1e293b;
-  background: #ffffff;
-  padding: 50px 70px;
+	width: 1280px;
+	height: 720px;
+	font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+	font-size: 24px;
+	line-height: 1.5;
+	color: #1e293b;
+	background: #ffffff;
+	padding: 55px 75px;
 }
 
 /* ── Headings ───────────────────────────────────────────────── */
 h1 {
-  font-size: 2.4em;
-  font-weight: 800;
-  color: #0f172a;
-  margin-bottom: 0.4em;
-  letter-spacing: -0.02em;
+	font-size: 2.2em;
+	font-weight: 800;
+	color: #0f172a;
+	margin-bottom: 0.35em;
+	letter-spacing: -0.02em;
+	line-height: 1.15;
 }
 
 h2 {
-  font-size: 1.6em;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 0.5em;
-  letter-spacing: -0.01em;
+	font-size: 1.45em;
+	font-weight: 700;
+	color: #1e293b;
+	margin-bottom: 0.4em;
+	letter-spacing: -0.01em;
 }
 
 h3 {
-  font-size: 1.15em;
-  font-weight: 600;
-  color: #475569;
-  margin-bottom: 0.4em;
+	font-size: 1.1em;
+	font-weight: 600;
+	color: #475569;
+	margin-bottom: 0.35em;
 }
 
 /* ── Emphasis ────────────────────────────────────────────────── */
 strong {
-  color: #0f172a;
-  font-weight: 700;
+	color: #0f172a;
+	font-weight: 700;
 }
 
 em {
-  color: #475569;
+	color: #475569;
 }
 
 /* ── Paragraphs & lists ──────────────────────────────────────── */
 p {
-  margin-bottom: 0.6em;
+	margin-bottom: 0.55em;
 }
 
-ul, ol {
-  margin-left: 0.3em;
-  padding-left: 1.2em;
+ul,
+ol {
+	margin-left: 0.2em;
+	padding-left: 1.4em;
 }
 
 li {
-  margin-bottom: 0.35em;
+	margin-bottom: 0.3em;
+	line-height: 1.45;
 }
 
 li::marker {
-  color: #6366f1;
-  font-weight: bold;
+	color: #6366f1;
+	font-weight: 700;
 }
 
 /* ── Blockquotes ─────────────────────────────────────────────── */
 blockquote {
-  border-left: 4px solid #6366f1;
-  background: #f8fafc;
-  padding: 16px 24px;
-  margin: 16px 0;
-  font-style: italic;
-  color: #475569;
-  border-radius: 0 8px 8px 0;
+	border-left: 4px solid #6366f1;
+	background: #f8fafc;
+	padding: 16px 24px;
+	margin: 16px 0;
+	font-style: italic;
+	color: #475569;
+	border-radius: 0 8px 8px 0;
 }
 
 blockquote strong {
-  color: #6366f1;
-  font-style: normal;
+	color: #6366f1;
+	font-style: normal;
 }
 
 /* ── Tables ───────────────────────────────────────────────────── */
 table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.78em;
-  margin: 16px 0;
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 0.76em;
+	margin: 20px 0;
+	border-radius: 10px;
+	overflow: hidden;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 thead {
-  background: #6366f1;
-  color: #ffffff;
+	background: #6366f1;
 }
 
 th {
-  padding: 10px 16px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.85em;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+	padding: 12px 18px;
+	text-align: left;
+	font-weight: 700;
+	font-size: 0.85em;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: #ffffff;
 }
 
 td {
-  padding: 8px 16px;
-  border-bottom: 1px solid #e2e8f0;
+	padding: 10px 18px;
+	border-bottom: 1px solid #e2e8f0;
+	color: #1e293b;
 }
 
 tr:nth-child(even) td {
-  background: #f8fafc;
+	background: #f8fafc;
+}
+
+tr:last-child td {
+	border-bottom: none;
 }
 
 tr:hover td {
-  background: #ede9fe;
+	background: #ede9fe;
 }
 
 /* ── Code ─────────────────────────────────────────────────────── */
 code {
-  background: #f1f5f9;
-  color: #6366f1;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.88em;
-  font-weight: 600;
+	background: #f1f5f9;
+	color: #6366f1;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 0.88em;
+	font-weight: 600;
 }
 
 pre {
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 20px 28px;
-  border-radius: 10px;
-  font-size: 0.75em;
-  line-height: 1.6;
+	background: #0f172a;
+	color: #e2e8f0;
+	padding: 24px 30px;
+	border-radius: 10px;
+	font-size: 0.75em;
+	line-height: 1.6;
 }
 
 pre code {
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  font-size: 1em;
-  font-weight: 400;
+	background: transparent;
+	color: inherit;
+	padding: 0;
+	font-size: 1em;
+	font-weight: 400;
 }
 
-/* ── Horizonal rule (slide separator hidden) ─────────────────── */
+/* ── Horizontal rule hidden ──────────────────────────────── */
 hr {
-  display: none;
+	display: none;
 }
 
-/* ── Pagination ───────────────────────────────────────────────── */
+/* ── Pagination hidden by default ─────────────────────────── */
 section::after {
-  font-size: 0.55em;
-  color: #94a3b8;
-  letter-spacing: 0.05em;
+	display: none;
 }
 
 /* ── Lead slide class ────────────────────────────────────────── */
 section.lead {
-  text-align: center;
-  justify-content: center;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	background: linear-gradient(160deg, #ffffff 0%, #eef2ff 40%, #c7d2fe 100%);
 }
 
 section.lead h1 {
-  font-size: 2.8em;
-  color: #0f172a;
-  margin-bottom: 0.3em;
+	font-size: 3em;
+	color: #0f172a;
+	margin-bottom: 0.2em;
+	letter-spacing: -0.04em;
 }
 
 section.lead h2 {
-  font-size: 1.4em;
-  color: #6366f1;
-  font-weight: 500;
+	font-size: 1.3em;
+	color: #6366f1;
+	font-weight: 500;
 }
 
-/* ── Invert (dark mode) ──────────────────────────────────────── */
+/* ── Invert (dark section dividers) ──────────────────────────── */
 section.invert {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
-  color: #e0e7ff;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
+	color: #e0e7ff;
 }
 
-section.invert h1,
-section.invert h2 {
-  color: #ffffff;
+section.invert h1 {
+	font-size: 2.8em;
+	color: #ffffff;
+	letter-spacing: -0.03em;
 }
 
 section.invert strong {
-  color: #a5b4fc;
-}
-
-section.invert table thead {
-  background: #4338ca;
-}
-
-section.invert td {
-  border-bottom-color: #4338ca;
-  color: #e0e7ff;
-}
-
-section.invert tr:nth-child(even) td {
-  background: rgba(99, 102, 241, 0.12);
-}
-
-section.invert blockquote {
-  border-left-color: #818cf8;
-  background: rgba(99, 102, 241, 0.1);
-  color: #c7d2fe;
-}
-
-section.invert code {
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
+	color: #a5b4fc;
 }
 
 /* ── KPI / highlight slide class ──────────────────────────────── */
 section.kpi {
-  justify-content: center;
-  text-align: center;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	background: linear-gradient(180deg, #ffffff 0%, #f5f3ff 50%, #ede9fe 100%);
+}
+
+section.kpi h1 {
+	font-size: 3.5em;
+	background: linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	font-weight: 900;
+	margin-bottom: 0.1em;
+	letter-spacing: -0.04em;
 }
 
 section.kpi h2 {
-  font-size: 1.3em;
-  color: #475569;
-  margin-bottom: 0.3em;
+	font-size: 1.15em;
+	color: #475569;
+	font-weight: 400;
+	margin-bottom: 0.4em;
 }
 
-section.kpi .metric {
-  font-size: 4em;
-  font-weight: 800;
-  color: #6366f1;
-  margin: 0.15em 0;
+section.kpi p {
+	font-size: 1.05em;
+	color: #64748b;
+	max-width: 900px;
+	margin: 0 auto 0.5em;
 }
 
-section.kpi .label {
-  font-size: 1.1em;
-  color: #64748b;
+section.kpi ul {
+	text-align: left;
+	margin: 0.8em auto;
+	max-width: 800px;
+}
+
+section.kpi blockquote {
+	text-align: left;
+	font-size: 0.88em;
 }
 
 /* ── Closing slide ────────────────────────────────────────────── */
 section.closing {
-  justify-content: center;
-  text-align: center;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	text-align: center;
+	background: linear-gradient(160deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
 }
 
 section.closing h1 {
-  font-size: 3em;
-  color: #6366f1;
+	font-size: 3.5em;
+	color: #ffffff;
+	letter-spacing: -0.04em;
 }
 
 section.closing h2 {
-  font-size: 1.3em;
-  color: #94a3b8;
-  font-weight: 400;
+	font-size: 1.4em;
+	color: #c7d2fe;
+	font-weight: 400;
+}
+
+/* ── Numbered list ─────────────────────────────────────────── */
+ol li::marker {
+	color: #6366f1;
+	font-weight: 700;
+}
+
+/* ── Inline highlight ─────────────────────────────────────── */
+mark {
+	background: #ede9fe;
+	color: #4338ca;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-weight: 600;
 }

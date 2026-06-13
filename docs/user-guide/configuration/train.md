@@ -179,6 +179,8 @@ feature_engineering:
   preprocessing:
     enabled: true
     drop_columns: ["index", "fecha_inspeccion"]
+    # columns_filter: Optional row-level filter applied to train/val/test BEFORE
+    #   feature engineering. See "Row-level filtering (columns_filter)" below.
     # output_parquet: "data/processed/preprocessing.parquet"  # optional
 
     columns:
@@ -193,6 +195,35 @@ feature_engineering:
     steps:
       # Feature selection steps
 ```
+
+### Row-level filtering (`columns_filter`)
+
+`columns_filter` removes rows from the dataset **before** feature engineering. It applies independently to each split (train, val, test), keeping `X` and `y` aligned by index. Useful when you want to train a region-specific model without splitting the ETL into separate outputs.
+
+> **Tip:** For a single-region training run, `columns_filter` is simpler than adding a custom ETL. For multi-region experiments, consider running separate training configs (one per region) so each run has its own model and metadata.
+
+```yaml
+preprocessing:
+  columns_filter:
+    # Simple equality (single value or list)
+    geo_region: "FLORIANOPOLIS"
+    zona: ["NORTE", "SUL"]
+
+    # Comparison operators (column: {">": 250, "<=": 500})
+    consumo: {">": 100, "<=": 50000}
+
+    # Pandas query expression (applied first, before per-column filters)
+    _expr: "(zona != 'A') & (consumo > 200)"
+```
+
+**Supported operators:** `>`, `<`, `>=`, `<=`, `!=`, `==`, `like` (case-insensitive substring via `str.contains`).
+
+**Important behavior:**
+
+- The filter is applied to **all splits** (train, val, test) so that evaluation stays consistent. If your goal is to only filter the training set, keep the unfiltered val/test in your splits and rely on the model's generalization.
+- Filtering happens before `drop_columns` and before any column encoding — the filter columns don't need to be in the `columns:` config.
+- The number of rows removed from each split is logged at INFO level.
+- If a referenced column is missing from the data, a WARNING is logged and the filter is skipped for that column.
 
 ### Preprocessing Transformations
 

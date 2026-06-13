@@ -154,9 +154,12 @@ class TrainingStep(PipelineStep):
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the full training pipeline.
 
-        Loads train/val/test splits from disk, fits DefaultFeatureEngineering on
-        training data, transforms all splits, fits the model(s), and saves artifacts.
-        A quick validation AUC/F1 is logged after training.
+        Loads train/val/test splits from disk, optionally applies
+        ``columns_filter`` row-level filtering (from
+        ``feature_engineering.preprocessing.columns_filter``), fits
+        DefaultFeatureEngineering on training data, transforms all splits,
+        fits the model(s), and saves artifacts.  A quick validation
+        AUC/F1 is logged after training.
 
         Args:
             context: Pipeline context dict; may contain ``train_path``, ``val_path``,
@@ -206,6 +209,30 @@ class TrainingStep(PipelineStep):
         if test_df is not None:
             X_test = test_df.drop(columns=[self.target_column])
             y_test = test_df[self.target_column]  # noqa: F841
+
+        # Apply columns_filter (row-level filtering) before any transformations
+        columns_filter = self.feature_engineering_config.get("preprocessing", {}).get(
+            "columns_filter"
+        )
+        if columns_filter:
+            from energizados.core.utils.columns_filter import apply_columns_filter
+
+            logger.info("Applying columns_filter to training data...")
+            X_train, n_removed = apply_columns_filter(X_train, columns_filter)
+            y_train = y_train.loc[X_train.index]
+            if n_removed > 0:
+                logger.info(f"  Train: removed {n_removed} rows")
+
+            X_val, n_removed = apply_columns_filter(X_val, columns_filter)
+            y_val = y_val.loc[X_val.index]
+            if n_removed > 0:
+                logger.info(f"  Val: removed {n_removed} rows")
+
+            if X_test is not None:
+                X_test, n_removed = apply_columns_filter(X_test, columns_filter)
+                y_test = y_test.loc[X_test.index]  # noqa: F841
+                if n_removed > 0:
+                    logger.info(f"  Test: removed {n_removed} rows")
 
         datetime_cols = X_train.select_dtypes(include=["datetime64", "datetimetz"]).columns.tolist()
         if datetime_cols:

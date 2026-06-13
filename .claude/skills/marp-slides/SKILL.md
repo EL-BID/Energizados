@@ -25,7 +25,7 @@ Do NOT activate for general markdown editing (use your own judgment).
 - ALWAYS run validation after generating. Fix CRITICAL issues immediately. Present WARNING issues to the user.
 - NEVER modify the original source markdown — create a NEW file with `_marp` suffix.
 - NEVER add/remove/pad slide content unless the user explicitly asks. Preserve their wording and structure.
-- ALWAYS use the `energizados` theme from `assets/energizados-theme.css`. Pass it with `--theme`.
+- ALWAYS use a theme CSS file with `--theme`. Prefer a project-specific theme if one exists (e.g. `slides_negocio.css` in the same directory as the source markdown), otherwise fall back to `assets/energizados-theme.css` (the generic theme bundled with this skill).
 - ALWAYS copy any images referenced in the source markdown to the output directory before running Marp.
 - The `---` separator inside source markdown already separates slides — do NOT duplicate it.
 
@@ -99,7 +99,7 @@ marp {marp_md} --theme {theme_css} --{format} -o {output_file} --allow-local-fil
 ```
 
 Where:
-- `theme_css` = `assets/energizados-theme.css` (relative to this skill)
+- `theme_css` = project-specific CSS if available (e.g. `slides_negocio.css` next to the source file), otherwise `assets/energizados-theme.css` (relative to this skill)
 - `format` = `pdf` (default) | `pptx` | `html`
 
 For PPTX editable: `marp {marp_md} --theme {theme_css} --pptx --pptx-editable -o {output_file} --allow-local-files`
@@ -123,6 +123,16 @@ Tell the user:
 3. Validation summary (criticals / warnings / OK)
 4. Preview command: `marp {marp_md} --theme {theme_css} --preview`
 
+## Project Themes
+
+Each project can have its own theme CSS alongside its slide markdown. The skill detects project themes automatically:
+
+1. Look for a `.css` file in the same directory as the source markdown with a matching name (e.g. `_slides_negocio.md` → `slides_negocio.css`).
+2. If found, use `--theme {project_css}` instead of the generic theme.
+3. The generic theme at `assets/energizados-theme.css` serves as fallback for projects without a custom theme.
+
+This ensures each project can customize its palette (e.g. CELESC uses teal `#0d7377`, another project might use different branding) without affecting others.
+
 ## Output Contract
 
 Returns:
@@ -134,5 +144,5 @@ Returns:
 
 ## References
 
-- `assets/energizados-theme.css` — custom Marp theme with `lead`, `invert`, `kpi`, `closing` slide classes
+- `assets/energizados-theme.css` — generic Marp theme (indigo palette) with `lead`, `invert`, `kpi`, `closing` slide classes
 - `assets/validate_slides.py` — validation script for structure, frontmatter, content quality, tables, and output file

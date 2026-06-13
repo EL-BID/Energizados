@@ -349,6 +349,14 @@ training:
     preprocessing:
       enabled: true
       # output_parquet: "data/processed/preprocessing.parquet"  # opcional (incluye target para inspección)
+      # columns_filter: Row-level filtering applied before feature engineering.
+      #   Supports equality, comparison operators, and pandas query expressions.
+      #   Examples:
+      #     columns_filter:
+      #       geo_region: "FLORIANOPOLIS"              # simple equality
+      #       zona: ["NORTE", "SUL"]                   # multiple values
+      #       consumo: {">": 100, "<=": 50000}         # comparison operators
+      #       _expr: "(zona != 'A') & (consumo > 200)"  # pandas query expression
       columns:
         actividad:
           - cardinality_reducer:
