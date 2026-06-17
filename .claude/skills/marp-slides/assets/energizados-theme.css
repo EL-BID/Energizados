@@ -3,11 +3,16 @@
  * @auto-scaling true
  * @size 16:9 1280px 720px
  *
- * Generic default theme for Energizados presentations.
- * Override with a project-specific CSS file when needed.
+ * Default Energizados theme — petrol/teal palette anchored on #0d4f5c.
+ * A project can override with a project-specific CSS file when needed.
  */
 
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+/* ── Palette (anchored on #0d4f5c) ─────────────────────────── */
+/* anchor   #0d4f5c · darker #0a3a44 · deep #062530             */
+/* bright   #1a8499 · light   #4ba8b8                           */
+/* tints    #e7f1f3 (zebra) · #d2e6ea (hover) · #b8dce2         */
 
 /* ── Base ────────────────────────────────────────────────────── */
 section {
@@ -25,7 +30,7 @@ section {
 h1 {
 	font-size: 2.2em;
 	font-weight: 800;
-	color: #0f172a;
+	color: #0a3a44;
 	margin-bottom: 0.35em;
 	letter-spacing: -0.02em;
 	line-height: 1.15;
@@ -34,7 +39,7 @@ h1 {
 h2 {
 	font-size: 1.45em;
 	font-weight: 700;
-	color: #1e293b;
+	color: #0d4f5c;
 	margin-bottom: 0.4em;
 	letter-spacing: -0.01em;
 }
@@ -42,13 +47,13 @@ h2 {
 h3 {
 	font-size: 1.1em;
 	font-weight: 600;
-	color: #475569;
+	color: #156770;
 	margin-bottom: 0.35em;
 }
 
 /* ── Emphasis ────────────────────────────────────────────────── */
 strong {
-	color: #0f172a;
+	color: #0a3a44;
 	font-weight: 700;
 }
 
@@ -73,23 +78,23 @@ li {
 }
 
 li::marker {
-	color: #6366f1;
+	color: #1a8499;
 	font-weight: 700;
 }
 
 /* ── Blockquotes ─────────────────────────────────────────────── */
 blockquote {
-	border-left: 4px solid #6366f1;
-	background: #f8fafc;
+	border-left: 4px solid #1a8499;
+	background: #e7f1f3;
 	padding: 16px 24px;
 	margin: 16px 0;
 	font-style: italic;
-	color: #475569;
+	color: #0a3a44;
 	border-radius: 0 8px 8px 0;
 }
 
 blockquote strong {
-	color: #6366f1;
+	color: #062530;
 	font-style: normal;
 }
 
@@ -102,11 +107,11 @@ table {
 	margin: 20px 0;
 	border-radius: 10px;
 	overflow: hidden;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	box-shadow: 0 1px 3px rgba(13, 79, 92, 0.12);
 }
 
 thead {
-	background: #6366f1;
+	background: #0d4f5c;
 }
 
 th {
@@ -121,12 +126,12 @@ th {
 
 td {
 	padding: 10px 18px;
-	border-bottom: 1px solid #e2e8f0;
+	border-bottom: 1px solid #d2e6ea;
 	color: #1e293b;
 }
 
 tr:nth-child(even) td {
-	background: #f8fafc;
+	background: #e7f1f3;
 }
 
 tr:last-child td {
@@ -134,13 +139,13 @@ tr:last-child td {
 }
 
 tr:hover td {
-	background: #ede9fe;
+	background: #d2e6ea;
 }
 
 /* ── Code ─────────────────────────────────────────────────────── */
 code {
-	background: #f1f5f9;
-	color: #6366f1;
+	background: #e7f1f3;
+	color: #0d4f5c;
 	padding: 2px 8px;
 	border-radius: 4px;
 	font-size: 0.88em;
@@ -148,7 +153,7 @@ code {
 }
 
 pre {
-	background: #0f172a;
+	background: #062530;
 	color: #e2e8f0;
 	padding: 24px 30px;
 	border-radius: 10px;
@@ -181,19 +186,19 @@ section.lead {
 	justify-content: center;
 	align-items: center;
 	text-align: center;
-	background: linear-gradient(160deg, #ffffff 0%, #eef2ff 40%, #c7d2fe 100%);
+	background: linear-gradient(160deg, #ffffff 0%, #e7f1f3 40%, #b8dce2 100%);
 }
 
 section.lead h1 {
 	font-size: 3em;
-	color: #0f172a;
+	color: #0a3a44;
 	margin-bottom: 0.2em;
 	letter-spacing: -0.04em;
 }
 
 section.lead h2 {
 	font-size: 1.3em;
-	color: #6366f1;
+	color: #0d4f5c;
 	font-weight: 500;
 }
 
@@ -204,8 +209,8 @@ section.invert {
 	justify-content: center;
 	align-items: center;
 	text-align: center;
-	background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
-	color: #e0e7ff;
+	background: linear-gradient(135deg, #062530 0%, #0a3a44 50%, #0d4f5c 100%);
+	color: #d2e6ea;
 }
 
 section.invert h1 {
@@ -215,7 +220,7 @@ section.invert h1 {
 }
 
 section.invert strong {
-	color: #a5b4fc;
+	color: #7fc6d6;
 }
 
 /* ── KPI / highlight slide class ──────────────────────────────── */
@@ -225,12 +230,12 @@ section.kpi {
 	justify-content: center;
 	align-items: center;
 	text-align: center;
-	background: linear-gradient(180deg, #ffffff 0%, #f5f3ff 50%, #ede9fe 100%);
+	background: linear-gradient(180deg, #ffffff 0%, #e7f1f3 50%, #d2e6ea 100%);
 }
 
 section.kpi h1 {
 	font-size: 3.5em;
-	background: linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%);
+	background: linear-gradient(135deg, #062530 0%, #0d4f5c 50%, #1a8499 100%);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
@@ -271,7 +276,7 @@ section.closing {
 	justify-content: center;
 	align-items: center;
 	text-align: center;
-	background: linear-gradient(160deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%);
+	background: linear-gradient(160deg, #062530 0%, #0a3a44 40%, #0d4f5c 100%);
 }
 
 section.closing h1 {
@@ -282,20 +287,20 @@ section.closing h1 {
 
 section.closing h2 {
 	font-size: 1.4em;
-	color: #c7d2fe;
+	color: #b8dce2;
 	font-weight: 400;
 }
 
 /* ── Numbered list ─────────────────────────────────────────── */
 ol li::marker {
-	color: #6366f1;
+	color: #1a8499;
 	font-weight: 700;
 }
 
 /* ── Inline highlight ─────────────────────────────────────── */
 mark {
-	background: #ede9fe;
-	color: #4338ca;
+	background: #d2e6ea;
+	color: #0a3a44;
 	padding: 2px 8px;
 	border-radius: 4px;
 	font-weight: 600;

@@ -20,7 +20,7 @@ Do NOT activate for general markdown editing (use your own judgment).
 
 ## Hard Rules
 
-- ALWAYS add Marp frontmatter (theme, paginate, header, footer, size) before the first slide.
+- ALWAYS add Marp frontmatter (theme, paginate, header, size) before the first slide. Do NOT add a `footer` directive — pagination is already shown via `paginate: true`, and a footer duplicates it.
 - ALWAYS read the full input file before generating.
 - ALWAYS run validation after generating. Fix CRITICAL issues immediately. Present WARNING issues to the user.
 - NEVER modify the original source markdown — create a NEW file with `_marp` suffix.
@@ -65,7 +65,6 @@ theme: energizados
 size: 16:9
 paginate: true
 header: '{Subtitle or project name}'
-footer: '{Author or company} | %'
 ---
 ```
 
@@ -131,7 +130,7 @@ Each project can have its own theme CSS alongside its slide markdown. The skill 
 2. If found, use `--theme {project_css}` instead of the generic theme.
 3. The generic theme at `assets/energizados-theme.css` serves as fallback for projects without a custom theme.
 
-This ensures each project can customize its palette (e.g. CELESC uses teal `#0d7377`, another project might use different branding) without affecting others.
+The default theme at `assets/energizados-theme.css` uses the Energizados petrol/teal palette anchored on `#0d4f5c` (table headers `#0d4f5c`, zebra `#e7f1f3`, accents `#1a8499`). A project can override with its own CSS when it needs different branding (e.g. another utility's corporate color) — keep the `@theme energizados` name so the frontmatter `theme:` directive keeps working, or register a new name and pass it explicitly.
 
 ## Output Contract
 
@@ -144,5 +143,5 @@ Returns:
 
 ## References
 
-- `assets/energizados-theme.css` — generic Marp theme (indigo palette) with `lead`, `invert`, `kpi`, `closing` slide classes
+- `assets/energizados-theme.css` — default Marp theme (petrol/teal palette anchored on `#0d4f5c`) with `lead`, `invert`, `kpi`, `closing` slide classes
 - `assets/validate_slides.py` — validation script for structure, frontmatter, content quality, tables, and output file
