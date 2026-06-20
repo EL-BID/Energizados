@@ -307,7 +307,12 @@ def apply_business_rules(
 
     for rule in rules:
         name = rule.get("name", "unnamed")
-        condition = str(rule.get("condition", "False")).strip()
+        # Normalize whitespace: collapse newlines/extra spaces to single spaces.
+        # YAML folded scalars (>-) may still leak literal newlines into the
+        # condition string, and ``pd.DataFrame.eval`` tokenizes line-by-line,
+        # raising 'EOF in multi-line statement' on multi-line conditions.
+        # Normalizing makes multi-line YAML conditions work transparently.
+        condition = " ".join(str(rule.get("condition", "False")).split())
         action = rule.get("action", "flag")
         value = float(rule.get("value", 0.0) or 0.0)
         value = max(0.0, min(1.0, value))  # clip to [0, 1]

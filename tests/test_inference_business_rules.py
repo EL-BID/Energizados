@@ -381,6 +381,61 @@ class TestApplyBusinessRulesUtility:
         with pytest.raises(ValueError, match="misaligned"):
             apply_business_rules(probas, raw_data, rules_config)
 
+    def test_multiline_condition_is_normalized_before_eval(self):
+        """Multi-line conditions (e.g. from YAML folded scalars ``>-`` that
+        leak literal newlines) must be normalized to single-line before passing
+        to ``pd.DataFrame.eval``, which otherwise raises
+        'EOF in multi-line statement'.
+
+        Regression test for v4 F2E2 where the R2 condition written across 3
+        YAML lines failed to parse.
+        """
+        probas = np.array([0.2, 0.5])
+        raw_data = pd.DataFrame(
+            {
+                "1_anterior": [5.0, 100.0],  # 5/100 mean~100 → 5<40 triggers
+                "2_anterior": [100.0, 100.0],
+                "3_anterior": [100.0, 100.0],
+                "4_anterior": [100.0, 100.0],
+                "5_anterior": [100.0, 100.0],
+                "6_anterior": [100.0, 100.0],
+                "7_anterior": [100.0, 100.0],
+                "8_anterior": [100.0, 100.0],
+                "9_anterior": [100.0, 100.0],
+                "10_anterior": [100.0, 100.0],
+                "11_anterior": [100.0, 100.0],
+                "12_anterior": [100.0, 100.0],
+                "geo_region": ["VIDEIRA", "VIDEIRA"],
+            }
+        )
+        # Multi-line condition with literal newlines (as loaded from YAML >-)
+        multiline_condition = (
+            "(`1_anterior` * 11) < 0.4 * (\n"
+            "  `12_anterior` + `11_anterior` + `10_anterior` + `9_anterior` +\n"
+            "  `8_anterior` + `7_anterior` + `6_anterior` + `5_anterior` +\n"
+            "  `4_anterior` + `3_anterior` + `2_anterior`\n"
+            ")"
+        )
+        rules_config: Dict[str, Any] = {
+            "apply_to": {"regions": ["VIDEIRA"]},
+            "rules": [
+                {
+                    "name": "caida_abrupta",
+                    "condition": multiline_condition,
+                    "action": "override",
+                    "value": 1.0,
+                }
+            ],
+            "output": {"add_rule_columns": True},
+        }
+
+        # Must NOT raise; row 0 (5 << 40% of 100) triggers, row 1 does not.
+        modified_probas, rules_df, _ = apply_business_rules(probas, raw_data, rules_config)
+        np.testing.assert_array_almost_equal(modified_probas, np.array([1.0, 0.5]))
+        np.testing.assert_array_equal(
+            rules_df["rule_caida_abrupta"].values, np.array([True, False])
+        )
+
 
 # =============================================================================
 # Builder integration tests (_apply_business_rules + execute())
