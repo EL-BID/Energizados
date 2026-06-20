@@ -111,6 +111,39 @@ infer:
   #   path: "output/train-YYYYMMDD_HHMM/reports/evaluation/segment_thresholds_zona.json"
   #   fallback_threshold: 0.5         # threshold for unknown segments (null = use global)
 
+  # -----------------------------------------------------------
+  # OPTIONAL: Business Rules (NEW in v4)
+  # -----------------------------------------------------------
+  # Apply business rules to predictions AFTER segment_thresholds. Rules
+  # evaluate pandas expressions against the RAW pre-FE data and modify
+  # probabilities (score_boost / override) or just flag rows for analysis.
+  #
+  # Common use case: regions where the model has AUC<0.5 — the model score
+  # is unreliable, so deterministic rules (consumption zero, abrupt drop)
+  # provide an overlay. The operation uses these flags downstream.
+  #
+  # business_rules:
+  #   enabled: true
+  #   apply_to:
+  #     column: "geo_region"           # column to filter on (default: geo_region)
+  #     regions:                       # only these regions are eligible for rules
+  #       - "REGION_A"
+  #       - "REGION_B"
+  #   rules:
+  #     - name: "consumo_cero_3m"
+  #       condition: "(`3_anterior` == 0) & (`2_anterior` == 0) & (`1_anterior` == 0)"
+  #       action: "override"           # flag | override | score_boost
+  #       value: 1.0                   # for score_boost: amount to add (clipped [0,1])
+  #     - name: "caida_abrupta"
+  #       condition: "(`1_anterior` * 11) < 0.4 * (`12_anterior` + `11_anterior` + `10_anterior` + `9_anterior` + `8_anterior` + `7_anterior` + `6_anterior` + `5_anterior` + `4_anterior` + `3_anterior` + `2_anterior`)"
+  #       action: "score_boost"
+  #       value: 0.3
+  #     - name: "denuncia_sac"         # stub: never triggers until data arrives
+  #       condition: "False"
+  #       action: "flag"
+  #   output:
+  #     add_rule_columns: true         # add rule_<name> (bool) + rule_<name>_value (float)
+
   # Inference type
   type: "default"
 

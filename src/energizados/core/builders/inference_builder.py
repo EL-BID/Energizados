@@ -50,7 +50,17 @@ class InferenceBuilder(StepBuilder):
         else:
             InferenceClass = DefaultInference
 
-        inference = InferenceClass(threshold=threshold)
+        # Build kwargs for inference constructor.
+        # HierarchicalInference accepts routes, default_model_path, etc.
+        inference_kwargs = {"threshold": threshold}
+        for key in ("routes", "default_model_path", "feature_engineering_paths"):
+            if key in inference_config:
+                inference_kwargs[key] = inference_config[key]
+
+        inference = InferenceClass(**inference_kwargs)
+
+        # Detect hierarchical inference to skip single-model auto-detection
+        is_hierarchical = hasattr(inference, "routes")
 
         # Read additional filtering configuration
         columns_filter = inference_config.get("columns_filter")
@@ -60,7 +70,7 @@ class InferenceBuilder(StepBuilder):
         model_path = inference_config.get("model_path")
         feature_engineering_path = inference_config.get("feature_engineering_path")
 
-        if not model_path:
+        if not model_path and not is_hierarchical:
             # Try to auto-detect from latest training run
             model_path = self._auto_detect_latest_run(
                 inference_config.get("output_base_dir", "output")
@@ -98,12 +108,18 @@ class InferenceBuilder(StepBuilder):
             def validate_input(self, context: Dict[str, Any]) -> bool:
                 """Validate that a model is available — either from config path or context.
 
+                Hierarchical inference loads its own models, so it always passes
+                validation if routes are configured.
+
                 Args:
                     context: Pipeline context dict.
 
                 Returns:
                     bool: True if model is available via config path or context.
                 """
+                # Hierarchical inference loads models internally
+                if hasattr(self.inference, "routes") and self.inference.routes:
+                    return True
                 if self.config.get("model_path"):
                     return True
                 return "model" in context and context["model"] is not None
@@ -114,7 +130,8 @@ class InferenceBuilder(StepBuilder):
                 Uses a config-first resolution chain:
                 1. Load model from config ``model_path`` via ``secure_load``
                 2. Fall back to ``context["model"]``
-                3. Raise ``ValueError`` if neither is available
+                3. For hierarchical inference, load models via ``inference.load_model()``
+                4. Raise ``ValueError`` if neither is available
 
                 Same pattern for feature_engineering.
 
@@ -130,34 +147,40 @@ class InferenceBuilder(StepBuilder):
                 """
                 from energizados.core.utils.secure_pickle import secure_load
 
-                # --- Model resolution: resolved → config → context → error ---
-                _model_path = self.config.get("_resolved_model_path") or self.config.get(
-                    "model_path"
-                )
-                if _model_path:
-                    model = secure_load(_model_path)
-                    logger.info(f"Loaded model from: {_model_path}")
-                elif context.get("model"):
-                    model = context["model"]
-                    logger.info("Using model from context")
-                else:
-                    raise ValueError(
-                        "No model available. Set model_path in infer.yaml or run training first."
-                    )
-
-                # --- Feature engineering resolution: resolved → config → context → None ---
-                _fe_path = self.config.get("_resolved_feature_engineering_path") or self.config.get(
-                    "feature_engineering_path"
-                )
-                if _fe_path:
-                    feature_engineering = secure_load(_fe_path)
-                    logger.info(f"Loaded feature engineering from: {_fe_path}")
-                elif context.get("feature_engineering"):
-                    feature_engineering = context["feature_engineering"]
-                    logger.info("Using feature engineering from context")
-                else:
+                # --- Hierarchical inference: loads its own models ---
+                if hasattr(self.inference, "routes") and self.inference.routes:
+                    model = self.inference.load_model()
+                    logger.info("Using hierarchical inference with loaded route models")
                     feature_engineering = None
-                    logger.warning("No feature engineering pipeline found. Using raw features.")
+                else:
+                    # --- Model resolution: resolved → config → context → error ---
+                    _model_path = self.config.get("_resolved_model_path") or self.config.get(
+                        "model_path"
+                    )
+                    if _model_path:
+                        model = secure_load(_model_path)
+                        logger.info(f"Loaded model from: {_model_path}")
+                    elif context.get("model"):
+                        model = context["model"]
+                        logger.info("Using model from context")
+                    else:
+                        raise ValueError(
+                            "No model available. Set model_path in infer.yaml or run training first."
+                        )
+
+                    # --- Feature engineering resolution: resolved → config → context → None ---
+                    _fe_path = self.config.get(
+                        "_resolved_feature_engineering_path"
+                    ) or self.config.get("feature_engineering_path")
+                    if _fe_path:
+                        feature_engineering = secure_load(_fe_path)
+                        logger.info(f"Loaded feature engineering from: {_fe_path}")
+                    elif context.get("feature_engineering"):
+                        feature_engineering = context["feature_engineering"]
+                        logger.info("Using feature engineering from context")
+                    else:
+                        feature_engineering = None
+                        logger.warning("No feature engineering pipeline found. Using raw features.")
 
                 # --- Load inference data ---
                 _input_path = self.config.get("input_path")
@@ -185,6 +208,51 @@ class InferenceBuilder(StepBuilder):
                         f"  • columns_filter: removed {filtered_count:,} rows, {len(data):,} remaining"
                     )
 
+                # --- Capture RAW data BEFORE feature engineering for business_rules ---
+                # Business rules evaluate pandas expressions against original
+                # column names (e.g. `3_anterior`, `geo_region`) which FE may
+                # encode, drop, or rename. Capture a copy of the post-filter,
+                # pre-FE data so rule conditions see the raw values.
+                business_rules_config = self.config.get("business_rules", {})
+                br_enabled = bool(business_rules_config) and business_rules_config.get("enabled")
+                raw_data_for_rules = data.copy() if br_enabled else None
+
+                # --- Capture RAW segment column BEFORE feature engineering ---
+                # FE may encode or drop the segment column (e.g. ordinal/target
+                # encoding turns "Norte" into 0.0), which breaks segment_thresholds
+                # matching because the JSON keys are raw values. Capture the raw
+                # values here (aligned to the filtered rows) and re-inject them at
+                # threshold-application time, after prediction.
+                segment_thresholds_config = self.config.get("segment_thresholds", {})
+                segment_enabled = bool(segment_thresholds_config) and segment_thresholds_config.get(
+                    "enabled"
+                )
+                raw_segment_frame = None
+                if segment_enabled:
+                    try:
+                        seg_meta = self._load_segment_thresholds(segment_thresholds_config["path"])
+                        seg_col = seg_meta.get("segment_column")
+                        if seg_col and seg_col in data.columns:
+                            raw_segment_frame = pd.DataFrame(
+                                {seg_col: data[seg_col].reset_index(drop=True)}
+                            )
+                            logger.info(
+                                f"  • Captured raw segment column '{seg_col}' for "
+                                "thresholds (pre-FE)"
+                            )
+                        else:
+                            logger.warning(
+                                f"Segment column '{seg_col}' not found in pre-FE "
+                                "data; segment thresholds will not apply."
+                            )
+                            segment_enabled = False
+                    except (FileNotFoundError, ValueError, KeyError) as exc:
+                        logger.warning(
+                            f"Could not load segment thresholds config ({exc}). "
+                            "Falling back to global threshold."
+                        )
+                        segment_enabled = False
+
                 # --- Apply feature engineering if available ---
                 if feature_engineering is not None:
                     data = feature_engineering.transform(data)
@@ -192,16 +260,40 @@ class InferenceBuilder(StepBuilder):
                 # --- Make predictions ---
                 probas = self.inference.predict_proba(model, data)
 
-                # Check if segment thresholds are enabled
-                segment_thresholds_config = self.config.get("segment_thresholds", {})
-                if segment_thresholds_config and segment_thresholds_config.get("enabled"):
-                    # Apply per-row segment thresholds
+                # --- Apply thresholds (segment-aware if enabled, else global) ---
+                if segment_enabled and raw_segment_frame is not None:
+                    # Apply per-row segment thresholds using the RAW pre-FE values
                     predictions = self._apply_segment_thresholds(
-                        probas, data, segment_thresholds_config
+                        probas, raw_segment_frame, segment_thresholds_config
                     )
                 else:
                     # Use global threshold (backward compatible)
                     predictions = (probas >= self.inference.threshold).astype(int)
+
+                # --- Apply business rules (after segment_thresholds) ---
+                # Rules evaluate against the raw pre-FE data and modify probas
+                # (score_boost / override) or just record triggers (flag).
+                # After modification, predictions are re-derived from the
+                # (possibly boosted) probas so segment_thresholds are respected.
+                rules_df = None
+                if br_enabled and raw_data_for_rules is not None:
+                    from energizados.inference.default import apply_business_rules
+
+                    probas, rules_df, probas_modified = apply_business_rules(
+                        probas, raw_data_for_rules, business_rules_config
+                    )
+
+                    if probas_modified:
+                        # Re-derive predictions from modified probas.
+                        # segment_thresholds re-applied so score_boost respects
+                        # per-region thresholds; override sets proba=1.0 which
+                        # naturally yields prediction=1 under any threshold <= 1.0.
+                        if segment_enabled and raw_segment_frame is not None:
+                            predictions = self._apply_segment_thresholds(
+                                probas, raw_segment_frame, segment_thresholds_config
+                            )
+                        else:
+                            predictions = (probas >= self.inference.threshold).astype(int)
 
                 # --- Save to context ---
                 context["predictions"] = predictions
@@ -219,6 +311,7 @@ class InferenceBuilder(StepBuilder):
                         _output_path,
                         _include_input,
                         _fmt,
+                        rules_df=rules_df,
                     )
                     self._write_metadata_sidecar(
                         _output_path,
@@ -254,6 +347,7 @@ class InferenceBuilder(StepBuilder):
                 output_path: str,
                 include_input: bool,
                 output_format: str,
+                rules_df: Optional[pd.DataFrame] = None,
             ) -> None:
                 """Save predictions in enriched or minimal format.
 
@@ -264,6 +358,9 @@ class InferenceBuilder(StepBuilder):
                     output_path: File path for output.
                     include_input: If True, prepend original columns.
                     output_format: "csv" or "parquet".
+                    rules_df: Optional DataFrame of business rule trigger columns
+                        (``rule_<name>`` and ``rule_<name>_value``) to append after
+                        prediction/probability. None if no business rules.
                 """
                 result = pd.DataFrame(
                     {
@@ -271,6 +368,10 @@ class InferenceBuilder(StepBuilder):
                         "probability": probas,
                     }
                 )
+
+                # Append business rule trigger columns (after prediction/probability)
+                if rules_df is not None and not rules_df.empty:
+                    result = pd.concat([result, rules_df.reset_index(drop=True)], axis=1)
 
                 # Apply output_columns filter if specified
                 if self.output_columns:

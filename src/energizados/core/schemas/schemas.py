@@ -397,6 +397,62 @@ INFERENCE_SCHEMA = {
                 "fallback_threshold": {"type": ["number", "null"]},
             },
         },
+        "business_rules": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "apply_to": {
+                    "type": "object",
+                    "properties": {
+                        "column": {
+                            "type": "string",
+                            "default": "geo_region",
+                            "description": "Column used to filter eligible rows. Defaults to 'geo_region'.",
+                        },
+                        "regions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Only rows whose apply_to.column value is in this list are eligible for rules. If omitted, rules apply to ALL rows.",
+                        },
+                    },
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "condition": {
+                                "type": "string",
+                                "description": "Pandas query/eval expression. Must return a boolean Series. Use backticks for column names starting with digits (e.g. `3_anterior`). Use 'False' for stub rules that never trigger.",
+                            },
+                            "action": {
+                                "type": "string",
+                                "enum": ["flag", "override", "score_boost"],
+                                "default": "flag",
+                            },
+                            "value": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "For score_boost: amount to add to probability (clipped to [0,1]). For override: probability is set to 1.0 (value ignored). For flag: ignored.",
+                            },
+                        },
+                        "required": ["name", "condition", "action"],
+                    },
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "add_rule_columns": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "If True, add rule_<name> (bool) and rule_<name>_value (float) columns to the output.",
+                        },
+                    },
+                },
+            },
+        },
     },
 }
 
