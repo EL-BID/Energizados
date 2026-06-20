@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Inference: `HierarchicalInference`** — ruteo genérico a múltiples modelos según condiciones del dataframe (`column: value_or_list`). Soporta first-match-wins, FE por ruta (`feature_engineering_paths`), modelo fallback (`default_model_path`), y callable conditions. Integración nativa con `InferenceBuilder` (no requiere `model_path` cuando `routes` están configuradas)
+- **Config: 16 YAMLs de experimentos v3 CELESC** — configs validadas para 5 fases: F1 (sampling), F2 (feature engineering), F3 (modelos regionales con `columns_filter`), F4 (stacking fix + segment thresholds), F5 (soft voting + stacking + hierarchical inference)
+- **Tests: `test_hierarchical_inference.py`** — 15 tests unitarios para `HierarchicalInference` (init, condition evaluation, routing, FE transform, builder integration)
 - **Training: `columns_filter` in `feature_engineering.preprocessing`** — row-level filtering (equality, comparison operators, pandas `_expr`) now works in training, not just inference. The filter is applied to all splits (train/val/test) with `X` and `y` kept aligned by index. Useful for region-specific models without creating a separate ETL. Logic is shared with inference via `energizados.core.utils.columns_filter.apply_columns_filter`
 - **GeoFeaturesETL: `include_cluster` parameter** — new `include_cluster: false` option to skip KMeans geographic clustering (`geo_cluster` column) while still generating IBGE hierarchy and distance features; useful when `stratified_time` split is not needed
 - **Split: Unlabeled negatives injection** (`split.unlabeled_negatives`) — load external unlabeled contracts as `target=0` samples into train split; supports `time_series` date filtering, ID dedup against val/test, `max_per_cutoff` sampling, and NaN fill for missing columns
@@ -20,12 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Config: plan v3 métricas de calibración** — Brier score / ECE no son soportadas por el framework; reemplazadas por proxies medibles (`pct>0.5`, rango de `y_proba`) que sí computa el evaluador nativo
+- **Config: plan v3 hechos corregidos** — FLN 73.6% (no 66%), test 6m (no 2m), cobertura 15/16 regiones (no 12/15), gap test/val ~0.17 es shift temporal (no overfitting)
+- **Config: plan v3 gates entre fases** — adopción explícita de sampling ganador (F1) y FE ganadora (F2) antes de continuar; todos los experimentos F3-F5 usan la config base ganadora
+- **Config: plan v3 comparación justa en F3** — AUC del modelo regional se compara con AUC del modelo global evaluado en la misma subpoblación (no con AUC global)
 - **Evaluation: `segment` alias mutation bug** — `threshold_mode="segment"` no longer mutates the parameter inside the loop, preventing incorrect "Unknown threshold_mode" warnings and wrong export values
 - **Preprocessing: `GroupRelativeConsumption` dtype** — explicit `.astype(float)` before `.fillna(0.0)` prevents TypeError on mixed-type group columns
 - **ETL: Upstream output validation** — orchestrator no longer raises "input file does not exist" for paths that are the declared output of an upstream ETL in the DAG
 
 ### Refactoring
 
+- **Inference: `InferenceBuilder` soporte para `HierarchicalInference`** — pasa kwargs `routes`, `default_model_path`, `feature_engineering_paths` al constructor; detecta inferencia jerárquica para saltear auto-detección de `model_path` único; `validate_input` y `execute` soportan carga de múltiples modelos internamente
 - **Inference: `columns_filter` extracted to shared utility** — moved the row-filtering logic from `inference_builder._apply_columns_filter` to a reusable `apply_columns_filter` function in `energizados.core.utils.columns_filter`; inference and training now share the same implementation
 - Remove release automation components (commitlint, husky, git-cliff scripts, GitHub Actions workflow)
 

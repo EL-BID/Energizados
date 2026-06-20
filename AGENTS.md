@@ -97,7 +97,8 @@ src/energizados/
 │   └── index.py       # Run index (output/index.html)
 ├── inference/         # Inference implementations
 │   ├── base.py        # BaseInference abstract class
-│   └── default.py     # DefaultInference implementation
+│   ├── default.py     # DefaultInference implementation
+│   └── hierarchical.py # HierarchicalInference — routes rows to per-route models
 ├── core/              # Core framework components
 │   ├── base.py        # Base classes for pipeline, models, inference
 │   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
@@ -540,6 +541,11 @@ preprocessing:
 - `DefaultFeatureEngineering`: Default implementation combining preprocessing + feature selection (`feature_engineering/default.py`)
 - Methods: `fit(X, y)`, `transform(X)`, `fit_transform(X, y)`, `save(path)`, `load(path)`
 
+**Key Inference Classes (internal framework):**
+- `BaseInference`: Abstract base class for inference (`inference/base.py`)
+- `DefaultInference`: Default single-model inference (`inference/default.py`)
+- `HierarchicalInference`: Routes rows to different models based on column-value conditions (`inference/hierarchical.py`). Configured in `infer.yaml` via `routes` (list of `{name, condition: {col: value | [values]}, model_path}`), `default_model_path`, and optional `feature_engineering_paths` (dict route name → FE `.pkl`). It loads its own route models internally, so `model_path` is **not** required at the top level when routes are configured. Rows matching no route use the default model.
+
 Additional ETL examples are provided (commented out) in the template:
 - `consumos`: Single source ETL for consumption data (mode='concat')
 - `clientes`: Single source ETL for customer data (mode='concat')
@@ -692,6 +698,7 @@ The project documentation and comments are in English. The codebase uses Spanish
 | `experiment-results` | Generates a complete experiment results report with metrics, insights, next steps, and a business section with operational impact simulator. | When the user requests experiment results or to generate _results.md. [SKILL.md](.claude/skills/experiment-results/SKILL.md) |
 | `new-experiments` | Design and generate a complete set of ML training experiments (roadmap + YAMLs) for an Energizados project. | When the user says "new experiments", "nuevos experimentos", "crear experimentos". [SKILL.md](.claude/skills/new-experiments/SKILL.md) |
 | `run-experiment` | Run a full training experiment (validate → ETL → train) and surface key metrics from the JSON report. | When the user wants to kick off a pipeline run and see results. [SKILL.md](.claude/skills/run-experiment/SKILL.md) |
+| `new-etl` | Scaffold a new ETL block for `config/etl.yaml` (name, mode, inputs, outputs, dependencies). | When the user says "new etl", "nuevo etl", "agregar etl". [SKILL.md](.claude/skills/new-etl/SKILL.md) |
 | `marp-slides` | Convert a slide-delimited markdown file into a professional Marp presentation (PDF/PPTX/HTML) with the energizados theme and quality validation. | When the user wants to generate slides, presentation, deck from markdown. [SKILL.md](.claude/skills/marp-slides/SKILL.md) |
 | `version-deliverable` | Generate a version deliverable document (Markdown) summarizing experiments, winning model, results, and comparison vs previous version. | When the user says "entregable de versión", "generar entregable", "version deliverable", "release notes versión". [SKILL.md](.claude/skills/version-deliverable/SKILL.md) |
 

@@ -7,5 +7,6 @@ for inference and prediction.
 
 from energizados.inference.base import BaseInference
 from energizados.inference.default import DefaultInference
+from energizados.inference.hierarchical import HierarchicalInference
 
-__all__ = ["BaseInference", "DefaultInference"]
+__all__ = ["BaseInference", "DefaultInference", "HierarchicalInference"]

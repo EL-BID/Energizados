@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from energizados.inference.default import apply_segment_thresholds
 from energizados.core.builders.inference_builder import InferenceBuilder
+from energizados.inference.default import apply_segment_thresholds
 
 
 class TestApplySegmentThresholdsUtility:
@@ -96,6 +96,24 @@ class TestApplySegmentThresholdsUtility:
         expected = np.array([1])
         np.testing.assert_array_equal(predictions, expected)
 
+    def test_apply_segment_thresholds_categorical_segment(self):
+        """Categorical segment columns (common: geo_region, zona are dtype
+        'category') must work. .map on a Categorical returns a Categorical of
+        floats, which cannot be compared with >=. The utility must coerce to
+        numeric before comparing. Regression test for inference on real data."""
+        probas = np.array([0.4, 0.5, 0.25, 0.8])
+        segment_values = pd.Series(pd.Categorical(["Norte", "Sul", "Norte", "Sul"]))
+        thresholds_dict = {"Norte": 0.3, "Sul": 0.7}
+        fallback_threshold = 0.5
+
+        predictions = apply_segment_thresholds(
+            probas, segment_values, thresholds_dict, fallback_threshold
+        )
+
+        # Norte: 0.4>=0.3->1, 0.25<0.3->0 ; Sul: 0.5<0.7->0, 0.8>=0.7->1
+        expected = np.array([1, 0, 0, 1])
+        np.testing.assert_array_equal(predictions, expected)
+
 
 class TestInferenceBuilderSegmentThresholds:
     """Tests for segment threshold loading and application in InferenceBuilder."""
@@ -167,10 +185,12 @@ class TestInferenceBuilderSegmentThresholds:
             },
         )
 
-        data = pd.DataFrame({
-            "zona": ["Norte", "Sul", "Norte", "Sul"],
-            "feature": [1, 2, 3, 4],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Sul", "Norte", "Sul"],
+                "feature": [1, 2, 3, 4],
+            }
+        )
         probas = np.array([0.4, 0.5, 0.25, 0.8])  # [>=0.3, <0.7, <0.3, >=0.7]
 
         config = {
@@ -201,10 +221,12 @@ class TestInferenceBuilderSegmentThresholds:
             },
         )
 
-        data = pd.DataFrame({
-            "zona": ["Norte", "Unknown", "Este"],  # Unknown and Este not in JSON
-            "feature": [1, 2, 3],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Unknown", "Este"],  # Unknown and Este not in JSON
+                "feature": [1, 2, 3],
+            }
+        )
         probas = np.array([0.4, 0.6, 0.4])  # [>=0.3, >=0.5, <0.5]
 
         config = {
@@ -235,10 +257,12 @@ class TestInferenceBuilderSegmentThresholds:
             },
         )
 
-        data = pd.DataFrame({
-            "zona": ["Norte", "Unknown"],
-            "feature": [1, 2],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Unknown"],
+                "feature": [1, 2],
+            }
+        )
         # Unknown (0.55) uses global threshold 0.6 -> 0.55 < 0.6 -> 0
         probas = np.array([0.4, 0.55])
 
@@ -268,9 +292,11 @@ class TestInferenceBuilderSegmentThresholds:
             {"Norte": {"threshold": 0.3}},
         )
 
-        data = pd.DataFrame({
-            "other_column": [1, 2],  # Missing 'zona' column
-        })
+        data = pd.DataFrame(
+            {
+                "other_column": [1, 2],  # Missing 'zona' column
+            }
+        )
         probas = np.array([0.4, 0.6])
 
         config = {
@@ -301,9 +327,11 @@ class TestInferenceBuilderSegmentThresholds:
             },
         )
 
-        data = pd.DataFrame({
-            "zona": ["Norte", "Sul", "Norte", "Unknown"],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Sul", "Norte", "Unknown"],
+            }
+        )
         probas = np.array([0.4, 0.5, 0.25, 0.6])
 
         config = {
@@ -349,9 +377,7 @@ class TestInferenceStepExecuteWithSegmentThresholds:
         model.predict_proba.return_value = np.array([0.4, 0.6, 0.25, 0.8])
         return model
 
-    def test_execute_uses_segment_thresholds_when_enabled(
-        self, tmp_path, mock_model
-    ):
+    def test_execute_uses_segment_thresholds_when_enabled(self, tmp_path, mock_model):
         """Test that execute() uses segment thresholds when enabled."""
         # Arrange
         json_path = self.create_segment_thresholds_json(
@@ -359,7 +385,7 @@ class TestInferenceStepExecuteWithSegmentThresholds:
             "zona",
             {
                 "Norte": {"threshold": 0.3},  # 0.4>=0.3->1, 0.25<0.3->0
-                "Sul": {"threshold": 0.7},    # 0.6<0.7->0, 0.8>=0.7->1
+                "Sul": {"threshold": 0.7},  # 0.6<0.7->0, 0.8>=0.7->1
             },
         )
 
@@ -377,9 +403,11 @@ class TestInferenceStepExecuteWithSegmentThresholds:
         assert step is not None, "build() should not return None with valid config"
 
         # Create test data
-        data = pd.DataFrame({
-            "zona": ["Norte", "Sul", "Norte", "Sul"],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Sul", "Norte", "Sul"],
+            }
+        )
         data_path = tmp_path / "test_data.parquet"
         data.to_parquet(data_path, index=False)
 
@@ -397,9 +425,7 @@ class TestInferenceStepExecuteWithSegmentThresholds:
         expected = np.array([1, 0, 0, 1])
         np.testing.assert_array_equal(predictions, expected)
 
-    def test_execute_uses_global_threshold_when_disabled(
-        self, tmp_path, mock_model
-    ):
+    def test_execute_uses_global_threshold_when_disabled(self, tmp_path, mock_model):
         """Test that execute() uses global threshold when segment_thresholds disabled."""
         # Arrange
         config = {
@@ -416,9 +442,11 @@ class TestInferenceStepExecuteWithSegmentThresholds:
         assert step is not None, "build() should not return None with valid config"
 
         # Create test data
-        data = pd.DataFrame({
-            "zona": ["Norte", "Sul", "Norte", "Sul"],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Sul", "Norte", "Sul"],
+            }
+        )
         data_path = tmp_path / "test_data.parquet"
         data.to_parquet(data_path, index=False)
 
@@ -435,9 +463,66 @@ class TestInferenceStepExecuteWithSegmentThresholds:
         expected = np.array([0, 1, 0, 1])
         np.testing.assert_array_equal(predictions, expected)
 
-    def test_execute_uses_global_threshold_when_segment_config_missing(
+    def test_execute_segment_thresholds_match_raw_values_when_fe_encodes_column(
         self, tmp_path, mock_model
     ):
+        """FE may encode the segment column (e.g. ordinal/target encoding) before
+        thresholds are applied. Segment thresholds must match on the RAW pre-FE
+        values (strings), not the encoded floats — otherwise every row falls to
+        the fallback threshold. Regression test for inference_builder bug."""
+        # Arrange
+        json_path = self.create_segment_thresholds_json(
+            tmp_path,
+            "zona",
+            {
+                "Norte": {"threshold": 0.3},  # 0.4>=0.3->1, 0.25<0.3->0
+                "Sul": {"threshold": 0.7},  # 0.6<0.7->0, 0.8>=0.7->1
+            },
+        )
+
+        config = {
+            "threshold": 0.5,
+            "segment_thresholds": {
+                "enabled": True,
+                "path": str(json_path),
+                "fallback_threshold": 0.5,
+            },
+        }
+
+        builder = InferenceBuilder(config)
+        step = builder.build()
+        assert step is not None, "build() should not return None with valid config"
+
+        # Raw data with string segment values
+        data = pd.DataFrame({"zona": ["Norte", "Sul", "Norte", "Sul"]})
+        data_path = tmp_path / "test_data.parquet"
+        data.to_parquet(data_path, index=False)
+        step.config["input_path"] = str(data_path)
+
+        # Mock FE that ORDINAL-ENCODES zona (mimics real FE behavior).
+        # This is the bug trigger: post-FE zona is float, not the string keys.
+        fe = MagicMock()
+
+        def _encode(df):
+            out = df.copy()
+            out["zona"] = out["zona"].map({"Norte": 0.0, "Sul": 1.0}).astype(float)
+            return out
+
+        fe.transform.side_effect = _encode
+
+        context = {"model": mock_model, "feature_engineering": fe}
+
+        # Act
+        result_context = step.execute(context)
+
+        # Assert — thresholds matched on RAW strings, not encoded floats.
+        # Norte(0.4>=0.3, 0.25<0.3)->[1,0], Sul(0.6<0.7, 0.8>=0.7)->[0,1]
+        # (If the bug is present, everything falls to fallback 0.5 -> [0,1,0,1])
+        predictions = result_context["predictions"]
+        expected = np.array([1, 0, 0, 1])
+        np.testing.assert_array_equal(predictions, expected)
+
+    def test_execute_uses_global_threshold_when_segment_config_missing(self, tmp_path, mock_model):
         """Test backward compatibility - no segment_thresholds key uses global."""
         # Arrange
         config = {
@@ -450,9 +535,11 @@ class TestInferenceStepExecuteWithSegmentThresholds:
         assert step is not None, "build() should not return None with valid config"
 
         # Create test data
-        data = pd.DataFrame({
-            "zona": ["Norte", "Sul", "Norte", "Sul"],
-        })
+        data = pd.DataFrame(
+            {
+                "zona": ["Norte", "Sul", "Norte", "Sul"],
+            }
+        )
         data_path = tmp_path / "test_data.parquet"
         data.to_parquet(data_path, index=False)
 

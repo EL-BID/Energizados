@@ -127,9 +127,9 @@ class GroupRelativeConsumption(BaseEstimator, TransformerMixin):
 
             for metric in self.metrics:
                 if metric == "mean":
-                    grp = melted.groupby(self.group_column)["consumo"].mean()
+                    grp = melted.groupby(self.group_column, observed=True)["consumo"].mean()
                 elif metric == "max":
-                    grp = melted.groupby(self.group_column)["consumo"].max()
+                    grp = melted.groupby(self.group_column, observed=True)["consumo"].max()
                 else:
                     continue  # pragma: no cover
 
@@ -317,7 +317,7 @@ class SeasonalAnomaly(BaseEstimator, TransformerMixin):
         if long_df.empty:
             raise ValueError("SeasonalAnomaly: no valid consumption values after dropping NaNs")
 
-        grp = long_df.groupby([self.group_column, "month"])["consumo"]
+        grp = long_df.groupby([self.group_column, "month"], observed=True)["consumo"]
         mean_series = grp.mean()
         std_series = grp.std().fillna(0.0)  # single-observation groups -> std=0
 
