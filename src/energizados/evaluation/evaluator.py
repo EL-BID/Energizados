@@ -343,6 +343,26 @@ class DefaultEvaluator(PipelineStep):
                 threshold_mode=threshold_mode,
             )
 
+            # 6d3. Reconcile headline metrics with per-segment operating point.
+            #
+            # When segmented_evaluation uses per-segment thresholds (youden,
+            # f1_optimal, recall_target), the headline /metrics/* previously
+            # reported global-threshold numbers, causing downstream docs to
+            # over-report operational recall. This step replaces the headline
+            # with the per-segment aggregate (each row predicted using its own
+            # segment's threshold) and preserves the global numbers under
+            # /metrics/global_threshold_metrics/. (evaluator-fix)
+            if threshold_mode != "global":
+                metrics_results = self._reconcile_headline_with_segments(
+                    metrics_results=metrics_results,
+                    y_true=y_test.to_numpy(),
+                    y_proba=y_proba,
+                    test_df=test_df,
+                    seg_config=seg_config,
+                    segmented_metrics=segmented_metrics,
+                    global_threshold=threshold,
+                )
+
         # 6e. Threshold sweep metrics
         logger.info("Calculating threshold sweep metrics...")
         threshold_metrics = None
@@ -1153,6 +1173,136 @@ class DefaultEvaluator(PipelineStep):
                 info["n_estimators"] = inner.num_trees()
 
         return info
+
+    def _reconcile_headline_with_segments(
+        self,
+        metrics_results: Dict[str, Any],
+        y_true: np.ndarray,
+        y_proba: np.ndarray,
+        test_df: pd.DataFrame,
+        seg_config: Dict,
+        segmented_metrics: Dict[str, Dict],
+        global_threshold: float,
+    ) -> Dict[str, Any]:
+        """Reconcile headline metrics with the per-segment operating point.
+
+        When ``segmented_evaluation`` is enabled with a per-segment threshold
+        mode (youden, f1_optimal, recall_target), the headline ``/metrics/*``
+        previously reported global-threshold numbers. This method replaces
+        them with the per-segment aggregate (each row predicted positive iff
+        ``probability >= its_own_segment_threshold``), while preserving the
+        global-threshold numbers under ``/metrics/global_threshold_metrics/``.
+
+        Uses the first segment definition in ``by`` as the primary
+        segmentation (matching the deployed ``segment_thresholds_*.json``).
+
+        Args:
+            metrics_results: Current headline metrics dict (global threshold).
+            y_true: True binary labels for the test set.
+            y_proba: Predicted probabilities for the test set.
+            test_df: Full test DataFrame (with segment columns).
+            seg_config: The ``segmented_evaluation`` config dict.
+            segmented_metrics: Computed per-segment metrics dict.
+            global_threshold: The global threshold used for the original headline.
+
+        Returns:
+            Updated ``metrics_results`` with per-segment headline and preserved
+            global-threshold metrics.
+        """
+        seg_by = seg_config.get("by", [])
+        if not seg_by:
+            return metrics_results
+
+        # Use the first segment definition as the primary segmentation
+        primary_seg = seg_by[0]
+
+        # Build per-row segment values (same logic as in execute())
+        if "+" in primary_seg:
+            cols = [c.strip() for c in primary_seg.split("+")]
+            missing = [c for c in cols if c not in test_df.columns]
+            if missing:
+                logger.warning(
+                    "Primary segment '%s' has missing columns %s; "
+                    "cannot reconcile headline. Keeping global-threshold metrics.",
+                    primary_seg,
+                    missing,
+                )
+                return metrics_results
+            segment_values = test_df[cols[0]].astype(str).to_numpy()
+            for c in cols[1:]:
+                segment_values = segment_values + "|" + test_df[c].astype(str).to_numpy()
+            display_name = f"{primary_seg} (combined)"
+        else:
+            if primary_seg not in test_df.columns:
+                logger.warning(
+                    "Primary segment '%s' not found in test data; "
+                    "cannot reconcile headline. Keeping global-threshold metrics.",
+                    primary_seg,
+                )
+                return metrics_results
+            segment_values = test_df[primary_seg].astype(str).to_numpy()
+            display_name = primary_seg
+
+        seg_results = segmented_metrics.get(display_name)
+        if not seg_results:
+            logger.warning(
+                "No segmented metrics found for '%s'; "
+                "cannot reconcile headline. Keeping global-threshold metrics.",
+                display_name,
+            )
+            return metrics_results
+
+        # Build per-row threshold from segment thresholds
+        threshold_map = {k: v["threshold"] for k, v in seg_results.items()}
+        per_row_threshold = np.array(
+            [threshold_map.get(sv, global_threshold) for sv in segment_values]
+        )
+
+        # Predict using each row's own segment threshold
+        y_pred_segmented = (y_proba >= per_row_threshold).astype(int)
+
+        # Preserve global-threshold metrics before overwriting
+        global_metrics = {
+            "threshold": metrics_results.get("threshold"),
+            "recall": metrics_results.get("recall"),
+            "precision": metrics_results.get("precision"),
+            "f1": metrics_results.get("f1"),
+            "confusion_matrix": metrics_results.get("confusion_matrix"),
+        }
+
+        # Compute new headline from per-segment predictions
+        seg_threshold_mode = seg_config.get("threshold_mode", "youden")
+        seg_calc = Metrics(y_true, y_pred_segmented, y_proba, threshold=global_threshold)
+        new_metrics = seg_calc.calculate_all(self.metrics)
+
+        metrics_results["global_threshold_metrics"] = global_metrics
+        metrics_results["threshold"] = None  # no single threshold (segment-based)
+        metrics_results["threshold_mode"] = f"segment_{seg_threshold_mode}"
+
+        # Update headline operating-point metrics
+        for key in ("recall", "precision", "f1", "confusion_matrix"):
+            if key in new_metrics:
+                metrics_results[key] = new_metrics[key]
+
+        logger.info(
+            "\n%s\nHEADLINE RECONCILED WITH SEGMENTED EVALUATION\n%s\n"
+            "Headline now reflects per-segment aggregate (mode=%s).\n"
+            "  Segment headline: recall=%.4f  precision=%.4f  f1=%.4f\n"
+            "  Global (preserved): recall=%.4f  precision=%.4f  f1=%.4f  thr=%.4f\n%s",
+            "=" * 60,
+            "=" * 60,
+            seg_threshold_mode,
+            metrics_results.get("recall", 0),
+            metrics_results.get("precision", 0),
+            metrics_results.get("f1", 0),
+            global_metrics.get("recall", 0),
+            global_metrics.get("precision", 0),
+            global_metrics.get("f1", 0),
+            global_threshold,
+            "=" * 60,
+        )
+
+        return metrics_results
 
     def _export_segment_thresholds(
         self,
