@@ -504,6 +504,63 @@ class TestSegmentedHeadlineReconciliation:
             metrics.get("threshold_mode") is not None
         ), "threshold_mode field should be set to indicate segment-based headline"
 
+    def test_html_report_with_segmented_headline_does_not_crash(self, tmp_path):
+        """Regression: HTML report generation must not crash when the headline
+        is reconciled with per-segment thresholds.
+
+        The reconciler sets ``metrics["threshold"] = None`` to signal a
+        segment-based headline. The threshold-sweep HTML builder read it via
+        ``metrics.get("threshold", 0.5)``, which returns ``None`` (the key
+        exists, so the default does not apply) and then crashed with
+        ``TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'``
+        when computing the nearest-threshold row.
+
+        This test runs the full evaluator with ``generate_html_report=True``
+        (the path all the other tests in this class skip) and asserts the HTML
+        file is produced.
+        """
+        test_path, proba, y_true, seg = self._build_synthetic_dataset(tmp_path)
+
+        output_dir = tmp_path / "eval_output"
+        output_dir.mkdir()
+
+        class ProbabilisticMockModel:
+            def __init__(self, probabilities):
+                self._proba = probabilities
+
+            def predict_proba(self, x):
+                return self._proba.copy()
+
+        evaluator = DefaultEvaluator(
+            input_path=str(test_path),
+            output_dir=str(output_dir),
+            threshold=0.5,
+            metrics=["auc", "precision", "recall", "f1", "confusion_matrix"],
+            segmented_evaluation={
+                "enabled": True,
+                "by": ["geo_region"],
+                "threshold_mode": "youden",
+                "min_samples": 10,
+            },
+            generate_plots=False,
+            generate_html_report=True,
+            generate_json_report=False,
+        )
+
+        model = ProbabilisticMockModel(proba)
+        with patch.object(evaluator, "_load_model", return_value=model):
+            with patch.object(evaluator, "_load_feature_engineering", return_value=None):
+                result = evaluator.execute({})
+
+        # The reconciler still marks the headline as segment-based
+        metrics = result["metrics"]
+        assert metrics.get("threshold") is None, "headline threshold must be None for segment mode"
+        assert "global_threshold_metrics" in metrics, "global numbers must be preserved"
+
+        # The HTML report must exist (this is the line that crashed before the fix)
+        html_files = list(output_dir.glob("*.html"))
+        assert html_files, f"HTML report was not generated in {output_dir}"
+
     def test_disabled_segmented_evaluation_unchanged(self, tmp_path):
         """When segmented_evaluation is absent/disabled, headline MUST remain
         the global-threshold operating point (backward compatibility)."""

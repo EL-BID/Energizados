@@ -8,6 +8,7 @@ sidebar navigation, segment metrics and threshold sweep sections.
 
 import json
 import logging
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -190,9 +191,22 @@ class ReportGenerator:
 
         threshold_sweep_section = ""
         if has_threshold_sweep:
+            # When the headline is reconciled with per-segment thresholds
+            # (segmented_evaluation.threshold_mode != "global"), the reconciler
+            # marks metrics["threshold"] = None (no single threshold). The
+            # threshold sweep is still a global sweep, so mark the operating
+            # point using the preserved global threshold. Without this,
+            # metrics.get("threshold", 0.5) returns None (key exists, default
+            # does not apply) and ``abs(float - None)`` crashes in
+            # _build_threshold_sweep_html.
+            current_threshold = metrics.get("threshold")
+            if not isinstance(current_threshold, (int, float)):
+                current_threshold = (
+                    metrics.get("global_threshold_metrics", {}).get("threshold") or 0.5
+                )
             threshold_sweep_section = self._build_threshold_sweep_html(
                 threshold_metrics,
-                metrics.get("threshold", 0.5),
+                current_threshold,
                 plots_interactive=plots_interactive,
                 plots_embedded=plots_embedded,
             )
@@ -715,6 +729,13 @@ class ReportGenerator:
             n_positives = metrics.get("n_positives", 0)
             pos_rate = metrics.get("positive_rate", 0)
             threshold = metrics.get("threshold", 0.5)
+            # Degenerate segments (too few positives) get inf/None thresholds;
+            # render them as "—" instead of "inf" in the table.
+            threshold_display = (
+                f"{threshold:.4f}"
+                if isinstance(threshold, (int, float)) and math.isfinite(threshold)
+                else "—"
+            )
             auc = metrics.get("auc", 0)
             prec = metrics.get("precision", 0)
             rec = metrics.get("recall", 0)
@@ -733,7 +754,7 @@ class ReportGenerator:
                     <td>{n_samples:,}</td>
                     <td>{n_positives:,}</td>
                     <td>{pos_rate:.2%}</td>
-                    <td>{threshold:.4f}</td>
+                    <td>{threshold_display}</td>
                     <td class="{_heat_class(auc)}">{auc:.4f}</td>
                     <td class="{_heat_class(prec)}">{prec:.4f}</td>
                     <td class="{_heat_class(rec)}">{rec:.4f}</td>
