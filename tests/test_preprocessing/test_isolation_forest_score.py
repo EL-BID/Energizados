@@ -169,6 +169,62 @@ class TestContaminationFromTarget:
         # Should fallback to constructor param
         assert transformer.contamination_ == 0.1
 
+    def test_contamination_clipped_when_target_majority(self):
+        """Regression: clip contamination to 0.5 when y.mean() exceeds sklearn's limit.
+
+        IsolationForest requires contamination in (0.0, 0.5]. When the target is
+        fraud-MAJORITY (e.g. a region-filtered subpopulation at 56% fraud),
+        contamination_from_target=True would pass y.mean()>0.5 to IsolationForest
+        and crash with InvalidParameterError. The transformer must clip to 0.5
+        so the fit succeeds.
+        """
+        X = pd.DataFrame(
+            {
+                "col": [1.0, 2.0, 3.0, 4.0, 5.0],
+            }
+        )
+        y = pd.Series([1, 1, 1, 0, 0])  # 60% positive (fraud majority)
+
+        transformer = IsolationForestScore(
+            contamination_from_target=True,
+            contamination="auto",
+        )
+
+        # Must not raise InvalidParameterError from IsolationForest
+        transformer.fit(X, y)
+
+        # contamination_ clipped to sklearn's maximum (0.5)
+        assert transformer.contamination_ == 0.5
+        assert transformer.is_fitted_
+
+    def test_contamination_clipped_when_all_negative(self):
+        """Regression: clip contamination away from 0 when y.mean() == 0.
+
+        IsolationForest rejects contamination == 0.0 (range is (0.0, 0.5]). An
+        all-negative subpopulation (e.g. a region with no positives in train)
+        would otherwise pass 0.0 and crash with InvalidParameterError — the same
+        bug class as the fraud-majority case. Clip to a tiny positive value so
+        fit() succeeds and the if_score feature is still produced.
+        """
+        X = pd.DataFrame(
+            {
+                "col": [1.0, 2.0, 3.0, 4.0, 5.0],
+            }
+        )
+        y = pd.Series([0, 0, 0, 0, 0])  # all negative
+
+        transformer = IsolationForestScore(
+            contamination_from_target=True,
+            contamination="auto",
+        )
+
+        # Must not raise InvalidParameterError from IsolationForest
+        transformer.fit(X, y)
+
+        # contamination_ clipped into the valid open interval (0.0, 0.5]
+        assert 0.0 < transformer.contamination_ <= 0.5
+        assert transformer.is_fitted_
+
     def test_explicit_contamination(self):
         """Use explicit contamination when contamination_from_target=False."""
         X = pd.DataFrame(

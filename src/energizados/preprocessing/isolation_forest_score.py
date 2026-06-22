@@ -134,7 +134,24 @@ class IsolationForestScore(BaseEstimator, TransformerMixin):
 
         # 2. Resolve contamination
         if self.contamination_from_target and y is not None:
-            self.contamination_ = float(y.mean())
+            y_mean = float(y.mean())
+            # IsolationForest requires contamination in (0.0, 0.5]. Both extremes
+            # are degenerate subpopulations that crash fit() otherwise:
+            #   - fraud-MAJORITY (y.mean() > 0.5): region-filtered dataset, e.g. 56% fraud
+            #     (CELESC v3 F3E1) — passed y.mean()>0.5 and crashed.
+            #   - all-negative (y.mean() == 0.0): a region with no positives in train —
+            #     0.0 is excluded from sklearn's range too.
+            # Clip into the valid open interval. The if_score feature is unaffected:
+            # transform() uses score_samples, which is independent of contamination;
+            # only the internal predict() decision offset is capped.
+            contamination_clipped = min(max(y_mean, 1e-6), 0.5)
+            if contamination_clipped != y_mean:
+                logger.warning(
+                    f"contamination_from_target derived y.mean()={y_mean:.4f} "
+                    f"outside sklearn's valid range (0.0, 0.5] for IsolationForest; "
+                    f"clipping to {contamination_clipped} (degenerate subpopulation)."
+                )
+            self.contamination_ = contamination_clipped
             logger.info(f"Contamination set from y.mean(): {self.contamination_}")
         else:
             if self.contamination_from_target and y is None:
