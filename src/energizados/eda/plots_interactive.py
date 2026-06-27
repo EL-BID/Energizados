@@ -454,130 +454,6 @@ class EDAInteractivePlots:
             logger.warning("Error generating categorical treemap for '%s': %s", col, e)
             return ""
 
-    def inspection_sunburst(self, hierarchy: Dict, title: str = "Inspection Hierarchy") -> str:
-        """
-        Sunburst chart showing inspection process hierarchy.
-
-        Args:
-            hierarchy: Nested dict structure {tipo: {acao: {categories...}}}
-            title: Chart title
-
-        Returns:
-            str: HTML string of the Plotly chart
-        """
-        try:
-            import plotly.graph_objects as go
-
-            if not hierarchy:
-                return ""
-
-            # Flatten hierarchy into sunburst format
-            labels = ["Total"]
-            parents = [""]
-            values = [
-                sum(
-                    sum(
-                        (
-                            sum(c.values())
-                            if isinstance(c, dict) and "categories" in c
-                            else (c.get("count", 0) if isinstance(c, dict) else 0)
-                        )
-                        for c in acao.values()
-                        if isinstance(acao, dict)
-                    )
-                    for acao in tipo.values()
-                )
-                for tipo in hierarchy.values()
-            ]
-
-            for tipo, acao_dict in hierarchy.items():
-                labels.append(str(tipo))
-                parents.append("Total")
-
-                tipo_count = 0
-                for acao, acao_data in acao_dict.items():
-                    if isinstance(acao_data, dict):
-                        count = acao_data.get("count", 0)
-                        categories = acao_data.get("categories", {})
-                        tipo_count += count
-
-                        labels.append(str(acao))
-                        parents.append(str(tipo))
-
-                        for cat, cat_count in categories.items():
-                            labels.append(str(cat))
-                            parents.append(str(acao))
-                            values.append(cat_count)
-
-                    if isinstance(acao_data, dict):
-                        values.append(acao_data.get("count", 0))
-
-            fig = go.Figure(
-                go.Sunburst(
-                    labels=labels,
-                    parents=parents,
-                    values=values,
-                    branchvalues="total",
-                    hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
-                )
-            )
-
-            fig.update_layout(
-                title=title,
-                template=self.template,
-                height=600,
-            )
-
-            return self._to_html(fig)
-
-        except ImportError:
-            logger.warning("plotly not available, skipping inspection sunburst")
-            return ""
-        except Exception as e:
-            logger.warning("Error generating inspection sunburst: %s", e)
-            return ""
-
-    def inspection_funnel(self, funnel_data: List[Dict], title: str = "Inspection Funnel") -> str:
-        """
-        Funnel chart showing inspection process progression.
-
-        Args:
-            funnel_data: List of dicts [{stage, count, pct_of_total}]
-            title: Chart title
-
-        Returns:
-            str: HTML string of the Plotly chart
-        """
-        try:
-            import plotly.graph_objects as go
-
-            if not funnel_data:
-                return ""
-
-            fig = go.Figure(
-                go.Funnel(
-                    y=[d.get("stage", "") for d in funnel_data],
-                    x=[d.get("count", 0) for d in funnel_data],
-                    textinfo="label+value+percent initial",
-                    hovertemplate="<b>%{y}</b><br>Count: %{x}<br>Initial percentage: %{percentInitial:.1%}<extra></extra>",
-                )
-            )
-
-            fig.update_layout(
-                title=title,
-                template=self.template,
-                height=max(400, len(funnel_data) * 50),
-            )
-
-            return self._to_html(fig)
-
-        except ImportError:
-            logger.warning("plotly not available, skipping inspection funnel")
-            return ""
-        except Exception as e:
-            logger.warning("Error generating inspection funnel: %s", e)
-            return ""
-
     def scatter_mapbox(
         self,
         df: pd.DataFrame,
@@ -1069,10 +945,6 @@ class EDAInteractivePlots:
             logger.warning("Error generating target rate chart for '%s': %s", col, e)
             return ""
 
-    def woe_by_bins_chart(self, woe_table: pd.DataFrame, col: str) -> str:
-        """WoE chart for numeric column bins (delegates to existing woe_chart)."""
-        return self.woe_chart(woe_table, col)
-
     def temporal_distribution_chart(self, series: pd.Series, col_name: str) -> str:
         """Line chart showing record count over time (monthly)."""
         try:
@@ -1271,63 +1143,6 @@ class EDAInteractivePlots:
             return self._to_html(fig)
         except Exception as e:
             logger.warning("Error generating hierarchy target heatmap: %s", e)
-            return ""
-
-    def segment_barplot(
-        self, segment_stats: List[Dict], title: str = "Fraud Rate by Segment"
-    ) -> str:
-        """
-        Bar chart showing fraud rate by segment.
-
-        Args:
-            segment_stats: List of dicts [{segment, size, target_rate, z_score}]
-            title: Chart title
-
-        Returns:
-            str: HTML string of the Plotly chart
-        """
-        try:
-            import plotly.graph_objects as go
-
-            if not segment_stats:
-                return ""
-
-            top_segments = sorted(
-                segment_stats, key=lambda x: abs(x.get("z_score", 0)), reverse=True
-            )[:20]
-
-            segments = [s["segment"] for s in top_segments]
-            rates = [s.get("target_rate", 0) * 100 for s in top_segments]
-            sizes = [s.get("size", 0) for s in top_segments]
-
-            fig = go.Figure()
-
-            fig.add_trace(
-                go.Bar(
-                    x=segments,
-                    y=rates,
-                    text=[f"{r:.1f}%<br>(n={s:,})" for r, s in zip(rates, sizes)],
-                    textposition="outside",
-                    marker_color=["#F44336" if r > 5 else "#2196F3" for r in rates],
-                )
-            )
-
-            fig.update_layout(
-                title=title,
-                xaxis_title="Segment",
-                yaxis_title="Fraud Rate (%)",
-                template=self.template,
-                height=max(400, len(segments) * 25),
-                xaxis={"tickangle": -45},
-            )
-
-            return self._to_html(fig)
-
-        except ImportError:
-            logger.warning("plotly not available, skipping segment barplot")
-            return ""
-        except Exception as e:
-            logger.warning("Error generating segment barplot: %s", e)
             return ""
 
     # ------------------------------------------------------------------

@@ -1359,13 +1359,9 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             for s in top_segments
         )
 
-        segment_chart = charts.get("segment_barplot", "")
-
         return f"""
 <div class="section" id="segmentacion">
     <h2>Phase 6: Segmentation Analysis</h2>
-
-    {f'<div class="chart-container">{segment_chart}</div>' if segment_chart else ""}
 
     <h3>Segments with Greatest Fraud Rate Difference</h3>
     <table class="data-table">
