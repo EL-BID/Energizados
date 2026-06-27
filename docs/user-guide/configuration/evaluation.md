@@ -112,7 +112,7 @@ evaluation:
 | Mode | Description |
 |------|-------------|
 | `global` | Uses the same threshold for all segments (from `evaluation.threshold` or calibration) |
-| `youden` | Finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1) |
+| `youden` | Finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1). The string `"segment"` is accepted as a friendly alias for `"youden"` (resolved before the segment loop to avoid parameter mutation). |
 | `f1_optimal` | Maximizes F1 score independently per segment |
 | `recall_target` | Finds threshold that achieves target recall per segment |
 
@@ -147,11 +147,28 @@ When enabled, segmented evaluation generates:
        "Norte|Leste": { ... }
      }
    }
-   ```
+    ```
 
 3. **HTML report**: New "Segmented Evaluation" section with:
    - Heatmap-colored table (green ≥0.7, yellow ≥0.4, red <0.4)
    - Columns: Segment, N Samples, N Positives, Positive Rate, Threshold, AUC, Precision, Recall, F1
+
+### Exporting per-segment thresholds
+
+When `segmented_evaluation.by` is set, evaluation exports `segment_thresholds_{column}.json` per segment column (one file per column in the `by` list). These JSON files include `threshold_mode`, `default_threshold`, and per-segment `threshold`, `auc`, and `n_samples` values. The files are consumed by inference `segment_thresholds` to apply per-row thresholds during prediction. See the [Inference configuration](infer.md) for usage.
+
+Example structure:
+```json
+{
+  "segment_column": "zona",
+  "threshold_mode": "youden",
+  "default_threshold": 0.5,
+  "segments": {
+    "Norte": { "threshold": 0.42, "auc": 0.82, "n_samples": 150 },
+    "Sur": { "threshold": 0.48, "auc": 0.78, "n_samples": 180 }
+  }
+}
+```
 
 ---
 

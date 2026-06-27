@@ -159,6 +159,22 @@ pip install tensorflow-cpu>=2.10.0
 
 ---
 
+## XGBoost Installation Errors
+
+### Symptom
+
+Error importing XGBoost or installing `energizados[xgboost]`
+
+### Solution
+
+XGBoost is an optional dependency. If import fails, install it explicitly:
+
+```bash
+pip install energizados[xgboost]
+```
+
+---
+
 ## ETL Execution Errors
 
 ### Symptom
@@ -176,7 +192,7 @@ ls -la data/raw/  # Verify input files exist
 2. Validate configuration:
 
 ```bash
-energizados validate config/etl.yaml -v
+energizados validate etl -v
 ```
 
 3. Run with verbose output:
@@ -340,7 +356,7 @@ This checks:
 ### 2. Validate Configuration
 
 ```bash
-energizados validate config/etl.yaml,config/train.yaml -v
+energizados validate etl,train -v
 ```
 
 This verifies:

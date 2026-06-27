@@ -39,6 +39,7 @@ Energizados provides a complete toolkit for electricity theft detection:
 |------------|-------------|----------|
 | `lightgbm` | Gradient Boosting | Fast training, tabular data |
 | `catboost` | CatBoost | Native categorical handling |
+| `xgboost` | Gradient Boosting (sklearn-compatible) | Strong tabular accuracy, optional dep |
 | `neural_network` | Feedforward Dense NN | Quick baseline with embeddings |
 | `lstm` | LSTM | Sequential consumption patterns |
 | `simple_trend` | Rule-based trend | Fast fraud rules, no ML |

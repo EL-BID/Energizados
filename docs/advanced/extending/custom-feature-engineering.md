@@ -222,6 +222,8 @@ train:
 
 ## Available Preprocessing Transformations
 
+> **Note:** Global transformers (listed below) are documented in full detail in the [Training Configuration → Global Transformers](../../user-guide/configuration/train.md#global-transformers) section, including the pre/post encoding stage distinction.
+
 | Transformation | Description | Parameters |
 |----------------|-------------|------------|
 | `cardinality_reducer` | Groups infrequent categories into "otros" | `threshold` (float, class default=0.1; YAML template default=0.001) |
@@ -232,8 +234,13 @@ train:
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=None — inline `{domain: [names]}` selection; if null uses all domains and logs the list), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior"), `count_nulls` (bool, default=False) |
-| `group_relative_consumption` | Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` | `group_column` (str, default="actividad"), `windows` (list[int], default=[3,6,12]), `metrics` (list[str], default=["mean","max"]), `periods_suffix` (str, default="_anterior") |
-| `seasonal_anomaly` | Seasonal z-score for each month vs group mean/std for that calendar month. Generates `seasonal_anomaly_{i}_anterior` | `group_column` (str, default="actividad"), `date_column` (str, required), `periods_suffix` (str, default="_anterior") |
+| `group_relative_consumption` | **[pre-encoding]** Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` | `group_column` (str, default="actividad"), `windows` (list[int], default=[3,6,12]), `metrics` (list[str], default=["mean","max"]), `periods_suffix` (str, default="_anterior") |
+| `seasonal_anomaly` | **[pre-encoding]** Seasonal z-score for each month vs group mean/std for that calendar month. Generates `seasonal_anomaly_{i}_anterior` | `group_column` (str, default="actividad"), `date_column` (str, required), `periods_suffix` (str, default="_anterior") |
+| `clip_outliers` | Clips extreme values in consumption columns (run first among post-encoding transformers) | `threshold` (float, default=100000), `columns` (list, default=null), `periods_suffix` (str, default="_anterior") |
+| `consumption_patterns` | Domain-specific fraud detection features (diff ratios, zero ratio, z-score, slope, consistency, drastic changes, autocorrelation, seasonal ratio) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior"), plus enable flags (see train.md) |
+| `if_score` | Isolation Forest anomaly score (inverted; higher = more anomalous) | `n_estimators` (int, default=100), `contamination` (float/str, default="auto"), `contamination_from_target` (bool, default=false), plus other params (see train.md) |
+| `temporal_features` | Calendar features from a date column with flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding. Cyclic encoding preserves calendar circularity (Dec & Jan are neighbors) | `date_column` (str, required), `features` (list, default=["month","quarter","week","dayofweek"]), `encoding` (str, default="both" — "flat"/"cyclic"/"both"), `drop_date_column` (bool, default=false) |
+| `geo_features` | **Moved to ETL** — use `GeoFeaturesETL` in `etl.yaml`. For target encoding of geographic columns only, use `GeoFeatures` via `custom_class`. | — |
 
 ## Global Transformers
 

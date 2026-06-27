@@ -132,7 +132,7 @@ energizados init mi_proyecto
 energizados run etl,train
 
 # Validate configuration
-energizados validate --config config/etl.yaml --config config/train.yaml
+energizados validate etl,train
 ```
 
 ## Working with Documentation

@@ -262,4 +262,4 @@ The "best" model depends on your business constraints:
 - [Ensemble Models](ensemble-models.md) - Combine multiple models for better performance
 - [End-to-End Example](end-to-end-example.md) - Hands-on tutorial
 - [Understanding Results](../user-guide/understanding-results.md) - Interpreting evaluation metrics
-- [Configuration Guide](../configuration/) - Detailed configuration options
+- [Configuration Guide](../user-guide/configuration/) - Detailed configuration options

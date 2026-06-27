@@ -495,7 +495,7 @@ Run after the main dataset-building ETL and before training.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `geo_cluster` | int | KMeans cluster label (−1 for invalid/zero coordinates) |
+| `geo_cluster` | int | KMeans cluster label (−1 for invalid/zero coordinates). Set `include_cluster: false` to suppress this column. |
 | `geo_estado` | str | Brazilian state (UF) from IBGE spatial join |
 | `geo_municipio` | str | Municipality from IBGE spatial join |
 | `geo_regiao` | str | Macro region (Norte, Nordeste, Sudeste, Sul, Centro-Oeste) |
@@ -540,11 +540,14 @@ geo_features:
 | `lon_col` | string | `"longitud"` | Longitude column name (Spanish spelling by default) |
 | `n_clusters` | int | `10` | Number of KMeans geographic clusters |
 | `random_state` | int | `42` | Random seed for KMeans |
+| `include_cluster` | bool | `true` | When `false`, skip KMeans `geo_cluster` column while still generating IBGE hierarchy + distance features. Useful when `stratified_time` split is not needed. |
 | `include_hierarchy` | bool / list | `true` | Add IBGE hierarchy columns. `true` = all three (`geo_estado`, `geo_municipio`, `geo_regiao`), `false` = none, or a list of level names (`"estado"`, `"municipio"`, `"regiao"`) to include only specific levels. |
 | `include_distances` | bool | `true` | Add haversine distance columns to reference cities |
 | `distance_cities` | list | `null` (top-5) | Cities for distance calculation (see available list below). If `null`, defaults to the top 5. |
 | `include_coords` | bool | `false` | Keep original lat/lon columns in output |
 | `cache_dir` | string | `null` | Directory to persist IBGE shapefiles on disk |
+| `regions_file` | str | `null` | Path to a `REGION;CITY` CSV. Assigns `geo_regiao` by matching IBGE municipality names to `CITY` (accent- and case-insensitive). Takes priority over `region_cities`. Logs matched/unmatched municipalities; stores `matched_municipalities_`/`unmatched_municipalities_` on `fit()`. |
+| `region_cities` | list | `null` | List of `REFERENCE_CITIES` keys. When set and `regions_file` is not provided, `geo_regiao` is the nearest city by haversine distance instead of the IBGE macro-region. |
 
 **Available cities for `distance_cities`:**
 

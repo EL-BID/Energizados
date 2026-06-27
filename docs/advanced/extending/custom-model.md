@@ -310,8 +310,9 @@ The framework includes several built-in model adapters:
 
 | Model | Class | Description |
 |-------|-------|-------------|
-| LightGBM | `LGBMModel` | Gradient boosting with native categorical support |
-| CatBoost | `CATModel` | Gradient boosting with automatic categorical handling |
+| LightGBM | `LGBMModel` / `LGBMModelAdapter` | Gradient boosting with native categorical support |
+| CatBoost | `CATModel` / `CATModelAdapter` | Gradient boosting with automatic categorical handling |
+| XGBoost | `XGBModel` / `XGBModelAdapter` | Gradient boosting, sklearn-compatible (optional dep: `pip install energizados[xgboost]`) |
 | Neural Network | `NNModel` | Feedforward neural network (TensorFlow/Keras) |
 | LSTM | `LSTMNNModel` | LSTM for sequential consumption data |
 | Simple Trend | `SimpleTrendAdapter` | Rule-based model detecting dramatic consumption drops |

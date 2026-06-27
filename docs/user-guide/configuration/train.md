@@ -167,6 +167,103 @@ split:
 
 **Class imbalance warning:** A `WARNING` is logged if any split's positive-class rate falls below 10% or exceeds 90%, since group-based splits cannot guarantee stratification.
 
+#### Stratified Time Split
+
+Temporal split within each geographic cluster. Requires the `geo_cluster` column produced by `GeoFeaturesETL`. Performs a time-based split separately for each cluster, maintaining geographic representation across train/val/test sets.
+
+```yaml
+split:
+  method: "stratified_time"
+  date_column: "fecha_inspeccion"
+  cluster_column: "geo_cluster"   # requires GeoFeaturesETL run beforehand
+  test_size: 0.15
+  val_size: 0.15
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `method` | string | - | Must be `"stratified_time"` |
+| `date_column` | string | - | Date column for temporal ordering (required) |
+| `cluster_column` | string | - | Column containing cluster IDs (e.g., `geo_cluster` from GeoFeaturesETL) (required) |
+| `test_size` | float | `0.15` | Proportion of data for test set |
+| `val_size` | float | `0.15` | Proportion of data for validation set |
+
+**Important:** Requires `GeoFeaturesETL` to be executed before training to generate the `cluster_column` (e.g., `geo_cluster`). Each cluster is split independently using time-based logic, then the splits are combined.
+
+#### Unlabeled Negatives (Optional)
+
+Injects unlabeled contracts as `target=0` samples into the train split to reduce selection bias. Useful when the labeled dataset is biased toward inspected contracts (e.g., only high-risk or region-specific inspections).
+
+```yaml
+split:
+  method: "time_series"
+  date_column: "fecha_inspeccion"
+  train_period: ["2010-01-01", "2017-08-01"]
+  val_period: ["2017-09-01", "2017-12-31"]
+  test_period: ["2018-01-01"]
+
+  # Optional: inject unlabeled negatives as target=0 (reduces selection bias)
+  unlabeled_negatives:
+    enabled: true
+    source_path: "data/external/unlabeled.parquet"
+    max_per_cutoff: 1500
+    random_state: 42
+    date_column: "fecha_inspeccion"
+    id_column: "contract_id"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Whether to inject unlabeled negatives |
+| `source_path` | string | - | Path to external parquet file with unlabeled contracts (required when enabled) |
+| `max_per_cutoff` | int | `1500` | Maximum number of unlabeled negatives to sample per cutoff period |
+| `random_state` | int | `42` | Random seed for reproducibility |
+| `date_column` | string | - | Date column for time-based filtering and deduplication |
+| `id_column` | string | - | Contract ID column for deduplication (excludes contracts already in val/test) |
+
+**Important:** Unlabeled negatives are added to the **train split only**. Contracts present in val/test sets are excluded via deduplication on `id_column`.
+
+#### Geo-Stratify (Optional)
+
+Balances geographic representation in the train set by limiting samples per stratum. Useful when some regions are overrepresented and you want a more balanced training distribution.
+
+```yaml
+split:
+  method: "stratified"
+  test_size: 0.2
+  val_size: 0.1
+  random_state: 42
+
+  # Optional: balance geographic representation in train set
+  geo_stratify:
+    enabled: true
+    column: "geo_region"
+    strategy: "proportional"  # proportional | equal | capped
+    max_per_stratum: null     # required when strategy: capped
+    random_state: 42
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Whether to apply geo-stratification |
+| `column` | string | - | Column defining geographic strata (required when enabled) |
+| `strategy` | string | - | Strategy: `proportional` (cap to median), `equal` (reduce to min), or `capped` (cap at max_per_stratum) |
+| `max_per_stratum` | int | - | Maximum samples per stratum (required when `strategy="capped"`) |
+| `random_state` | int | `42` | Random seed for reproducibility |
+
+**Strategies:**
+- `proportional`: Caps each stratum to the median count (reduces overrepresented regions proportionally)
+- `equal`: Reduces all strata to the minimum count (aggressive balancing)
+- `capped`: Caps each stratum to `max_per_stratum` (manual control)
+
+**Warning:** A `WARNING` is logged if geo-stratification would remove more than 50% of training data. This is a guardrail against aggressive downsampling.
+
 ---
 
 ## Feature Engineering Configuration
@@ -385,6 +482,10 @@ Domain-specific fraud detection features derived from the consumption time serie
 | `enable_consistency` | bool | `true` | Enable consistency score feature |
 | `enable_drastic_changes` | bool | `true` | Enable drastic changes count feature |
 | `drastic_threshold` | float | `0.5` | Threshold for drastic changes (0.5 = 50%) |
+| `enable_last_period_zscore` | bool | `false` | Enable z-score of last period vs client's own mean/std (adds `zscore_last_vs_history_N`) |
+| `enable_autocorr_lag1` | bool | `false` | Enable lag-1 autocorrelation (adds `autocorr_lag1_N`) — low values signal manipulation |
+| `enable_seasonal_ratio` | bool | `false` | Enable summer/winter seasonal ratio (adds `seasonal_ratio_N`) — southern hemisphere context |
+| `date_column` | str | `null` | Inspection date column (required when `enable_seasonal_ratio=true`) |
 
 **Generated features (when enabled):**
 - `diff_X_Y`: Ratio of change between consecutive periods
@@ -394,6 +495,9 @@ Domain-specific fraud detection features derived from the consumption time serie
 - `slope_normalized_X`: Slope normalized by mean
 - `consistency_score_X`: Consistency score (low variability = suspicious)
 - `drastic_changes_count_X`: Count of changes exceeding threshold
+- `zscore_last_vs_history_N`: Z-score of last period vs client's own mean/std (when `enable_last_period_zscore=true`)
+- `autocorr_lag1_N`: Lag-1 autocorrelation (when `enable_autocorr_lag1=true`)
+- `seasonal_ratio_N`: Summer/winter mean ratio (when `enable_seasonal_ratio=true`, southern hemisphere)
 
 #### group_relative_consumption
 
@@ -608,7 +712,7 @@ feature_selection:
 
 ### Available Model Types
 
-Energizados supports eight model types:
+Energizados supports seven model types:
 
 | Type | Aliases | Description | Requires Preprocessing |
 |------|---------|-------------|----------------------|
@@ -848,6 +952,7 @@ ensemble:
 | `meta_learner.params` | dict | - | Meta-learner hyperparameters |
 | `use_val_as_oof` | boolean | `true` | Use validation set for OOF (blending) |
 | `cv` | int | `5` | Number of CV folds (only when `use_val_as_oof=false`) |
+| `skip_base_fit` | boolean | - | Internal to EnsembleModel API; not a user-facing YAML config. The built-in training flow always pre-fits base models and sets this internally when training the ensemble. |
 
 **Ensemble Methods:**
 

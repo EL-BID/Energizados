@@ -23,6 +23,8 @@ src/energizados/
 ├── preprocessing/              # Data cleaning and feature engineering transformers
 │   ├── preprocessing.py      # Core transformers (ToDummy, TeEncoder, etc.)
 │   ├── geo_features.py      # GeoFeatures transformer + _IBGEGeocoder
+│   ├── group_features.py    # GroupRelativeConsumption, SeasonalAnomaly (pre-encoding transformers)
+│   ├── isolation_forest_score.py  # IsolationForestScore anomaly scorer
 │   └── base.py             # BaseTransformer abstract class
 │
 ├── modeling/                   # Model implementations
@@ -210,7 +212,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | Module | Responsibility |
 |---------|---------------|
 | `etl/base.py` | `BaseETL` abstract class for custom ETL implementations |
-| `etl/pipeline.py` | `SourceETL` - supports concat (vertical) and merge (horizontal) modes |
+| `etl/pipeline.py` | `SourceETL` - supports concat (vertical), merge (horizontal), and incremental (record-level filtering) modes. Also includes `ClipOutliersETL` (clips extreme values in consumption columns), `CleanFilesETL` (deletes specified files), and `GeoFeaturesETL` (adds geographic features from lat/lon). |
 | `etl/orchestrator.py` | `ETLOrchestrator` - manages ETL execution order based on dependencies |
 
 ### Feature Engineering
@@ -227,8 +229,8 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 
 | Module | Responsibility |
 |---------|---------------|
-| `modeling/supervised_models.py` | LGBMModel, CATModel, NNModel, LSTMNNModel implementations |
-| `modeling/adapters.py` | Model adapters for framework integration |
+| `modeling/supervised_models.py` | LGBMModel, CATModel, XGBModel, NNModel, LSTMNNModel implementations |
+| `modeling/adapters.py` | Model adapters for framework integration: LGBMModelAdapter, CATModelAdapter, XGBModelAdapter, NNModelAdapter, LSTMNNModelAdapter |
 | `modeling/ensemble.py` | EnsembleModel: soft voting or stacking with meta-learner |
 | `modeling/simple_models.py` | Rule-based baseline models |
 
@@ -248,6 +250,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 |---------|---------------|
 | `inference/base.py` | `BaseInference` abstract class for custom inference |
 | `inference/default.py` | `DefaultInference` - standard inference implementation |
+| `inference/hierarchical.py` | `HierarchicalInference` - routes rows to different models based on column-value conditions (multi-model inference with fallback) |
 
 ### EDA Module
 

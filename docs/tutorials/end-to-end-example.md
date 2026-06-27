@@ -355,13 +355,13 @@ python << 'EOF'
 import pandas as pd
 
 preds = pd.read_parquet("output/inference_predictions.parquet")
-print(preds[['fraud_probability', 'fraud_prediction']].sort_values('fraud_probability', ascending=False))
+print(preds[['probability', 'prediction']].sort_values('probability', ascending=False))
 EOF
 ```
 
 **Expected output**:
 ```
-      fraud_probability  fraud_prediction
+      probability  prediction
 7               0.7842                 1
 2               0.6521                 1
 5               0.4123                 0
@@ -375,8 +375,8 @@ EOF
 ```
 
 The predictions include:
-- **fraud_probability**: Model's confidence score (0-1)
-- **fraud_prediction**: Binary prediction (1 = fraud, 0 = legitimate) based on threshold
+- **probability**: Model's confidence score (0-1)
+- **prediction**: Binary prediction (1 = fraud, 0 = legitimate) based on threshold
 
 ## Step 8: What to Do Next
 
@@ -449,5 +449,5 @@ In this tutorial, you:
 
 - [Model Selection Guide](model-selection-guide.md) - Choose the right model for your use case
 - [Ensemble Models](ensemble-models.md) - Combine multiple models for better performance
-- [Advanced Configuration](../configuration/) - Deep dive into configuration options
+- [Advanced Configuration](../user-guide/configuration/) - Deep dive into configuration options
 - [Understanding Results](../user-guide/understanding-results.md) - Master result interpretation

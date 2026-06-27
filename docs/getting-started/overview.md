@@ -68,6 +68,8 @@ More complex models trained on labeled data:
 
 **CatBoost** — Gradient boosting with native support for categorical features, no manual encoding required.
 
+**XGBoost** — Gradient boosting (sklearn-compatible) with strong tabular accuracy. Optional dependency: install with `pip install energizados[xgboost]`.
+
 **Ensemble** — Combines multiple base models via soft voting (weighted average of probabilities) or stacking (a meta-learner trained on base model predictions).
 
 ### Stage 3 — Model Evaluation

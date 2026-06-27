@@ -310,11 +310,26 @@ pytest tests/test_custom_inference.py -v
 
 ## Available Built-in Inference
 
-The framework includes a built-in inference implementation:
+The framework includes built-in inference implementations:
 
 | Class | Description | Location |
 |-------|-------------|----------|
-| `DefaultInference` | Standard inference using model's predict methods | `src/energizados/inference/default.py` |
+| `DefaultInference` | Standard inference using model's predict methods. Supports per-segment thresholds and business rules overlays via `infer.yaml` configuration. | `src/energizados/inference/default.py` |
+| `HierarchicalInference` | Route-based multi-model inference: routes rows to different models based on column-value conditions, with a fallback default model. Loaded via `routes`/`default_model_path` in `infer.yaml` — no custom code needed. | `src/energizados/inference/hierarchical.py` |
+
+### Before Writing a Custom Inference Class
+
+Before reaching for a custom `BaseInference` subclass, check whether the native post-processing layers already cover your need:
+
+- **Per-segment thresholds**: Use `segment_thresholds` in `infer.yaml` to apply different operating points per region, zone, or any segment column. The JSON file is exported automatically by evaluation when `evaluation.segment_columns` is configured in `train.yaml`. See [Inference Guide](../../user-guide/configuration/infer.md#segment-thresholds).
+
+- **Business rules overlay**: Use `business_rules` in `infer.yaml` to apply rule-based modifications to predictions after segment thresholds. Rules evaluate pandas expressions against raw pre-FE data and can `flag`, `override`, or boost scores. See [Inference Guide](../../user-guide/configuration/infer.md#business-rules-overlay).
+
+- **Hierarchical routing**: Use `routes` in `infer.yaml` to route rows to different models based on column-value conditions (e.g., per-region models). `HierarchicalInference` loads route models automatically — no custom code needed. See [Inference Guide](../../user-guide/configuration/infer.md#hierarchical--route-based-inference).
+
+All three features are configured in `infer.yaml` and require no custom Python code. They also preserve the inference pipeline order: model → segment thresholds → business rules → final predictions.
+
+When these native features are insufficient (e.g., you need custom external API calls, complex stateful logic, or integration with other systems), then implement a custom inference class.
 
 ## See Also
 
