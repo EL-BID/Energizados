@@ -432,6 +432,16 @@ class DefaultFeatureEngineering(BaseFeatureEngineering):
         if self.selector is not None:
             return self.selector.get_selected_features()
 
+        # No feature selection: fall back to the preprocessor's output feature
+        # names. Previously this returned None (no return statement), breaking
+        # the -> list contract and crashing callers that iterate the result.
+        if self.preprocessor is not None:
+            try:
+                return list(self.preprocessor.get_feature_names_out())
+            except Exception:
+                logger.debug("Could not derive feature names from preprocessor", exc_info=True)
+        return []
+
     def get_preprocessor(self):
         """Returns the fitted preprocessor.
 
