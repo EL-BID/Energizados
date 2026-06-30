@@ -328,13 +328,19 @@ class TestStackingOOF:
 
 
 class TestEnsembleRegistry:
-    def test_ensemble_registered(self):
+    # EnsembleModel is intentionally NOT registered in ModelRegistry. It is
+    # constructed directly by TrainingStep._train_ensemble and is absent from
+    # MODEL_CONFIG_SCHEMA["type"]["enum"], so registering it would let
+    # ``type: ensemble`` reach registry.get() while validate() rejects it — a
+    # config-vs-code drift. These tests pin the corrected contract.
+
+    def test_ensemble_not_registered(self):
         from energizados.modeling.registry import ModelRegistry
 
-        assert ModelRegistry.is_registered("ensemble")
+        assert not ModelRegistry.is_registered("ensemble")
 
-    def test_ensemble_class_is_ensemble_model(self):
+    def test_ensemble_get_raises_keyerror(self):
         from energizados.modeling.registry import ModelRegistry
 
-        cls = ModelRegistry.get("ensemble")
-        assert cls is EnsembleModel
+        with pytest.raises(KeyError):
+            ModelRegistry.get("ensemble")

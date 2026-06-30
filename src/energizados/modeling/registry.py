@@ -120,10 +120,10 @@ def _register_default_models():
         ModelRegistry.register("simple_trend", SimpleTrendAdapter)
         ModelRegistry.register("simple_constant", SimpleConstantAdapter)
 
-        # Ensemble model
-        from energizados.modeling.ensemble import EnsembleModel
-
-        ModelRegistry.register("ensemble", EnsembleModel)
+        # NOTE: EnsembleModel is intentionally NOT registered here. It cannot be
+        # created through the registry (its __init__ requires base_models /
+        # model_types / model_names) and MODEL_CONFIG_SCHEMA.type.enum does not
+        # include "ensemble". It is built directly in TrainingStep._train_ensemble.
 
     except ImportError as e:
         # Models may not be available if dependencies are missing
