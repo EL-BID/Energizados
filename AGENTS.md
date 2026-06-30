@@ -695,6 +695,28 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 
 The project documentation and comments are in English. The codebase uses Spanish variable names for features (e.g., `actividad`, `tipo_tarifa`, `zona`) but English for class/method names.
 
+### Exception Hierarchy (Public API)
+
+The exception hierarchy in `src/energizados/core/exceptions.py` is a **stable public API**. Every framework exception subclasses `EnergizadosError`, so `except EnergizadosError` catches all framework errors. Types that replace a stdlib exception additionally inherit it, so existing `except ValueError` / `except RuntimeError` callers keep working.
+
+| Type | Bases | Raised by |
+|------|-------|-----------|
+| `EnergizadosError` | `(Exception,)` | Public base — `except EnergizadosError` catches all framework errors |
+| `PipelineError` | `(EnergizadosError,)` | `Pipeline.run` wrapping unexpected step errors (preserves cause on `__cause__`) |
+| `StepValidationError` | `(EnergizadosError,)` | Step input/context validation failures |
+| `ConfigurationError` | `(EnergizadosError,)` | YAML config format/value/missing-field errors |
+| `ETLError` | `(EnergizadosError,)` | ETL extract/transform/load phase errors |
+| `ETLDependencyError` | `(EnergizadosError,)` | ETL DAG dependency/cycle errors |
+| `ModelNotFittedError` | `(EnergizadosError, ValueError)` | `predict`/`transform`/`save` on an unfitted model, feature-engineering, or selector |
+| `TransformerError` | `(EnergizadosError, ValueError)` | Feature-engineering transform failures |
+| `FeatureSelectionError` | `(EnergizadosError, ValueError)` | Feature-selection operation failures |
+| `InferenceError` | `(EnergizadosError, RuntimeError)` | Inference engine failures (e.g. `predict_proba` before `load_model`) |
+| `EvaluatorError` | `(EnergizadosError,)` | Evaluation/reporting failures (no raise site yet — reserved) |
+
+**Boundary contract:** `Pipeline.run` re-raises any `EnergizadosError` subclass from a step unchanged (type/attributes/traceback preserved); only non-framework `Exception`s are wrapped as `PipelineError` via `from e`. Catch `except EnergizadosError` (not `except PipelineError`) to intercept inner framework errors.
+
+**Stability commitment:** This hierarchy is frozen public API. Future changes (renames, base-class changes, removals) require a deprecation path — never a silent break. Adding new subclasses of `EnergizadosError` is allowed and non-breaking.
+
 ## Skills
 
 | Skill | Description | Trigger |

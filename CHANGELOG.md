@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Inference: Per-segment thresholds** (`inference.segment_thresholds`) — load `segment_thresholds.json` and apply per-row thresholds based on segment column; `fallback_threshold` for unknown segments; `ValueError` raised if segment column missing from inference data
 - **Evaluation: `threshold_mode="segment"` alias** — friendly alias for `"youden"` in segmented metrics; resolved before the loop to avoid parameter mutation
 - **Skill: `version-deliverable`** — generate per-version deliverable documents with experiment summary and model comparison
+- **Core: public exception types** — added `TransformerError`, `FeatureSelectionError`, `InferenceError`, `EvaluatorError`. `ModelNotFittedError` now also subclasses `ValueError` (additive — `except ValueError` still catches it). Fitted-state guards in `BaseFeatureEngineering`/`BaseFeatureSelector` and the `HierarchicalInference` "models not loaded" path now raise these typed errors.
+
+### Changed
+
+- **Core: `Pipeline.run` preserves framework exceptions** — `Pipeline.run` now re-raises `EnergizadosError` subclasses (e.g. `ConfigurationError`, `ETLDependencyError`) unchanged instead of wrapping them as `PipelineError`. Only unexpected (`Exception`) step errors are wrapped as `PipelineError` with the original preserved on `__cause__`. **Migration:** catch `except EnergizadosError` where you previously caught `except PipelineError` for inner framework errors (`except EnergizadosError` is an additive superset that still catches `PipelineError`).
 
 ### Fixed
 
