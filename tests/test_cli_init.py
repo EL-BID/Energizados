@@ -495,27 +495,26 @@ class TestPerSectionSchemaVersion:
         """Verify that each generated config file has schema_version inside its root section."""
         import yaml
 
+        from energizados._version import CURRENT_SCHEMA_VERSIONS
+
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
             assert result.exit_code == 0
 
             config_dir = Path(tmpdir) / "test_project" / "config"
 
-            # etl.yaml -> etl.schema_version
+            # Each config must declare the current schema_version for its section
             etl_data = yaml.safe_load((config_dir / "etl.yaml").read_text())
-            assert etl_data["etl"]["schema_version"] == 1
+            assert etl_data["etl"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["etl"]
 
-            # train.yaml -> train.schema_version
             train_data = yaml.safe_load((config_dir / "train.yaml").read_text())
-            assert train_data["train"]["schema_version"] == 1
+            assert train_data["train"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["train"]
 
-            # infer.yaml -> infer.schema_version
             infer_data = yaml.safe_load((config_dir / "infer.yaml").read_text())
-            assert infer_data["infer"]["schema_version"] == 1
+            assert infer_data["infer"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["infer"]
 
-            # eda.yaml -> eda.schema_version
             eda_data = yaml.safe_load((config_dir / "eda.yaml").read_text())
-            assert eda_data["eda"]["schema_version"] == 1
+            assert eda_data["eda"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["eda"]
 
     def test_no_general_yaml_created(self):
         """Verify that general.yaml is NOT created by init."""

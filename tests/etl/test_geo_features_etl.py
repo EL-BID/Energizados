@@ -286,7 +286,7 @@ def test_hierarchy_levels_invalid_raises(tmp_path):
         include_distances=False,
     )
     raw = etl.extract()
-    with pytest.raises(ValueError, match="Invalid hierarchy levels"):
+    with pytest.raises(ValueError, match="Invalid hierarchy level"):
         etl.transform(raw)
 
 

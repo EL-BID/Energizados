@@ -35,11 +35,14 @@ class _DummyModel(BaseModel):
         search_hip=False,
         n_iter=60,
         cv=3,
+        n_splits=5,
+        class_weight=None,
         config=None,
     ):
         super().__init__(config)
         self.proba = proba
         self.cols_for_model = cols_for_model or []
+        self.n_splits = n_splits
 
     def fit(self, X, y, X_val=None, y_val=None):
         self.is_fitted_ = True
