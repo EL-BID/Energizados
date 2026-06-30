@@ -16,6 +16,17 @@ from energizados.core.builders.inference_builder import InferenceBuilder
 from energizados.inference.hierarchical import HierarchicalInference
 
 
+class _TrackingFE:
+    """FE that tracks calls."""
+
+    def __init__(self):
+        self.transform_called = False
+
+    def transform(self, df):
+        self.transform_called = True
+        return df.assign(fe_col=1)
+
+
 class _MockModel:
     """Simple picklable mock model that returns fixed probabilities."""
 
@@ -283,6 +294,70 @@ class TestHierarchicalInferenceFeatureEngineering:
         # SPECIAL -> route model (0.7), NORMAL -> default (0.2)
         expected = np.array([0.7, 0.2])
         np.testing.assert_array_almost_equal(probas, expected)
+
+    def test_default_fe_applied_to_unrouted_rows(self, temp_dir):
+        """Default FE is applied to unrouted rows when __default__ key is configured."""
+        route_model = _MockModel(proba_value=0.8)
+        default_model = _MockModel(proba_value=0.2)
+
+        default_fe = _TrackingFE()
+        route_fe = _SimpleFE()
+
+        model_path = temp_dir / "route_model.pkl"
+        route_fe_path = temp_dir / "route_fe.pkl"
+        default_model_path = temp_dir / "default_model.pkl"
+        default_fe_path = temp_dir / "default_fe.pkl"
+
+        with open(model_path, "wb") as f:
+            pickle.dump(route_model, f)
+        with open(route_fe_path, "wb") as f:
+            pickle.dump(route_fe, f)
+        with open(default_model_path, "wb") as f:
+            pickle.dump(default_model, f)
+        with open(default_fe_path, "wb") as f:
+            pickle.dump(default_fe, f)
+
+        inference = HierarchicalInference(
+            routes=[
+                {
+                    "name": "fln",
+                    "condition": {"geo_region": "FLN"},
+                    "model_path": str(model_path),
+                }
+            ],
+            default_model_path=str(default_model_path),
+            feature_engineering_paths={
+                "fln": str(route_fe_path),
+                "__default__": str(default_fe_path),
+            },
+        )
+
+        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+            mock_load.side_effect = [route_model, route_fe, default_model, default_fe]
+            inference.load_model()
+
+        data = pd.DataFrame({"geo_region": ["FLN", "BLU", "LAG"]})
+        probas = inference.predict_proba(None, data)
+
+        # FLN -> route model (0.8), BLU and LAG -> default (0.2)
+        expected = np.array([0.8, 0.2, 0.2])
+        np.testing.assert_array_almost_equal(probas, expected)
+
+        # Verify that default FE was actually called for unrouted rows
+        assert default_fe.transform_called, "Default FE should be called for unrouted rows"
+
+    def test_default_name_reserved_rejects_collision(self):
+        """Route name '__default__' is reserved and raises ValueError."""
+        with pytest.raises(ValueError, match="Route name '__default__' is reserved"):
+            HierarchicalInference(
+                routes=[
+                    {
+                        "name": "__default__",
+                        "condition": {"geo_region": "FLN"},
+                        "model_path": "models/default.pkl",
+                    }
+                ]
+            )
 
 
 class TestHierarchicalInferenceBuilderIntegration:

@@ -36,6 +36,7 @@ class HierarchicalInference(BaseInference):
             - model_path (str): path to the model .pkl file
         default_model_path: Path to fallback model .pkl.
         feature_engineering_paths: Optional dict mapping route name to FE .pkl path.
+            Use "__default__" as the key to provide FE for the default model's rows.
 
     Example:
         >>> inference = HierarchicalInference(
@@ -79,6 +80,14 @@ class HierarchicalInference(BaseInference):
         self._feature_engineerings: Dict[str, Any] = {}
         self._is_loaded = False
 
+        # Collision guard: reject "__default__" as a user route name
+        for route in self.routes:
+            if route.get("name") == "__default__":
+                raise ValueError(
+                    "Route name '__default__' is reserved for the default model. "
+                    "Please choose a different name for your route."
+                )
+
     def load_model(self, model_path: Optional[str] = None) -> "HierarchicalModelContainer":
         """
         Load all route models and feature engineering pipelines.
@@ -112,6 +121,16 @@ class HierarchicalInference(BaseInference):
         if self.default_model_path:
             logger.info(f"[HierarchicalInference] Loading default model: {self.default_model_path}")
             self._models["__default__"] = secure_load(self.default_model_path)
+
+            # Load the default model's feature engineering when configured. Without
+            # this, unrouted rows are sent RAW to a model trained on feature-
+            # engineered data (crash or garbage predictions).
+            default_fe_path = self.feature_engineering_paths.get("__default__")
+            if default_fe_path:
+                logger.info(
+                    f"[HierarchicalInference] Loading FE for default model: {default_fe_path}"
+                )
+                self._feature_engineerings["__default__"] = secure_load(default_fe_path)
 
         self._is_loaded = True
         return HierarchicalModelContainer(self._models, self._feature_engineerings)
@@ -177,7 +196,11 @@ class HierarchicalInference(BaseInference):
             n_unrouted = unrouted.sum()
             if "__default__" in self._models:
                 logger.debug(f"[HierarchicalInference] Fallback model handles {n_unrouted} rows")
-                probas[unrouted] = self._models["__default__"].predict_proba(data[unrouted])
+                default_subset = data[unrouted]
+                default_fe = self._feature_engineerings.get("__default__")
+                if default_fe is not None:
+                    default_subset = default_fe.transform(default_subset)
+                probas[unrouted] = self._models["__default__"].predict_proba(default_subset)
             else:
                 logger.warning(
                     f"[HierarchicalInference] {n_unrouted} rows unmatched and no "
