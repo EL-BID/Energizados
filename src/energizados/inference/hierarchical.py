@@ -161,7 +161,9 @@ class HierarchicalInference(BaseInference):
             np.ndarray: Probabilities of the positive class.
         """
         if not self._is_loaded:
-            raise RuntimeError("Models not loaded. Call load_model() before predict_proba().")
+            from energizados.core.exceptions import InferenceError
+
+            raise InferenceError("Models not loaded. Call load_model() before predict_proba().")
 
         n_rows = len(data)
         probas = np.zeros(n_rows, dtype=np.float64)

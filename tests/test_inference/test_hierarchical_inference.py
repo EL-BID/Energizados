@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from energizados.core.builders.inference_builder import InferenceBuilder
+from energizados.core.exceptions import InferenceError
 from energizados.inference.hierarchical import HierarchicalInference
 
 
@@ -249,6 +250,16 @@ class TestHierarchicalInferenceRouting:
         """predict_proba before load_model raises RuntimeError."""
         inference = HierarchicalInference(routes=[])
         with pytest.raises(RuntimeError, match="Models not loaded"):
+            inference.predict_proba(None, pd.DataFrame({"x": [1]}))
+
+    def test_predict_without_load_raises_inference_error(self):
+        """predict_proba before load_model raises InferenceError (REQ4).
+
+        InferenceError subclasses RuntimeError, so the backward-compat
+        ``except RuntimeError`` path above still catches it.
+        """
+        inference = HierarchicalInference(routes=[])
+        with pytest.raises(InferenceError, match="Models not loaded"):
             inference.predict_proba(None, pd.DataFrame({"x": [1]}))
 
 
