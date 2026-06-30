@@ -5,6 +5,7 @@ Covers REQ1 (exception hierarchy completeness). Later work units append
 classes for REQ2 (Pipeline.run preservation) and REQ3 (fitted-state guards).
 """
 
+import pandas as pd
 import pytest
 
 from energizados.core.base import PipelineStep
@@ -20,6 +21,8 @@ from energizados.core.exceptions import (
     TransformerError,
 )
 from energizados.core.pipeline import Pipeline
+from energizados.feature_engineering.base import BaseFeatureEngineering
+from energizados.feature_selection.base import BaseFeatureSelector
 
 
 class TestExceptionHierarchy:
@@ -211,3 +214,71 @@ class TestPipelineCallback:
         assert len(calls) == 1
         assert calls[0][0] == _RaisingStep.__name__
         assert calls[0][1] is original
+
+
+class _UnfittedFE(BaseFeatureEngineering):
+    """Concrete FE that delegates transform to check_fitted (guard site)."""
+
+    def fit(self, X, y):
+        self.is_fitted_ = True
+        return self
+
+    def transform(self, X):
+        self.check_fitted()
+        return X
+
+
+class _UnfittedSelector(BaseFeatureSelector):
+    """Concrete selector for exercising the base fitted-state guards."""
+
+    def fit(self, X, y):
+        self.selected_features_ = list(X.columns)
+        return self
+
+    def transform(self, X):
+        return X
+
+
+class TestFittedGuards:
+    """REQ3: fitted-state guards raise ModelNotFittedError (ValueError-compatible)."""
+
+    # --- BaseFeatureEngineering: check_fitted (via transform), get_feature_names_out, save ---
+
+    def test_fe_transform_unfitted_raises_model_not_fitted(self):
+        fe = _UnfittedFE()
+        with pytest.raises(ModelNotFittedError):
+            fe.transform(pd.DataFrame({"x": [1]}))
+
+    def test_fe_transform_unfitted_catchable_as_value_error(self):
+        fe = _UnfittedFE()
+        with pytest.raises(ValueError):
+            fe.transform(pd.DataFrame({"x": [1]}))
+
+    def test_fe_get_feature_names_out_unfitted_raises_model_not_fitted(self):
+        fe = _UnfittedFE()
+        with pytest.raises(ModelNotFittedError):
+            fe.get_feature_names_out()
+
+    def test_fe_save_unfitted_raises_model_not_fitted(self, tmp_path):
+        fe = _UnfittedFE()
+        with pytest.raises(ModelNotFittedError):
+            fe.save(str(tmp_path / "fe.pkl"))
+
+    # --- BaseFeatureSelector: get_selected_features, get_audit_stats ---
+
+    def test_selector_get_selected_features_unfitted_raises_model_not_fitted(self):
+        selector = _UnfittedSelector()
+        with pytest.raises(ModelNotFittedError):
+            selector.get_selected_features()
+
+    def test_selector_get_audit_stats_unfitted_raises_model_not_fitted(self):
+        selector = _UnfittedSelector()
+        with pytest.raises(ModelNotFittedError):
+            selector.get_audit_stats()
+
+    def test_selector_guards_catchable_as_value_error(self):
+        selector = _UnfittedSelector()
+        with pytest.raises(ValueError):
+            selector.get_selected_features()
+        with pytest.raises(ValueError):
+            selector.get_audit_stats()

@@ -94,7 +94,9 @@ class BaseFeatureSelector(ABC):
             ValueError: If fit() has not been called previously.
         """
         if self.selected_features_ is None:
-            raise ValueError("Must call fit() first")
+            from energizados.core.exceptions import ModelNotFittedError
+
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
         return self.selected_features_
 
     def get_audit_stats(self) -> Dict:
@@ -111,5 +113,7 @@ class BaseFeatureSelector(ABC):
             Dict: Selector-specific stats. Subclasses return relevant stats.
         """
         if self.selected_features_ is None:
-            raise ValueError("Must call fit() first")
+            from energizados.core.exceptions import ModelNotFittedError
+
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
         return {}

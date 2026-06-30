@@ -8,6 +8,7 @@ that all custom selectors must implement.
 import pandas as pd
 import pytest
 
+from energizados.core.exceptions import ModelNotFittedError
 from energizados.feature_selection.base import BaseFeatureSelector
 
 
@@ -138,7 +139,7 @@ class TestBaseFeatureSelector:
 
         selector = ConcreteSelector()
 
-        with pytest.raises(ValueError, match="Must call fit"):
+        with pytest.raises(ModelNotFittedError):
             selector.get_selected_features()
 
     def test_get_selected_features_returns_features(self, sample_data):
