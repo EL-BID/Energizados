@@ -4,9 +4,9 @@ Pipeline Orchestrator for the Energizados Framework.
 This module contains the classes that orchestrate the execution of the ML workflow,
 coordinating the different pipeline steps.
 
-Note: The ConfigPipelineBuilder class has been refactored into the builders module.
-This file now contains only the core Pipeline class and a backwards-compatible
-ConfigPipelineBuilder that delegates to the new PipelineDirector.
+Note: ConfigPipelineBuilder is the primary pipeline entry point (used by the CLI
+and the generated run scripts). It delegates to PipelineDirector internally;
+this file holds the core Pipeline class plus that entry-point builder.
 """
 
 import logging
@@ -175,16 +175,17 @@ class Pipeline:
         self.steps = []
 
 
-# Backwards-compatible ConfigPipelineBuilder that uses the new PipelineDirector
-# This class is kept for backwards compatibility but delegates to the new architecture
+# ConfigPipelineBuilder is the primary pipeline entry point used by the CLI
+# (cli/run.py) and the generated src/run/*.py scripts. It delegates to
+# PipelineDirector internally.
 class ConfigPipelineBuilder:
     """
     Pipeline builder from YAML configuration.
 
-    DEPRECATED: This class is maintained for backwards compatibility.
-    New code should use PipelineDirector from energizados.core.builders.
-
-    This class now delegates to PipelineDirector internally.
+    This is the main entry point for building and running a pipeline from YAML
+    configuration. It is used directly by the CLI (``energizados run``) and by
+    the generated ``src/run/*.py`` scripts. Internally it delegates to
+    ``PipelineDirector`` (``energizados.core.builders``).
 
     Args:
         config_path: Path to the YAML configuration file

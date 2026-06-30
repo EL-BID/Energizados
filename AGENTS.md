@@ -100,7 +100,7 @@ src/energizados/
 │   ├── default.py     # DefaultInference implementation
 │   └── hierarchical.py # HierarchicalInference — routes rows to per-route models
 ├── core/              # Core framework components
-│   ├── base.py        # Base classes for pipeline, models, inference
+│   ├── base.py        # BaseModel, BaseInference, PipelineStep (base classes)
 │   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
 │   ├── builders/      # Step-specific builder implementations
 │   │   ├── etl_builder.py
@@ -446,7 +446,7 @@ training:
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior"), `count_nulls` (bool, default=False — adds `cant_null_N`: count of NaN values per row) |
 | `consumption_patterns` | Domain-specific fraud detection features (abrupt drops, zero ratio, drastic changes, consistency, z-score vs history, autocorrelation, seasonal ratio) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior"), `enable_diff_ratios` (bool, default=True), `enable_minmax_ratio` (bool, default=True), `enable_zscore` (bool, default=True), `enable_zero_ratio` (bool, default=True), `enable_slope` (bool, default=True), `enable_consistency` (bool, default=True), `enable_drastic_changes` (bool, default=True), `drastic_threshold` (float, default=0.5), `enable_last_period_zscore` (bool, default=False — `zscore_last_vs_history_N`: z-score of last month vs client's own mean/std), `enable_autocorr_lag1` (bool, default=False — `autocorr_lag1_N`: lag-1 autocorrelation; low = manipulation signal), `enable_seasonal_ratio` (bool, default=False — `seasonal_ratio_N`: summer/winter mean ratio for southern hemisphere; requires `date_column`), `date_column` (str, default=None — required when `enable_seasonal_ratio=True`) |
 | `temporal_features` | Calendar features from a date column with flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding. Cyclic encoding preserves calendar circularity (Dec & Jan are neighbors) | `date_column` (str, required), `features` (list, default=["month","quarter","week","dayofweek"] — also supports "day","year"), `encoding` (str, default="both" — "flat"/"cyclic"/"both"), `drop_date_column` (bool, default=False) |
-| `geo_features` | **Moved to ETL** — use `GeoFeaturesETL` in `etl.yaml`. For target encoding of geographic columns only, use `GeoFeatures` via `custom_class`. | — |
+| `geo_features` | `GeoFeatures` still lives in `preprocessing/geo_features.py`; `GeoFeaturesETL` wraps it for the ETL stage. Not a built-in `global_transformers` key — to use it inside feature engineering, reference it via `custom_class` (see example below). | `custom_class` path + `GeoFeatures` params |
 | `group_relative_consumption` | **[pre-encoding]** Consumption relative to group statistics (e.g., actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` — strong fraud signal when a client deviates from its peer group. Group stats are learned from `fit()` data (use full population for anti-leakage). Runs before column encoding — `group_column` must be the original categorical column name. | `group_column` (str, default="actividad"), `windows` (list[int], default=[3, 6, 12]), `metrics` (list[str], default=["mean", "max"] — supported: "mean", "max"), `periods_suffix` (str, default="_anterior") |
 | `seasonal_anomaly` | **[pre-encoding]** Seasonal z-score for each consumption month: `(consumo_mes - mean_grupo_mes) / std_grupo_mes` using `group_column × calendar_month` as group. Tells the model "this client consumes X% less than expected for its type in this month". Runs before column encoding — `group_column` must be the original categorical column name. | `group_column` (str, default="actividad"), `date_column` (str, required — inspection date to map periods to calendar months), `periods_suffix` (str, default="_anterior") |
 | `clip_outliers` | Clips extreme values in consumption columns (data reading errors) — run FIRST among post-encoding global_transformers | `threshold` (float, default=100000), `columns` (list, default=None — auto-detects `*_anterior`), `periods_suffix` (str, default="_anterior") |
@@ -510,7 +510,11 @@ preprocessing:
 
     # Features geográficas a partir de lat/long (usa shapefiles IBGE)
     # Genera: geo_estado, geo_municipio, geo_regiao + target encoding + distancias
-    - geo_features:
+    # NOTE: `geo_features` is NOT a built-in global_transformers key. The
+    # GeoFeatures class lives in energizados.preprocessing.geo_features; use it
+    # via custom_class here, or prefer GeoFeaturesETL in etl.yaml for the ETL stage.
+    - custom_class: "energizados.preprocessing.geo_features.GeoFeatures"
+      params:
         lat_col: "latitud"
         lon_col: "longitud"
         include_hierarchy: true               # true = all; false = none; or list like ["estado", "municipio"]
@@ -544,7 +548,7 @@ preprocessing:
 **Key Inference Classes (internal framework):**
 - `BaseInference`: Abstract base class for inference (`inference/base.py`)
 - `DefaultInference`: Default single-model inference (`inference/default.py`)
-- `HierarchicalInference`: Routes rows to different models based on column-value conditions (`inference/hierarchical.py`). Configured in `infer.yaml` via `routes` (list of `{name, condition: {col: value | [values]}, model_path}`), `default_model_path`, and optional `feature_engineering_paths` (dict route name → FE `.pkl`). It loads its own route models internally, so `model_path` is **not** required at the top level when routes are configured. Rows matching no route use the default model.
+- `HierarchicalInference`: Routes rows to different models based on column-value conditions (`inference/hierarchical.py`). Configured in `infer.yaml` via `routes` (list of `{name, condition: {col: value | [values]}, model_path}`), `default_model_path`, and optional `feature_engineering_paths` (dict route name → FE `.pkl`). Use "__default__" as the key in `feature_engineering_paths` to provide FE for the default model's rows. It loads its own route models internally, so `model_path` is **not** required at the top level when routes are configured. Rows matching no route use the default model.
 
 Additional ETL examples are provided (commented out) in the template:
 - `consumos`: Single source ETL for consumption data (mode='concat')
