@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
 from energizados.core.exceptions import (
+    EnergizadosError,
     PipelineError,
     StepValidationError,
 )
@@ -153,9 +154,13 @@ class Pipeline:
                 if self.on_step_complete:
                     self.on_step_complete(step_name, i, total_steps)
             except Exception as e:
-                # Notify step error
+                # Notify step error — callback fires for BOTH paths
                 if self.on_step_error:
                     self.on_step_error(step_name, e)
+                # Framework exceptions propagate unchanged (type/attributes
+                # preserved); only unexpected errors are wrapped as PipelineError.
+                if isinstance(e, EnergizadosError):
+                    raise
                 raise PipelineError(f"Error executing step {step_name}: {e}", step=step_name) from e
 
         return self.context
