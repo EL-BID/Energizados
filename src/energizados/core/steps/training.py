@@ -49,6 +49,14 @@ class _CalibratedWrapper:
     After ``CalibratedClassifierCV.fit()``, ``predict_proba`` returns 2D (n, 2).
     This wrapper extracts the positive-class column so downstream code (evaluator,
     inference) continues to receive 1D arrays as expected.
+
+    It also delegates the ``BaseModel`` contract (``get_raw_model``,
+    ``check_fitted``, ``is_fitted_``, ``config``, ``cols_for_model``, ``_model``)
+    to the wrapped adapter so downstream consumers (SHAP explainer, evaluator
+    feature importance, report generation) work on calibrated models exactly as
+    they do on the underlying adapter. Without this delegation the saved wrapper
+    is ``secure_dump``ed as if it were a ``BaseModel`` but lacks the attributes
+    those consumers read, silently degrading SHAP/feature-importance output.
     """
 
     def __init__(self, calibrated_clf, original_adapter) -> None:
@@ -60,6 +68,33 @@ class _CalibratedWrapper:
 
     def predict(self, X):
         return self._adapter.predict(X)
+
+    # ------------------------------------------------------------------
+    # BaseModel contract delegation
+    # ------------------------------------------------------------------
+    def get_raw_model(self):
+        """Return the raw underlying model (for SHAP / feature importance)."""
+        return self._adapter.get_raw_model()
+
+    def check_fitted(self):
+        """Delegate fitted-state check to the wrapped adapter."""
+        return self._adapter.check_fitted()
+
+    @property
+    def is_fitted_(self):
+        return getattr(self._adapter, "is_fitted_", False)
+
+    @property
+    def config(self):
+        return getattr(self._adapter, "config", {})
+
+    @property
+    def cols_for_model(self):
+        return getattr(self._adapter, "cols_for_model", None)
+
+    @property
+    def _model(self):
+        return getattr(self._adapter, "_model", None)
 
 
 def _date_columns_needed_by_preprocessing(preprocessing_config: dict) -> set:
