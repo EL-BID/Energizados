@@ -48,13 +48,31 @@ class SplitBuilder(StepBuilder):
             # Also look at training level (global)
             input_path = self.global_config.get("train", {}).get("input_path")
         if not input_path and "etl" in self.global_config:
-            # Use last ETL output if it exists
+            # Use the last ETL to EXECUTE (topological order) as the training
+            # input source. Previously this used dict insertion order, which is
+            # only correct when YAML happens to list ETLs in execution order.
             from energizados._version import SCHEMA_VERSION_KEY
 
             etl_configs = self.global_config.get("etl", {})
             etl_names = [k for k in etl_configs if k != SCHEMA_VERSION_KEY]
+            last_etl = None
             if etl_names:
-                last_etl = etl_names[-1]
+                try:
+                    from energizados.etl.orchestrator import ETLOrchestrator
+
+                    order = ETLOrchestrator(etl_configs).build_execution_order()
+                    if order:
+                        # Filter out ETLs with no output field (e.g. CleanFilesETL)
+                        # These are side-effect ETLs that don't produce training data
+                        etls_with_output = [
+                            name for name in order if etl_configs.get(name, {}).get("output")
+                        ]
+                        last_etl = etls_with_output[-1] if etls_with_output else etl_names[-1]
+                except Exception:
+                    # Fall back to insertion order if the DAG cannot be resolved
+                    # (e.g. cycle or missing dependency).
+                    last_etl = etl_names[-1]
+            if last_etl:
                 # input_path will be @etl_name
                 input_path = f"@{last_etl}"
 
