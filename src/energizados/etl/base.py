@@ -28,8 +28,24 @@ class BaseETL(ABC):
         ...         df.to_parquet(path)
     """
 
-    def __init__(self):
-        """Initialize the ETL instance."""
+    def __init__(self, name=None, input_paths=None, output_path=None, **params):
+        """Initialize the ETL instance.
+
+        Accepts the standard parameters injected by ``ETLOrchestrator`` so that a
+        custom ETL subclassing ``BaseETL`` without overriding ``__init__`` does not
+        crash with ``TypeError``. Built-in ETLs override ``__init__`` and accept
+        these explicitly; this base signature merely matches what the orchestrator
+        passes (``name``, ``input_paths``, ``output_path`` plus any ``params``).
+
+        Args:
+            name: ETL name (stored as ``self.name``).
+            input_paths: Resolved input file paths (stored as ``self.input_paths``).
+            output_path: Output path (stored as ``self.output_path``).
+            **params: Additional orchestrator params (ignored by the base).
+        """
+        self.name = name
+        self.input_paths = input_paths
+        self.output_path = output_path
 
     @abstractmethod
     def extract(self) -> pd.DataFrame:
