@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from energizados.core.exceptions import ModelNotFittedError
 from energizados.feature_selection.methods import MutualInformationSelector
 
 
@@ -107,11 +108,17 @@ class TestMutualInformationSelector:
             selector.transform(X)
 
     def test_get_selected_features_raises_when_not_fitted(self, sample_data):
-        """Verify get_selected_features raises ValueError when fit not called."""
+        """Verify get_selected_features raises ModelNotFittedError when fit not called.
+
+        MutualInformationSelector inherits get_selected_features from
+        BaseFeatureSelector, whose fitted guard was unified on
+        ModelNotFittedError (REQ3). ModelNotFittedError subclasses ValueError,
+        so ``except ValueError`` callers keep working.
+        """
         X, y = sample_data
         selector = MutualInformationSelector(k=5)
 
-        with pytest.raises(ValueError, match="Must call fit"):
+        with pytest.raises(ModelNotFittedError):
             selector.get_selected_features()
 
     def test_fit_with_numpy_array(self, sample_data):
