@@ -89,12 +89,15 @@ class ConfigurationError(EnergizadosError):
         super().__init__(full_message)
 
 
-class ModelNotFittedError(EnergizadosError):
+class ModelNotFittedError(EnergizadosError, ValueError):
     """
     Exception raised when trying to predict with an unfitted model.
 
     This exception is used when predict() or predict_proba()
     is called on a model that has not been previously trained with fit().
+
+    Also subclasses ``ValueError`` so existing ``except ValueError`` callers
+    (fitted-state guards) keep working while gaining the framework catch path.
     """
 
     def __init__(self, model_name: str = None):
@@ -153,3 +156,41 @@ class ETLDependencyError(EnergizadosError):
             message: Descriptive error message
         """
         super().__init__(message)
+
+
+class TransformerError(EnergizadosError, ValueError):
+    """
+    Exception raised when a feature-engineering transform fails.
+
+    Subclasses ``ValueError`` so existing ``except ValueError`` callers
+    keep working while gaining the framework catch path.
+    """
+
+
+class FeatureSelectionError(EnergizadosError, ValueError):
+    """
+    Exception raised when a feature-selection operation fails.
+
+    Subclasses ``ValueError`` so existing ``except ValueError`` callers
+    keep working while gaining the framework catch path.
+    """
+
+
+class InferenceError(EnergizadosError, RuntimeError):
+    """
+    Exception raised when an inference engine fails.
+
+    Subclasses ``RuntimeError`` so existing ``except RuntimeError`` callers
+    keep working while gaining the framework catch path.
+    """
+
+
+class EvaluatorError(EnergizadosError):
+    """
+    Exception raised when an evaluation or reporting operation fails.
+
+    Framework-only (no stdlib base): there is no conversion site today, so
+    adding a stdlib base would be a gratuitous API commitment. It exists for
+    symmetry/completeness and is the natural home for the next evaluator
+    failure.
+    """
