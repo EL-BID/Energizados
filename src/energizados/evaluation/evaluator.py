@@ -179,7 +179,7 @@ class DefaultEvaluator(PipelineStep):
             if val_path and Path(val_path).exists():
                 val_df = pd.read_parquet(val_path)
                 calibrator = ThresholdCalibrator(
-                    method=self.calibration_config.get("method", "cost_benefit"),
+                    method=self.calibration_config.get("strategy", "cost_benefit"),
                     **self.calibration_config.get("params", {}),
                 )
                 calibration_result = calibrator.calibrate(

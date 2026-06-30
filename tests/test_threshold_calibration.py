@@ -269,7 +269,7 @@ class TestEvaluatorCalibrationIntegration:
             output_dir=str(tmp_path / "reports"),
             calibration_config={
                 "enabled": True,
-                "method": "cost_benefit",
+                "strategy": "cost_benefit",
                 "params": {"cost_fp": 1, "cost_fn": 10},
             },
             val_predictions_path=val_path,
@@ -291,7 +291,7 @@ class TestEvaluatorCalibrationIntegration:
         evaluator = DefaultEvaluator(
             output_dir=str(tmp_path / "reports"),
             threshold=0.5,
-            calibration_config={"enabled": True, "method": "cost_benefit", "params": {}},
+            calibration_config={"enabled": True, "strategy": "cost_benefit", "params": {}},
             val_predictions_path=None,
         )
 
@@ -316,7 +316,7 @@ class TestEvaluatorCalibrationIntegration:
         evaluator = DefaultEvaluator(
             output_dir=str(tmp_path / "reports"),
             threshold=0.4,
-            calibration_config={"enabled": False, "method": "cost_benefit", "params": {}},
+            calibration_config={"enabled": False, "strategy": "cost_benefit", "params": {}},
         )
         assert evaluator.threshold == 0.4
 

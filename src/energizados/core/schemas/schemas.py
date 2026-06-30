@@ -261,6 +261,7 @@ TRAINING_SCHEMA = {
                 "calibration": {
                     "type": "object",
                     "properties": {
+                        "enabled": {"type": "boolean", "default": False},
                         "strategy": {
                             "type": "string",
                             "enum": ["cost_benefit", "operational", "precision_recall"],
@@ -328,6 +329,7 @@ EVALUATION_SCHEMA = {
         "calibration": {
             "type": "object",
             "properties": {
+                "enabled": {"type": "boolean", "default": False},
                 "strategy": {
                     "type": "string",
                     "enum": ["cost_benefit", "operational", "precision_recall"],
