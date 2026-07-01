@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from energizados.core.base import PipelineStep
+from energizados.contracts import BaseEvaluator
 from energizados.evaluation.calibration import ThresholdCalibrator
 from energizados.evaluation.metrics import Metrics
 from energizados.evaluation.plots import PlotGenerator
@@ -21,7 +21,7 @@ from energizados.evaluation.report import ReportGenerator
 logger = logging.getLogger(__name__)
 
 
-class DefaultEvaluator(PipelineStep):
+class DefaultEvaluator(BaseEvaluator):
     """
     Default evaluator for framework models.
 
@@ -597,6 +597,42 @@ class DefaultEvaluator(PipelineStep):
             "reports": report_paths,
             "evaluation_dir": str(self.output_dir),
         }
+
+    def evaluate(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model: Any,
+        threshold: float = 0.5,
+        **kwargs: Any,
+    ) -> Dict[str, float]:
+        """Compute evaluation metrics.
+
+        Args:
+            X: Feature DataFrame.
+            y: True target values.
+            model: Trained model (must have predict_proba).
+            threshold: Decision threshold for binary predictions.
+            **kwargs: Additional evaluator-specific parameters.
+
+        Returns:
+            Dict[str, float]: Metric name -> value (e.g., {'auc': 0.85, 'f1': 0.82}).
+
+        Raises:
+            ValueError: If inputs are invalid.
+        """
+        # Get predictions
+        y_proba = model.predict_proba(X)
+        y_pred = (y_proba >= threshold).astype(int)
+
+        # Calculate metrics
+        metrics_calculator = Metrics(y, y_pred, y_proba, threshold)
+        metrics_results = metrics_calculator.calculate_all(self.metrics)
+
+        # Add threshold to results
+        metrics_results["threshold"] = threshold
+
+        return metrics_results
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
         """Validates that necessary inputs exist."""

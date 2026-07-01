@@ -708,3 +708,71 @@ class TestFeatureSelectionPipelineInheritance:
         # Check that feature2 was removed (constant)
         assert "feature2" not in X_selected.columns
         assert "feature1" in X_selected.columns
+
+
+class TestDefaultEvaluatorInheritance:
+    """Test DefaultEvaluator inherits BaseEvaluator."""
+
+    def test_default_evaluator_inherits_base_evaluator(self):
+        """GIVEN DefaultEvaluator WHEN checking inheritance THEN it inherits BaseEvaluator."""
+        from energizados.contracts import BaseEvaluator
+        from energizados.evaluation.evaluator import DefaultEvaluator
+
+        assert issubclass(DefaultEvaluator, BaseEvaluator)
+
+    def test_default_evaluator_implements_evaluate(self):
+        """GIVEN DefaultEvaluator WHEN inspecting methods THEN evaluate() is implemented."""
+        from energizados.evaluation.evaluator import DefaultEvaluator
+
+        # Check that evaluate method exists
+        assert hasattr(DefaultEvaluator, "evaluate")
+        assert callable(DefaultEvaluator.evaluate)
+
+    def test_default_evaluator_evaluate_returns_metrics_dict(self):
+        """GIVEN DefaultEvaluator WHEN evaluate() is called THEN it returns a metrics dict."""
+        import numpy as np
+        import pandas as pd
+
+        from energizados.evaluation.evaluator import DefaultEvaluator
+
+        # Create sample data
+        X = pd.DataFrame({"feature1": [1, 2, 3, 4], "feature2": [5, 6, 7, 8]})
+        y = pd.Series([0, 1, 0, 1])
+
+        # Create a simple mock model
+        class MockModel:
+            def predict_proba(self, X):
+                return np.array([0.3, 0.7, 0.4, 0.6])
+
+        model = MockModel()
+
+        # Create DefaultEvaluator with minimal config
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            evaluator = DefaultEvaluator(
+                input_path=None,
+                model_path=None,
+                output_dir=tmpdir,
+                target_column="target",
+                threshold=0.5,
+                metrics=["auc", "f1"],
+                generate_plots=False,
+                generate_html_report=False,
+                generate_json_report=False,
+            )
+
+            # Call evaluate - this should work now
+            metrics = evaluator.evaluate(X, y, model, threshold=0.5)
+            assert isinstance(metrics, dict)
+            assert "auc" in metrics or "f1" in metrics
+
+        # Call evaluate - this should fail for now since evaluate() doesn't exist yet
+        # But we expect it to return a dict when implemented
+        try:
+            metrics = evaluator.evaluate(X, y, model, threshold=0.5)
+            assert isinstance(metrics, dict)
+            assert "auc" in metrics or "f1" in metrics
+        except AttributeError:
+            # Expected for RED phase - evaluate method doesn't exist yet
+            pass
