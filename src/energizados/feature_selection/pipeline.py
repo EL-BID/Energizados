@@ -112,7 +112,7 @@ class SelectionStep:
         return X[self.selected_features_]
 
 
-class FeatureSelectionPipeline:
+class FeatureSelectionPipeline(BaseFeatureSelector):
     """
     Orchestrates a multi-step feature selection pipeline.
 

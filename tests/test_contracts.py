@@ -659,3 +659,52 @@ class TestCleanFilesETLCompliance:
 
             # Check file was deleted
             assert not test_file.exists()
+
+
+class TestFeatureSelectionPipelineInheritance:
+    """Test FeatureSelectionPipeline inherits BaseFeatureSelector."""
+
+    def test_feature_selection_pipeline_inherits_base_feature_selector(self):
+        """GIVEN FeatureSelectionPipeline WHEN checking inheritance THEN it inherits BaseFeatureSelector."""
+        from energizados.feature_selection.base import BaseFeatureSelector
+        from energizados.feature_selection.pipeline import FeatureSelectionPipeline
+
+        assert issubclass(FeatureSelectionPipeline, BaseFeatureSelector)
+
+    def test_feature_selection_pipeline_implements_required_methods(self):
+        """GIVEN FeatureSelectionPipeline WHEN inspecting methods THEN it implements all BaseFeatureSelector abstract methods."""
+        from energizados.feature_selection.pipeline import FeatureSelectionPipeline
+
+        # Check that required methods exist
+        assert hasattr(FeatureSelectionPipeline, "fit")
+        assert hasattr(FeatureSelectionPipeline, "transform")
+        assert hasattr(FeatureSelectionPipeline, "get_selected_features")
+        assert hasattr(FeatureSelectionPipeline, "get_audit_stats")
+
+    def test_feature_selection_pipeline_fit_transform_works(self):
+        """GIVEN FeatureSelectionPipeline WHEN fit() and transform() are called THEN they work correctly."""
+        import pandas as pd
+
+        from energizados.feature_selection.pipeline import FeatureSelectionPipeline
+
+        # Create a simple pipeline config
+        steps_config = [
+            {
+                "name": "const",
+                "method": "constant",
+                "params": {"threshold": 0.99},
+            }
+        ]
+
+        pipeline = FeatureSelectionPipeline(steps_config)
+
+        # Create sample data
+        X = pd.DataFrame({"feature1": [1, 2, 3], "feature2": [1, 1, 1], "target": [0, 1, 0]})
+        y = pd.Series([0, 1, 0])
+
+        # Fit and transform
+        X_selected = pipeline.fit_transform(X, y)
+
+        # Check that feature2 was removed (constant)
+        assert "feature2" not in X_selected.columns
+        assert "feature1" in X_selected.columns
