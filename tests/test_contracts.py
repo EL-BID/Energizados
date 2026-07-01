@@ -10,6 +10,38 @@ Tests verify:
 
 import pytest
 
+from energizados.contracts import BaseFeatureSelector, BaseModel
+
+
+# Helper classes for save/load tests (must be module-level for pickle)
+class DummyModel(BaseModel):
+    """Dummy model for save/load tests."""
+
+    def fit(self, X, y, X_val=None, y_val=None):
+        self.model_ = "dummy"
+        self.is_fitted_ = True
+        return self
+
+    def predict(self, X):
+        return self.model_
+
+    def predict_proba(self, X):
+        return self.model_
+
+    def get_raw_model(self):
+        return self.model_
+
+
+class DummySelector(BaseFeatureSelector):
+    """Dummy selector for save/load tests."""
+
+    def fit(self, X, y):
+        self.selected_features_ = ["feature1", "feature2"]
+        return self
+
+    def transform(self, X):
+        return X[self.selected_features_]
+
 
 class TestContractsModule:
     """Test that the contracts module exists and is importable."""
@@ -71,6 +103,206 @@ class TestAllBasesExist:
         from energizados.contracts import BaseExplorer
 
         assert BaseExplorer is not None
+
+
+class TestBaseModelSaveLoad:
+    """Test save/load functionality on BaseModel."""
+
+    def test_save_raises_model_not_fitted_error_when_not_fitted(self):
+        """GIVEN a BaseModel instance WHEN save() is called before fit THEN ModelNotFittedError is raised."""
+        import tempfile
+
+        from energizados.core.exceptions import ModelNotFittedError
+
+        model = DummyModel()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = f"{tmpdir}/dummy.pkl"
+            with pytest.raises(ModelNotFittedError):
+                model.save(path)
+
+    def test_save_uses_secure_pickle(self):
+        """GIVEN a fitted BaseModel WHEN save() is called THEN secure_dump is used."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pkl"
+            model = DummyModel()
+            model.fit(None, None)
+
+            model.save(str(path))
+
+            # Check that both .pkl and .sig files exist
+            assert path.exists()
+            assert Path(str(path) + ".sig").exists()
+
+    def test_load_uses_secure_pickle(self):
+        """GIVEN a saved BaseModel WHEN load() is called THEN secure_load is used."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pkl"
+            model = DummyModel()
+            model.fit(None, None)
+            model.save(str(path))
+
+            loaded_model = BaseModel.load(str(path))
+
+            assert loaded_model.is_fitted_ is True
+            assert loaded_model.model_ == "dummy"
+
+    def test_round_trip_preserves_fitted_state(self):
+        """GIVEN a fitted BaseModel WHEN saved and loaded THEN fitted state is preserved."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "model.pkl"
+            model = DummyModel()
+            model.fit(None, None)
+            model.save(str(path))
+
+            loaded_model = BaseModel.load(str(path))
+
+            assert loaded_model.is_fitted_ is True
+            assert loaded_model.model_ == "dummy"
+
+    def test_save_creates_parent_directories(self):
+        """GIVEN a path with non-existing parent directories WHEN save() is called THEN parents are created."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "subdir" / "model.pkl"
+            model = DummyModel()
+            model.fit(None, None)
+
+            model.save(str(path))
+
+            assert path.exists()
+
+
+class TestBaseFeatureSelectorSaveLoad:
+    """Test save/load functionality on BaseFeatureSelector."""
+
+    def test_save_raises_model_not_fitted_error_when_not_fitted(self):
+        """GIVEN a BaseFeatureSelector instance WHEN save() is called before fit THEN ModelNotFittedError is raised."""
+        import tempfile
+
+        from energizados.core.exceptions import ModelNotFittedError
+
+        selector = DummySelector()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = f"{tmpdir}/dummy.pkl"
+            with pytest.raises(ModelNotFittedError):
+                selector.save(path)
+
+    def test_save_uses_secure_pickle(self):
+        """GIVEN a fitted BaseFeatureSelector WHEN save() is called THEN secure_dump is used."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "selector.pkl"
+            selector = DummySelector()
+            selector.fit(None, None)
+
+            selector.save(str(path))
+
+            # Check that both .pkl and .sig files exist
+            assert path.exists()
+            assert Path(str(path) + ".sig").exists()
+
+    def test_load_uses_secure_pickle(self):
+        """GIVEN a saved BaseFeatureSelector WHEN load() is called THEN secure_load is used."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "selector.pkl"
+            selector = DummySelector()
+            selector.fit(None, None)
+            selector.save(str(path))
+
+            loaded_selector = BaseFeatureSelector.load(str(path))
+
+            assert loaded_selector.selected_features_ == ["feature1", "feature2"]
+
+    def test_round_trip_preserves_fitted_state(self):
+        """GIVEN a fitted BaseFeatureSelector WHEN saved and loaded THEN fitted state is preserved."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "selector.pkl"
+            selector = DummySelector()
+            selector.fit(None, None)
+            selector.save(str(path))
+
+            loaded_selector = BaseFeatureSelector.load(str(path))
+
+            assert loaded_selector.selected_features_ == ["feature1", "feature2"]
+
+    def test_save_creates_parent_directories(self):
+        """GIVEN a path with non-existing parent directories WHEN save() is called THEN parents are created."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "subdir" / "selector.pkl"
+            selector = DummySelector()
+            selector.fit(None, None)
+
+            selector.save(str(path))
+
+            assert path.exists()
+
+
+class TestSecurePickleIntegration:
+    """Test that all base classes use secure_pickle consistently."""
+
+    def test_base_feature_engineering_uses_secure_pickle(self):
+        """GIVEN BaseFeatureEngineering WHEN save() and load() are inspected THEN they use secure_pickle."""
+        import inspect
+
+        from energizados.contracts import BaseFeatureEngineering
+
+        # Check that save() uses secure_dump
+        save_source = inspect.getsource(BaseFeatureEngineering.save)
+        assert "secure_dump" in save_source
+
+        # Check that load() uses secure_load
+        load_source = inspect.getsource(BaseFeatureEngineering.load)
+        assert "secure_load" in load_source
+
+    def test_all_bases_use_same_secure_pickle_pattern(self):
+        """GIVEN all base classes with save/load WHEN they are inspected THEN they use the same secure_pickle pattern."""
+        import inspect
+
+        from energizados.contracts import (
+            BaseFeatureEngineering,
+            BaseFeatureSelector,
+            BaseModel,
+        )
+
+        # BaseModel should use secure_dump and secure_load
+        model_save = inspect.getsource(BaseModel.save)
+        model_load = inspect.getsource(BaseModel.load)
+        assert "secure_dump" in model_save
+        assert "secure_load" in model_load
+
+        # BaseFeatureSelector should use secure_dump and secure_load
+        selector_save = inspect.getsource(BaseFeatureSelector.save)
+        selector_load = inspect.getsource(BaseFeatureSelector.load)
+        assert "secure_dump" in selector_save
+        assert "secure_load" in selector_load
+
+        # BaseFeatureEngineering should use secure_dump and secure_load
+        fe_save = inspect.getsource(BaseFeatureEngineering.save)
+        fe_load = inspect.getsource(BaseFeatureEngineering.load)
+        assert "secure_dump" in fe_save
+        assert "secure_load" in fe_load
 
 
 class TestShimReexports:

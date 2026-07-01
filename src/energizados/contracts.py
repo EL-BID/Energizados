@@ -131,6 +131,43 @@ class BaseModel(ABC):
 
             raise ModelNotFittedError(model_name=self.__class__.__name__)
 
+    def save(self, path: str) -> None:
+        """Save the fitted model to disk.
+
+        Args:
+            path: Destination path (.pkl extension recommended).
+
+        Raises:
+            ModelNotFittedError: If the model is not fitted.
+        """
+        self.check_fitted()
+
+        from energizados.core.utils.secure_pickle import secure_dump
+
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        secure_dump(self, path)
+        logger.info(f"Model saved to: {path}")
+
+    @classmethod
+    def load(cls, path: str) -> "BaseModel":
+        """Load a fitted model from disk.
+
+        Args:
+            path: Path to the saved model file.
+
+        Returns:
+            BaseModel: Loaded model.
+
+        Raises:
+            FileNotFoundError: If the .sig file is missing.
+            ValueError: If integrity check fails or path contains '..'.
+        """
+        from energizados.core.utils.secure_pickle import secure_load
+
+        model = secure_load(path)
+        logger.info(f"Model loaded from: {path}")
+        return model
+
 
 @runtime_checkable
 class ModelContainer(Protocol):
@@ -658,6 +695,46 @@ class BaseFeatureSelector(ABC):
 
             raise ModelNotFittedError(model_name=self.__class__.__name__)
         return {}
+
+    def save(self, path: str) -> None:
+        """Save the fitted selector to disk.
+
+        Args:
+            path: Destination path (.pkl extension recommended).
+
+        Raises:
+            ModelNotFittedError: If the selector is not fitted.
+        """
+        if self.selected_features_ is None:
+            from energizados.core.exceptions import ModelNotFittedError
+
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
+
+        from energizados.core.utils.secure_pickle import secure_dump
+
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        secure_dump(self, path)
+        logger.info(f"Feature selector saved to: {path}")
+
+    @classmethod
+    def load(cls, path: str) -> "BaseFeatureSelector":
+        """Load a fitted selector from disk.
+
+        Args:
+            path: Path to the saved selector file.
+
+        Returns:
+            BaseFeatureSelector: Loaded selector.
+
+        Raises:
+            FileNotFoundError: If the .sig file is missing.
+            ValueError: If integrity check fails or path contains '..'.
+        """
+        from energizados.core.utils.secure_pickle import secure_load
+
+        selector = secure_load(path)
+        logger.info(f"Feature selector loaded from: {path}")
+        return selector
 
 
 class BaseExplorer(ABC):
