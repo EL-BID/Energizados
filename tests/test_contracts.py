@@ -767,12 +767,77 @@ class TestDefaultEvaluatorInheritance:
             assert isinstance(metrics, dict)
             assert "auc" in metrics or "f1" in metrics
 
-        # Call evaluate - this should fail for now since evaluate() doesn't exist yet
-        # But we expect it to return a dict when implemented
-        try:
-            metrics = evaluator.evaluate(X, y, model, threshold=0.5)
-            assert isinstance(metrics, dict)
-            assert "auc" in metrics or "f1" in metrics
-        except AttributeError:
-            # Expected for RED phase - evaluate method doesn't exist yet
-            pass
+
+class TestModelContainerProtocol:
+    """Test ModelContainer Protocol and HierarchicalInference typing."""
+
+    def test_model_container_protocol_exists(self):
+        """GIVEN contracts module WHEN inspecting THEN ModelContainer Protocol exists."""
+        from energizados.contracts import ModelContainer
+
+        assert ModelContainer is not None
+
+    def test_model_container_protocol_requires_predict_methods(self):
+        """GIVEN ModelContainer Protocol WHEN inspecting THEN it requires predict and predict_proba."""
+        import inspect
+
+        from energizados.contracts import ModelContainer
+
+        # Check that the protocol has the required methods
+        methods = [
+            name for name, _ in inspect.getmembers(ModelContainer, predicate=inspect.isfunction)
+        ]
+        assert "predict_proba" in methods
+        assert "predict" in methods
+
+    def test_hierarchical_model_container_satisfies_protocol(self):
+        """GIVEN HierarchicalModelContainer WHEN checking protocol THEN it satisfies ModelContainer."""
+        from energizados.contracts import ModelContainer
+        from energizados.inference.hierarchical import HierarchicalModelContainer
+
+        # Create a dummy HierarchicalModelContainer
+        class DummyModel:
+            def predict_proba(self, X):
+                return X
+
+            def predict(self, X):
+                return X
+
+        container = HierarchicalModelContainer(
+            models={"route1": DummyModel()}, feature_engineerings={}
+        )
+
+        # Check that it satisfies the protocol
+        assert isinstance(container, ModelContainer)
+        assert hasattr(container, "predict_proba")
+        assert hasattr(container, "predict")
+
+    def test_hierarchical_inference_load_model_returns_model_container(self):
+        """GIVEN HierarchicalInference WHEN load_model() is called THEN it returns ModelContainer-compatible object."""
+        from energizados.contracts import ModelContainer
+        from energizados.inference.hierarchical import HierarchicalInference
+
+        # Create a simple HierarchicalInference instance
+        inference = HierarchicalInference(
+            threshold=0.5,
+            routes=[
+                {
+                    "name": "test_route",
+                    "condition": {"geo_region": "TEST"},
+                    "model_path": "dummy.pkl",
+                }
+            ],
+        )
+
+        # Since we can't actually load models in a test, we just check
+        # that the method signature is compatible
+        import inspect
+
+        sig = inspect.signature(inference.load_model)
+        # Check that return annotation exists (should be ModelContainer)
+        return_annotation = sig.return_annotation
+        # The annotation should be either ModelContainer or not None
+        assert return_annotation != inspect.Parameter.empty
+
+        # Verify the annotation is specifically ModelContainer
+        assert return_annotation == ModelContainer

@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from energizados.contracts import ModelContainer
 from energizados.core.base import BaseInference
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ class HierarchicalInference(BaseInference):
                     "Please choose a different name for your route."
                 )
 
-    def load_model(self, model_path: Optional[str] = None) -> "HierarchicalModelContainer":
+    def load_model(self, model_path: Optional[str] = None) -> ModelContainer:
         """
         Load all route models and feature engineering pipelines.
 
@@ -96,7 +97,7 @@ class HierarchicalInference(BaseInference):
             model_path: Ignored. Models are loaded from route definitions.
 
         Returns:
-            HierarchicalModelContainer: A lightweight container representing
+            ModelContainer: A lightweight container representing
             all loaded models.
         """
         from energizados.core.utils.secure_pickle import secure_load
@@ -287,3 +288,21 @@ class HierarchicalModelContainer:
     ):
         self.models = models
         self.feature_engineerings = feature_engineerings
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """Return probabilities (ModelContainer Protocol stub).
+
+        This method is required by the ModelContainer Protocol but is not
+        actually used. The real prediction logic is in HierarchicalInference.
+        """
+        # This is a stub to satisfy the ModelContainer Protocol
+        raise NotImplementedError("Use HierarchicalInference.predict_proba() instead")
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """Return binary predictions (ModelContainer Protocol stub).
+
+        This method is required by the ModelContainer Protocol but is not
+        actually used. The real prediction logic is in HierarchicalInference.
+        """
+        # This is a stub to satisfy the ModelContainer Protocol
+        raise NotImplementedError("Use HierarchicalInference.predict() instead")
