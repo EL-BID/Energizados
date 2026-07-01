@@ -1488,9 +1488,15 @@ class CleanFilesETL(BaseETL):
         self.output_path = output_path
         self.missing_ok = missing_ok
         self.kwargs = kwargs
+        self._is_noop_load = True  # This ETL does not produce a dataset
 
     def run(self, output_path: Optional[str] = None) -> pd.DataFrame:  # type: ignore[override]
         """Delete all files in input_paths and return an empty DataFrame."""
+        # Delegate to noop_load which contains the deletion logic
+        return self.noop_load()
+
+    def noop_load(self) -> pd.DataFrame:
+        """Delete files and return empty DataFrame (BaseETL noop override)."""
         from energizados.core.utils.secure_pickle import validate_no_traversal
 
         deleted, skipped, failed = 0, 0, []

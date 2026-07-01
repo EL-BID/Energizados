@@ -520,3 +520,142 @@ class TestPublicImportPaths:
         assert ClipOutliersETL is not None
         assert GeoFeaturesETL is not None
         assert CleanFilesETL is not None
+
+
+class TestNoopLoadHook:
+    """Test noop_load hook on BaseETL."""
+
+    def test_base_etl_has_noop_load_method(self):
+        """GIVEN BaseETL WHEN inspecting methods THEN noop_load() exists."""
+        from energizados.contracts import BaseETL
+
+        assert hasattr(BaseETL, "noop_load")
+        assert callable(BaseETL.noop_load)
+
+    def test_base_etl_noop_load_returns_empty_dataframe(self):
+        """GIVEN BaseETL WHEN noop_load() is called THEN empty DataFrame is returned."""
+        import pandas as pd
+
+        from energizados.contracts import BaseETL
+
+        class DummyETL(BaseETL):
+            def extract(self):
+                return pd.DataFrame()
+
+            def transform(self, df):
+                return df
+
+            def load(self, df, path):
+                pass
+
+        etl = DummyETL()
+        result = etl.noop_load()
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
+
+    def test_base_etl_has_is_noop_load_flag(self):
+        """GIVEN BaseETL WHEN inspecting attributes THEN _is_noop_load flag exists."""
+        from energizados.contracts import BaseETL
+
+        assert hasattr(BaseETL, "_is_noop_load")
+        # Check it has a class-level default
+        assert "_is_noop_load" in BaseETL.__dict__
+
+    def test_base_etl_run_checks_noop_load_flag(self):
+        """GIVEN BaseETL with _is_noop_load=True WHEN run() is called THEN noop_load() is returned."""
+        import tempfile
+
+        import pandas as pd
+
+        from energizados.contracts import BaseETL
+
+        class NoopETL(BaseETL):
+            def __init__(self):
+                super().__init__(name="noop")
+                self._is_noop_load = True
+
+            def extract(self):
+                raise Exception("extract should not be called")
+
+            def transform(self, df):
+                raise Exception("transform should not be called")
+
+            def load(self, df, path):
+                raise Exception("load should not be called")
+
+        etl = NoopETL()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = etl.run(f"{tmpdir}/output.parquet")
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
+
+
+class TestCleanFilesETLCompliance:
+    """Test CleanFilesETL respects BaseETL contract via noop_load."""
+
+    def test_clean_files_etl_sets_noop_load_flag(self):
+        """GIVEN CleanFilesETL WHEN instantiated THEN _is_noop_load is True."""
+        from energizados.etl.pipeline import CleanFilesETL
+
+        etl = CleanFilesETL(name="clean", input_paths=[])
+        assert etl._is_noop_load is True
+
+    def test_clean_files_etl_overrides_noop_load(self):
+        """GIVEN CleanFilesETL WHEN noop_load() is called THEN files are deleted."""
+        import tempfile
+        from pathlib import Path
+
+        import pandas as pd
+
+        from energizados.etl.pipeline import CleanFilesETL
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test files
+            test_files = []
+            for i in range(3):
+                file_path = Path(tmpdir) / f"test_{i}.txt"
+                file_path.write_text(f"test content {i}")
+                test_files.append(str(file_path))
+
+            # Create CleanFilesETL instance
+            etl = CleanFilesETL(name="clean", input_paths=test_files)
+
+            # Call noop_load (simulates what BaseETL.run() does)
+            result = etl.noop_load()
+
+            # Check files were deleted
+            for file_path in test_files:
+                assert not Path(file_path).exists()
+
+            # Check empty DataFrame is returned
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 0
+
+    def test_clean_files_etl_run_returns_empty_dataframe(self):
+        """GIVEN CleanFilesETL WHEN run() is called THEN empty DataFrame is returned."""
+        import tempfile
+        from pathlib import Path
+
+        import pandas as pd
+
+        from energizados.etl.pipeline import CleanFilesETL
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test file
+            test_file = Path(tmpdir) / "test.txt"
+            test_file.write_text("test content")
+
+            # Create CleanFilesETL instance
+            etl = CleanFilesETL(name="clean", input_paths=[str(test_file)])
+
+            # Call run
+            with tempfile.TemporaryDirectory() as output_tmpdir:
+                result = etl.run(f"{output_tmpdir}/output.parquet")
+
+            # Check empty DataFrame is returned
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 0
+
+            # Check file was deleted
+            assert not test_file.exists()
