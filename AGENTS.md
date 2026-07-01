@@ -101,6 +101,7 @@ src/energizados/
 │   └── hierarchical.py # HierarchicalInference — routes rows to per-route models
 ├── core/              # Core framework components
 │   ├── base.py        # BaseModel, BaseInference, PipelineStep (base classes)
+│   ├── contracts.py   # **SINGLE HOME** for all 8 framework base classes (see below)
 │   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
 │   ├── builders/      # Step-specific builder implementations
 │   │   ├── etl_builder.py
@@ -117,6 +118,31 @@ src/energizados/
 │   ├── plots/         # Shared plot utilities
 │   │   └── utils.py
 │   └── utils/         # Internal utilities
+```
+
+### Base Classes (Public API)
+
+The **single home** for all framework base classes is `energizados.contracts` (added in v0.2.7). All 8 base classes are defined there:
+
+- **`BaseModel`** — Abstract base for custom ML models. Requires `fit()`, `predict()`, `predict_proba()`, `get_raw_model()`.
+- **`BaseInference`** — Abstract base for inference engines. Requires `predict()`, `predict_proba()`, `load_model()`, `save_predictions()`.
+- **`BasePipeline`** — Abstract base for user-defined pipelines. Requires `run(context)`.
+- **`BaseEvaluator`** — Abstract base for model evaluation. Requires `evaluate(X, y, model, threshold=0.5)`.
+- **`BaseETL`** — Abstract base for ETL processes. Requires `extract()`, `transform()`, `load()`.
+- **`BaseFeatureEngineering`** — Abstract base for feature engineering pipelines. Requires `fit()`, `transform()`. Includes `save()`/`load()` via `secure_pickle`.
+- **`BaseFeatureSelector`** — Abstract base for feature selection methods. Requires `fit()`, `transform()`.
+- **`BaseExplorer`** — Abstract base for exploratory data analysis. Requires `explore()`.
+
+**Backward-compatible import paths** (shim re-exports from `energizados.contracts`):
+- `energizados.core.base.BaseModel`
+- `energizados.core.base.BaseInference`
+- `energizados.etl.base.BaseETL`
+- `energizados.feature_engineering.base.BaseFeatureEngineering`
+- `energizados.feature_selection.base.BaseFeatureSelector`
+- `energizados.eda.base.BaseExplorer`
+- `energizados.inference.base.BaseInference`
+
+**Stability commitment**: All base classes are frozen public API. Future changes will follow deprecation rules. Shims guarantee old import paths continue to work.
 │       ├── import_utils.py   # Dynamic class import with allowlist
 │       └── secure_pickle.py  # SHA-256 verified pickle save/load
 ├── explainability/    # SHAP-based model explainability
