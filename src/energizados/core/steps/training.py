@@ -594,7 +594,7 @@ class TrainingStep(PipelineStep):
         from energizados.modeling.registry import ModelRegistry
 
         model_class = ModelRegistry.get(model_type)
-        params = self._prepare_model_params(cfg, X_train)
+        params = model_class.from_config(cfg, X_train)
 
         # For simple models, use raw data instead of transformed
         if model_type in ["simple_trend", "simple_constant"]:
@@ -794,79 +794,6 @@ class TrainingStep(PipelineStep):
                 type_indices[t] = idx + 1
 
         return names
-
-    # ------------------------------------------------------------------
-    # Model param preparation
-    # ------------------------------------------------------------------
-
-    def _prepare_model_params(self, model_config: Dict, X_train: pd.DataFrame) -> Dict:
-        """
-        Prepare constructor parameters for a model based on its type.
-
-        Args:
-            model_config: Single model config dict (with "type", "hyperparams", etc.).
-            X_train: Transformed training DataFrame (used to derive column lists).
-
-        Returns:
-            Dict: Parameters for the model constructor.
-        """
-        params = model_config.copy()
-        model_type = params.get("type", "lightgbm")
-
-        if model_type in ["lightgbm", "lgbm", "catboost", "cat", "xgboost", "xgb"]:
-            params["cols_for_model"] = X_train.columns.tolist()
-            sampling_config = params.pop("sampling", {})
-            params["sampling_method"] = sampling_config.get("method", "undersample")
-            params["sampling_th"] = sampling_config.get("threshold", 0.5)
-            class_weight = params.pop("class_weight", None)
-            if class_weight is not None:
-                params["class_weight"] = class_weight
-            params["hyperparams"] = params.pop("hyperparams", {})
-            hyperparam_search = params.pop("hyperparam_search", {})
-            params["search_hip"] = hyperparam_search.get("enabled", False)
-            params["n_iter"] = hyperparam_search.get("n_iter", 60)
-            params["cv"] = hyperparam_search.get("cv", 3)
-            params["n_splits"] = hyperparam_search.get("n_splits", 5)
-
-        elif model_type in ["neural_network", "nn", "lstm"]:
-            consumption_cols = [c for c in X_train.columns if "_anterior" in c]
-            feature_cols = [c for c in X_train.columns if c not in consumption_cols]
-            params["features_names"] = feature_cols
-            params["spents_names"] = consumption_cols
-            sampling_config = params.pop("sampling", {})
-            params["sampling_method"] = sampling_config.get("method", "undersample")
-            params["sampling_th"] = sampling_config.get("threshold", 0.5)
-            class_weight = params.pop("class_weight", None)
-            if class_weight is not None:
-                params["class_weight"] = class_weight
-            params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
-
-        elif model_type in ["simple_trend", "simple_constant"]:
-            # Simple models work on raw consumption columns, not preprocessed
-            # They use columns directly from input data - pass config with threshold/params
-            # SimpleTrendAdapter accepts: last_base_value, last_eval_value, threshold
-            # SimpleConstantAdapter accepts: min_count_constante
-            if model_type == "simple_trend":
-                params["last_base_value"] = params.get("last_base_value", 6)
-                params["last_eval_value"] = params.get("last_eval_value", 3)
-                params["threshold"] = params.get("threshold", 50)
-            elif model_type == "simple_constant":
-                params["min_count_constante"] = params.get("min_count_constante", 3)
-            # Remove any config that's not valid for simple models
-            params.pop("sampling", None)
-            params.pop("class_weight", None)
-            params.pop("hyperparams", None)
-            params.pop("hyperparam_search", None)
-
-        # Store the type string in the config so evaluator can read it
-        params["config"] = {"type": model_type}
-
-        # Remove keys that are not model constructor arguments
-        params.pop("type", None)
-        params.pop("name", None)
-        params.pop("calibration", None)
-
-        return params
 
     # ------------------------------------------------------------------
     # PipelineStep interface
