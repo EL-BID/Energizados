@@ -9,7 +9,6 @@ from typing import Any, Dict, Optional
 from energizados.core.base import PipelineStep
 from energizados.core.builders.base import StepBuilder
 from energizados.core.utils import import_class
-from energizados.evaluation import DefaultEvaluator
 
 
 class EvaluationBuilder(StepBuilder):
@@ -61,6 +60,9 @@ class EvaluationBuilder(StepBuilder):
         # so that DefaultEvaluator picks it up from context (avoids validate_input failure)
         model_path = eval_config.get("model_path")
         fe_path = eval_config.get("feature_engineering_path")
+
+        # Lazy import to avoid module-level cycle
+        from energizados.evaluation import DefaultEvaluator
 
         # Use DefaultEvaluator
         return DefaultEvaluator(
