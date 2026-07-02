@@ -59,6 +59,49 @@ class _DummyModel(BaseModel):
     def get_raw_model(self):
         return self
 
+    @classmethod
+    def from_config(cls, config: dict, X_train) -> dict:
+        """
+        Minimal from_config implementation for testing.
+
+        Replicates the ladder logic for tree-based models (lightgbm, etc.).
+        """
+        params = config.copy()
+        model_type = params.get("type", "lightgbm")
+
+        # Extract columns from X_train
+        params["cols_for_model"] = X_train.columns.tolist()
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Pop hyperparams (will be passed through)
+        params["hyperparams"] = params.pop("hyperparams", {})
+
+        # Flatten hyperparam_search config
+        hyperparam_search = params.pop("hyperparam_search", {})
+        params["search_hip"] = hyperparam_search.get("enabled", False)
+        params["n_iter"] = hyperparam_search.get("n_iter", 60)
+        params["cv"] = hyperparam_search.get("cv", 3)
+        params["n_splits"] = hyperparam_search.get("n_splits", 5)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
+
 
 def _dummy_model_class(proba: float = 0.6):
     """Return _DummyModel (module-level, picklable). proba ignored — uses default 0.6."""
@@ -146,55 +189,8 @@ class TestResolveModelNames:
 # ---------------------------------------------------------------------------
 
 
-class TestPrepareModelParams:
-    def _step(self):
-        return TrainingStep(models_configs=[], output_dir="/tmp/x")  # nosec B108
-
-    def _X(self, cols=None):
-        return pd.DataFrame({c: [1, 2] for c in (cols or ["f1", "f2"])})
-
-    def test_lgbm_cols_for_model(self):
-        step = self._step()
-        X = self._X(["a", "b", "c"])
-        params = step._prepare_model_params({"type": "lightgbm", "hyperparams": {}}, X)
-        assert params["cols_for_model"] == ["a", "b", "c"]
-
-    def test_sampling_config_extracted(self):
-        step = self._step()
-        cfg = {"type": "lightgbm", "sampling": {"method": "oversample", "threshold": 0.3}}
-        params = step._prepare_model_params(cfg, self._X())
-        assert params["sampling_method"] == "oversample"
-        assert params["sampling_th"] == 0.3
-        assert "sampling" not in params
-
-    def test_hyperparam_search_extracted(self):
-        step = self._step()
-        cfg = {"type": "catboost", "hyperparam_search": {"enabled": True, "n_iter": 30, "cv": 5}}
-        params = step._prepare_model_params(cfg, self._X())
-        assert params["search_hip"] is True
-        assert params["n_iter"] == 30
-        assert params["cv"] == 5
-        assert "hyperparam_search" not in params
-
-    def test_type_stored_in_config(self):
-        step = self._step()
-        params = step._prepare_model_params({"type": "lightgbm"}, self._X())
-        assert params["config"] == {"type": "lightgbm"}
-
-    def test_type_and_name_removed(self):
-        step = self._step()
-        params = step._prepare_model_params({"type": "catboost", "name": "cat"}, self._X())
-        assert "type" not in params
-        assert "name" not in params
-
-    def test_neural_cols_split(self):
-        step = self._step()
-        cols = ["actividad", "zona", "12_anterior", "6_anterior"]
-        X = self._X(cols)
-        params = step._prepare_model_params({"type": "neural_network"}, X)
-        assert "12_anterior" in params["spents_names"]
-        assert "actividad" in params["features_names"]
-        assert "12_anterior" not in params["features_names"]
+# TestPrepareModelParams class removed - _prepare_model_params deleted in favor of per-adapter from_config methods
+# The functionality is now tested in tests/test_from_config_equivalence.py
 
 
 # ---------------------------------------------------------------------------

@@ -210,7 +210,13 @@ class EnsembleModel(BaseModel):
         from energizados.modeling.registry import ModelRegistry
 
         cls = ModelRegistry.get(meta_type)
-        return cls(**params)
+        meta = cls(**params)
+
+        # Wrap adapters with _SklearnCalibWrapper to provide 2D predict_proba
+        # (adapters expose 1D predict_proba, but sklearn stacking expects 2D)
+        from energizados.core.steps.training import _SklearnCalibWrapper
+
+        return _SklearnCalibWrapper(meta)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
