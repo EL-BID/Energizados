@@ -14,7 +14,6 @@ import pandas as pd
 
 from energizados.core.base import PipelineStep
 from energizados.core.utils.secure_pickle import secure_dump
-from energizados.modeling.registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -590,6 +589,9 @@ class TrainingStep(PipelineStep):
         """
         model_type = cfg.get("type", "lightgbm")
         logger.info(f"Training model '{name}' (type: {model_type})")
+
+        # Lazy import to avoid module-level cycle
+        from energizados.modeling.registry import ModelRegistry
 
         model_class = ModelRegistry.get(model_type)
         params = self._prepare_model_params(cfg, X_train)
