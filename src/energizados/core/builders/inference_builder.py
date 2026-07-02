@@ -16,7 +16,6 @@ import pandas as pd
 from energizados.core.base import PipelineStep
 from energizados.core.builders.base import StepBuilder
 from energizados.core.utils import import_class
-from energizados.inference.default import DefaultInference
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,9 @@ class InferenceBuilder(StepBuilder):
         if custom_class:
             InferenceClass = import_class(custom_class)
         else:
+            # Lazy import to avoid module-level cycle
+            from energizados.inference.default import DefaultInference
+
             InferenceClass = DefaultInference
 
         # Build kwargs for inference constructor.
