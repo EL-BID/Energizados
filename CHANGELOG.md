@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-07-02
+
+### Added
+
+- **Contracts: single home for base classes** — `energizados.contracts` is now the single source of truth for all 8 framework base classes (`BaseModel`, `BaseInference`, `BasePipeline`, `BaseEvaluator`, `BaseETL`, `BaseFeatureEngineering`, `BaseFeatureSelector`, `BaseExplorer`). Backward-compatible shims re-export them from their legacy paths (`energizados.core.base`, `energizados.etl.base`, `energizados.feature_engineering.base`, `energizados.feature_selection.base`, `energizados.eda.base`, `energizados.inference.base`). This is a frozen public API.
+- **Contracts: `save()`/`load()` on `BaseModel` and `BaseFeatureSelector`** — persistence now part of the public base-class contract, aligned with `BaseFeatureEngineering`.
+- **ETL: `CleanFilesETL` honors the `BaseETL` contract** — cleanup ETL integrates cleanly via a `noop_load` hook, so the orchestrator tracks it as a normal DAG node without writing a dataset.
+
+### Changed
+
+- **Core: unified `Registry` class** — extracted a single generic `Registry` and migrated `ModelRegistry` onto it. Model adapters now resolve config through a per-adapter `from_config` method instead of a central if/elif ladder, making new model registration additive.
+- **Core: lazy imports in builders and steps** — `ETLOrchestrator`, `DefaultEvaluator`, `DefaultInference`, `DefaultFeatureEngineering`, and `ModelRegistry` are now imported lazily inside builders/steps, breaking circular-dependency cycles introduced by the contracts consolidation.
+- **Inference/Evaluation/Feature-selection: type alignment to contracts** — `DefaultEvaluator`, `FeatureSelectionPipeline`, and `HierarchicalInference.load_model` now inherit/annotate against the consolidated base classes for consistency.
+
+### Refactoring
+
+- **`framework-core-redesign`** (core-layering + contracts-consolidation + unified-registry) completed and archived via SDD. No behavior changes for existing callers; import paths are preserved through shims.
+
 ## [0.2.7] - 2026-07-01
 
 ### Added
