@@ -213,7 +213,7 @@ class TestTrainingStepSingleModel:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -268,7 +268,7 @@ class TestTrainingStepEnsemble:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -319,7 +319,7 @@ class TestTrainingStepEnsemble:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -344,7 +344,7 @@ class TestTrainingStepEnsemble:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.55)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -384,7 +384,7 @@ class TestTrainingStepMultiModel:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -469,7 +469,7 @@ class TestTrainingStepMultiModel:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             # 1. Single model
