@@ -14,7 +14,6 @@ import pandas as pd
 
 from energizados.core.base import PipelineStep
 from energizados.core.utils.secure_pickle import secure_dump
-from energizados.feature_engineering import DefaultFeatureEngineering
 from energizados.modeling.registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
@@ -302,6 +301,9 @@ class TrainingStep(PipelineStep):
         if not fe_enabled:
             fe_config = {"enabled": False}
             fs_config = {"enabled": False}
+
+        # Lazy import to avoid module-level cycle
+        from energizados.feature_engineering import DefaultFeatureEngineering
 
         feature_engineering = DefaultFeatureEngineering(
             preprocessing_config=fe_config,
