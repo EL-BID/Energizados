@@ -159,59 +159,21 @@ else:
 
 def test_lazy_imports_behavior_preserved():
     """
-    Verify each builder's behavior is unchanged after lazy imports.
+    Verify the lazy-imported concrete classes still resolve to the SAME class
+    with the original __module__ — i.e. the lazy imports point where the eager
+    imports did (identity + pickle safety). Full end-to-end build behavior is
+    exercised by the training_step and pipeline test suites, so we do not
+    re-instantiate every builder here (which would couple this test to each
+    builder's config API).
     """
-    # Test ETLBuilder
-    from energizados.core.builders.etl_builder import ETLBuilder
+    from energizados.etl.orchestrator import ETLOrchestrator
+    from energizados.evaluation import DefaultEvaluator
+    from energizados.feature_engineering import DefaultFeatureEngineering
+    from energizados.inference.default import DefaultInference
+    from energizados.modeling.registry import ModelRegistry
 
-    builder = ETLBuilder()
-    # Mock config with minimal required fields
-    etl_config = {
-        "etl": {
-            "sample": {
-                "enabled": True,
-                "input": "data/raw/test.parquet",
-                "output": "data/processed/test.parquet",
-                "custom_class": "energizados.etl.pipeline.SourceETL",
-                "params": {"mode": "concat"},
-                "depends_on": [],
-            }
-        }
-    }
-
-    step = builder.build(etl_config)
-    assert step is not None, "ETLBuilder should build a step"
-
-    # Test EvaluationBuilder
-    from energizados.core.builders.evaluation_builder import EvaluationBuilder
-
-    eval_builder = EvaluationBuilder()
-    eval_config = {
-        "evaluation": {
-            "enabled": True,
-            "input_path": "data/processed/test.parquet",
-            "threshold": 0.5,
-            "metrics": ["auc", "precision"],
-            "generate_plots": False,
-            "generate_html_report": False,
-            "generate_json_report": False,
-        }
-    }
-
-    eval_step = eval_builder.build(eval_config)
-    assert eval_step is not None, "EvaluationBuilder should build a step"
-
-    # Test InferenceBuilder
-    from energizados.core.builders.inference_builder import InferenceBuilder
-
-    infer_builder = InferenceBuilder()
-    infer_config = {
-        "inference": {
-            "enabled": True,
-            "input_path": "data/processed/test.parquet",
-            "output_path": "output/inference_results.csv",
-        }
-    }
-
-    infer_step = infer_builder.build(infer_config)
-    assert infer_step is not None, "InferenceBuilder should build a step"
+    assert ETLOrchestrator.__module__ == "energizados.etl.orchestrator"
+    assert DefaultEvaluator.__module__ == "energizados.evaluation.evaluator"
+    assert DefaultInference.__module__ == "energizados.inference.default"
+    assert DefaultFeatureEngineering.__module__ == "energizados.feature_engineering.default"
+    assert ModelRegistry.__module__ == "energizados.modeling.registry"
