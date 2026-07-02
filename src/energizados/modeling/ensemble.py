@@ -206,10 +206,10 @@ class EnsembleModel(BaseModel):
 
             return LogisticRegression(**params)
 
-        # Delegate to ModelRegistry for other types (lightgbm, catboost, etc.)
-        from energizados.modeling.registry import ModelRegistry
+        # Delegate to model_registry for other types (lightgbm, catboost, etc.)
+        from energizados.core.registry import model_registry
 
-        cls = ModelRegistry.get(meta_type)
+        cls = model_registry.get(meta_type)
         meta = cls(**params)
 
         # Wrap adapters with _SklearnCalibWrapper to provide 2D predict_proba
