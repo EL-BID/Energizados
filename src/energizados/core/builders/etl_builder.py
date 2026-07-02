@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
 from energizados.core.builders.base import StepBuilder
-from energizados.etl.orchestrator import ETLOrchestrator
 
 
 class ETLBuilder(StepBuilder):
@@ -32,6 +31,9 @@ class ETLBuilder(StepBuilder):
         if not etl_configs:
             return None
 
+        # Lazy import to avoid module-level cycle
+        from energizados.etl.orchestrator import ETLOrchestrator
+
         orchestrator = ETLOrchestrator(etl_configs)
 
         # Get enabled ETL names for phase tracking (use orchestrator's filtered configs)
@@ -42,7 +44,7 @@ class ETLBuilder(StepBuilder):
         class ETLStep(PipelineStep):
             """Pipeline step that executes multiple ETLs."""
 
-            def __init__(self, orchestrator: ETLOrchestrator, etl_names: List[str]):
+            def __init__(self, orchestrator: "ETLOrchestrator", etl_names: List[str]):
                 self.orchestrator = orchestrator
                 self.etl_names = etl_names
 
