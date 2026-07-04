@@ -282,3 +282,59 @@ class TestFittedGuards:
             selector.get_selected_features()
         with pytest.raises(ValueError):
             selector.get_audit_stats()
+
+
+class TestErrorCodeAndToDict:
+    """framework-web-ready: All exceptions expose error_code and to_dict()."""
+
+    def test_energizados_error_error_code_default(self):
+        """Base exception has default error_code."""
+        exc = EnergizadosError("msg")
+        assert exc.error_code == "ENERGIZADOS_ERROR"
+
+    def test_energizados_error_to_dict_structure(self):
+        """Base exception to_dict() returns structured dict."""
+        exc = EnergizadosError("msg")
+        result = exc.to_dict()
+        assert result == {
+            "error_code": "ENERGIZADOS_ERROR",
+            "message": "msg",
+            "details": {},
+        }
+
+    def test_energizados_error_per_instance_error_code_override(self):
+        """Per-instance error_code override shadows class attribute."""
+        exc = EnergizadosError("msg", error_code="CUSTOM")
+        assert exc.error_code == "CUSTOM"
+
+    def test_energizados_error_details_stored(self):
+        """Details kwargs are stored and accessible."""
+        exc = EnergizadosError("msg", key1="value1", key2="value2")
+        assert exc.details == {"key1": "value1", "key2": "value2"}
+
+    def test_configuration_error_error_code(self):
+        """ConfigurationError has specific error_code."""
+        exc = ConfigurationError("invalid config")
+        assert exc.error_code == "CONFIG_INVALID"
+
+    def test_configuration_error_to_dict_extended(self):
+        """ConfigurationError to_dict() includes config_path field."""
+        exc = ConfigurationError("invalid config", config_path="/path/to/config.yaml")
+        result = exc.to_dict()
+        assert result["error_code"] == "CONFIG_INVALID"
+        assert result["config_path"] == "/path/to/config.yaml"
+        # ConfigurationError adds prefix when config_path is provided
+        assert "invalid config" in result["message"]
+        assert "/path/to/config.yaml" in result["message"]
+
+    def test_model_not_fitted_error_code(self):
+        """ModelNotFittedError has specific error_code."""
+        exc = ModelNotFittedError(model_name="MyModel")
+        assert exc.error_code == "MODEL_NOT_FITTED"
+
+    def test_model_not_fitted_error_to_dict_includes_model_name(self):
+        """ModelNotFittedError to_dict() includes model_name from details."""
+        exc = ModelNotFittedError(model_name="MyModel")
+        result = exc.to_dict()
+        assert result["error_code"] == "MODEL_NOT_FITTED"
+        assert result["details"]["model_name"] == "MyModel"

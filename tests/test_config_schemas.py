@@ -383,7 +383,9 @@ class TestConfigSchemas:
             }
 
             errors = validator.validate_config(config)
-            assert len(errors) == 0, f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
+            assert (
+                len(errors) == 0
+            ), f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
 
     def test_split_geo_stratify_invalid_strategy_rejected(self):
         """Verify that invalid geo_stratify strategy is rejected."""
@@ -448,7 +450,9 @@ class TestConfigSchemas:
         }
 
         errors = validator.validate_config(config)
-        assert len(errors) == 0, f"Inference without segment_thresholds should be valid, got: {errors}"
+        assert (
+            len(errors) == 0
+        ), f"Inference without segment_thresholds should be valid, got: {errors}"
 
     def test_inference_segment_thresholds_minimal(self):
         """Verify that segment_thresholds with just enabled field is valid."""

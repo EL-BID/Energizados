@@ -565,14 +565,12 @@ class TestApplyGeoStratify:
             split_step._apply_geo_stratify(geo_stratify_df_equal)
 
         # Verify WARNING was logged
-        warning_logs = [
-            record for record in caplog.records if record.levelno == logging.WARNING
-        ]
+        warning_logs = [record for record in caplog.records if record.levelno == logging.WARNING]
         assert len(warning_logs) > 0, "Expected warning about data loss"
         warning_msg = warning_logs[0].getMessage().lower()
-        assert "data" in warning_msg or "rows" in warning_msg or "50%" in warning_msg, (
-            f"Warning message should mention data loss: {warning_msg}"
-        )
+        assert (
+            "data" in warning_msg or "rows" in warning_msg or "50%" in warning_msg
+        ), f"Warning message should mention data loss: {warning_msg}"
 
     def test_missing_geo_column_raises_valueerror(self, geo_stratify_df_equal):
         """Missing geo column raises ValueError with descriptive message."""
@@ -591,9 +589,7 @@ class TestApplyGeoStratify:
             split_step._apply_geo_stratify(geo_stratify_df_equal)
 
         assert "nonexistent_column" in str(excinfo.value).lower()
-        assert "not found" in str(excinfo.value).lower() or "missing" in str(
-            excinfo.value
-        ).lower()
+        assert "not found" in str(excinfo.value).lower() or "missing" in str(excinfo.value).lower()
 
     def test_disabled_returns_original_df(self, geo_stratify_df_equal):
         """When enabled: false, the method returns the original df unchanged."""
@@ -664,9 +660,9 @@ class TestApplyGeoStratify:
         # Should log geo_stratify info
         info_logs = [record for record in caplog.records if record.levelno == logging.INFO]
         log_messages = " ".join([r.getMessage().lower() for r in info_logs])
-        assert "geo" in log_messages or "strat" in log_messages or "zone" in log_messages, (
-            "Should log information about geo_stratify"
-        )
+        assert (
+            "geo" in log_messages or "strat" in log_messages or "zone" in log_messages
+        ), "Should log information about geo_stratify"
 
 
 # =============================================================================
@@ -783,7 +779,11 @@ class TestInjectUnlabeledNegatives:
 
         # val and test contain some IDs that also exist in unlabeled
         val_df = pd.DataFrame(
-            {"id": ["B1", "B2"], "feature1": [100.0, 200.0], "target": [0, 0]}  # B1, B2 in unlabeled
+            {
+                "id": ["B1", "B2"],
+                "feature1": [100.0, 200.0],
+                "target": [0, 0],
+            }  # B1, B2 in unlabeled
         )
         test_df = pd.DataFrame(
             {"id": ["B3"], "feature1": [300.0], "target": [0]}  # B3 in unlabeled
@@ -830,7 +830,9 @@ class TestInjectUnlabeledNegatives:
         # Unlabeled dates: 2020-03 (IN), 2021-06 (IN), 2022-01 (IN), 2023-08 (OUT), 2024-12 (OUT)
         # Should inject 3 rows (B1, B2, B3)
         injected_count = len(result) - len(labeled_df)
-        assert injected_count == 3, f"Expected 3 injected (within train_period), got {injected_count}"
+        assert (
+            injected_count == 3
+        ), f"Expected 3 injected (within train_period), got {injected_count}"
 
     def test_missing_columns_filled_with_nan(self, tmp_path, labeled_df, caplog):
         """Unlabeled file missing columns should fill with NaN and log WARNING."""
@@ -868,7 +870,9 @@ class TestInjectUnlabeledNegatives:
 
         # Should log WARNING about missing column
         warning_logs = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("feature2" in r.getMessage() for r in warning_logs), "Should warn about missing column"
+        assert any(
+            "feature2" in r.getMessage() for r in warning_logs
+        ), "Should warn about missing column"
 
     def test_empty_or_unavailable_source_raises_file_not_found(self, tmp_path):
         """Missing source_path must raise FileNotFoundError."""
@@ -935,7 +939,9 @@ class TestInjectUnlabeledNegatives:
 
         # Should log count added and fraud rate
         info_logs = " ".join([r.getMessage() for r in caplog.records if r.levelno == logging.INFO])
-        assert "inject" in info_logs.lower() or "added" in info_logs.lower(), "Should log injection count"
+        assert (
+            "inject" in info_logs.lower() or "added" in info_logs.lower()
+        ), "Should log injection count"
 
 
 # =============================================================================

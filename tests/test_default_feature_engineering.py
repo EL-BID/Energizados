@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 from sklearn.pipeline import Pipeline
 
+from energizados.core.utils.import_utils import register_allowed_prefix
 from energizados.feature_engineering.default import (
     _build_split_global_pipelines,
     _build_transformer_from_config,
@@ -22,6 +23,9 @@ from energizados.preprocessing.preprocessing import (
     ToDummy,
     TsfelVars,
 )
+
+# Register tests prefix for test imports
+register_allowed_prefix("tests")
 
 
 # Custom transformer for testing

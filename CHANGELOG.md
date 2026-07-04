@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **API: service layer package** — `energizados.api` provides programmatic framework usage with structured return values and no stdout coupling. Includes `validate_dict()`, `Pipeline.from_dict()`, `Pipeline.plan()`, `RunManager`, `RunResult.from_context()`, `ProgressEvent`, `console_progress()`, `merge_configs()`, `doctor()`, `format_error()`, and `register_allowed_prefix()`.
+- **API: exception error codes** — All framework exceptions now include structured `error_code` attributes for programmatic error handling.
+- **API: RunManager query interface** — Programmatic access to run metadata including `list_runs()`, `get_run()`, and `get_latest_run()`.
+- **API: ProgressEvent streaming** — Event-based progress reporting for long-running operations with `console_progress()` helper.
+- **API: Pipeline.from_dict() and plan()** — Create pipelines from dict configs and get execution plans without running.
+- **API: doctor() function** — System health checks with optional package checks and `DoctorReport.to_dict()` serialization.
+- **CLI: --json flags** — All CLI commands (`validate`, `doctor`, `run`) support `--json` output for structured machine-readable results.
+- **Import safety: register_allowed_prefix()** — Extension function for projects with custom module prefixes beyond the secure defaults.
+
+### Changed
+
+- **Import safety: ALLOWED_PREFIXES narrowed** — Default allowlist now contains only `{"energizados.", "src."}` for security. Projects using custom prefixes (e.g., `data.`, `features.`) must call `register_allowed_prefix()` before framework usage.
+- **Metrics: unified result key** — Pipeline run results now expose `result["metrics"]` as the canonical key for both single-model and ensemble runs. Accessing the legacy `result["model_metrics"]` key still works but emits a `DeprecationWarning`; it will be removed in v0.3.0. (This deprecates the result-dict key, not a module.)
+- **Test infrastructure: tests. prefix registration** — Test fixtures now dynamically register `tests.` prefix via `conftest.py` to support test-time class imports while keeping production defaults narrow.
+
+### Fixed
+
+- **CLI: JSON output pollution** — Logging now disabled in `--json` mode to prevent log messages from corrupting JSON output.
+- **Tests: import safety test reliability** — Import safety tests now verify source code defaults rather than runtime values affected by `conftest.py` modifications.
+
 ## [0.2.8] - 2026-07-02
 
 ### Added

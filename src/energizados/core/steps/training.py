@@ -6,6 +6,7 @@ and model training to prevent data leakage.
 """
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +17,33 @@ from energizados.core.base import PipelineStep
 from energizados.core.utils.secure_pickle import secure_dump
 
 logger = logging.getLogger(__name__)
+
+
+class MetricsDict(dict):
+    """Dict that emits deprecation warning on legacy model_metrics access (Phase 5)."""
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "model_metrics":
+            warnings.warn(
+                "'model_metrics' is deprecated; use 'metrics' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Return canonical metrics key (set below)
+            return super().__getitem__("metrics")
+        return super().__getitem__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Override get() to emit deprecation warning for model_metrics key."""
+        if key == "model_metrics":
+            warnings.warn(
+                "'model_metrics' is deprecated; use 'metrics' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Return canonical metrics key
+            return super().get("metrics", default)
+        return super().get(key, default)
 
 
 class _SklearnCalibWrapper:
@@ -551,6 +579,8 @@ class TrainingStep(PipelineStep):
             result["val_auc"] = None
             result["val_f1"] = None
             result["comparison_mode"] = True
+            # Set canonical metrics key for comparison mode (Phase 5)
+            result["metrics"] = val_metrics if val_metrics else {}
         else:
             # Single model or ensemble mode
             result["model_path"] = str(model_path)
@@ -561,10 +591,13 @@ class TrainingStep(PipelineStep):
             result["val_auc"] = val_auc
             result["val_f1"] = val_f1
             result["comparison_mode"] = False
+            # Set canonical metrics key for single/ensemble mode (Phase 5)
+            result["metrics"] = {"auc": val_auc, "f1": val_f1}
 
         self._report_phase(context, "evaluation", 100)
 
-        return result
+        # Wrap result in MetricsDict for deprecation warning (Phase 5)
+        return MetricsDict(result)
 
     # ------------------------------------------------------------------
     # Single model helpers

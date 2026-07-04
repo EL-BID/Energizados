@@ -9,11 +9,72 @@ import logging
 import shutil
 import subprocess
 import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RunMetadata:
+    """Metadata for a single run (stored in run_metadata.json)."""
+
+    run_id: str
+    timestamp: str
+    duration_seconds: float
+    energizados_version: str
+    python_version: str
+    git_commit: str
+    model_types: List[str]
+    status: str = "success"  # "success", "partial", "failed"
+    val_auc: Optional[float] = None
+    val_f1: Optional[float] = None
+    feature_count: Optional[int] = None
+    config_files: List[str] = field(default_factory=list)
+    output_paths: Dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RunMetadata":
+        """Tolerant loader for old runs (missing fields get defaults)."""
+        # Handle None or invalid input gracefully
+        if not isinstance(data, dict):
+            return cls(
+                run_id="",
+                timestamp="",
+                duration_seconds=0.0,
+                energizados_version="",
+                python_version="",
+                git_commit="",
+                model_types=[],
+                status="success",
+                val_auc=None,
+                val_f1=None,
+                feature_count=None,
+                config_files=[],
+                output_paths={},
+            )
+
+        return cls(
+            run_id=data.get("run_id", ""),
+            timestamp=data.get("timestamp", ""),
+            duration_seconds=data.get("duration_seconds", 0.0),
+            energizados_version=data.get("energizados_version", ""),
+            python_version=data.get("python_version", ""),
+            git_commit=data.get("git_commit", ""),
+            model_types=data.get("model_types", []),
+            status=data.get("status", "success"),  # Default for old runs
+            val_auc=data.get("val_auc"),
+            val_f1=data.get("val_f1"),
+            feature_count=data.get("feature_count"),
+            config_files=data.get("config_files", []),
+            output_paths=data.get("output_paths", {}),  # Empty for old runs
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-serializable dict representation."""
+        return asdict(self)
 
 
 class RunManager:
@@ -34,6 +95,7 @@ class RunManager:
         config_paths: Optional[List[str]] = None,
         run_name: Optional[str] = None,
         overwrite: bool = False,
+        output_dir: Optional[str] = None,
     ):
         """
         Initialize run manager.
@@ -42,12 +104,14 @@ class RunManager:
             config_paths: List of config file paths used for this run
             run_name: Optional custom run directory name
             overwrite: If True, overwrite existing run directory
+            output_dir: Optional output directory path for query API (default: "output")
         """
         self.config_paths: List[str] = config_paths or []
         self._run_dir: Optional[Path] = None
         self._run_name: Optional[str] = run_name
         self._overwrite: bool = overwrite
         self._start_time = time.time()
+        self._output_dir: Optional[Path] = Path(output_dir) if output_dir else None
 
     @property
     def run_dir(self) -> Optional[Path]:
@@ -239,6 +303,23 @@ class RunManager:
             if hasattr(fe, "selected_features_") and fe.selected_features_ is not None:
                 feature_count = len(fe.selected_features_)
 
+        # Determine status (NEW for Phase 4)
+        status = "success"
+        if context.get("error"):
+            status = "failed"
+        elif context.get("comparison_mode"):
+            status = "partial"  # Or determine based on step results
+
+        # Build output_paths dict (NEW for Phase 4)
+        output_paths = {}
+        if "model_path" in context and context["model_path"] is not None:
+            output_paths["model"] = context["model_path"]
+        if (
+            "feature_engineering_path" in context
+            and context["feature_engineering_path"] is not None
+        ):
+            output_paths["feature_engineering"] = context["feature_engineering_path"]
+
         # Build metadata dict
         metadata = {
             "run_id": run_id,
@@ -252,6 +333,8 @@ class RunManager:
             "val_f1": val_f1,
             "feature_count": feature_count,
             "config_files": [Path(p).name for p in self.config_paths],
+            "status": status,  # NEW
+            "output_paths": output_paths,  # NEW
         }
 
         # Write to JSON file
@@ -280,3 +363,141 @@ class RunManager:
             # Write run metadata if context is provided
             if context is not None:
                 self._write_run_metadata(context)
+
+    # ------------------------------------------------------------------
+    # Query API methods (Phase 4)
+    # ------------------------------------------------------------------
+
+    def get_run(self, run_id: str) -> Optional[RunMetadata]:
+        """
+        Get metadata for a specific run by ID.
+
+        Args:
+            run_id: Run directory name (e.g., "train-20240101_120000")
+
+        Returns:
+            RunMetadata if found, None otherwise (including invalid/path-traversal attempts)
+        """
+        # Reject None, empty, or invalid run_id (path traversal)
+        if not run_id or not isinstance(run_id, str):
+            return None
+
+        # Path traversal protection
+        if "/" in run_id or "\\" in run_id or ".." in run_id:
+            return None
+
+        # Use explicit output_dir if set, otherwise infer from run_dir or default
+        if self._output_dir:
+            base_dir = self._output_dir
+        elif self._run_dir:
+            base_dir = self._run_dir.parent
+        else:
+            base_dir = Path("output")
+
+        run_dir = base_dir / run_id
+
+        # Verify resolved path is within base_dir (defends against path traversal)
+        try:
+            resolved = run_dir.resolve()
+            base_resolved = base_dir.resolve()
+            # Check if resolved path is within base directory
+            if not str(resolved).startswith(str(base_resolved)):
+                return None
+        except (OSError, RuntimeError):
+            return None
+
+        return self._read_metadata(run_dir)
+
+    def list_runs(
+        self, filter: Optional[Dict[str, Any]] = None, limit: int = 100
+    ) -> List[RunMetadata]:
+        """
+        List runs across all types (train, eda, inference).
+
+        Args:
+            filter: Optional filter dict (e.g., {"status": "success"})
+            limit: Maximum number of runs to return (default: 100)
+
+        Returns:
+            List of RunMetadata sorted by timestamp descending (most recent first)
+        """
+        # Use explicit output_dir if set, otherwise infer from run_dir or default
+        if self._output_dir:
+            base_dir = self._output_dir
+        elif self._run_dir:
+            base_dir = self._run_dir.parent
+        else:
+            base_dir = Path("output")
+
+        if not base_dir.exists():
+            return []
+
+        runs = []
+        # Match all run types: train-*, eda-*, inference-*, or custom names
+        for run_dir in base_dir.glob("*-*"):
+            # Skip directories that don't look like run dirs
+            if not run_dir.is_dir():
+                continue
+
+            metadata = self._read_metadata(run_dir)
+            if metadata and self._matches_filter(metadata, filter):
+                runs.append(metadata)
+
+        # Sort by timestamp descending (most recent first), then by run_id descending for stability
+        runs.sort(key=lambda m: (m.timestamp, m.run_id), reverse=True)
+
+        # Apply limit after sorting
+        return runs[:limit]
+
+    def get_latest_run(self) -> Optional[RunMetadata]:
+        """
+        Get the most recent run.
+
+        Returns:
+            RunMetadata if any runs exist, None otherwise
+        """
+        runs = self.list_runs(limit=1)
+        return runs[0] if runs else None
+
+    def _read_metadata(self, run_dir: Path) -> Optional[RunMetadata]:
+        """
+        Read run metadata with tolerant loader.
+
+        Args:
+            run_dir: Path to run directory
+
+        Returns:
+            RunMetadata if metadata file exists and loads successfully, None otherwise
+        """
+        metadata_file = run_dir / "run_metadata.json"
+        if not metadata_file.exists():
+            return None
+
+        try:
+            with open(metadata_file) as f:
+                data = json.load(f)
+            return RunMetadata.from_dict(data)  # Tolerant loader
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"Failed to read metadata from {metadata_file}: {e}")
+            return None
+
+    def _matches_filter(self, metadata: RunMetadata, filter: Optional[Dict]) -> bool:
+        """
+        Check if metadata matches filter criteria.
+
+        Args:
+            metadata: RunMetadata to check
+            filter: Optional filter dict
+
+        Returns:
+            True if no filter or if metadata matches all filter criteria
+        """
+        if not filter:
+            return True
+
+        if "status" in filter and metadata.status != filter["status"]:
+            return False
+
+        # Add date_range filter if needed in future
+
+        return True

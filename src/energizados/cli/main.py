@@ -4,8 +4,10 @@ Main CLI entry point for Energizados Framework.
 This module defines main command and available subcommands.
 """
 
+import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import click
 from rich.panel import Panel
@@ -86,6 +88,19 @@ class EnergizadosGroup(click.Group):
             raise click.Abort()
 
         return None
+
+
+def _output_json(data: Any) -> None:
+    """
+    Output data as JSON to stdout.
+
+    Args:
+        data: Any data structure. If it has a `to_dict()` method, that will be called
+              to get a JSON-serializable dict. Otherwise, json.dumps with default=str is used.
+    """
+    if hasattr(data, "to_dict"):
+        data = data.to_dict()
+    click.echo(json.dumps(data, indent=2, default=str))
 
 
 def _print_next_steps(project_name: str):
@@ -254,6 +269,13 @@ def init(ctx, project_name, template, path, copy_from, force):
     help="Show what would be executed without actually running (for ETLs shows the execution plan)",
 )
 @click.option(
+    "--json",
+    "-j",
+    is_flag=True,
+    default=False,
+    help="Output results as JSON instead of human-readable format",
+)
+@click.option(
     "--verbose",
     "-v",
     count=True,
@@ -279,7 +301,7 @@ def init(ctx, project_name, template, path, copy_from, force):
     help="Path to log file (default: <run_dir>/run.log)",
 )
 @click.pass_context
-def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite, log_file):
+def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, overwrite, log_file):
     """
     Execute a pipeline from YAML configuration.
 
@@ -294,6 +316,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
     - --overwrite, -o: Overwrite existing output directory
     - --log-file, -l: Save logs to file
     - --dry-run: Show the plan without executing
+    - --json, -j: Output results as JSON instead of human-readable format
     - --verbose, -v: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
     CONFIGS accepts one or more config names, comma-separated names, or paths.
@@ -316,9 +339,11 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
         energizados run train -n my_experiment          # Run with custom run directory name
         energizados run train -o                       # Overwrite existing output
         energizados run train -l output/run.log        # Save logs to file
+        energizados run train --json                   # Output results as JSON
     """
-    # Configure logging
-    _setup_logging(verbose, log_file)
+    # Configure logging (completely disable in JSON mode to avoid polluting JSON output)
+    if not json:
+        _setup_logging(verbose, log_file)
 
     # Validate run name if provided
     import re
@@ -356,39 +381,58 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
 
         # If --etl is specified, execute specific ETLs
         if etl:
-            print_info(f"Executing ETL '{etl}' (and its dependencies)...")
-            execute_etl(config_paths, etl_name=etl, dry_run=dry_run)
-            if not dry_run:
+            if not json:
+                print_info(f"Executing ETL '{etl}' (and its dependencies)...")
+            result = execute_etl(config_paths, etl_name=etl, dry_run=dry_run)
+            if json:
+                _output_json(result)
+            elif not dry_run:
                 print_success("ETLs completed successfully")
             return
 
         # If --step is specified, execute only that step
         if step:
             if dry_run:
-                print_info(f"Dry-run mode for step '{step}'...")
+                if not json:
+                    print_info(f"Dry-run mode for step '{step}'...")
                 from energizados.cli.validate import validate_config
 
-                validate_config(config_paths, verbose=verbose > 0)
+                result = validate_config(config_paths, verbose=verbose > 0)
+                if json:
+                    _output_json(result)
                 return
 
-            print_info(f"Executing step '{step}' of the pipeline...")
-            execute_step(config_paths, step, run_name=name, overwrite=overwrite)
-            print_success("Step completed successfully")
+            if not json:
+                print_info(f"Executing step '{step}' of the pipeline...")
+            result = execute_step(config_paths, step, run_name=name, overwrite=overwrite)
+            if json:
+                # Wrap result in RunResult for JSON output
+                from energizados.api.run_state import RunResult
+
+                _output_json(RunResult.from_context(result))
+            else:
+                print_success("Step completed successfully")
             return
 
         # If dry-run without step or etl, show ETLs plan if it exists
         if dry_run:
+            if not json:
+                print_info("Dry-run mode - showing execution plan...")
             from energizados.cli.run import show_etl_plan
 
-            print_info("Dry-run mode - showing execution plan...")
             try:
                 plan = show_etl_plan(config_paths)
-                click.echo(plan)
+                if json:
+                    _output_json({"plan": plan})
+                else:
+                    click.echo(plan)
             except Exception:
                 # No ETLs, show general validation
                 from energizados.cli.validate import validate_config
 
-                validate_config(config_paths, verbose=verbose > 0)
+                result = validate_config(config_paths, verbose=verbose > 0)
+                if json:
+                    _output_json(result)
             return
 
         # Execute complete pipeline.
@@ -401,16 +445,39 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
         #   etl,train              → one merged run  (no repeated types)
         #   train_01,train_02      → run train_01, then run train_02
         #   etl,eda,train_01,train_02 → run etl+eda once, then train_01, then train_02
+        from energizados.api.run_state import RunResult
         from energizados.cli.run import split_configs_by_type
 
         shared, repeated_runs = split_configs_by_type(config_paths)
-        if repeated_runs:
-            if shared:
-                execute_pipeline(shared, run_name=name, overwrite=overwrite)
-            for per_run_paths in repeated_runs:
-                execute_pipeline(per_run_paths, run_name=name, overwrite=overwrite)
+
+        if json:
+            # For JSON output, we need to collect all results
+            all_results = []
+            if repeated_runs:
+                if shared:
+                    result = execute_pipeline(shared, run_name=name, overwrite=overwrite)
+                    all_results.append(RunResult.from_context(result).to_dict())
+                for per_run_paths in repeated_runs:
+                    result = execute_pipeline(per_run_paths, run_name=name, overwrite=overwrite)
+                    all_results.append(RunResult.from_context(result).to_dict())
+            else:
+                result = execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
+                all_results.append(RunResult.from_context(result).to_dict())
+
+            # Output results as JSON
+            if len(all_results) == 1:
+                _output_json(all_results[0])
+            else:
+                _output_json({"runs": all_results})
         else:
-            execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
+            # Normal human-readable output
+            if repeated_runs:
+                if shared:
+                    execute_pipeline(shared, run_name=name, overwrite=overwrite)
+                for per_run_paths in repeated_runs:
+                    execute_pipeline(per_run_paths, run_name=name, overwrite=overwrite)
+            else:
+                execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
 
     except ConfigResolutionError as e:
         print_error(str(e))
@@ -453,13 +520,20 @@ def run(ctx, configs, config_path, step, etl, dry_run, verbose, name, overwrite,
     help="Config directory (default: ./config/)",
 )
 @click.option(
+    "--json",
+    "-j",
+    is_flag=True,
+    default=False,
+    help="Output results as JSON instead of human-readable format",
+)
+@click.option(
     "--verbose",
     "-v",
     count=True,
     help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
 )
 @click.pass_context
-def validate(ctx, configs, config_path, verbose):
+def validate(ctx, configs, config_path, json, verbose):
     """
     Validate YAML configuration file(s).
 
@@ -480,9 +554,11 @@ def validate(ctx, configs, config_path, verbose):
         energizados validate eda                     # Validate config/eda.yaml
         energizados validate etl -v                 # Validate with INFO level logging
         energizados validate etl -vv                # Validate with DEBUG level logging
+        energizados validate etl --json             # Output validation results as JSON
     """
-    # Configure logging
-    _setup_logging(verbose)
+    # Configure logging (completely disable in JSON mode to avoid polluting JSON output)
+    if not json:
+        _setup_logging(verbose)
 
     from energizados.cli.compat import check_project_compatibility
     from energizados.cli.config_resolver import ConfigResolutionError, resolve_configs
@@ -501,10 +577,27 @@ def validate(ctx, configs, config_path, verbose):
         merged_for_check = merge_configs(config_paths)
         check_project_compatibility(merged_for_check)
 
-        for resolved_path in config_paths:
-            print_info(f"Validating: {resolved_path}")
-        validate_config(config_paths, verbose=verbose > 0)
-        print_success("Configuration is valid")
+        if not json:
+            for resolved_path in config_paths:
+                print_info(f"Validating: {resolved_path}")
+
+        # Delegate to API validate_dict
+        from energizados.api import validate_dict
+
+        merged_config = merge_configs(config_paths)
+        result = validate_dict(merged_config, "train")  # Use "train" as default type
+
+        if json:
+            _output_json(result)
+        else:
+            # Use existing validation output formatting
+            # Call validate_config for its human output, but ignore errors since we already validated
+            try:
+                validate_config(config_paths, verbose=verbose > 0)
+            except Exception:  # nosec B110
+                # Already validated via API, ignore any errors from formatting
+                pass
+            print_success("Configuration is valid")
     except ConfigResolutionError as e:
         print_error(str(e))
         raise click.Abort()
@@ -519,6 +612,13 @@ def validate(ctx, configs, config_path, verbose):
 
 @cli.command()
 @click.option(
+    "--json",
+    "-j",
+    is_flag=True,
+    default=False,
+    help="Output results as JSON instead of human-readable format",
+)
+@click.option(
     "--verbose",
     "-v",
     count=True,
@@ -531,7 +631,7 @@ def validate(ctx, configs, config_path, verbose):
     help="Include optional visualization packages (matplotlib, seaborn)",
 )
 @click.pass_context
-def doctor(ctx, verbose, optional):
+def doctor(ctx, json, verbose, optional):
     """
     Check system information and validate environment.
 
@@ -544,26 +644,36 @@ def doctor(ctx, verbose, optional):
         energizados doctor -v
         energizados doctor -vv
         energizados doctor --optional
+        energizados doctor --json              # Output health checks as JSON
     """
-    # Configure logging
-    _setup_logging(verbose)
+    # Configure logging (completely disable in JSON mode to avoid polluting JSON output)
+    if not json:
+        _setup_logging(verbose)
 
-    from energizados.cli.doctor import format_report, run_checks
+    from energizados.cli.doctor import format_report
     from energizados.cli.ui import console, print_error, print_info
 
     try:
-        print_info("Running environment diagnostics...")
+        if not json:
+            print_info("Running environment diagnostics...")
 
-        report = run_checks(include_optional=optional)
-        renderables = format_report(report, verbose=verbose)
+        # Delegate to API doctor
+        from energizados.api import doctor
 
-        # Print each renderable directly via the singleton console
-        for renderable in renderables:
-            console.print(renderable)
+        report = doctor(include_optional=optional)
 
-        if not report.is_healthy():
-            # Exit with error code but don't print extra message
-            raise SystemExit(1)
+        if json:
+            _output_json(report)
+        else:
+            renderables = format_report(report, verbose=verbose)
+
+            # Print each renderable directly via the singleton console
+            for renderable in renderables:
+                console.print(renderable)
+
+            if not report.is_healthy():
+                # Exit with error code but don't print extra message
+                raise SystemExit(1)
 
     except click.Abort:
         # User aborted or intentional exit

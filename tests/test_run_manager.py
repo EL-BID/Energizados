@@ -6,10 +6,16 @@ Tests cover:
 - Metadata includes version, git, duration, model info
 - Backward compat when context is None
 - Git/version fallback to "unknown"
+- RunMetadata.from_dict() tolerant loader (Phase 4)
+- RunManager query API (Phase 4)
 """
 
 import json
+from pathlib import Path
 from unittest.mock import patch
+
+import pandas as pd
+import pytest
 
 from energizados.core.builders.run_manager import RunManager
 
@@ -107,3 +113,230 @@ class TestRunMetadata:
 
         # No metadata file when context=None (requires context for full metadata)
         assert not (tmp_path / "run_metadata.json").exists()
+
+
+class TestRunMetadataTolerantLoader:
+    """Test RunMetadata.from_dict() tolerant loader (Phase 4)."""
+
+    def test_from_dict_with_all_fields(self):
+        """Test loading with all fields present."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        data = {
+            "run_id": "train-20240101_120000",
+            "timestamp": "2024-01-01T12:00:00",
+            "duration_seconds": 123.45,
+            "energizados_version": "0.2.7",
+            "python_version": "3.10.12",
+            "git_commit": "abc123",
+            "model_types": ["LGBMModel"],
+            "status": "success",
+            "val_auc": 0.85,
+            "val_f1": 0.78,
+            "feature_count": 42,
+            "config_files": ["train.yaml"],
+            "output_paths": {"model": "output/train-20240101_120000/models/model.pkl"},
+        }
+
+        metadata = RunMetadata.from_dict(data)
+
+        assert metadata.run_id == "train-20240101_120000"
+        assert metadata.timestamp == "2024-01-01T12:00:00"
+        assert metadata.duration_seconds == 123.45
+        assert metadata.energizados_version == "0.2.7"
+        assert metadata.python_version == "3.10.12"
+        assert metadata.git_commit == "abc123"
+        assert metadata.model_types == ["LGBMModel"]
+        assert metadata.status == "success"
+        assert metadata.val_auc == 0.85
+        assert metadata.val_f1 == 0.78
+        assert metadata.feature_count == 42
+        assert metadata.config_files == ["train.yaml"]
+        assert metadata.output_paths == {"model": "output/train-20240101_120000/models/model.pkl"}
+
+    def test_from_dict_tolerant_missing_fields(self):
+        """Test tolerant loader supplies defaults for missing fields."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        # Old run metadata without status and output_paths
+        data = {
+            "run_id": "train-20240101_120000",
+            "timestamp": "2024-01-01T12:00:00",
+            "duration_seconds": 123.45,
+            "energizados_version": "0.2.6",
+            "python_version": "3.10.12",
+            "git_commit": "abc123",
+            "model_types": ["LGBMModel"],
+            # Missing: status, val_auc, val_f1, feature_count, config_files, output_paths
+        }
+
+        metadata = RunMetadata.from_dict(data)
+
+        assert metadata.run_id == "train-20240101_120000"
+        assert metadata.status == "success"  # Default for old runs
+        assert metadata.val_auc is None
+        assert metadata.val_f1 is None
+        assert metadata.feature_count is None
+        assert metadata.config_files == []  # Default empty list
+        assert metadata.output_paths == {}  # Default empty dict
+
+    def test_from_dict_with_minimal_data(self):
+        """Test loading with only required fields."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        data = {
+            "run_id": "train-20240101_120000",
+        }
+
+        metadata = RunMetadata.from_dict(data)
+
+        assert metadata.run_id == "train-20240101_120000"
+        assert metadata.status == "success"  # Default
+        assert metadata.output_paths == {}  # Default
+
+
+class TestRunManagerQueryAPI:
+    """Test RunManager query methods (Phase 4)."""
+
+    @pytest.fixture
+    def temp_output_dir(self, tmp_path):
+        """Create a temporary output directory with fake run data."""
+        from datetime import datetime
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Create fake run directories with metadata
+        runs = [
+            "train-20240101_120000",
+            "eda-20240102_130000",
+            "inference-20240103_140000",
+            "train-20240104_150000",
+        ]
+
+        for i, run_id in enumerate(runs):
+            run_dir = output_dir / run_id
+            run_dir.mkdir()
+
+            # Create incrementing timestamps so they sort properly
+            timestamp = datetime(2024, 1, 1, 12, 0, 0) + pd.Timedelta(hours=i)
+
+            metadata = {
+                "run_id": run_id,
+                "timestamp": timestamp.isoformat(),
+                "duration_seconds": 100.0 + i,
+                "energizados_version": "0.2.7",
+                "python_version": "3.10.12",
+                "git_commit": "abc123",
+                "model_types": ["LGBMModel"],
+                "status": "success",
+                "val_auc": 0.8 + (i * 0.01),
+                "val_f1": 0.75 + (i * 0.01),
+                "config_files": ["train.yaml"],
+                "output_paths": {"model": f"{run_id}/model.pkl"},
+            }
+
+            with open(run_dir / "run_metadata.json", "w") as f:
+                json.dump(metadata, f)
+
+        # Create a directory that doesn't look like a run (no metadata)
+        junk_dir = output_dir / "not_a_run"
+        junk_dir.mkdir()
+
+        return str(output_dir)
+
+    def test_get_run_existing(self, temp_output_dir):
+        """Test get_run returns RunMetadata for existing run."""
+        manager = RunManager(output_dir=temp_output_dir)
+        metadata = manager.get_run("train-20240101_120000")
+
+        assert metadata is not None
+        assert metadata.run_id == "train-20240101_120000"
+        assert metadata.status == "success"
+        assert metadata.val_auc == 0.8
+
+    def test_get_run_nonexistent(self, temp_output_dir):
+        """Test get_run returns None for nonexistent run."""
+        manager = RunManager(output_dir=temp_output_dir)
+        metadata = manager.get_run("nonexistent_run")
+
+        assert metadata is None
+
+    def test_get_run_missing_metadata_file(self, temp_output_dir):
+        """Test get_run returns None for run without metadata file."""
+        # Create a run directory without metadata file
+        output_path = Path(temp_output_dir)
+        empty_run = output_path / "empty_run"
+        empty_run.mkdir()
+
+        manager = RunManager(output_dir=temp_output_dir)
+        metadata = manager.get_run("empty_run")
+
+        assert metadata is None
+
+    def test_list_runs_all(self, temp_output_dir):
+        """Test list_runs returns all runs sorted by timestamp descending."""
+        manager = RunManager(output_dir=temp_output_dir)
+        runs = manager.list_runs()
+
+        assert len(runs) == 4
+        # Check descending order by timestamp (most recent first)
+        assert runs[0].run_id == "train-20240104_150000"
+        assert runs[1].run_id == "inference-20240103_140000"
+        assert runs[2].run_id == "eda-20240102_130000"
+        assert runs[3].run_id == "train-20240101_120000"
+
+    def test_list_runs_with_limit(self, temp_output_dir):
+        """Test list_runs respects limit parameter."""
+        manager = RunManager(output_dir=temp_output_dir)
+        runs = manager.list_runs(limit=2)
+
+        assert len(runs) == 2
+        assert runs[0].run_id == "train-20240104_150000"
+        assert runs[1].run_id == "inference-20240103_140000"
+
+    def test_list_runs_with_status_filter(self, temp_output_dir):
+        """Test list_runs filters by status."""
+        manager = RunManager(output_dir=temp_output_dir)
+        runs = manager.list_runs(filter={"status": "success"})
+
+        # All our test runs have status "success"
+        assert len(runs) == 4
+        assert all(r.status == "success" for r in runs)
+
+    def test_list_runs_skips_non_run_directories(self, temp_output_dir):
+        """Test list_runs skips directories without metadata files."""
+        manager = RunManager(output_dir=temp_output_dir)
+        runs = manager.list_runs()
+
+        # Should not include "not_a_run" directory
+        assert len(runs) == 4
+        assert all(r.run_id.startswith(("train-", "eda-", "inference-")) for r in runs)
+
+    def test_list_runs_discovers_all_run_types(self, temp_output_dir):
+        """Test list_runs discovers train, eda, and inference runs."""
+        manager = RunManager(output_dir=temp_output_dir)
+        runs = manager.list_runs()
+
+        run_ids = [r.run_id for r in runs]
+        assert "train-20240101_120000" in run_ids
+        assert "eda-20240102_130000" in run_ids
+        assert "inference-20240103_140000" in run_ids
+
+    def test_get_latest_run(self, temp_output_dir):
+        """Test get_latest_run returns most recent run."""
+        manager = RunManager(output_dir=temp_output_dir)
+        latest = manager.get_latest_run()
+
+        assert latest is not None
+        assert latest.run_id == "train-20240104_150000"
+
+    def test_get_latest_run_empty_output_dir(self, tmp_path):
+        """Test get_latest_run returns None when no runs exist."""
+        empty_output = tmp_path / "empty_output"
+        empty_output.mkdir()
+
+        manager = RunManager(output_dir=str(empty_output))
+        latest = manager.get_latest_run()
+
+        assert latest is None

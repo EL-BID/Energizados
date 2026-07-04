@@ -118,31 +118,6 @@ src/energizados/
 │   ├── plots/         # Shared plot utilities
 │   │   └── utils.py
 │   └── utils/         # Internal utilities
-```
-
-### Base Classes (Public API)
-
-The **single home** for all framework base classes is `energizados.contracts` (added in v0.2.7). All 8 base classes are defined there:
-
-- **`BaseModel`** — Abstract base for custom ML models. Requires `fit()`, `predict()`, `predict_proba()`, `get_raw_model()`.
-- **`BaseInference`** — Abstract base for inference engines. Requires `predict()`, `predict_proba()`, `load_model()`, `save_predictions()`.
-- **`BasePipeline`** — Abstract base for user-defined pipelines. Requires `run(context)`.
-- **`BaseEvaluator`** — Abstract base for model evaluation. Requires `evaluate(X, y, model, threshold=0.5)`.
-- **`BaseETL`** — Abstract base for ETL processes. Requires `extract()`, `transform()`, `load()`.
-- **`BaseFeatureEngineering`** — Abstract base for feature engineering pipelines. Requires `fit()`, `transform()`. Includes `save()`/`load()` via `secure_pickle`.
-- **`BaseFeatureSelector`** — Abstract base for feature selection methods. Requires `fit()`, `transform()`.
-- **`BaseExplorer`** — Abstract base for exploratory data analysis. Requires `explore()`.
-
-**Backward-compatible import paths** (shim re-exports from `energizados.contracts`):
-- `energizados.core.base.BaseModel`
-- `energizados.core.base.BaseInference`
-- `energizados.etl.base.BaseETL`
-- `energizados.feature_engineering.base.BaseFeatureEngineering`
-- `energizados.feature_selection.base.BaseFeatureSelector`
-- `energizados.eda.base.BaseExplorer`
-- `energizados.inference.base.BaseInference`
-
-**Stability commitment**: All base classes are frozen public API. Future changes will follow deprecation rules. Shims guarantee old import paths continue to work.
 │       ├── import_utils.py   # Dynamic class import with allowlist
 │       └── secure_pickle.py  # SHA-256 verified pickle save/load
 ├── explainability/    # SHAP-based model explainability
@@ -170,6 +145,83 @@ The **single home** for all framework base classes is `energizados.contracts` (a
     ├── pipeline.py    # SourceETL implementation
     └── orchestrator.py # ETLOrchestrator for dependency management
 ```
+
+### Base Classes (Public API)
+
+The **single home** for all framework base classes is `energizados.contracts` (added in v0.2.7). All 8 base classes are defined there:
+
+- **`BaseModel`** — Abstract base for custom ML models. Requires `fit()`, `predict()`, `predict_proba()`, `get_raw_model()`.
+- **`BaseInference`** — Abstract base for inference engines. Requires `predict()`, `predict_proba()`, `load_model()`, `save_predictions()`.
+- **`BasePipeline`** — Abstract base for user-defined pipelines. Requires `run(context)`.
+- **`BaseEvaluator`** — Abstract base for model evaluation. Requires `evaluate(X, y, model, threshold=0.5)`.
+- **`BaseETL`** — Abstract base for ETL processes. Requires `extract()`, `transform()`, `load()`.
+- **`BaseFeatureEngineering`** — Abstract base for feature engineering pipelines. Requires `fit()`, `transform()`. Includes `save()`/`load()` via `secure_pickle`.
+- **`BaseFeatureSelector`** — Abstract base for feature selection methods. Requires `fit()`, `transform()`.
+- **`BaseExplorer`** — Abstract base for exploratory data analysis. Requires `explore()`.
+
+**Backward-compatible import paths** (shim re-exports from `energizados.contracts`):
+- `energizados.core.base.BaseModel`
+- `energizados.core.base.BaseInference`
+- `energizados.etl.base.BaseETL`
+- `energizados.feature_engineering.base.BaseFeatureEngineering`
+- `energizados.feature_selection.base.BaseFeatureSelector`
+- `energizados.eda.base.BaseExplorer`
+- `energizados.inference.base.BaseInference`
+
+**Stability commitment**: All base classes are frozen public API. Future changes will follow deprecation rules. Shims guarantee old import paths continue to work.
+
+### Service Layer API (energizados.api)
+
+The **service layer API** (`energizados.api`) provides programmatic framework usage with structured return values and no stdout coupling. All CLI commands delegate to this API layer.
+
+**Core API Functions:**
+
+- **`validate_dict(config, config_type)`** — Configuration validation without file I/O
+  - Returns `ValidationResult` with `is_valid`, `errors`, `warnings`, `info`
+  - Use `result.to_dict()` for JSON serialization
+  - Replaces CLI `validate` command for programmatic access
+
+- **`Pipeline.from_dict(config)`** — Create pipeline from dict
+  - Alternative to YAML-based pipeline creation
+  - Returns configured `Pipeline` instance
+
+- **`Pipeline.plan()`** — Get execution plan without running
+  - Returns DAG of steps and dependencies
+  - Useful for debugging and validation
+
+- **`RunManager`** — Query interface for run metadata
+  - `RunManager.list_runs()` — Get all run directories
+  - `RunManager.get_run(run_id)` — Get specific run metadata
+  - `RunManager.get_latest_run()` — Get most recent run
+
+- **`RunResult.from_context(context)`** — Structured access to pipeline results
+  - Converts pipeline context to structured result
+  - Use for JSON output in web applications
+
+- **`ProgressEvent`** — Progress streaming for observability
+  - `console_progress()` — CLI progress bar helper
+  - Event-based progress for long-running operations
+
+- **`merge_configs(configs)`** — Configuration merging utility
+  - Deep merge for multiple config dicts
+  - Last-write-wins for scalar values
+
+- **`doctor(include_optional=False)`** — System health checks
+  - Returns `DoctorReport` with `system_info` and `checks`
+  - Use `report.to_dict()` for JSON serialization
+
+- **`format_error(exception)`** — Exception formatting helper
+  - Standardized error messages with error codes
+
+- **`register_allowed_prefix(prefix)`** — Import safety extension
+  - Register custom module prefixes for dynamic imports
+  - Use for project-specific class prefixes beyond `energizados.` and `src.`
+  - Example: `register_allowed_prefix("ml_models")`
+
+**Migration Notes:**
+
+- **`result["model_metrics"]` deprecated**: Pipeline run results now use `result["metrics"]` as the canonical key for both single-model and ensemble runs. The legacy `result["model_metrics"]` key still works but emits a `DeprecationWarning` (removal planned for v0.3.0). This deprecates the result-dict key, not a module.
+- **`ALLOWED_PREFIXES` narrowed**: The default allowlist now contains only `{"energizados.", "src."}` for security. Projects using custom prefixes (e.g., `data.`, `features.`) must call `register_allowed_prefix()` before framework usage.
 
 **Generated project structure (`energizados init`):**
 ```

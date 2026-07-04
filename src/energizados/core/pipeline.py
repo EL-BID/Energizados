@@ -10,12 +10,14 @@ this file holds the core Pipeline class plus that entry-point builder.
 """
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
 from energizados.core.exceptions import (
     EnergizadosError,
+    ETLDependencyError,
     PipelineError,
     StepValidationError,
 )
@@ -26,6 +28,15 @@ logger = logging.getLogger(__name__)
 
 def _load_yaml_config(path: str) -> Dict:
     return load_yaml_config(path)
+
+
+@dataclass
+class ExecutionPlan:
+    """Execution plan returned by Pipeline.plan()."""
+
+    steps: List[str]
+    dependencies: Dict[str, List[str]]
+    estimated_duration: Optional[float] = None
 
 
 class Pipeline:
@@ -74,6 +85,86 @@ class Pipeline:
         self.on_step_error = None  # callable(name, error)
         self.on_phase_update = None  # callable(step_name, phase_name, progress_pct, total_phases)
 
+    @classmethod
+    def from_dict(
+        cls, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> "Pipeline":
+        """Create Pipeline from dict config (explicit factory).
+
+        This is the programmatic API entry point. Equivalent to:
+            Pipeline(config=config_dict)
+
+        Args:
+            config: Configuration dictionary
+            context: Optional initial context (not used in Pipeline, reserved for future)
+
+        Returns:
+            Configured Pipeline instance
+        """
+        return cls(config=config)
+
+    def plan(self) -> ExecutionPlan:
+        """Return execution plan without running.
+
+        Builds step list from config and validates ETL dependencies using
+        existing ETLOrchestrator cycle detection.
+
+        Returns:
+            ExecutionPlan with steps, dependencies, and estimated_duration
+
+        Raises:
+            ETLDependencyError: If circular dependencies are detected
+        """
+        from energizados.etl.orchestrator import ETLOrchestrator
+
+        # Extract ETL config if present
+        etl_config = self.config.get("etl", {})
+
+        if etl_config:
+            # Build dependencies dict from config for enabled ETLs only
+            enabled_etls = {}
+            for etl_name, etl_config_item in etl_config.items():
+                if etl_config_item.get("enabled", True):
+                    enabled_etls[etl_name] = etl_config_item
+
+            # Use ETLOrchestrator to validate dependencies and detect cycles
+            try:
+                orchestrator = ETLOrchestrator(enabled_etls)
+                # Explicitly validate dependencies (includes cycle detection)
+                orchestrator.validate_dependencies()
+                # Get execution order
+                execution_order = orchestrator.get_execution_order()
+
+                # Build dependencies dict from config
+                dependencies = {
+                    etl_name: etl_config_item.get("depends_on", [])
+                    for etl_name, etl_config_item in enabled_etls.items()
+                }
+
+                return ExecutionPlan(
+                    steps=execution_order,  # Use the validated execution order
+                    dependencies=dependencies,
+                    estimated_duration=None,  # Could be estimated based on historical runs
+                )
+
+            except ETLDependencyError:
+                # Re-raise with proper error code
+                raise
+            except Exception:
+                # If there's any other error, return a basic plan
+                dependencies = {
+                    etl_name: etl_config_item.get("depends_on", [])
+                    for etl_name, etl_config_item in enabled_etls.items()
+                }
+                return ExecutionPlan(
+                    steps=list(enabled_etls.keys()),
+                    dependencies=dependencies,
+                    estimated_duration=None,
+                )
+        else:
+            # No ETL config - return empty plan
+            return ExecutionPlan(steps=[], dependencies={}, estimated_duration=None)
+
     def _load_config(self, path: str) -> Dict:
         """
         Load configuration from YAML.
@@ -102,9 +193,13 @@ class Pipeline:
         self.steps.append(step)
         return self
 
-    def run(self) -> Dict[str, Any]:
+    def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """
         Execute all pipeline steps.
+
+        Args:
+            progress_callback: Optional callback for progress events.
+                            Receives ProgressEvent objects.
 
         Returns:
             Dict: Final context with results
@@ -118,6 +213,20 @@ class Pipeline:
 
         total_steps = len(self.steps)
 
+        # Lazy import to avoid circular dependency
+        try:
+            from energizados.api.progress import ProgressEvent
+        except ImportError:
+            ProgressEvent = None
+
+        def safe_emit(event):
+            """Emit progress event with error isolation."""
+            if progress_callback and ProgressEvent:
+                try:
+                    progress_callback(event)
+                except Exception:
+                    logger.exception("Progress callback error (ignored)")
+
         for i, step in enumerate(self.steps, 1):
             step_name = step.__class__.__name__
 
@@ -125,7 +234,19 @@ class Pipeline:
             logger.info(f"STEP {i}/{total_steps}: {step_name}")
             logger.info(f"{'=' * 60}")
 
-            # Notify step start
+            # Emit start event
+            safe_emit(
+                ProgressEvent(
+                    run_id="unknown",
+                    step_name=step_name,
+                    phase="start",
+                    message=f"Starting step {step_name}",
+                )
+                if ProgressEvent
+                else None
+            )
+
+            # Notify step start (legacy callback)
             if self.on_step_start:
                 self.on_step_start(step_name, i, total_steps)
 
@@ -150,10 +271,34 @@ class Pipeline:
                 self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")
 
-                # Notify step complete
+                # Emit complete event
+                safe_emit(
+                    ProgressEvent(
+                        run_id="unknown",
+                        step_name=step_name,
+                        phase="complete",
+                        message=f"Completed step {step_name}",
+                    )
+                    if ProgressEvent
+                    else None
+                )
+
+                # Notify step complete (legacy callback)
                 if self.on_step_complete:
                     self.on_step_complete(step_name, i, total_steps)
             except Exception as e:
+                # Emit error event
+                safe_emit(
+                    ProgressEvent(
+                        run_id="unknown",
+                        step_name=step_name,
+                        phase="error",
+                        message=f"Error in step {step_name}: {e}",
+                    )
+                    if ProgressEvent
+                    else None
+                )
+
                 # Notify step error — callback fires for BOTH paths
                 if self.on_step_error:
                     self.on_step_error(step_name, e)
