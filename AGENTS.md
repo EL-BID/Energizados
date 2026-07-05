@@ -20,11 +20,15 @@ jupyter lab
 
 ### Testing & Quality
 ```bash
-pytest tests/                    # Run all tests
+pytest tests/                    # Run all tests (slow tests deselected by default)
+pytest tests/ -m slow            # Run ONLY slow tests
+pytest tests/ -m "not slow"      # Explicitly omit slow tests (same as default)
 pytest tests/ -x                 # Stop on first failure
 pytest tests/ -k "test_etl"      # Run specific tests
 pre-commit run --all-files       # Run all linters (isort, black, bandit, flake8)
 ```
+
+**Slow tests convention:** Tests that take a long time (end-to-end pipeline runs, full model training, boruta with many estimators) must be marked `@pytest.mark.slow`. A plain `pytest` omits them by default (configured via `addopts` in `pyproject.toml`); run them explicitly with `pytest -m slow`. The `slow`, `integration`, and `unit` markers are registered under `[tool.pytest.ini_options]` with `--strict-markers`, so unregistered markers fail loudly.
 
 ### Running the Project
 The project is primarily run through Jupyter notebooks:

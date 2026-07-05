@@ -2,7 +2,7 @@
 
 import importlib.metadata
 
-__version__ = "0.2.8"
+__version__ = "0.2.9"
 
 # Reserved key used inside each config section to track schema evolution.
 SCHEMA_VERSION_KEY = "schema_version"

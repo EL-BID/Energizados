@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-07-05
+
 ### Added
 
 - **API: service layer package** — `energizados.api` provides programmatic framework usage with structured return values and no stdout coupling. Includes `validate_dict()`, `Pipeline.from_dict()`, `Pipeline.plan()`, `RunManager`, `RunResult.from_context()`, `ProgressEvent`, `console_progress()`, `merge_configs()`, `doctor()`, `format_error()`, and `register_allowed_prefix()`.
@@ -23,11 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Import safety: ALLOWED_PREFIXES narrowed** — Default allowlist now contains only `{"energizados.", "src."}` for security. Projects using custom prefixes (e.g., `data.`, `features.`) must call `register_allowed_prefix()` before framework usage.
 - **Metrics: unified result key** — Pipeline run results now expose `result["metrics"]` as the canonical key for both single-model and ensemble runs. Accessing the legacy `result["model_metrics"]` key still works but emits a `DeprecationWarning`; it will be removed in v0.3.0. (This deprecates the result-dict key, not a module.)
 - **Test infrastructure: tests. prefix registration** — Test fixtures now dynamically register `tests.` prefix via `conftest.py` to support test-time class imports while keeping production defaults narrow.
+- **Tests: slow tests deselected by default** — A plain `pytest` run now omits `@pytest.mark.slow` tests via `addopts -m "not slow"` in `pyproject.toml`. Run slow tests explicitly with `pytest -m slow`.
 
 ### Fixed
 
 - **CLI: JSON output pollution** — Logging now disabled in `--json` mode to prevent log messages from corrupting JSON output.
 - **Tests: import safety test reliability** — Import safety tests now verify source code defaults rather than runtime values affected by `conftest.py` modifications.
+- **Templates: `custom_class` prefix** — Generated project templates now use the `src.*` prefix for `custom_class` references, compatible with the narrowed `ALLOWED_PREFIXES` allowlist.
+
+### Documentation
+
+- **Templates: `secure_load` usage** — Documented `secure_load` usage in the generated `03_inference.py.tpl`.
 
 ## [0.2.8] - 2026-07-02
 
@@ -52,7 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Inference: `HierarchicalInference`** — generic routing to multiple models based on dataframe conditions (`column: value_or_list`). Supports first-match-wins, per-route FE (`feature_engineering_paths`), fallback model (`default_model_path`), and callable conditions. Native integration with `InferenceBuilder` (no `model_path` required when `routes` are configured)
-- **Config: 16 CELESC v3 experiment YAMLs** — validated configs for 5 phases: F1 (sampling), F2 (feature engineering), F3 (regional models with `columns_filter`), F4 (stacking fix + segment thresholds), F5 (soft voting + stacking + hierarchical inference)
 - **Tests: `test_hierarchical_inference.py`** — 15 unit tests for `HierarchicalInference` (init, condition evaluation, routing, FE transform, builder integration)
 - **Training: `columns_filter` in `feature_engineering.preprocessing`** — row-level filtering (equality, comparison operators, pandas `_expr`) now works in training, not just inference. The filter is applied to all splits (train/val/test) with `X` and `y` kept aligned by index. Useful for region-specific models without creating a separate ETL. Logic is shared with inference via `energizados.core.utils.columns_filter.apply_columns_filter`
 - **GeoFeaturesETL: `include_cluster` parameter** — new `include_cluster: false` option to skip KMeans geographic clustering (`geo_cluster` column) while still generating IBGE hierarchy and distance features; useful when `stratified_time` split is not needed
@@ -90,17 +97,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.2] - 2026-04-15
 
 ### Fixed
+
 - `doctor` command now uses `importlib.metadata` for reliable package version detection instead of unreliable module-level attributes
 - Added `jsonschema` dependency for config validation
 
 ## [0.2.1] - 2026-04-15
 
 ### Changed
+
 - Updated license to new IDB template with AI_BID disclaimer
 
 ## [0.2.0] - 2026-04-15
 
 ### Core
+
 - Full redesign: Builder pattern, Pydantic validation, modular pipeline steps
 - CLI: `init`, `run`, `validate`, `eda` commands with wildcard support and custom run naming (`-n`)
 - Config files: `etl.yaml`, `train.yaml`, `infer.yaml`, `eda.yaml` — three separate files, each evolving independently
@@ -108,15 +118,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run scripts in `src/run/` for direct execution without CLI (`ConfigPipelineBuilder` API)
 
 ### ETL
+
 - Multi-ETL orchestration with DAG dependency resolution (topological sort)
 
 ### Feature Engineering
+
 - Column transformers: cardinality reducer, dummies, target/ordinal encoding, MinMax scaler, cast dtype
 - Global transformers: `tsfel_vars`, `extra_vars`, `consumption_patterns`, `clip_outliers`, `geo_features`
 - Feature selection: Boruta, Correlation, Constant
 - `feature_engineering` moved inside `train.yaml` (no separate `feature_pipeline.yaml`)
 
 ### Modeling
+
 - Models: LightGBM, CatBoost, **XGBoost** (optional dep: `pip install energizados[xgboost]`), Neural Networks, LSTM
 - Unsupervised: **IsolationForest** (trains without labels; uses `contamination` param)
 - Rule-based baselines: `simple_trend` (ChangeTrend), `simple_constant` (ConstantConsumption)
@@ -125,36 +138,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hyperparameter search: `RandomizedSearchCV` with configurable `n_iter` and `cv`
 
 ### Splits
+
 - `time_series`, `stratified`, `random`, `group_based`, `stratified_time` (requires `geo_cluster` from GeoFeaturesETL)
 
 ### EDA
+
 - 7-phase interactive HTML report (Plotly + Matplotlib)
 - Phase 5: IV, KS, Cramér's V feature importance ranking
 - Phase 6: population segmentation and drift analysis
 - Phase 7: configurable hierarchical column relationships (`RelatedColumnsAnalyzer`)
 
 ### Evaluation
+
 - Metrics: AUC, Precision, Recall, F1, confusion matrix, cumulative gains
 - HTML + JSON reports per training run
 - Per-run index (`output/index.html`) for multi-experiment comparison
 - Threshold calibration
-- 
+-
+
 ### Inference
+
 - Configurable pipeline with auto-loading of feature engineering + model artifacts
 - `columns_filter` with comparison operators for record-level filtering
 - Enriched output with original columns alongside predictions
 
 ### Quality
+
 - Comprehensive test suite: `test_source_etl.py`, `test_etl_orchestrator.py`, `test_cli_init.py`, `test_default_inference.py`
 - Pre-commit hooks (black, flake8, mypy, bandit)
 - Secure pickle: SHA-256 verified load/save for model artifacts
-
 
 ## [0.1.0] - 2024-01-01
 
 Initial notebook-based research framework published by the IDB ([EL-BID/Energizados](https://github.com/EL-BID/Energizados)).
 
 ### Added
+
 - Jupyter notebooks for local and Google Colab execution
 - Rule-based models: consumption drop detection (`ChangeTrend`), constant consumption detection (`ConstantConsumption`)
 - Supervised models: LightGBM, feedforward Neural Network, LSTM+Dense hybrid
