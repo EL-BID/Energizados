@@ -17,7 +17,6 @@ import yaml
 logger = logging.getLogger(__name__)
 
 from energizados.core.pipeline import ConfigPipelineBuilder
-from energizados.core.utils.secure_pickle import secure_load
 
 if __name__ == "__main__":
     from energizados.cli.main import _setup_logging

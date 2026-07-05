@@ -12,7 +12,7 @@ etl:
     description: "Processes example dataset (removes rows with NULL)"
     input: "data/raw/sample_dataset.parquet"
     output: "data/processed/sample_dataset.parquet"
-    custom_class: "data.custom_etl.CustomETL"
+    custom_class: "src.data.custom_etl.CustomETL"
     params:
       mode: "concat"  # 'concat' (default) or 'merge'
     depends_on: []
@@ -28,7 +28,7 @@ etl:
   #   description: "Processes monthly consumption data"
   #   input: "data/raw/consumos.csv"
   #   output: "data/processed/consumos.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"  # Concatenate files (default)
   #     # sample: 10000  # Optional: read only N rows for quick testing
@@ -42,7 +42,7 @@ etl:
   #   description: "Processes semicolon-delimited CSV with custom options"
   #   input: "data/raw/consumos.csv"
   #   output: "data/processed/consumos.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"
   #     input_params:
@@ -60,7 +60,7 @@ etl:
   #   description: "Processes customer data"
   #   input: "data/raw/clientes.csv"
   #   output: "data/processed/clientes.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"
   #   depends_on: []
@@ -75,7 +75,7 @@ etl:
   #     - "data/raw/consumos_2024.csv"
   #     - "data/raw/consumos_2025.csv"
   #   output: "data/processed/consumos_completo.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"  # Concatenate vertically
   #     # input_params applies to all files in the list equally:
@@ -92,7 +92,7 @@ etl:
   #     - "data/processed/consumos.parquet"
   #     - "data/processed/clientes.parquet"
   #   output: "data/processed/dataset_mergeado.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "merge"  # Join horizontally
   #     merge_config:
@@ -112,7 +112,7 @@ etl:
   #     - "@merge_dataset"  # Resolves to merge_dataset output
   #     - "data/raw/inspecciones.csv"
   #   output: "data/processed/dataset_final.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "merge"
   #     merge_config:
@@ -189,7 +189,7 @@ etl:
   #   description: "Quick test with sampled data"
   #   input: "data/raw/full_dataset.csv"
   #   output: "data/processed/sample_test.parquet"
-  #   custom_class: "data.custom_etl.CustomETL"
+  #   custom_class: "src.data.custom_etl.CustomETL"
   #   params:
   #     mode: "concat"
   #     sample: 1000  # Read only 1000 rows for fast iteration

@@ -4,7 +4,7 @@ EDA Script - {{project_name}}
 Runs Exploratory Data Analysis on the raw dataset before preprocessing.
 
 Usage:
-    python src/run/00_eda.py
+    python src/run/01_eda.py
 
 Requires:
     - config/eda.yaml configured with paths and sections

@@ -27,7 +27,7 @@
 #     input:
 #       - "data/processed/dataset.parquet"   # or multiple sources
 #     output: "data/processed/dataset_infer.parquet"
-#     custom_class: "data.inference_dataset_builder_etl.InferenceDatasetBuilderETL"
+#     custom_class: "src.data.inference_dataset_builder_etl.InferenceDatasetBuilderETL"
 #     params:
 #       start_period: "202401"   # YYYYMM — first period for active client filter
 #       end_period: "202412"     # YYYYMM — last period included (window anchor)
@@ -148,7 +148,7 @@ infer:
   type: "default"
 
   # Or use your own inference implementation:
-  # custom_class: "inference.custom_inference.CustomInference"
+  # custom_class: "src.inference.custom_inference.CustomInference"
   # params:
   #   threshold: 0.5
   #   batch_size: 1000
