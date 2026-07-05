@@ -24,6 +24,7 @@ def test_api_public_surface():
         "ConfigWarning",
         "ConfigInfo",
         "Pipeline",
+        "ConfigPipelineBuilder",  # PR1 task 1.1: new re-export
         # NOTE: from_dict removed from __all__ to avoid ambiguity (M7 fix)
         "RunManager",
         "RunResult",
@@ -382,3 +383,36 @@ def test_api_from_dict_not_in_public_surface():
 
     # Internal alias exists but is not public
     assert hasattr(api, "from_dict")
+
+
+# Test ConfigPipelineBuilder re-export (PR1 task 1.2)
+def test_config_pipeline_builder_reexport():
+    """Test that ConfigPipelineBuilder is importable from energizados.api (PR1 task 1.2)."""
+    from energizados.api import ConfigPipelineBuilder
+    from energizados.core.pipeline import (
+        ConfigPipelineBuilder as CoreConfigPipelineBuilder,
+    )
+
+    # Should be the same class
+    assert ConfigPipelineBuilder is CoreConfigPipelineBuilder
+
+    # Should be in __all__
+    from energizados import api
+
+    assert "ConfigPipelineBuilder" in api.__all__
+
+
+def test_config_pipeline_builder_instantiable_via_api():
+    """Test that ConfigPipelineBuilder can be instantiated via API (PR1 task 1.2)."""
+    from energizados.api import ConfigPipelineBuilder
+
+    # Should be instantiable with config dict
+    config = {
+        "train": {"enabled": True, "input_path": "data/test.parquet", "target_column": "target"}
+    }
+    builder = ConfigPipelineBuilder(config=config)
+
+    assert isinstance(builder, ConfigPipelineBuilder)
+    # Config is stored internally in _director, not exposed
+    assert hasattr(builder, "_director")
+    assert builder._director.config_path is None  # config dict takes precedence

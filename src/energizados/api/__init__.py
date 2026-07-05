@@ -40,6 +40,9 @@ from energizados.api.validate import (
     validate_dict,
 )
 
+# ConfigPipelineBuilder API (re-export from core - PR1 task 1.1)
+from energizados.core.pipeline import ConfigPipelineBuilder
+
 __all__ = [
     # Validation
     "validate_dict",
@@ -49,6 +52,7 @@ __all__ = [
     "ConfigInfo",
     # Pipeline
     "Pipeline",
+    "ConfigPipelineBuilder",  # PR1 task 1.1: re-export for web-console worker
     # NOTE: from_dict removed from __all__ to avoid ambiguity
     # Users should call Pipeline.from_dict() or RunMetadata.from_dict() explicitly
     # Run state

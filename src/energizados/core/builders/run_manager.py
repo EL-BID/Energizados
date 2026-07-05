@@ -320,6 +320,11 @@ class RunManager:
         ):
             output_paths["feature_engineering"] = context["feature_engineering_path"]
 
+        # PR1 task 1.3: Add EDA report path if present (generic output_paths pattern)
+        eda_results = context.get("eda_results")
+        if isinstance(eda_results, dict) and eda_results.get("report_path"):
+            output_paths["eda_report"] = eda_results["report_path"]
+
         # Build metadata dict
         metadata = {
             "run_id": run_id,
