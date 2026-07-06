@@ -1,0 +1,77 @@
+# Energizados Web Console - Docker Compose Configuration
+# Cross-platform deployment for Windows (Docker Desktop) and Linux
+#
+# Quick start:
+#   Without auth: docker compose up --build
+#   With auth: docker compose --profile proxy up --build
+#
+# Services:
+#   - web: FastAPI web server (port 8000)
+#   - worker: Async job worker
+#   - proxy: Optional nginx reverse proxy with HTTP basic auth
+
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      args:
+        INSTALL_EXTRAS: web # Override with 'all' to include ML deps (catboost/xgboost/tensorflow)
+    command: uvicorn energizados.web.app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Named volume for shared data (SQLite DB + run outputs)
+      - energizados-data:/app/data
+      - energizados-output:/app/output
+    environment:
+      - ENERGIZADOS_WEB_DB_PATH=/app/data/web/jobs.db
+      - ENERGIZADOS_WEB_LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      args:
+        INSTALL_EXTRAS: web # Override with 'all' to include ML deps
+    command: python -m energizados.web.worker --db-path /app/data/web/jobs.db --log-level INFO
+    volumes:
+      # Same named volumes as web service for shared access
+      - energizados-data:/app/data
+      - energizados-output:/app/output
+    environment:
+      - ENERGIZADOS_WEB_DB_PATH=/app/data/web/jobs.db
+      - ENERGIZADOS_WEB_LOG_LEVEL=INFO
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+
+  # Optional reverse proxy with HTTP basic auth (requires 'proxy' profile)
+  # Usage: docker compose --profile proxy up --build
+  proxy:
+    profiles:
+      - proxy
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./htpasswd:/etc/nginx/.htpasswd:ro
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+
+# Named volumes for data persistence (shared across services)
+# SQLite WAL mode works correctly on Linux-backed volumes
+volumes:
+  energizados-data:
+  energizados-output:

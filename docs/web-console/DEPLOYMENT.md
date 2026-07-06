@@ -43,6 +43,21 @@ energizados-web-worker --db-path data/web/jobs.db --log-level INFO
 
 Access the web console at http://localhost:8000
 
+### Quick Start with Launcher (Cross-Platform)
+
+For local testing without Docker, the launcher spawns both processes automatically:
+
+```bash
+pip install -e ".[web]"
+energizados-web --host 127.0.0.1 --port 8000 --db-path data/web/jobs.db
+```
+
+The launcher provides:
+- Single-command startup (both web server and worker)
+- Cross-platform signal handling (Ctrl-C on Windows and Linux)
+- Prefixed log output ([web] and [worker] prefixes)
+- Graceful shutdown with 5-second timeout
+
 ## Production Deployment
 
 ### Method 1: systemd (Recommended)
@@ -116,44 +131,57 @@ sudo systemctl start energizados-web energizados-worker
 sudo systemctl status energizados-web energizados-worker
 ```
 
-### Method 2: Docker Compose
+### Method 2: Docker Compose (Cross-Platform)
 
-Create `docker-compose.yml`:
+The fastest way to deploy on both Windows and Linux with a single command.
 
-```yaml
-version: '3.8'
-
-services:
-  web:
-    image: energizados:latest
-    command: uvicorn energizados.web.app:app --host 0.0.0.0 --port 8000
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - ENERGIZADOS_WEB_DB_PATH=/app/data/web/jobs.db
-      - ENERGIZADOS_WEB_LOG_LEVEL=INFO
-    depends_on:
-      - worker
-    restart: unless-stopped
-
-  worker:
-    image: energizados:latest
-    command: energizados-web-worker --db-path /app/data/web/jobs.db
-    volumes:
-      - ./data:/app/data
-    environment:
-      - ENERGIZADOS_WEB_DB_PATH=/app/data/web/jobs.db
-      - ENERGIZADOS_WEB_LOG_LEVEL=INFO
-    restart: unless-stopped
-```
-
-Run with:
+#### Quick Start
 
 ```bash
-docker-compose up -d
+cd deploy/web
+docker compose up --build
 ```
+
+Access the web console at http://localhost:8000
+
+#### With HTTP Basic Authentication
+
+To add HTTP basic auth as a security layer (recommended for Phase 1):
+
+```bash
+cd deploy/web
+
+# Generate htpasswd file (requires apache2-utils or htpasswd tool)
+# Linux: sudo apt-get install apache2-utils
+# Windows: Download htpasswd.exe from Apache website
+htpasswd -c htpasswd admin  # Prompts for password
+
+# Start with proxy profile
+docker compose --profile proxy up --build
+```
+
+Access the web console at http://localhost:8080 (nginx proxy)
+
+#### Files
+
+- `deploy/web/Dockerfile` - Single-stage build for web console image
+- `deploy/web/compose.yml` - Multi-service orchestration (web + worker + optional proxy)
+- `deploy/web/nginx.conf` - Reverse proxy configuration with HTTP basic auth
+- `deploy/web/README.md` - Detailed deployment documentation
+
+#### Building with ML Dependencies
+
+By default, the image installs only the web extras (FastAPI + core framework). To include catboost, xgboost, and tensorflow for training:
+
+```bash
+docker compose build --build-arg INSTALL_EXTRAS=all
+```
+
+#### Cross-Platform Notes
+
+- **Windows**: Use Docker Desktop for Windows. Named volumes work out of the box.
+- **Linux**: Standard Docker installation. SQLite WAL mode works correctly on Linux-backed named volumes.
+- **Data Persistence**: Two named volumes (`energizados-data`, `energizados-output`) are shared between web and worker services.
 
 ### Method 3: Supervisor
 
@@ -193,6 +221,15 @@ environment=ENERGIZADOS_WEB_DB_PATH="/var/lib/energizados/jobs.db",ENERGIZADOS_W
 | `ENERGIZADOS_WEB_LOG_LEVEL` | Logging verbosity | `INFO` |
 
 ## CLI Arguments
+
+### Launcher (`energizados-web`)
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--host` | Host to bind web server | `127.0.0.1` |
+| `--port` | Port for web server | `8000` |
+| `--db-path` | Path to SQLite database | `data/web/jobs.db` |
+| `--log-level` | Logging level (DEBUG/INFO/WARNING/ERROR) | `INFO` |
 
 ### Worker (`energizados-web-worker`)
 
@@ -247,6 +284,18 @@ server {
 2. **Reverse Proxy Auth** - Use authentication at the reverse proxy level (e.g., Nginx basic auth, OAuth2)
 3. **VPN Requirement** - Require VPN connection for access
 4. **Internal Network Only** - Deploy on internal network with no external access
+
+#### Docker Proxy Profile
+
+The Docker Compose configuration includes an optional `proxy` profile with nginx + HTTP basic auth:
+
+```bash
+cd deploy/web
+htpasswd -c htpasswd admin  # Generate password file
+docker compose --profile proxy up --build
+```
+
+This provides a quick security layer for Phase 1 deployments.
 
 #### Future Enhancement
 
