@@ -1,0 +1,79 @@
+<div class="card editor-section">
+    <div class="card-header">
+        <h5 class="mb-0">📝 Pipeline Configuration (YAML)</h5>
+    </div>
+    <div class="card-body">
+        <form hx-post="/jobs" hx-target="#validation-output" hx-swap="innerHTML">
+            <div class="mb-3">
+                <label for="config-type" class="form-label">Configuration Type</label>
+                <select name="config_type" id="config-type" class="form-select" required>
+                    <option value="etl">ETL Pipeline</option>
+                    <option value="train" selected>Training Pipeline</option>
+                    <option value="eda">Exploratory Data Analysis</option>
+                    <option value="infer">Inference</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="yaml-content" class="form-label">YAML Configuration</label>
+                <textarea
+                    name="yaml_content"
+                    id="yaml-content"
+                    class="form-control yaml-editor"
+                    rows="15"
+                    required
+                    placeholder="Enter your pipeline configuration in YAML format...
+
+Example (Training Pipeline):
+train:
+  enabled: true
+  input_path: 'data/processed/dataset.parquet'
+  target_column: 'target'
+
+  split:
+    method: 'stratified'
+    test_size: 0.2
+    random_state: 42
+
+  feature_engineering:
+    enabled: true
+
+  models:
+    - type: 'lightgbm'
+      sampling:
+        method: 'undersample'
+      hyperparams:
+        num_leaves: 31
+        learning_rate: 0.05
+
+  evaluation:
+    enabled: true"
+                ></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="yaml-file" class="form-label">Or upload YAML file</label>
+                <input type="file" id="yaml-file" class="form-control" accept=".yaml,.yml">
+                <small class="form-text text-muted">File upload will populate the editor above</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg">
+                🚀 Submit Job
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // File upload handler - populates textarea when file is selected
+    document.getElementById('yaml-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('yaml-content').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+    });
+</script>

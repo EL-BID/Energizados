@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Energizados Web Console{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTMX CDN -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Custom styles -->
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .editor-section {
+            margin-bottom: 30px;
+        }
+        .jobs-section {
+            margin-top: 30px;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .status-queued { background-color: #ffc107; color: #000; }
+        .status-running { background-color: #0d6efd; color: #fff; }
+        .status-success { background-color: #198754; color: #fff; }
+        .status-failed { background-color: #dc3545; color: #fff; }
+        .status-aborted { background-color: #6c757d; color: #fff; }
+        .job-card {
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            background-color: #fff;
+        }
+        .validation-errors {
+            background-color: #f8d7da;
+            border: 1px solid #f5c2c7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .yaml-editor {
+            font-family: 'Courier New', monospace;
+            min-height: 300px;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="container main-container">
+        <header class="mb-4">
+            <h1>Energizados Web Console</h1>
+            <p class="text-muted">Async job runner and web interface for Energizados ML framework</p>
+        </header>
+
+        {% block content %}{% endblock %}
+
+        <footer class="mt-5 pt-3 border-top">
+            <p class="text-muted small">
+                Energizados v0.3.0 | <a href="/health">Health Check</a> |
+                <a href="/api/runs">API Runs</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
