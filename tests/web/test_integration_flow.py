@@ -3,6 +3,11 @@ Integration flow tests for web-console (Phase 6).
 
 Following strict TDD: end-to-end flows against temp DB + stub pipeline.
 Tests tasks 6.1-6.5: submit→run, cancel, retry, worker restart, invalid config.
+
+Note on realness: 6.2/6.3/6.5 drive the real JobStore and assert real state.
+6.1 and 6.4 mock the multiprocessing.Process / poll loop for CI speed; a
+companion @slow test (test_6_1_real_stub_pipeline_execution) spawns a real
+child process for true end-to-end coverage — run with `pytest -m slow`.
 """
 
 import logging
@@ -99,7 +104,7 @@ class TestIntegrationFlow:
 
         # Create and start a job with simulated run_dir
         job_id = store.create_job({"train": {}}, "train")
-        store.update_status(job_id, JobStatus.RUNNING, run_dir="/tmp/output/partial-run")
+        store.update_status(job_id, JobStatus.RUNNING, run_dir="output/partial-run")
 
         # Cancel the job
         cancelled = store.cancel_job(job_id)
@@ -110,7 +115,7 @@ class TestIntegrationFlow:
         assert job.status == JobStatus.ABORTED
 
         # Verify partial run dir reference preserved (not deleted)
-        assert job.run_dir == "/tmp/output/partial-run"
+        assert job.run_dir == "output/partial-run"
 
     def test_6_3_retry_failed_job_creates_new_with_link(self, temp_db):
         """Retry failed job → assert NEW job_id with retried_from link to original."""

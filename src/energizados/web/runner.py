@@ -162,7 +162,14 @@ class JobRunner:
             try:
                 from energizados.api import RunManager
 
-                # Get the latest run (should be the one we just created)
+                # Attribute the most-recent run to this job.
+                # NOTE: this relies on concurrency=1 (this worker runs one job at
+                # a time) and on the ms-scale window between the child finishing
+                # and this metadata read. An external run (CLI/notebook/another
+                # worker) landing in that exact window could be mis-attributed.
+                # Safe for the internal single-worker Phase 1 deployment; the
+                # robust fix is for the child to write run_id/run_dir to the
+                # jobs row directly (tracked follow-up).
                 runs = RunManager.list_runs()
                 if runs:
                     latest_run_id = runs[0]  # Most recent run
