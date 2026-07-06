@@ -92,20 +92,20 @@ Chain strategy: stacked-to-main
 
 ## Phase 6: Integration Tests
 
-- [ ] 6.1 Write end-to-end test: submit stub config → poll job → verify terminal state + `run_id` + `run_dir`
-- [ ] 6.2 Write end-to-end test: cancel running job → verify `aborted` + partial dir preserved
-- [ ] 6.3 Write end-to-end test: retry failed job → verify new job_id with `retried_from` link
-- [ ] 6.4 Write integration test: worker restart reconciliation (`running`→`failed`, queued resumes)
-- [ ] 6.5 Write integration test: enqueue invalid config → verify 400 error, no row created
+- [x] 6.1 Write end-to-end test: submit stub config → poll job → verify terminal state + `run_id` + `run_dir`
+- [x] 6.2 Write end-to-end test: cancel running job → verify `aborted` + partial dir preserved
+- [x] 6.3 Write end-to-end test: retry failed job → verify new job_id with `retried_from` link
+- [x] 6.4 Write integration test: worker restart reconciliation (`running`→`failed`, queued resumes)
+- [x] 6.5 Write integration test: enqueue invalid config → verify 400 error, no row created
 
 ## Phase 7: Documentation
 
-- [ ] 7.1 Update `CLAUDE.md` with web package architecture (under "Directory Structure")
-- [ ] 7.2 Create `docs/web-console/DEPLOYMENT.md` (systemd units, Docker Compose, env vars)
-- [ ] 7.3 Document Phase 1 security risk (unauthenticated endpoints) in deployment guide
-- [ ] 7.4 Add `README.md` to `src/energizados/web/` with quickstart (uvicorn, worker commands)
-- [ ] 7.5 Document HTMX CDN fallback (how to bundle locally for air-gapped deployments)
-- [ ] 7.6 Add CHANGELOG entries for `feat(api): re-export ConfigPipelineBuilder` and `feat(web): add async job runner + web console`
+- [x] 7.1 Update `CLAUDE.md` with web package architecture (under "Directory Structure")
+- [x] 7.2 Create `docs/web-console/DEPLOYMENT.md` (systemd units, Docker Compose, env vars)
+- [x] 7.3 Document Phase 1 security risk (unauthenticated endpoints) in deployment guide
+- [x] 7.4 Add `README.md` to `src/energizados/web/` with quickstart (uvicorn, worker commands)
+- [x] 7.5 Document HTMX CDN fallback (how to bundle locally for air-gapped deployments)
+- [x] 7.6 Add CHANGELOG entries for `feat(api): re-export ConfigPipelineBuilder` and `feat(web): add async job runner + web console`
 
 ## Traceability to Specs
 

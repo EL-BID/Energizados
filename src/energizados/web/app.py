@@ -116,13 +116,28 @@ async def create_job(request: Request):
 
     Returns:
         JSON with job_id and status, or 400 with validation errors
+        HTML fragments if HX-Request header is present (PR3 content negotiation)
     """
+    # Check if HTMX request for content negotiation (PR3 UX fix)
+    is_htmx = request.headers.get("HX-Request") == "true"
+
     # Get content type
     content_type = request.headers.get("content-type", "")
 
     # Parse YAML body
     body = await request.body()
     if not body:
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "job_validation.html",
+                {
+                    "errors": ["Empty request body"],
+                    "invalid_prefixes": None,
+                    "allowed_prefixes": None,
+                },
+                status_code=400,
+            )
         raise HTTPException(status_code=400, detail="Empty request body")
 
     try:
@@ -137,9 +152,31 @@ async def create_job(request: Request):
             except yaml.YAMLError:
                 config = json.loads(body)
     except (yaml.YAMLError, json.JSONDecodeError) as e:
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "job_validation.html",
+                {
+                    "errors": [f"Invalid YAML or JSON: {str(e)}"],
+                    "invalid_prefixes": None,
+                    "allowed_prefixes": None,
+                },
+                status_code=400,
+            )
         raise HTTPException(status_code=400, detail=f"Invalid YAML or JSON: {str(e)}")
 
     if not isinstance(config, dict):
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "job_validation.html",
+                {
+                    "errors": ["Config must be a dictionary"],
+                    "invalid_prefixes": None,
+                    "allowed_prefixes": None,
+                },
+                status_code=400,
+            )
         raise HTTPException(status_code=400, detail="Config must be a dictionary")
 
     # Get config_type from query params
@@ -156,6 +193,13 @@ async def create_job(request: Request):
             else:
                 errors.append(error)
 
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "job_validation.html",
+                {"errors": errors, "invalid_prefixes": None, "allowed_prefixes": None},
+                status_code=400,
+            )
         raise HTTPException(
             status_code=400, detail={"errors": errors, "message": "Configuration validation failed"}
         )
@@ -163,13 +207,25 @@ async def create_job(request: Request):
     # Check custom_class prefixes for security
     invalid_prefixes = _check_custom_class_prefixes(config)
     if invalid_prefixes:
+        allowed_prefixes = ["energizados.*", "src.*"]
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "job_validation.html",
+                {
+                    "errors": None,
+                    "invalid_prefixes": invalid_prefixes,
+                    "allowed_prefixes": allowed_prefixes,
+                },
+                status_code=400,
+            )
         raise HTTPException(
             status_code=400,
             detail={
                 "error": "custom_class_prefix_validation",
                 "message": f"Disallowed custom_class prefixes: {invalid_prefixes}",
                 "invalid_prefixes": invalid_prefixes,
-                "allowed_prefixes": ["energizados.*", "src.*"],
+                "allowed_prefixes": allowed_prefixes,
             },
         )
 
@@ -177,6 +233,14 @@ async def create_job(request: Request):
     store = JobStore()
     job_id = store.create_job(config, config_type)
 
+    # Return HTML for HTMX, JSON otherwise (PR3 content negotiation)
+    if is_htmx:
+        return templates.TemplateResponse(
+            request,
+            "job_created.html",
+            {"job_id": job_id, "status": "queued", "config_type": config_type},
+            status_code=201,
+        )
     return JSONResponse(
         status_code=201, content={"job_id": job_id, "status": "queued", "config_type": config_type}
     )

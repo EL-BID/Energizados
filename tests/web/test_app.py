@@ -650,3 +650,106 @@ class TestCustomClassPrefixValidation:
         assert len(invalid) == 2
         assert "evil.Model1" in invalid
         assert "malicious.Model2" in invalid
+
+
+class TestHTMXContentNegotiation:
+    """Tests for HTMX content negotiation in POST /jobs (PR3 UX gap fix)."""
+
+    def test_post_with_htmx_request_validation_error_returns_html(self, client, mock_store):
+        """POST with HX-Request header should return HTML fragment on validation error."""
+        invalid_yaml = """
+        etl:
+          sample:
+            enabled: true
+            # Missing required fields
+        """
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=invalid_yaml,
+            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
+        )
+
+        assert response.status_code == 400
+        assert response.headers["content-type"].startswith("text/html")
+        # Should contain validation error structure
+        assert "validation" in response.text.lower() or "error" in response.text.lower()
+        mock_store.create_job.assert_not_called()
+
+    def test_post_with_htmx_request_success_returns_html(self, client, mock_store):
+        """POST with HX-Request header should return HTML fragment on success."""
+        valid_yaml = """
+        etl:
+          sample:
+            enabled: true
+            input: "data/raw/test.csv"
+            output: "data/processed/test.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+        """
+
+        mock_store.create_job.return_value = "job-htmx-123"
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=valid_yaml,
+            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
+        )
+
+        assert response.status_code == 201
+        assert response.headers["content-type"].startswith("text/html")
+        # Should contain job creation success indicator
+        assert "job" in response.text.lower() or "success" in response.text.lower()
+        mock_store.create_job.assert_called_once()
+
+    def test_post_without_htmx_request_keeps_json_behavior(self, client, mock_store):
+        """POST without HX-Request header should return JSON (existing behavior)."""
+        valid_yaml = """
+        etl:
+          sample:
+            enabled: true
+            input: "data/raw/test.csv"
+            output: "data/processed/test.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+        """
+
+        mock_store.create_job.return_value = "job-json-456"
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=valid_yaml,
+            headers={"Content-Type": "application/yaml"},
+            # No HX-Request header
+        )
+
+        assert response.status_code == 201
+        assert response.headers["content-type"] == "application/json"
+        data = response.json()
+        assert data["job_id"] == "job-json-456"
+        mock_store.create_job.assert_called_once()
+
+    def test_post_htmx_custom_class_error_returns_html(self, client, mock_store):
+        """POST with HX-Request should return HTML on custom_class validation error."""
+        malicious_yaml = """
+        etl:
+          evil:
+            enabled: true
+            input: "data/input.csv"
+            output: "data/output.parquet"
+            custom_class: "evil.malicious.Thing"
+        """
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=malicious_yaml,
+            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
+        )
+
+        assert response.status_code == 400
+        assert response.headers["content-type"].startswith("text/html")
+        # Should contain custom_class/prefix error message
+        assert "custom_class" in response.text.lower() or "prefix" in response.text.lower()
+        mock_store.create_job.assert_not_called()

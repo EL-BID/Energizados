@@ -34,7 +34,7 @@ def _run_job(job_id: str, config: Dict[str, Any]):
     register_allowed_prefix("src")  # Allow workspace imports
 
     # Import and run pipeline via API (not core)
-    from energizados.api import ConfigPipelineBuilder
+    from energizados.api import ConfigPipelineBuilder, RunManager
 
     try:
         # Set up callbacks (stub for Phase 1 - will emit events in Phase 5)
@@ -58,10 +58,23 @@ def _run_job(job_id: str, config: Dict[str, Any]):
         builder.on_step_error = on_step_error
 
         # Execute (blocking - can take hours for training)
-        builder.run(progress_callback=progress_callback)
+        context = builder.run(progress_callback=progress_callback)
 
-        # Success - context contains results, finalize_run already called by builder.run
-        logger.info(f"[{job_id}] Pipeline completed successfully")
+        # Success - extract run_id and run_dir from context for parent process
+        # RunManager.write_run_metadata already called by builder.run() via finalize_run
+        if context and "run_id" in context:
+            run_id = context["run_id"]
+            logger.info(f"[{job_id}] Pipeline completed successfully - run_id: {run_id}")
+
+            # Get run metadata to extract run_dir
+            try:
+                run_metadata = RunManager.get_run(run_id)
+                if run_metadata:
+                    logger.info(f"[{job_id}] run_dir: {run_metadata.run_dir}")
+            except Exception as e:
+                logger.warning(f"[{job_id}] Could not get run metadata: {e}")
+        else:
+            logger.warning(f"[{job_id}] Pipeline completed but no run_id in context")
 
     except Exception as e:
         # Framework exceptions bubble up as-is (type preserved)
@@ -144,10 +157,46 @@ class JobRunner:
 
         # Update job status based on exit code
         if exit_code == 0:
-            # Success
-            # Try to extract run_id from context (written by finalize_run)
-            # For now, just mark success - run_id/run_dir populated in future phases
-            self.store.update_status(job.job_id, JobStatus.SUCCESS)
+            # Success - extract run_id and run_dir from run metadata
+            # The child process called finalize_run which wrote run_metadata.json
+            try:
+                from energizados.api import RunManager
+
+                # Attribute the most-recent run to this job.
+                # NOTE: this relies on concurrency=1 (this worker runs one job at
+                # a time) and on the ms-scale window between the child finishing
+                # and this metadata read. An external run (CLI/notebook/another
+                # worker) landing in that exact window could be mis-attributed.
+                # Safe for the internal single-worker Phase 1 deployment; the
+                # robust fix is for the child to write run_id/run_dir to the
+                # jobs row directly (tracked follow-up).
+                runs = RunManager.list_runs()
+                if runs:
+                    latest_run_id = runs[0]  # Most recent run
+                    run_metadata = RunManager.get_run(latest_run_id)
+
+                    if run_metadata:
+                        # Update job with run_id and run_dir
+                        self.store.update_status(
+                            job.job_id,
+                            JobStatus.SUCCESS,
+                            run_id=latest_run_id,
+                            run_dir=run_metadata.run_dir,
+                        )
+                        logger.info(f"Job {job.job_id} succeeded - run_id: {latest_run_id}")
+                    else:
+                        # Fallback: mark success without metadata
+                        self.store.update_status(job.job_id, JobStatus.SUCCESS)
+                        logger.warning(f"Job {job.job_id} succeeded but no metadata found")
+                else:
+                    # No runs found - mark success without metadata
+                    self.store.update_status(job.job_id, JobStatus.SUCCESS)
+                    logger.warning(f"Job {job.job_id} succeeded but no runs found")
+
+            except Exception as e:
+                # On error, still mark success but log the issue
+                self.store.update_status(job.job_id, JobStatus.SUCCESS)
+                logger.error(f"Failed to extract run metadata for job {job.job_id}: {e}")
         else:
             # Failed - extract error info
 

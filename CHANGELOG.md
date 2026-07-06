@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **API: ConfigPipelineBuilder re-export** — `ConfigPipelineBuilder` is now re-exported from `energizados.api` for public API consumption, enabling worker processes to import from the public surface instead of internals.
+- **API: RunManager EDA report metadata** — `RunManager._write_run_metadata` now populates `output_paths["eda_report"]` when `context["eda_results"]["report_path"]` is available, providing generic artifact path support.
+- **Web: async job runner + web console** — Complete async job execution system with FastAPI web interface, SQLite-backed job queue, HTMX-powered UI, and worker process for pipeline execution. Includes job submission, monitoring, cancellation, retry, and state management.
+- **Web: HTMX content negotiation** — Web API supports both JSON and HTML responses based on `HX-Request` header, enabling seamless HTMX form validation feedback while maintaining programmatic JSON API compatibility.
+- **Web: security validation** — Two-layer `custom_class` prefix validation (web submit check + worker import guard) prevents arbitrary code execution. Allowed prefixes: `energizados.*`, `src.*`.
+- **Web: job lifecycle management** — FIFO queue with `concurrency=1`, legal state transitions (`QUEUED`→`RUNNING`→`SUCCESS|FAILED|ABORTED`), cancel/retry operations, and worker restart reconciliation.
+- **Web: integration tests** — End-to-end tests covering submit→run→terminal flows, cancel semantics, retry links, worker reconciliation, and invalid config rejection.
+- **Web: documentation** — Deployment guide with systemd/Docker/supervisor configs, security considerations, air-gapped setup instructions, and troubleshooting guide.
+
 ## [0.2.9] - 2026-07-05
 
 ### Added

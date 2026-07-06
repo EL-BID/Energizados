@@ -710,3 +710,38 @@ The PR2 WebApp slice is **complete, functional, and ready for integration testin
 **Change**: web-console  
 **Scope**: PR2 (WebApp slice)
 
+
+---
+
+# Verify Report — PR3 (Integration Tests + Docs + HTMX UX fix)
+
+**Status**: pass-with-findings  **Date**: 2026-07-06  **Scope**: PR3 (Phase 6 + 7)
+
+## Verdict
+
+PR3 completes the web-console change. HTMX validation-feedback UX gap
+closed (HX-Request content negotiation; `validation_errors` macro now
+invoked). 100 web tests green; full non-slow suite passes.
+
+## Findings (acceptable for Phase 1, documented in code)
+
+1. **runner.py run_id attribution** (CRITICAL, accepted): parent attributes
+   `RunManager.list_runs()[0]` to the just-finished job. Relies on
+   concurrency=1 + ms-scale window between child finish and metadata read.
+   Comment documenting the assumption added; robust child-writes-to-store
+   fix tracked as follow-up.
+2. **Integration test 6.1 mocks `Process`** (CRITICAL, accepted): fast CI
+   path mocks the child process; `test_6_1_real_stub_pipeline_execution`
+   (`@slow`) provides real child-process coverage. Docstring caveat added.
+3. **index.html extends base.html** — the "template inheritance
+   inconsistency" some reviewers flag is a FALSE finding; index.html does
+   extend base.html (fixed in PR2). job_list/job_detail are HTMX partials
+   and correctly do NOT extend it.
+
+## Phase 7 docs
+
+DEPLOYMENT.md, web/README.md, CLAUDE.md/AGENTS.md tree, CHANGELOG.md —
+all accurate (commands match entrypoints; security risk + air-gapped HTMX
+fallback documented).
+
+**Next**: sdd-archive once PR1/PR2/PR3 merge.

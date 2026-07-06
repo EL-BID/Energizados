@@ -1,0 +1,9 @@
+{% from "components/validation.html" import validation_errors, custom_class_errors with context %}
+
+{% if errors %}
+{{ validation_errors(errors) }}
+{% endif %}
+
+{% if invalid_prefixes %}
+{{ custom_class_errors(invalid_prefixes, allowed_prefixes) }}
+{% endif %}
