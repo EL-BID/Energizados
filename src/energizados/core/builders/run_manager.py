@@ -14,7 +14,43 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from energizados.core.exceptions import ConfigurationError
+
 logger = logging.getLogger(__name__)
+
+
+def _validate_run_name(base: Path, run_name: Optional[str]) -> None:
+    """Reject run_name values that escape base_output_dir.
+
+    generate_run_dir() does shutil.rmtree() on the resolved run directory.
+    If run_name is attacker-controlled (e.g. the web console), an absolute
+    path or one containing traversal components would let it delete
+    directories outside the output base. This guard refuses such names
+    before any filesystem mutation happens.
+
+    Args:
+        base: Resolved base output directory.
+        run_name: User-supplied run name. ``None`` is always allowed.
+
+    Raises:
+        ConfigurationError: If run_name is absolute or resolves outside base.
+    """
+    if run_name is None:
+        return
+
+    name = Path(run_name)
+    if name.is_absolute():
+        raise ConfigurationError(
+            f"run_name must be a relative path inside the output dir, "
+            f"got absolute path: {run_name!r}"
+        )
+
+    base_resolved = base.resolve()
+    target = (base / name).resolve()
+    try:
+        target.relative_to(base_resolved)
+    except ValueError:
+        raise ConfigurationError(f"run_name must not escape the output directory: {run_name!r}")
 
 
 @dataclass
@@ -145,6 +181,9 @@ class RunManager:
         base = Path(base_output_dir)
 
         if run_name is not None:
+            # Guard against path traversal / absolute paths before any
+            # shutil.rmtree runs — run_name may be user-controlled (web console).
+            _validate_run_name(base, run_name)
             # Use custom run name - delete existing directory if present
             run_dir = base / run_name
             if run_dir.exists():

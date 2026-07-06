@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 
 from energizados.core.builders.run_manager import RunManager
+from energizados.core.exceptions import ConfigurationError
 
 
 class TestRunMetadata:
@@ -423,3 +424,61 @@ class TestRunManagerQueryAPI:
         latest = manager.get_latest_run()
 
         assert latest is None
+
+
+class TestRunNameValidation:
+    """Path-traversal guard for user-supplied run_name.
+
+    generate_run_dir() does shutil.rmtree on run_dir. If run_name is
+    attacker-controlled (web console), a traversal or absolute path would
+    let it delete arbitrary directories. These tests pin the guard.
+    """
+
+    def _manager(self):
+        # Minimal RunManager; generate_run_dir only needs the instance.
+        return RunManager()
+
+    def test_traversal_run_name_rejected(self, tmp_path):
+        """A ../ run_name that escapes base must raise before any deletion."""
+        base = tmp_path / "output"
+        base.mkdir()
+        victim = tmp_path / "victim_outside_base"
+        victim.mkdir()
+
+        manager = self._manager()
+        with pytest.raises(ConfigurationError):
+            manager.generate_run_dir(base_output_dir=str(base), run_name="../victim_outside_base")
+
+        # Victim directory must survive (no rmtree ran).
+        assert victim.exists()
+
+    def test_absolute_run_name_rejected(self, tmp_path):
+        """An absolute run_name must not escape the output dir."""
+        base = tmp_path / "output"
+        base.mkdir()
+
+        manager = self._manager()
+        with pytest.raises(ConfigurationError):
+            manager.generate_run_dir(base_output_dir=str(base), run_name=str(tmp_path / "evil"))
+
+    def test_valid_relative_run_name_allowed(self, tmp_path):
+        """A plain relative run_name inside base still works."""
+        base = tmp_path / "output"
+        base.mkdir()
+
+        manager = self._manager()
+        run_dir = manager.generate_run_dir(base_output_dir=str(base), run_name="my-experiment")
+
+        assert run_dir == base / "my-experiment"
+        assert run_dir.exists()
+        assert (run_dir / "models").exists()
+
+    def test_traversal_with_subdir_rejected(self, tmp_path):
+        """Deeper traversal must also be caught."""
+        base = tmp_path / "output"
+        base.mkdir()
+        (tmp_path / "sibling").mkdir()
+
+        manager = self._manager()
+        with pytest.raises(ConfigurationError):
+            manager.generate_run_dir(base_output_dir=str(base), run_name="legit/../../sibling")

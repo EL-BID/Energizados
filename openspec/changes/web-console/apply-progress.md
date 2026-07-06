@@ -192,10 +192,11 @@ Successfully implemented **PR1 foundation slice** for web-console async job runn
   running→running are already rejected. No code change needed.
 
 ### Tracked for PR2 (blockers before web layer ships)
-- **Path traversal via `run_name`** in `src/energizados/core/builders/run_manager.py`
-  (`generate_run_dir` does `shutil.rmtree(run_dir)` on user-controlled name without
-  validation). Pre-existing framework code, not introduced by PR1, but the web UI will
-  expose it. Must validate `run_name` (reject `..`, abs paths) before PR2/PR5.
+- ~~**Path traversal via `run_name`** in `src/energizados/core/builders/run_manager.py`~~
+  ✅ **FIXED** (PR2 prep): added `_validate_run_name(base, run_name)` guard called at the
+  top of `generate_run_dir`'s custom-name branch. Rejects absolute paths and any resolved
+  path escaping `base`. Raises `ConfigurationError`. Covered by `TestRunNameValidation`
+  (4 tests). 27 run_manager + 88 related tests green, pre-commit clean.
 - Job timeout / hung-child detection (accepted for Phase 1; training jobs are long).
 - Extract run_id/run_dir from `run_metadata.json` on reconcile (avoid marking
   late-succeeding jobs as failed).
