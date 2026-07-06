@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        {% include "components/editor.html" %}
+    </div>
+
+    <div class="col-md-6">
+        <div id="validation-output">
+            <div class="alert alert-secondary">
+                ℹ️ Submit a configuration to see validation results
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Job List Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div id="job-list-container">
+            <div class="jobs-section">
+                <h5 class="mb-3">📋 Job List</h5>
+                <div class="alert alert-info">
+                    Loading jobs...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Load job list via HTMX on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            htmx.ajax('get', '/jobs', {target: '#job-list-container'});
+        }, 100);
+    });
+</script>
+{% endblock %}

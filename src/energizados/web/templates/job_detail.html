@@ -1,0 +1,60 @@
+<!-- HTMX fragment: Job detail -->
+{% from "components/status_badge.html" import status_badge %}
+<div class="job-card">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h6 class="mb-1">Job: <code>{{ job.job_id }}</code></h6>
+            <p class="small text-muted mb-2">
+                Type: {{ job.config_type|title }} |
+                Enqueued: {{ job.enqueued_at[:19] }} UTC
+            </p>
+        </div>
+        <div>{{ status_badge(job.status.value) }}</div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <h6 class="small text-uppercase text-muted mb-2">Timeline</h6>
+            <ul class="list-unstyled small">
+                <li><strong>Enqueued:</strong> {{ job.enqueued_at[:19] }} UTC</li>
+                {% if job.started_at %}
+                <li><strong>Started:</strong> {{ job.started_at[:19] }} UTC</li>
+                {% endif %}
+                {% if job.finished_at %}
+                <li><strong>Finished:</strong> {{ job.finished_at[:19] }} UTC</li>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h6 class="small text-uppercase text-muted mb-2">Execution</h6>
+            <ul class="list-unstyled small">
+                {% if job.run_id %}
+                <li><strong>Run ID:</strong> <code>{{ job.run_id }}</code></li>
+                {% endif %}
+                {% if job.run_dir %}
+                <li><strong>Run Dir:</strong> <code>{{ job.run_dir }}</code></li>
+                {% endif %}
+                {% if job.retried_from %}
+                <li><strong>Retried From:</strong> <code>{{ job.retried_from }}</code></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+    {% if job.error %}
+    <div class="mt-3">
+        <h6 class="small text-uppercase text-danger mb-2">Error</h6>
+        <div class="alert alert-danger small">
+            <pre class="mb-0">{{ job.error|tojson(indent=2) }}</pre>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-3">
+        <h6 class="small text-uppercase text-muted mb-2">Configuration</h6>
+        <details>
+            <summary class="small pointer">View full config</summary>
+            <pre class="small bg-light p-2 mt-2">{{ job.config|tojson(indent=2) }}</pre>
+        </details>
+    </div>
+</div>

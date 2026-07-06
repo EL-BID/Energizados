@@ -1,0 +1,77 @@
+<!-- HTMX fragment: Job list with auto-refresh -->
+{% from "components/status_badge.html" import status_badge %}
+<div hx-get="/jobs{% if status_filter %}?status={{ status_filter.value }}{% endif %}" hx-trigger="every 2s" hx-swap="outerHTML">
+    <div class="jobs-section">
+        <h5 class="mb-3">📋 Job List{% if status_filter %} ({{ status_filter.value|title }} only){% endif %}</h5>
+
+        {% if jobs %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Job ID</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Enqueued</th>
+                        <th>Run ID</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                    <tr>
+                        <td><code class="small">{{ job.job_id }}</code></td>
+                        <td>{{ job.config_type|title }}</td>
+                        <td>{{ status_badge(job.status.value) }}</td>
+                        <td class="small">{{ job.enqueued_at[:19] }} UTC</td>
+                        <td>
+                            {% if job.run_id %}
+                            <code class="small">{{ job.run_id }}</code>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if job.status.can_cancel %}
+                            <button
+                                class="btn btn-sm btn-warning"
+                                hx-post="/jobs/{{ job.job_id }}/cancel"
+                                hx-swap="none"
+                                hx-confirm="Cancel this job?"
+                            >
+                                🛑 Cancel
+                            </button>
+                            {% endif %}
+
+                            {% if job.is_terminal() %}
+                            <button
+                                class="btn btn-sm btn-secondary"
+                                hx-post="/jobs/{{ job.job_id }}/retry"
+                                hx-swap="none"
+                                hx-confirm="Retry this job?"
+                            >
+                                🔄 Retry
+                            </button>
+                            {% endif %}
+
+                            <a href="/jobs/{{ job.job_id }}" class="btn btn-sm btn-info" hx-get="/jobs/{{ job.job_id }}" hx-target="#job-detail-{{ job.job_id }}" hx-swap="innerHTML">
+                                👁️ Details
+                            </a>
+                        </td>
+                    </tr>
+                    <tr id="job-detail-{{ job.job_id }}">
+                        <td colspan="6" class="p-2">
+                            <!-- Job detail loads here -->
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            ℹ️ No jobs found{% if status_filter %} with status "{{ status_filter.value }}"{% endif %}.
+        </div>
+        {% endif %}
+    </div>
+</div>
