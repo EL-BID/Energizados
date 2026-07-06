@@ -88,6 +88,7 @@ web = [
 [project.scripts]
 energizados = "energizados.cli.main:cli"
 energizados-web-worker = "energizados.web.worker:main"
+energizados-web = "energizados.web.launcher:main"
 
 [project.urls]
 Homepage = "https://github.com/energizados/energizados"
