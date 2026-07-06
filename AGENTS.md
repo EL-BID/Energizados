@@ -64,6 +64,21 @@ energizados run etl --dry-run
 energizados run train -n mi-experimento
 ```
 
+### Web Console (async job runner)
+```bash
+# Install web dependencies
+pip install -e ".[web]"
+
+# Start web server (FastAPI + HTMX UI)
+uvicorn energizados.web.app:app --reload
+
+# Start worker process (job execution engine)
+energizados-web-worker --db-path data/web/jobs.db --log-level INFO
+
+# Or run worker via Python module
+python -m energizados.web.worker --db-path data/web/jobs.db
+```
+
 ### Run Scripts (generated projects)
 New projects include Python scripts in `src/run/` for direct execution without CLI:
 ```bash
@@ -144,10 +159,28 @@ src/energizados/
 │   ├── plots_interactive.py  # Interactive Plotly charts (HTML strings)
 │   ├── report.py             # HTML report generator
 │   └── utils.py              # Column classification, IV/WoE, KS, Cramér's V
-└── etl/               # ETL framework components
-    ├── base.py        # BaseETL abstract class
-    ├── pipeline.py    # SourceETL implementation
-    └── orchestrator.py # ETLOrchestrator for dependency management
+├── etl/               # ETL framework components
+│   ├── base.py        # BaseETL abstract class
+│   ├── pipeline.py    # SourceETL implementation
+│   └── orchestrator.py # ETLOrchestrator for dependency management
+└── web/               # Web console and async job runner
+    ├── app.py         # FastAPI web application with HTMX support
+    ├── store.py       # JobStore with SQLite persistence
+    ├── runner.py      # JobRunner worker execution engine
+    ├── worker.py      # Worker CLI entrypoint
+    ├── models.py      # JobStatus enum and JobRow dataclass
+    ├── templates/     # Jinja2 templates for UI
+    │   ├── base.html         # Base layout with HTMX CDN
+    │   ├── index.html        # Main page with YAML editor
+    │   ├── job_list.html     # HTMX fragment for job list
+    │   ├── job_detail.html   # HTMX fragment for job details
+    │   ├── job_validation.html # HTMX fragment for validation errors
+    │   ├── job_created.html  # HTMX fragment for success messages
+    │   └── components/        # Reusable template components
+    │       ├── editor.html      # YAML textarea + file upload
+    │       ├── validation.html  # Validation error messages
+    │       └── status_badge.html # Color-coded status badge
+    └── static/       # Static assets (CSS, JS, etc.)
 ```
 
 ### Base Classes (Public API)
