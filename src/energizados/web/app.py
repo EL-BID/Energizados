@@ -38,7 +38,6 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Tighten in production
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -328,4 +327,4 @@ async def list_runs():
         return {"runs": runs}
     except Exception as e:
         logger.error(f"Error listing runs: {e}")
-        return {"runs": [], "error": str(e)}
+        return JSONResponse(status_code=500, content={"runs": [], "error": str(e)})

@@ -1,4 +1,5 @@
 <!-- HTMX fragment: Job detail -->
+{% from "components/status_badge.html" import status_badge %}
 <div class="job-card">
     <div class="d-flex justify-content-between align-items-start">
         <div>
@@ -8,17 +9,7 @@
                 Enqueued: {{ job.enqueued_at[:19] }} UTC
             </p>
         </div>
-        <div>
-            {% set status_classes = {
-                'queued': 'status-queued',
-                'running': 'status-running',
-                'success': 'status-success',
-                'failed': 'status-failed',
-                'aborted': 'status-aborted'
-            } %}
-            {% set status_class = status_classes.get(job.status.value, 'bg-secondary') %}
-            <span class="status-badge {{ status_class }}">{{ job.status.value|title }}</span>
-        </div>
+        <div>{{ status_badge(job.status.value) }}</div>
     </div>
 
     <div class="row mt-3">

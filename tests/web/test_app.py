@@ -163,6 +163,93 @@ class TestPostJobs:
         assert response.status_code == 201
         mock_store.create_job.assert_called_once()
 
+    def test_post_json_content_type_creates_job(self, client, mock_store):
+        """POST with Content-Type: application/json should create job."""
+        import json
+
+        valid_json_config = {
+            "etl": {
+                "sample": {
+                    "enabled": True,
+                    "input": "data/raw/test.csv",
+                    "output": "data/processed/test.parquet",
+                    "custom_class": "energizados.etl.pipeline.SourceETL",
+                }
+            }
+        }
+
+        mock_store.create_job.return_value = "job-json-789"
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=json.dumps(valid_json_config),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["job_id"] == "job-json-789"
+        assert data["status"] == "queued"
+        mock_store.create_job.assert_called_once()
+
+    def test_post_no_content_type_fallback_to_yaml(self, client, mock_store):
+        """POST with no content-type should try YAML first, then JSON."""
+        valid_yaml = """
+        train:
+          enabled: true
+          input_path: 'data/processed/dataset.parquet'
+          target_column: 'target'
+          models:
+            - type: 'lightgbm'
+        """
+
+        mock_store.create_job.return_value = "job-yaml-fallback"
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "train"},
+            content=valid_yaml,
+            # No Content-Type header
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["job_id"] == "job-yaml-fallback"
+        mock_store.create_job.assert_called_once()
+
+    def test_post_no_content_type_json_fallback(self, client, mock_store):
+        """POST with no content-type should fallback to JSON if YAML fails."""
+
+        # Use a JSON structure that would fail YAML parsing
+        # (trailing commas are valid in JSON but not in YAML)
+        valid_json_config = """
+        {
+            "etl": {
+                "sample": {
+                    "enabled": true,
+                    "input": "data/raw/test.csv",
+                    "output": "data/processed/test.parquet",
+                    "custom_class": "energizados.etl.pipeline.SourceETL",
+                }
+            }
+        }
+        """
+
+        mock_store.create_job.return_value = "job-json-fallback"
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=valid_json_config,
+            # No Content-Type header - should try YAML first, fail, then JSON
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["job_id"] == "job-json-fallback"
+        mock_store.create_job.assert_called_once()
+
 
 class TestGetJobs:
     """Tests for GET /jobs route (task 5.13)."""
@@ -202,6 +289,32 @@ class TestGetJobs:
         assert response.status_code == 200
         mock_store.list_jobs.assert_called_once()
 
+    def test_get_jobs_renders_status_badge_correctly(self, client, mock_store):
+        """GET /jobs should render status badge with correct CSS classes."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_jobs = [
+            JobRow(
+                job_id="job-1",
+                config={"test": "config"},
+                config_type="etl",
+                status=JobStatus.SUCCESS,
+                enqueued_at="2024-01-01T00:00:00Z",
+            ),
+        ]
+        mock_store.list_jobs.return_value = mock_jobs
+
+        response = client.get("/jobs")
+        content = response.text
+
+        # Should contain status-badge class
+        assert "status-badge" in content
+        # Should contain the specific status class
+        assert "status-success" in content
+        # Should show the status text
+        assert "Success" in content
+        mock_store.list_jobs.assert_called_once()
+
 
 class TestGetJobDetail:
     """Tests for GET /jobs/{id} route (task 5.14)."""
@@ -236,6 +349,56 @@ class TestGetJobDetail:
 
         assert response.status_code == 404
         mock_store.get_job.assert_called_once_with("nonexistent-job")
+
+    def test_get_job_detail_renders_status_badge(self, client, mock_store):
+        """GET /jobs/{id} should render status badge with correct CSS classes."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-failed-1",
+            config={"test": "config"},
+            config_type="train",
+            status=JobStatus.FAILED,
+            enqueued_at="2024-01-01T00:00:00Z",
+            error={"error_code": "ERROR", "message": "Test error"},
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-failed-1")
+        content = response.text
+
+        # Should contain status-badge class
+        assert "status-badge" in content
+        # Should contain the specific status class
+        assert "status-failed" in content
+        # Should show the status text
+        assert "Failed" in content
+        mock_store.get_job.assert_called_once_with("job-failed-1")
+
+    def test_get_job_detail_json_accept(self, client, mock_store):
+        """GET /jobs/{id} with Accept: application/json should return JSON."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-json-1",
+            config={"test": "config"},
+            config_type="etl",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            run_id="run-123",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-json-1", headers={"Accept": "application/json"})
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/json"
+        data = response.json()
+        assert data["job_id"] == "job-json-1"
+        assert data["status"] == "running"
+        assert data["config"] == {"test": "config"}
+        mock_store.get_job.assert_called_once_with("job-json-1")
 
 
 class TestCancelJob:
@@ -280,7 +443,7 @@ class TestCancelJob:
         response = client.post("/jobs/job-queued-1/cancel")
 
         assert response.status_code == 200
-        mock_store.cancel_job.assert_called_once()
+        mock_store.cancel_job.assert_called_once_with("job-queued-1")
 
     def test_cancel_nonexistent_job_returns_404(self, client, mock_store):
         """POST /jobs/{id}/cancel should return 404 for non-existent job."""
@@ -289,6 +452,27 @@ class TestCancelJob:
         response = client.post("/jobs/nonexistent-job/cancel")
 
         assert response.status_code == 404
+        mock_store.cancel_job.assert_not_called()
+
+    def test_cancel_job_called_with_correct_id(self, client, mock_store):
+        """POST /jobs/{id}/cancel should call cancel_job with correct job_id."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-to-cancel",
+            config={"test": "config"},
+            config_type="etl",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+        mock_store.cancel_job.return_value = True
+
+        response = client.post("/jobs/job-to-cancel/cancel")
+
+        assert response.status_code == 200
+        mock_store.cancel_job.assert_called_once_with("job-to-cancel")
 
 
 class TestRetryJob:
@@ -327,6 +511,27 @@ class TestRetryJob:
         assert response.status_code == 404
         mock_store.retry_job.assert_not_called()
 
+    def test_retry_job_called_with_correct_id(self, client, mock_store):
+        """POST /jobs/{id}/retry should call retry_job with correct job_id."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-to-retry",
+            config={"test": "config"},
+            config_type="train",
+            status=JobStatus.FAILED,
+            enqueued_at="2024-01-01T00:00:00Z",
+            finished_at="2024-01-01T00:02:00Z",
+            error={"error_code": "ERROR", "message": "Test error"},
+        )
+        mock_store.get_job.return_value = mock_job
+        mock_store.retry_job.return_value = "job-retried-new"
+
+        response = client.post("/jobs/job-to-retry/retry")
+
+        assert response.status_code == 201
+        mock_store.retry_job.assert_called_once_with("job-to-retry")
+
 
 class TestHealthRoute:
     """Tests for GET /health route (task 5.17)."""
@@ -353,6 +558,21 @@ class TestApiRunsRoute:
             assert response.status_code == 200
             data = response.json()
             assert "runs" in data or isinstance(data, list)
+            mock_rm.list_runs.assert_called_once()
+
+    def test_get_runs_error_returns_500(self, client):
+        """GET /api/runs should return 500 on RunManager error."""
+        with patch("energizados.web.app.RunManager") as mock_rm:
+            mock_rm.list_runs.side_effect = Exception("Test error")
+
+            response = client.get("/api/runs")
+
+            assert response.status_code == 500
+            data = response.json()
+            assert "runs" in data
+            assert data["runs"] == []
+            assert "error" in data
+            assert "Test error" in data["error"]
             mock_rm.list_runs.assert_called_once()
 
 
