@@ -50,6 +50,14 @@
     </div>
     {% endif %}
 
+    {% if job.run_id %}
+    <div class="mt-3">
+        <a href="/runs/{{ job.run_id }}" class="btn btn-sm btn-primary">
+            📊 View Run Results
+        </a>
+    </div>
+    {% endif %}
+
     <div class="mt-3">
         <h6 class="small text-uppercase text-muted mb-2">Configuration</h6>
         <details>

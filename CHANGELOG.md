@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Web: job lifecycle management** — FIFO queue with `concurrency=1`, legal state transitions (`QUEUED`→`RUNNING`→`SUCCESS|FAILED|ABORTED`), cancel/retry operations, and worker restart reconciliation.
 - **Web: integration tests** — End-to-end tests covering submit→run→terminal flows, cancel semantics, retry links, worker reconciliation, and invalid config rejection.
 - **Web: documentation** — Deployment guide with systemd/Docker/supervisor configs, security considerations, air-gapped setup instructions, and troubleshooting guide.
+- **Web: Phase 2 runs browsing** — `GET /runs` paginated list (optional `status` filter and `limit`, default 100) and `GET /runs/{run_id}` detail view rendering metadata, single/multi-model metrics, plots gallery, EDA report iframe, config files, and a tailed `run.log`. Both routes return HTML or JSON via the `Accept` header.
+- **Web: secure artifact serving** — `GET /runs/{run_id}/artifacts/{path}` serves run files with a multi-layer path-traversal guard (run_id validation, `..`/absolute/backslash rejection, resolved-path containment check against the run directory, no directory listings).
+- **Web: job → run navigation** — The job detail view links to the corresponding run detail page when `job.run_id` is populated, closing the loop between async jobs and historical run inspection.
 
 ## [0.2.9] - 2026-07-05
 

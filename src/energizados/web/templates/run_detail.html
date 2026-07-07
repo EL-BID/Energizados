@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "components/status_badge.html" import status_badge %}
+
+{% block title %}{{ run.run_id }} — Run Detail{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="run-detail">
+        <!-- Header: Run ID + status badge -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>{{ run.run_id }}</h2>
+            {{ status_badge(run.status) }}
+        </div>
+
+        <!-- Metadata section -->
+        <section class="mb-4">
+            <h5>📋 Metadata</h5>
+            <table class="table table-sm">
+                <tr><th>Timestamp</th><td>{{ run.timestamp[:19] }} UTC</td></tr>
+                <tr><th>Duration</th><td>{{ "%.1f"|format(run.duration_seconds) }}s</td></tr>
+                <tr><th>Models</th><td>{{ run.model_types|join(", ") }}</td></tr>
+                <tr><th>Features</th><td>{{ run.feature_count if run.feature_count else "—" }}</td></tr>
+                <tr><th>Version</th><td>{{ run.energizados_version }}</td></tr>
+            </table>
+        </section>
+
+        <!-- Metrics section (branches single vs multi) -->
+        <section class="mb-4">
+            <h5>📈 Metrics</h5>
+            {% if evaluation %}
+                {% if evaluation.ranking %}
+                    <!-- Multi-model: ranking table -->
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Rank</th><th>Model</th><th>AUC</th><th>F1</th><th>Precision</th><th>Recall</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model in evaluation.ranking %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ model.name }}</td>
+                                <td>{{ "%.3f"|format(model.metrics.auc) }}</td>
+                                <td>{{ "%.3f"|format(model.metrics.f1) }}</td>
+                                <td>{{ "%.3f"|format(model.metrics.precision) }}</td>
+                                <td>{{ "%.3f"|format(model.metrics.recall) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <p class="text-muted">Best model: <strong>{{ evaluation.best_model }}</strong></p>
+                {% else %}
+                    <!-- Single-model: metrics table -->
+                    <table class="table table-sm">
+                        <tr><th>AUC</th><td>{{ "%.3f"|format(evaluation.metrics.auc) }}</td></tr>
+                        <tr><th>F1</th><td>{{ "%.3f"|format(evaluation.metrics.f1) }}</td></tr>
+                        <tr><th>Precision</th><td>{{ "%.3f"|format(evaluation.metrics.precision) }}</td></tr>
+                        <tr><th>Recall</th><td>{{ "%.3f"|format(evaluation.metrics.recall) }}</td></tr>
+                        <tr><th>Threshold</th><td>{{ evaluation.metrics.threshold }}</td></tr>
+                    </table>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-warning">⚠️ No evaluation report found.</div>
+            {% endif %}
+        </section>
+
+        <!-- Config files section -->
+        {% if config_files %}
+        <section class="mb-4">
+            <h5>⚙️ Config Files</h5>
+            <ul>
+                {% for config_file in config_files %}
+                <li>
+                    <a href="/runs/{{ run.run_id }}/artifacts/config/{{ config_file }}"
+                       target="_blank">
+                        📄 {{ config_file }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        <!-- Log section -->
+        {% if has_log %}
+        <section class="mb-4">
+            <h5>📜 Run Log</h5>
+            <pre class="bg-light p-3" style="max-height: 400px; overflow-y: auto;">{{ log_content }}</pre>
+        </section>
+        {% endif %}
+
+        <!-- EDA embed section -->
+        {% if eda_relative_path %}
+        <section class="mb-4">
+            <h5>🔍 EDA Report</h5>
+            <iframe
+                src="/runs/{{ run.run_id }}/artifacts/{{ eda_relative_path }}"
+                width="100%"
+                height="800px"
+                style="border: 1px solid #dee2e6; border-radius: 4px;"
+            ></iframe>
+        </section>
+        {% endif %}
+
+        <!-- Navigation -->
+        <div class="mt-4">
+            <a href="/runs" class="btn btn-secondary">← Back to Runs</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
