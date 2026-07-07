@@ -3,17 +3,19 @@ FastAPI web application for Energizados web console.
 
 Thin layer over energizados.api and JobStore. No business logic here.
 Implements Phase 1 endpoints (tasks 5.9-5.18) with HTMX support.
+Implements Phase 2 endpoints (runs list, detail, artifact serving) with security guards.
 """
 
 import json
 import logging
+from collections import deque
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -379,7 +381,7 @@ async def health():
 
 
 @app.get("/api/runs")
-async def list_runs():
+async def list_runs_api():
     """
     Proxy RunManager.list_runs() for Phase 2 preparation (task 5.18).
 
@@ -392,3 +394,353 @@ async def list_runs():
     except Exception as e:
         logger.error(f"Error listing runs: {e}")
         return JSONResponse(status_code=500, content={"runs": [], "error": str(e)})
+
+
+# ============================================================================
+# PHASE 2: Runs List, Detail, and Artifact Serving (with security guards)
+# ============================================================================
+
+
+def _guess_media_type(path: Path) -> str:
+    """
+    Guess media type from file extension.
+
+    Args:
+        path: File path
+
+    Returns:
+        MIME type string
+    """
+    ext = path.suffix.lower()
+    types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
+        ".html": "text/html",
+        ".json": "application/json",
+        ".yaml": "text/yaml",
+        ".yml": "text/yaml",
+        ".log": "text/plain",
+        ".txt": "text/plain",
+    }
+    return types.get(ext, "application/octet-stream")
+
+
+def _is_cacheable(path: Path) -> bool:
+    """
+    Return True if file should be cached (plots, reports).
+
+    Args:
+        path: File path
+
+    Returns:
+        True if cacheable, False otherwise
+    """
+    ext = path.suffix.lower()
+    return ext in {".png", ".jpg", ".jpeg", ".svg", ".html"}
+
+
+@app.get("/runs/{run_id}/artifacts/{path:path}")
+async def get_artifact(run_id: str, path: str):
+    """
+    Serve run artifacts with path-traversal guard (Phase 1, tasks 1.6-1.9).
+
+    Security: Multi-layer guard against path traversal:
+    1. Validate run_id via RunManager.get_run() (404 if unknown)
+    2. Reject artifact_path containing .., absolute paths, backslashes
+    3. Resolve both paths and assert artifact_path relative to run_dir
+    4. Return 404 if file missing (no directory listings)
+
+    Args:
+        run_id: Run identifier (validated via RunManager)
+        path: Relative path within run directory
+
+    Returns:
+        FileResponse with appropriate content-type and cache headers
+
+    Raises:
+        HTTPException: 404 if run/artifact not found, 403/400 on path traversal
+    """
+    manager = RunManager()
+
+    # Step 1: Validate run_id via RunManager.get_run()
+    run = manager.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Step 2: Resolve run directory
+    run_dir = manager.run_dir(run_id)
+    if not run_dir:
+        raise HTTPException(status_code=404, detail="Run directory not found")
+
+    # Step 3: Reject path traversal attempts
+    if ".." in path or path.startswith("/") or "\\" in path:
+        raise HTTPException(status_code=403, detail="Invalid path")
+
+    # Step 4: Resolve artifact path
+    try:
+        artifact_path = (run_dir / path).resolve()
+    except (OSError, ValueError) as e:
+        logger.error(f"Error resolving artifact path: {e}")
+        raise HTTPException(status_code=400, detail="Invalid artifact path")
+
+    # Step 5: Double-check: must be within run_dir (defends against symlink escapes)
+    try:
+        artifact_path.relative_to(run_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Path traversal detected")
+
+    # Step 6: Serve file if exists
+    if not artifact_path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    # Step 7: Content-Type by extension
+    media_type = _guess_media_type(artifact_path)
+
+    # Step 8: Cache headers for plots/EDA (1 hour)
+    cache_control = "public, max-age=3600" if _is_cacheable(artifact_path) else None
+
+    return FileResponse(
+        artifact_path,
+        media_type=media_type,
+        headers={"Cache-Control": cache_control} if cache_control else {},
+    )
+
+
+@app.get("/runs")
+async def list_runs(request: Request, status: Optional[str] = None, limit: int = 100):
+    """
+    List runs with optional status filter (Phase 2, tasks 2.5).
+
+    Args:
+        request: FastAPI request
+        status: Optional status filter (success|partial|failed)
+        limit: Maximum number of runs to return (default 100)
+
+    Returns:
+        HTML template with runs table or JSON based on Accept header
+    """
+    manager = RunManager()
+
+    # Build filter dict
+    filter_dict = {"status": status} if status else None
+
+    # Get runs from RunManager
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+
+    # Return JSON if requested
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept:
+        return {"runs": [run.to_dict() for run in runs]}
+
+    # Return HTML template
+    return templates.TemplateResponse(
+        request, "runs_list.html", {"runs": runs, "status_filter": status, "limit": limit}
+    )
+
+
+# ============================================================================
+# PHASE 3: Template Helpers (Shared Infrastructure)
+# ============================================================================
+
+
+def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load evaluation JSON for a run, handling both single-model and multi-model structures.
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        Normalized dict with:
+        - ranking (if multi-model): List[{name, metrics, info}]
+        - metrics (if single-model): Dict of metric names
+        - best_model (if multi-model): str
+        - is_multi: bool
+        - None if no evaluation found
+    """
+    manager = RunManager()
+    run = manager.get_run(run_id)
+    if not run:
+        return None
+
+    run_dir = manager.run_dir(run_id)
+    if not run_dir:
+        return None
+
+    # Try multi-model first
+    comparison_path = run_dir / "reports" / "evaluation" / "comparison.json"
+    if comparison_path.is_file():
+        try:
+            data = json.loads(comparison_path.read_text())
+            # Already in template-friendly format
+            return {
+                "ranking": data.get("ranking", []),
+                "best_model": data.get("best_model"),
+                "is_multi": True,
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load comparison.json: {e}")
+
+    # Try single-model
+    report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
+    if report_path.is_file():
+        try:
+            data = json.loads(report_path.read_text())
+            return {
+                "metrics": data.get("metrics", {}),
+                "model_info": data.get("model_info", {}),
+                "is_multi": False,
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load evaluation_report.json: {e}")
+
+    return None
+
+
+def _list_run_configs(run) -> List[str]:
+    """
+    List config filenames in run directory.
+
+    Args:
+        run: RunMetadata object
+
+    Returns:
+        List of config filenames
+    """
+    manager = RunManager()
+    run_dir = manager.run_dir(run.run_id)
+    if not run_dir:
+        return []
+
+    config_dir = run_dir / "config"
+    if not config_dir.is_dir():
+        return []
+
+    return [f.name for f in config_dir.iterdir() if f.is_file()]
+
+
+def _has_run_log(run) -> bool:
+    """
+    Check if run.log exists.
+
+    Args:
+        run: RunMetadata object
+
+    Returns:
+        True if log exists, False otherwise
+    """
+    manager = RunManager()
+    run_dir = manager.run_dir(run.run_id)
+    if not run_dir:
+        return False
+
+    return (run_dir / "run.log").is_file()
+
+
+def _read_run_log(run, max_lines: int = 1000) -> str:
+    """
+    Read last N lines from run.log.
+
+    Args:
+        run: RunMetadata object
+        max_lines: Maximum number of lines to read (default 1000)
+
+    Returns:
+        Log file contents as string
+    """
+    manager = RunManager()
+    run_dir = manager.run_dir(run.run_id)
+    if not run_dir:
+        return "Log not found"
+
+    log_path = run_dir / "run.log"
+    if not log_path.is_file():
+        return "Log not found"
+
+    try:
+        # Tail efficiently: deque with maxlen discards earlier lines as it
+        # reads, so we never hold the full file in memory (bounded read).
+        with open(log_path, "r") as f:
+            tail = deque(f, maxlen=max_lines)
+        if len(tail) < max_lines:
+            return "".join(tail)
+        return f"... (showing last {max_lines} lines)\n" + "".join(tail)
+    except IOError as e:
+        return f"Error reading log: {e}"
+
+
+def _get_artifact_relative_path(run, absolute_path: str) -> str:
+    """
+    Convert absolute artifact path to relative path for artifact route.
+
+    Args:
+        run: RunMetadata object
+        absolute_path: Absolute path to artifact
+
+    Returns:
+        Relative path for artifact route
+
+    Raises:
+        ValueError: If path is not within run directory
+    """
+    manager = RunManager()
+    run_dir = manager.run_dir(run.run_id)
+    if not run_dir:
+        raise ValueError("Invalid run directory")
+
+    try:
+        return str(Path(absolute_path).relative_to(run_dir))
+    except ValueError:
+        raise ValueError(f"Path {absolute_path} not within run directory")
+
+
+@app.get("/runs/{run_id}")
+async def get_run_detail(run_id: str, request: Request):
+    """
+    Get run detail page (Phase 4, tasks 4.8).
+
+    Args:
+        run_id: Run identifier
+        request: FastAPI request
+
+    Returns:
+        HTML template with run detail or 404 if not found
+    """
+    manager = RunManager()
+    run = manager.get_run(run_id)
+
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Load evaluation JSON (try both structures)
+    evaluation = _load_run_evaluation(run_id)
+
+    # List config files
+    config_files = _list_run_configs(run)
+
+    # Check for run.log
+    has_log = _has_run_log(run)
+
+    # EDA relative path for iframe
+    eda_relative_path = None
+    if run.output_paths.get("eda_report"):
+        try:
+            eda_relative_path = _get_artifact_relative_path(run, run.output_paths["eda_report"])
+        except ValueError:
+            # Path not within run directory, skip EDA iframe
+            pass
+
+    return templates.TemplateResponse(
+        request,
+        "run_detail.html",
+        {
+            "run": run,
+            "evaluation": evaluation,
+            "config_files": config_files,
+            "has_log": has_log,
+            "log_content": _read_run_log(run) if has_log else None,
+            "eda_relative_path": eda_relative_path,
+        },
+    )

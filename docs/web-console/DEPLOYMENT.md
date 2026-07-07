@@ -5,6 +5,18 @@ This guide covers deployment options for the Energizados web console, which cons
 1. **Web Server** (FastAPI + HTMX) - Serves HTTP requests and UI
 2. **Worker Process** - Executes async jobs via ConfigPipelineBuilder
 
+## What's New in Phase 2
+
+Phase 2 introduces **runs browsing and artifact serving** capabilities with **zero infrastructure changes** required:
+
+- **New Routes**: `GET /runs`, `GET /runs/{run_id}`, `GET /runs/{run_id}/artifacts/{path:path}`
+- **No New Dependencies**: All new functionality uses existing FastAPI + Jinja2 + HTMX stack
+- **No Database Changes**: Runs are read from existing `output/<run_id>/run_metadata.json` files
+- **No Worker Changes**: Artifact serving is pure web layer with read-only access to run directories
+- **Backwards Compatible**: All Phase 1 endpoints (job management) continue to work unchanged
+
+**Deployment Impact**: Simply restart the web server after upgrading to Phase 2. No configuration or infrastructure changes required.
+
 ## Architecture Overview
 
 ```
