@@ -9,13 +9,14 @@ Implements Phase 2 endpoints (runs list, detail, artifact serving) with security
 import json
 import logging
 from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -50,6 +51,26 @@ app.add_middleware(
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+class _HtmxErrorResponse(Exception):
+    """
+    Short-circuit signal carrying a pre-built HTMX error fragment.
+
+    Raised by ``_validate_request_config`` on HTMX validation errors so callers
+    get a clean linear flow: every error path raises (JSON errors raise
+    ``HTTPException``, HTMX errors raise this), and the helper only ever
+    *returns* on success. The handler below unwraps and returns the fragment.
+    """
+
+    def __init__(self, response: Response):
+        self.response = response
+
+
+@app.exception_handler(_HtmxErrorResponse)
+async def _htmx_error_response_handler(request: Request, exc: _HtmxErrorResponse) -> Response:
+    """Unwrap an HTMX error fragment raised during request validation."""
+    return exc.response
 
 
 def _check_custom_class_prefixes(config: Dict[str, Any]) -> List[str]:
@@ -99,6 +120,124 @@ def _check_custom_class_prefixes(config: Dict[str, Any]) -> List[str]:
     return invalid_paths
 
 
+@dataclass
+class _ValidatedConfig:
+    """Successful result of request body parsing + validation + security check."""
+
+    config: Dict[str, Any]
+    config_type: str
+
+
+def _raise_htmx_error(
+    request: Request,
+    template: str,
+    *,
+    errors: Optional[List[str]] = None,
+    invalid_prefixes: Optional[List[str]] = None,
+    allowed_prefixes: Optional[List[str]] = None,
+    status_code: int = 400,
+) -> None:
+    """Build an HTMX validation-error fragment and raise it as ``_HtmxErrorResponse``."""
+    response = templates.TemplateResponse(
+        request,
+        template,
+        {
+            "errors": errors,
+            "invalid_prefixes": invalid_prefixes,
+            "allowed_prefixes": allowed_prefixes,
+        },
+        status_code=status_code,
+    )
+    raise _HtmxErrorResponse(response)
+
+
+async def _validate_request_config(request: Request, htmx_error_template: str) -> _ValidatedConfig:
+    """
+    Parse, validate, and security-check a request body config.
+
+    Shared by ``POST /jobs`` and ``POST /plan``. The two callers differ only in
+    which HTMX error fragment they render, passed as ``htmx_error_template``.
+
+    Returns a ``_ValidatedConfig`` on success. On any validation error it raises:
+    - ``HTTPException(400)`` for non-HTMX requests (FastAPI formats as ``{"detail": ...}``).
+    - ``_HtmxErrorResponse`` for HTMX requests (the registered handler returns the fragment).
+    Either way the caller never sees a value on the error path, so it can use the
+    result directly with no success/error branching.
+    """
+    is_htmx = request.headers.get("HX-Request") == "true"
+    content_type = request.headers.get("content-type", "")
+
+    # Parse body
+    body = await request.body()
+    if not body:
+        if is_htmx:
+            _raise_htmx_error(request, htmx_error_template, errors=["Empty request body"])
+        raise HTTPException(status_code=400, detail="Empty request body")
+
+    try:
+        if "application/yaml" in content_type:
+            config = yaml.safe_load(body)
+        elif "application/json" in content_type:
+            config = json.loads(body)
+        else:
+            # Try YAML first, fallback to JSON
+            try:
+                config = yaml.safe_load(body)
+            except yaml.YAMLError:
+                config = json.loads(body)
+    except (yaml.YAMLError, json.JSONDecodeError) as e:
+        msg = f"Invalid YAML or JSON: {str(e)}"
+        if is_htmx:
+            _raise_htmx_error(request, htmx_error_template, errors=[msg])
+        raise HTTPException(status_code=400, detail=msg)
+
+    if not isinstance(config, dict):
+        if is_htmx:
+            _raise_htmx_error(request, htmx_error_template, errors=["Config must be a dictionary"])
+        raise HTTPException(status_code=400, detail="Config must be a dictionary")
+
+    # config_type from query params
+    config_type = request.query_params.get("config_type", "train")
+
+    # Schema validation via energizados.api
+    validation_result = validate_dict(config, config_type)
+    if not validation_result.is_valid:
+        errors = []
+        for error in validation_result.errors or []:
+            if hasattr(error, "__dict__"):
+                errors.append(str(error))
+            else:
+                errors.append(error)
+        if is_htmx:
+            _raise_htmx_error(request, htmx_error_template, errors=errors)
+        raise HTTPException(
+            status_code=400, detail={"errors": errors, "message": "Configuration validation failed"}
+        )
+
+    # Security: disallow custom_class prefixes outside the allowlist
+    invalid_prefixes = _check_custom_class_prefixes(config)
+    if invalid_prefixes:
+        allowed_prefixes = ["energizados.*", "src.*"]
+        if is_htmx:
+            _raise_htmx_error(
+                request,
+                htmx_error_template,
+                invalid_prefixes=invalid_prefixes,
+                allowed_prefixes=allowed_prefixes,
+            )
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "custom_class_prefix_validation",
+                "message": f"Disallowed custom_class prefixes: {invalid_prefixes}",
+                "invalid_prefixes": invalid_prefixes,
+                "allowed_prefixes": allowed_prefixes,
+            },
+        )
+
+    return _ValidatedConfig(config=config, config_type=config_type)
+
+
 @app.get("/")
 async def root(request: Request):
     """
@@ -125,113 +264,10 @@ async def create_job(request: Request):
     # Check if HTMX request for content negotiation (PR3 UX fix)
     is_htmx = request.headers.get("HX-Request") == "true"
 
-    # Get content type
-    content_type = request.headers.get("content-type", "")
-
-    # Parse YAML body
-    body = await request.body()
-    if not body:
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "job_validation.html",
-                {
-                    "errors": ["Empty request body"],
-                    "invalid_prefixes": None,
-                    "allowed_prefixes": None,
-                },
-                status_code=400,
-            )
-        raise HTTPException(status_code=400, detail="Empty request body")
-
-    try:
-        if "application/yaml" in content_type:
-            config = yaml.safe_load(body)
-        elif "application/json" in content_type:
-            config = json.loads(body)
-        else:
-            # Try YAML first, fallback to JSON
-            try:
-                config = yaml.safe_load(body)
-            except yaml.YAMLError:
-                config = json.loads(body)
-    except (yaml.YAMLError, json.JSONDecodeError) as e:
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "job_validation.html",
-                {
-                    "errors": [f"Invalid YAML or JSON: {str(e)}"],
-                    "invalid_prefixes": None,
-                    "allowed_prefixes": None,
-                },
-                status_code=400,
-            )
-        raise HTTPException(status_code=400, detail=f"Invalid YAML or JSON: {str(e)}")
-
-    if not isinstance(config, dict):
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "job_validation.html",
-                {
-                    "errors": ["Config must be a dictionary"],
-                    "invalid_prefixes": None,
-                    "allowed_prefixes": None,
-                },
-                status_code=400,
-            )
-        raise HTTPException(status_code=400, detail="Config must be a dictionary")
-
-    # Get config_type from query params
-    config_type = request.query_params.get("config_type", "train")
-
-    # Validate config via energizados.api
-    validation_result = validate_dict(config, config_type)
-    if not validation_result.is_valid:
-        # Convert errors to JSON-serializable format
-        errors = []
-        for error in validation_result.errors or []:
-            if hasattr(error, "__dict__"):
-                errors.append(str(error))
-            else:
-                errors.append(error)
-
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "job_validation.html",
-                {"errors": errors, "invalid_prefixes": None, "allowed_prefixes": None},
-                status_code=400,
-            )
-        raise HTTPException(
-            status_code=400, detail={"errors": errors, "message": "Configuration validation failed"}
-        )
-
-    # Check custom_class prefixes for security
-    invalid_prefixes = _check_custom_class_prefixes(config)
-    if invalid_prefixes:
-        allowed_prefixes = ["energizados.*", "src.*"]
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "job_validation.html",
-                {
-                    "errors": None,
-                    "invalid_prefixes": invalid_prefixes,
-                    "allowed_prefixes": allowed_prefixes,
-                },
-                status_code=400,
-            )
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "custom_class_prefix_validation",
-                "message": f"Disallowed custom_class prefixes: {invalid_prefixes}",
-                "invalid_prefixes": invalid_prefixes,
-                "allowed_prefixes": allowed_prefixes,
-            },
-        )
+    # Parse + validate + security-check the request config (shared with POST /plan).
+    # Raises HTTPException (JSON) or _HtmxErrorResponse (HTMX) on any validation error.
+    validated = await _validate_request_config(request, htmx_error_template="job_validation.html")
+    config, config_type = validated.config, validated.config_type
 
     # Create job in JobStore
     store = JobStore()
@@ -559,113 +595,11 @@ async def get_execution_plan(request: Request):
     # Check if HTMX request for content negotiation
     is_htmx = request.headers.get("HX-Request") == "true"
 
-    # Get content type
-    content_type = request.headers.get("content-type", "")
-
-    # Parse YAML body
-    body = await request.body()
-    if not body:
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "components/validation.html",
-                {
-                    "errors": ["Empty request body"],
-                    "invalid_prefixes": None,
-                    "allowed_prefixes": None,
-                },
-                status_code=400,
-            )
-        raise HTTPException(status_code=400, detail="Empty request body")
-
-    try:
-        if "application/yaml" in content_type:
-            config = yaml.safe_load(body)
-        elif "application/json" in content_type:
-            config = json.loads(body)
-        else:
-            # Try YAML first, fallback to JSON
-            try:
-                config = yaml.safe_load(body)
-            except yaml.YAMLError:
-                config = json.loads(body)
-    except (yaml.YAMLError, json.JSONDecodeError) as e:
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "components/validation.html",
-                {
-                    "errors": [f"Invalid YAML or JSON: {str(e)}"],
-                    "invalid_prefixes": None,
-                    "allowed_prefixes": None,
-                },
-                status_code=400,
-            )
-        raise HTTPException(status_code=400, detail=f"Invalid YAML or JSON: {str(e)}")
-
-    if not isinstance(config, dict):
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "components/validation.html",
-                {
-                    "errors": ["Config must be a dictionary"],
-                    "invalid_prefixes": None,
-                    "allowed_prefixes": None,
-                },
-                status_code=400,
-            )
-        raise HTTPException(status_code=400, detail="Config must be a dictionary")
-
-    # Get config_type from query params
-    config_type = request.query_params.get("config_type", "train")
-
-    # Validate config via energizados.api
-    validation_result = validate_dict(config, config_type)
-    if not validation_result.is_valid:
-        # Convert errors to JSON-serializable format
-        errors = []
-        for error in validation_result.errors or []:
-            if hasattr(error, "__dict__"):
-                errors.append(str(error))
-            else:
-                errors.append(error)
-
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "components/validation.html",
-                {"errors": errors, "invalid_prefixes": None, "allowed_prefixes": None},
-                status_code=400,
-            )
-        raise HTTPException(
-            status_code=400, detail={"errors": errors, "message": "Configuration validation failed"}
-        )
-
-    # Check custom_class prefixes for security
-    invalid_prefixes = _check_custom_class_prefixes(config)
-    if invalid_prefixes:
-        allowed_prefixes = ["energizados.*", "src.*"]
-        if is_htmx:
-            return templates.TemplateResponse(
-                request,
-                "components/validation.html",
-                {
-                    "errors": None,
-                    "invalid_prefixes": invalid_prefixes,
-                    "allowed_prefixes": allowed_prefixes,
-                },
-                status_code=400,
-            )
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "custom_class_prefix_validation",
-                "message": f"Disallowed custom_class prefixes: {invalid_prefixes}",
-                "invalid_prefixes": invalid_prefixes,
-                "allowed_prefixes": allowed_prefixes,
-            },
-        )
+    # Parse + validate + security-check the request config (shared with POST /jobs).
+    # Raises HTTPException (JSON) or _HtmxErrorResponse (HTMX) on any validation error.
+    config = (
+        await _validate_request_config(request, htmx_error_template="components/validation.html")
+    ).config
 
     # Check if config has etl: section (plan preview only for ETL configs)
     if "etl" not in config:
@@ -695,7 +629,11 @@ async def get_execution_plan(request: Request):
             )
         raise HTTPException(status_code=400, detail=error_dict)
     except Exception as e:
-        # Unexpected error
+        # Only /plan constructs a Pipeline (POST /jobs never does), so this
+        # handler is intentionally local to this endpoint. Pipeline.from_dict()
+        # can fail in many ways on user-supplied config (e.g. ConfigurationError);
+        # we log, format via format_error, and surface a structured 500 to the
+        # operator instead of a bare FastAPI error page.
         logger.error(f"Error computing execution plan: {e}")
         error_dict = format_error(e)
         if is_htmx:
