@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Metrics Dashboard - Energizados Web Console{% endblock %}
+
+{% block extra_head %}
+<style>
+    .chart-container {
+        height: 500px;
+        margin: 20px 0;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        background-color: white;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    .empty-state h3 {
+        margin-bottom: 20px;
+        color: #495057;
+    }
+    .filter-section {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">📈 Metrics Timeline Dashboard</h2>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <label for="status-filter" class="form-label">Status Filter:</label>
+                        <select id="status-filter" class="form-select" onchange="updateDashboard()">
+                            <option value="">All Statuses</option>
+                            <option value="success" {% if status == 'success' %}selected{% endif %}>Success</option>
+                            <option value="partial" {% if status == 'partial' %}selected{% endif %}>Partial</option>
+                            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="limit-input" class="form-label">Show Last:</label>
+                        <input type="number" id="limit-input" class="form-control" value="{{ limit }}" min="1" max="100" onchange="updateDashboard()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Chart -->
+            <div class="chart-container">
+                <div id="timeline-chart"></div>
+                <div id="chart-loading" class="text-center text-muted mt-5">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading timeline data...</p>
+                </div>
+                <div id="chart-empty" class="empty-state" style="display: none;">
+                    <h3>No runs available</h3>
+                    <p>There are no runs to display. Try adjusting your filters or run some experiments first.</p>
+                    <a href="/" class="btn btn-primary">Go to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function updateDashboard() {
+    const status = document.getElementById('status-filter').value;
+    const limit = document.getElementById('limit-input').value;
+
+    // Build URL with parameters
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (limit) params.append('limit', limit);
+
+    // Navigate to dashboard with new parameters
+    window.location.href = `/dashboard?${params.toString()}`;
+}
+
+function loadTimelineChart() {
+    const status = {{ status | tojson }};
+    const limit = {{ limit }};
+
+    // Build API URL
+    const params = new URLSearchParams();
+    params.append('limit', limit);
+    if (status) params.append('status', status);
+
+    fetch(`/api/dashboard/timeline?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            // Hide loading indicator
+            document.getElementById('chart-loading').style.display = 'none';
+
+            // Check if we have data
+            if (data.run_ids.length === 0) {
+                document.getElementById('chart-empty').style.display = 'block';
+                return;
+            }
+
+            // Prepare Plotly traces
+            const traceAUC = {
+                x: data.timestamps,
+                y: data.auc,
+                name: 'AUC',
+                mode: 'lines+markers',
+                line: {color: '#28a745'},
+                customdata: data.run_ids,
+            };
+
+            const traceF1 = {
+                x: data.timestamps,
+                y: data.f1,
+                name: 'F1',
+                mode: 'lines+markers',
+                line: {color: '#007bff'},
+                customdata: data.run_ids,
+            };
+
+            const layout = {
+                title: 'Metrics Evolution Over Time',
+                xaxis: {
+                    title: 'Timestamp',
+                    automargin: true,
+                },
+                yaxis: {
+                    title: 'Score',
+                    range: [0, 1],
+                },
+                hovermode: 'closest',
+                margin: {l: 50, r: 50, t: 50, b: 100},
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+            };
+
+            Plotly.newPlot('timeline-chart', [traceAUC, traceF1], layout, config);
+
+            // Add click handler to navigate to run detail
+            document.getElementById('timeline-chart').on('plotly_click', function(data) {
+                const point = data.points[0];
+                const runId = point.data.customdata[point.pointNumber];
+                if (runId) {
+                    window.open(`/runs/${runId}`, '_blank');
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading timeline data:', error);
+            document.getElementById('chart-loading').innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> Failed to load timeline data. Please try again.
+                </div>
+            `;
+        });
+}
+
+// Load chart when page is ready
+document.addEventListener('DOMContentLoaded', function() {
+    loadTimelineChart();
+});
+</script>
+{% endblock %}

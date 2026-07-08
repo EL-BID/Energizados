@@ -869,3 +869,132 @@ async def get_run_detail(run_id: str, request: Request):
             "eda_relative_path": eda_relative_path,
         },
     )
+
+
+# ==================== Phase 4: Timeline Dashboard ====================
+
+
+@app.get("/api/dashboard/timeline")
+async def timeline_data(limit: int = 100, status: Optional[str] = None):
+    """
+    Timeline data API endpoint for dashboard charts.
+
+    Returns JSON with timestamps, auc, f1, and run_ids arrays from RunMetadata.
+    Supports optional status filter and limit parameter.
+    """
+    manager = RunManager()
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+
+    # Apply client-side filtering for status (defensive in case RunManager doesn't respect filter)
+    if status:
+        runs = [run for run in runs if run.status == status]
+
+    # Ensure we don't exceed the limit (defensive in case RunManager doesn't respect it)
+    runs = runs[:limit] if len(runs) > limit else runs
+
+    # Extract data from RunMetadata, preserving None values for missing metrics
+    timestamps = [run.timestamp.isoformat() if run.timestamp else None for run in runs]
+    auc = [run.val_auc for run in runs]
+    f1 = [run.val_f1 for run in runs]
+    run_ids = [run.run_id for run in runs]
+
+    return {
+        "timestamps": timestamps,
+        "auc": auc,
+        "f1": f1,
+        "run_ids": run_ids,
+    }
+
+
+@app.get("/dashboard")
+async def dashboard_page(request: Request, limit: int = 20, status: Optional[str] = None):
+    """
+    Dashboard HTML page with timeline chart.
+
+    Renders the main dashboard with timeline visualization.
+    """
+    manager = RunManager()
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+
+    # Apply client-side filtering for status (defensive in case RunManager doesn't respect filter)
+    if status:
+        runs = [run for run in runs if run.status == status]
+
+    # Ensure we don't exceed the limit
+    runs = runs[:limit] if len(runs) > limit else runs
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "runs": runs,
+            "limit": limit,
+            "status": status,
+        },
+    )
+
+
+# ==================== Phase 4: Comparison View ====================
+
+
+def _parse_and_validate_run_ids(ids_str: str, max_count: int = 10) -> List[str]:
+    """
+    Parse comma-separated run IDs with validation.
+
+    Args:
+        ids_str: Comma-separated run IDs string
+        max_count: Maximum number of IDs allowed (default 10)
+
+    Returns:
+        List of validated run IDs
+
+    Raises:
+        HTTPException(400): If validation fails
+    """
+    if not ids_str:
+        raise HTTPException(status_code=400, detail="ids parameter required")
+
+    raw_ids = ids_str.split(",")
+    if len(raw_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 run IDs required")
+    if len(raw_ids) > max_count:
+        raise HTTPException(status_code=400, detail=f"Maximum {max_count} run IDs allowed")
+
+    validated = []
+    for run_id in raw_ids:
+        run_id = run_id.strip()
+        if not run_id:
+            continue
+        if ".." in run_id or "/" in run_id or "\\" in run_id:
+            raise HTTPException(status_code=400, detail=f"Invalid run_id: {run_id}")
+        validated.append(run_id)
+
+    if len(validated) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 valid run IDs required")
+
+    return validated
+
+
+def _load_run_evaluations_batch(run_ids: List[str]) -> Dict[str, Dict]:
+    """
+    Load evaluation data for multiple runs, tolerant to missing files.
+
+    Args:
+        run_ids: List of run IDs to load evaluation data for
+
+    Returns:
+        Dictionary mapping run_id to normalized evaluation data.
+        Runs with missing evaluation data are omitted from the result.
+
+    Uses _load_run_evaluation internally for consistency with single/multi-model normalization.
+    """
+    results = {}
+
+    for run_id in run_ids:
+        eval_data = _load_run_evaluation(run_id)
+        if eval_data:  # Skip runs without evaluation data
+            results[run_id] = eval_data
+
+    return results
