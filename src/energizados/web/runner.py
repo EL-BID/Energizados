@@ -48,8 +48,26 @@ def _run_job(job_id: str, config: Dict[str, Any]):
             logger.error(f"[{job_id}] Error in step {step_name}: {exception}")
 
         def progress_callback(event):
-            # Stub for Phase 1 - will write to job_events table in Phase 5
-            pass
+            """
+            Write progress events to job_events table (Phase 5).
+
+            Captures job_id from closure. Runs in child process.
+            Must NOT raise — errors logged and swallowed.
+            """
+            try:
+                # Import JobStore here (runs in child process)
+                from energizados.web.store import JobStore
+
+                # Create JobStore with same db_path as parent process
+                # (Worker ensures db_path consistency across processes)
+                store = JobStore()
+                # Map ProgressEvent → job_event row
+                # Note: event.run_id may be "unknown" early; job_id is the key
+                store.append_job_event(job_id, event)
+            except Exception as e:
+                # Callback failure must not crash pipeline
+                logger_callback = logging.getLogger(__name__)
+                logger_callback.error(f"Progress callback failed for job {job_id}: {e}")
 
         # Build and run pipeline
         builder = ConfigPipelineBuilder(config=config)

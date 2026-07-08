@@ -28,6 +28,66 @@ class TestJobRunnerInit:
         assert runner._current_job_id is None
 
 
+class TestJobRunnerProgressCallback:
+    """Test progress_callback integration with JobStore."""
+
+    def test_progress_callback_writes_to_job_events_direct(self, tmp_path):
+        """Test callback function directly writes events to JobStore."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        # Simulate callback behavior
+        event = ProgressEvent(
+            run_id="unknown",
+            step_name="etl",
+            phase="start",
+            message="Starting ETL",
+            percent=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        # Call append_job_event directly (what callback does)
+        success = store.append_job_event(job_id, event)
+
+        # Verify event was written
+        assert success is True
+        events = store.get_job_events_since(job_id, after_seq=0)
+        assert len(events) == 1
+        assert events[0]["step_name"] == "etl"
+        assert events[0]["phase"] == "start"
+
+    def test_progress_callback_isolation_on_db_failure(self, tmp_path):
+        """Callback failure doesn't raise exception (isolated error handling)."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        event = ProgressEvent(
+            run_id="unknown",
+            step_name="etl",
+            phase="start",
+            message="Starting ETL",
+            percent=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        # Mock _get_connection to simulate DB failure
+        from unittest.mock import patch
+
+        with patch.object(store, "_get_connection", side_effect=Exception("DB locked")):
+            # Should return False, not raise
+            result = store.append_job_event(job_id, event)
+
+        assert result is False  # Returns False, doesn't crash
+
+
 class TestJobRunnerPoll:
     """Test JobRunner poll loop."""
 
