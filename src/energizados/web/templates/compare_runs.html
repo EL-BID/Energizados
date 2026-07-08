@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Runs{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>📊 Compare Runs</h1>
+
+    <div class="mb-3">
+        <a href="/runs" class="btn btn-secondary">← Back to Runs</a>
+        <button id="download-csv" class="btn btn-success float-end">Download CSV</button>
+    </div>
+
+    {# Server-rendered comparison table (values must appear in the HTML response,
+       not injected by client-side JS, so the page is usable without JS and
+       testable via the response body). #}
+    <div class="table-responsive">
+        <table class="table table-hover" id="comparison-table">
+            <thead class="table-dark">
+                <tr>
+                    <th>Run ID</th>
+                    <th>Model(s)</th>
+                    <th>AUC</th>
+                    <th>F1</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>Threshold</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                {% set metrics = (run.evaluation or {}).get("metrics") or {} %}
+                {% set is_multi = run.is_multi %}
+                <tr>
+                    <td><strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong></td>
+                    <td>
+                        {% if is_multi and run.evaluation.ranking %}
+                            <span title="Ensemble">Ensemble ({{ run.evaluation.ranking | length }} models)</span>
+                        {% else %}
+                            Single Model
+                        {% endif %}
+                    </td>
+                    <td>{{ format_metric(metrics.get("auc"), best.auc, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("f1"), best.f1, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("precision"), best.precision, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("recall"), best.recall, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("threshold"), None, run.run_id) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# Per-run ensemble ranking tables (multi-model runs only). #}
+    {% for run in runs %}
+    {% if run.is_multi and run.evaluation.ranking %}
+    <div class="mt-4 p-3 border rounded bg-light">
+        <h6>Ensemble Ranking: {{ run.run_id }}</h6>
+        <table class="table table-sm table-bordered">
+            <thead>
+                <tr><th>Rank</th><th>Model</th><th>AUC</th><th>F1</th></tr>
+            </thead>
+            <tbody>
+                {% for model in run.evaluation.ranking %}
+                {% set mm = model.metrics or {} %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ model.name }}</td>
+                    <td>{{ format_metric(mm.get("auc"), None, run.run_id) }}</td>
+                    <td>{{ format_metric(mm.get("f1"), None, run.run_id) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {# JSON data island for client-side CSV export (table itself is server-rendered). #}
+    <script id="comparison-data" type="application/json">{{ comparison_json | safe }}</script>
+</div>
+
+<script>
+document.getElementById('download-csv').addEventListener('click', function() {
+    const data = JSON.parse(document.getElementById('comparison-data').textContent);
+    const rows = [['Run ID', 'Model Type', 'AUC', 'F1', 'Precision', 'Recall', 'Threshold']];
+    data.forEach(function(run) {
+        if (run.is_multi) {
+            const n = (run.evaluation.ranking || []).length;
+            rows.push([run.run_id, 'Ensemble (' + n + ' models)', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']);
+            (run.evaluation.ranking || []).forEach(function(model, i) {
+                const mm = model.metrics || {};
+                rows.push([
+                    '  ' + (i + 1) + '. ' + (model.name || ''),
+                    'Base Model',
+                    mm.auc != null ? mm.auc.toFixed(4) : 'N/A',
+                    mm.f1 != null ? mm.f1.toFixed(4) : 'N/A',
+                    mm.precision != null ? mm.precision.toFixed(4) : 'N/A',
+                    mm.recall != null ? mm.recall.toFixed(4) : 'N/A',
+                    'N/A'
+                ]);
+            });
+        } else {
+            const m = (run.evaluation || {}).metrics || {};
+            rows.push([
+                run.run_id,
+                'Single Model',
+                m.auc != null ? m.auc.toFixed(4) : 'N/A',
+                m.f1 != null ? m.f1.toFixed(4) : 'N/A',
+                m.precision != null ? m.precision.toFixed(4) : 'N/A',
+                m.recall != null ? m.recall.toFixed(4) : 'N/A',
+                m.threshold != null ? m.threshold.toFixed(4) : 'N/A'
+            ]);
+        }
+    });
+    const csv = rows.map(function(r) { return r.join(','); }).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'comparison.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+});
+</script>
+{% endblock %}

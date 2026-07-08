@@ -39,6 +39,22 @@ app = FastAPI(
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
+def _format_metric(value, best_run_id, current_run_id):
+    """Render a metric value, marking the best run across compared runs with a star."""
+    if value is None:
+        return "N/A"
+    try:
+        formatted = f"{float(value):.4f}"
+    except (TypeError, ValueError):
+        return str(value)
+    if best_run_id is not None and best_run_id == current_run_id:
+        return f"{formatted} ★"
+    return formatted
+
+
+templates.env.globals["format_metric"] = _format_metric
+
+
 # Add CORS middleware (for development; tighten in production)
 app.add_middleware(
     CORSMiddleware,
@@ -670,6 +686,32 @@ async def get_execution_plan(request: Request):
 # ============================================================================
 
 
+def _resolve_evaluation_files(run_id: str):
+    """
+    Resolve the on-disk evaluation JSON paths for a run.
+
+    Shared by ``_load_run_evaluation`` and ``_load_threshold_data`` so the
+    run lookup + run_dir resolution + eval-dir layout lives in one place
+    (avoids the duplication that would otherwise re-appear per consumer).
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        ``(comparison_path, report_path)`` tuple, or ``None`` if the run or its
+        directory cannot be resolved. Paths are returned even if the files do
+        not exist — callers check ``.is_file()`` to decide which to read.
+    """
+    manager = RunManager()
+    if not manager.get_run(run_id):
+        return None
+    run_dir = manager.run_dir(run_id)
+    if not run_dir:
+        return None
+    eval_dir = run_dir / "reports" / "evaluation"
+    return eval_dir / "comparison.json", eval_dir / "evaluation_report.json"
+
+
 def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
     """
     Load evaluation JSON for a run, handling both single-model and multi-model structures.
@@ -685,17 +727,12 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
         - is_multi: bool
         - None if no evaluation found
     """
-    manager = RunManager()
-    run = manager.get_run(run_id)
-    if not run:
+    resolved = _resolve_evaluation_files(run_id)
+    if not resolved:
         return None
-
-    run_dir = manager.run_dir(run_id)
-    if not run_dir:
-        return None
+    comparison_path, report_path = resolved
 
     # Try multi-model first
-    comparison_path = run_dir / "reports" / "evaluation" / "comparison.json"
     if comparison_path.is_file():
         try:
             data = json.loads(comparison_path.read_text())
@@ -706,10 +743,9 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
                 "is_multi": True,
             }
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load comparison.json: {e}")
+            logger.error(f"Failed to load {comparison_path} for run {run_id}: {e}")
 
     # Try single-model
-    report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
     if report_path.is_file():
         try:
             data = json.loads(report_path.read_text())
@@ -719,7 +755,7 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
                 "is_multi": False,
             }
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load evaluation_report.json: {e}")
+            logger.error(f"Failed to load {report_path} for run {run_id}: {e}")
 
     return None
 
@@ -821,6 +857,83 @@ def _get_artifact_relative_path(run, absolute_path: str) -> str:
         raise ValueError(f"Path {absolute_path} not within run directory")
 
 
+@app.get("/runs/compare")
+async def compare_runs_page(request: Request, ids: str = ""):
+    """
+    Comparison HTML page for side-by-side run comparison.
+
+    Renders comparison table with metrics, ensemble rankings, and best value highlighting.
+
+    NOTE: Declared BEFORE /runs/{run_id} so FastAPI does not swallow the literal
+    "compare" segment as a run_id path parameter (route matching is order-sensitive).
+    """
+    # Parse and validate run IDs
+    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # Load evaluation data for all runs (tolerant to missing files)
+    eval_data_dict = _load_run_evaluations_batch(run_ids)
+
+    # If all runs missing evaluation data, return 404
+    if not eval_data_dict:
+        raise HTTPException(
+            status_code=404, detail="No evaluation data found for any of the specified runs"
+        )
+
+    # Build comparison data directly from evaluation data
+    runs_data = []
+
+    for run_id in run_ids:
+        # Skip runs without evaluation data (already omitted from eval_data_dict)
+        if run_id not in eval_data_dict:
+            continue
+
+        # Get evaluation data
+        eval_data = eval_data_dict[run_id]
+
+        # Build run entry with minimal data needed for template
+        runs_data.append(
+            {
+                "run_id": run_id,
+                "evaluation": eval_data,
+                "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
+                "is_multi": eval_data.get("is_multi", False),
+            }
+        )
+
+    if not runs_data:
+        raise HTTPException(status_code=404, detail="No valid runs found")
+
+    # Precompute best run per metric (single-model runs only) for ★ highlighting.
+    best = {"auc": None, "f1": None, "precision": None, "recall": None}
+    best_val = {k: float("-inf") for k in best}
+    for entry in runs_data:
+        if entry["is_multi"]:
+            continue
+        metrics = (entry["evaluation"] or {}).get("metrics") or {}
+        for key in best:
+            value = metrics.get(key)
+            if isinstance(value, (int, float)) and value > best_val[key]:
+                best_val[key] = value
+                best[key] = entry["run_id"]
+
+    return templates.TemplateResponse(
+        request,
+        "compare_runs.html",
+        {
+            "runs": runs_data,
+            "ids": ids,
+            "best": best,
+            # Embedded in a <script type="application/json"> data island via | safe.
+            # json.dumps does not escape "</script>"; neutralize the closing-tag
+            # sequence so a run_id/model name containing it cannot break out of the
+            # script element (defense-in-depth XSS hardening).
+            "comparison_json": json.dumps(runs_data)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e"),
+        },
+    )
+
+
 @app.get("/runs/{run_id}")
 async def get_run_detail(run_id: str, request: Request):
     """
@@ -841,6 +954,22 @@ async def get_run_detail(run_id: str, request: Request):
 
     # Load evaluation JSON (try both structures)
     evaluation = _load_run_evaluation(run_id)
+
+    # Determine threshold unavailability message
+    threshold_unavailable_message = None
+    threshold_data = _load_threshold_data(run_id)
+    if threshold_data:
+        if threshold_data.get("is_multi"):
+            threshold_unavailable_message = (
+                "Threshold exploration is not available for ensemble runs. "
+                "comparison.json does not contain threshold sweep data. "
+                "View individual model reports for detailed threshold analysis."
+            )
+        elif threshold_data.get("threshold_metrics") is None:
+            threshold_unavailable_message = (
+                "This run was created before threshold sweep data was added to evaluation reports. "
+                "Re-run the evaluation to generate threshold exploration data."
+            )
 
     # List config files
     config_files = _list_run_configs(run)
@@ -867,5 +996,281 @@ async def get_run_detail(run_id: str, request: Request):
             "has_log": has_log,
             "log_content": _read_run_log(run) if has_log else None,
             "eda_relative_path": eda_relative_path,
+            "threshold_unavailable_message": threshold_unavailable_message,
         },
     )
+
+
+# ==================== Phase 4: Timeline Dashboard ====================
+
+
+@app.get("/api/dashboard/timeline")
+async def timeline_data(limit: int = 100, status: Optional[str] = None):
+    """
+    Timeline data API endpoint for dashboard charts.
+
+    Returns JSON with timestamps, auc, f1, and run_ids arrays from RunMetadata.
+    Supports optional status filter and limit parameter.
+    """
+    manager = RunManager()
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+
+    # Apply client-side filtering for status (defensive in case RunManager doesn't respect filter)
+    if status:
+        runs = [run for run in runs if run.status == status]
+
+    # Ensure we don't exceed the limit (defensive in case RunManager doesn't respect it)
+    runs = runs[:limit] if len(runs) > limit else runs
+
+    # Extract data from RunMetadata, preserving None values for missing metrics
+    timestamps = [run.timestamp.isoformat() if run.timestamp else None for run in runs]
+    auc = [run.val_auc for run in runs]
+    f1 = [run.val_f1 for run in runs]
+    run_ids = [run.run_id for run in runs]
+
+    return {
+        "timestamps": timestamps,
+        "auc": auc,
+        "f1": f1,
+        "run_ids": run_ids,
+    }
+
+
+@app.get("/dashboard")
+async def dashboard_page(request: Request, limit: int = 20, status: Optional[str] = None):
+    """
+    Dashboard HTML page with timeline chart.
+
+    Renders the main dashboard with timeline visualization.
+    """
+    manager = RunManager()
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+
+    # Apply client-side filtering for status (defensive in case RunManager doesn't respect filter)
+    if status:
+        runs = [run for run in runs if run.status == status]
+
+    # Ensure we don't exceed the limit
+    runs = runs[:limit] if len(runs) > limit else runs
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "runs": runs,
+            "limit": limit,
+            "status": status,
+        },
+    )
+
+
+# ==================== Phase 4: Comparison View ====================
+
+
+def _parse_and_validate_run_ids(ids_str: str, max_count: int = 10) -> List[str]:
+    """
+    Parse comma-separated run IDs with validation.
+
+    Args:
+        ids_str: Comma-separated run IDs string
+        max_count: Maximum number of IDs allowed (default 10)
+
+    Returns:
+        List of validated run IDs
+
+    Raises:
+        HTTPException(400): If validation fails
+    """
+    if not ids_str:
+        raise HTTPException(status_code=400, detail="ids parameter required")
+
+    raw_ids = ids_str.split(",")
+    if len(raw_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 run IDs required")
+    if len(raw_ids) > max_count:
+        raise HTTPException(status_code=400, detail=f"Maximum {max_count} run IDs allowed")
+
+    validated = []
+    for run_id in raw_ids:
+        run_id = run_id.strip()
+        if not run_id:
+            continue
+        # Defense in depth: block path traversal AND cap length (DoS hardening —
+        # without a cap a single huge id could dominate memory/string work).
+        if ".." in run_id or "/" in run_id or "\\" in run_id:
+            raise HTTPException(status_code=400, detail=f"Invalid run_id: {run_id}")
+        if len(run_id) > 256:
+            raise HTTPException(status_code=400, detail="run_id too long (max 256 chars)")
+        validated.append(run_id)
+
+    if len(validated) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 valid run IDs required")
+
+    return validated
+
+
+def _load_run_evaluations_batch(run_ids: List[str]) -> Dict[str, Dict]:
+    """
+    Load evaluation data for multiple runs, tolerant to missing files.
+
+    Args:
+        run_ids: List of run IDs to load evaluation data for
+
+    Returns:
+        Dictionary mapping run_id to normalized evaluation data.
+        Runs with missing evaluation data are omitted from the result.
+
+    Uses _load_run_evaluation internally for consistency with single/multi-model normalization.
+    """
+    results = {}
+
+    for run_id in run_ids:
+        eval_data = _load_run_evaluation(run_id)
+        if eval_data:  # Skip runs without evaluation data
+            results[run_id] = eval_data
+
+    return results
+
+
+def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load threshold sweep and cumulative gains data directly from eval JSON.
+
+    Bypasses _load_run_evaluation because it normalizes away threshold_metrics.
+    Reads evaluation_report.json directly; returns null for ensemble runs
+    (comparison.json does not contain threshold_metrics per current schema).
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        Dictionary with:
+            - threshold_metrics: {thresholds, precisions, recalls, f1s} or null
+            - cumulative_gains: {deciles, cumulative_gain, cumulative_population} or null
+            - current_threshold: float from metrics.threshold
+            - available_models: list of model names if ensemble, null otherwise
+            - is_multi: bool
+        None if run not found or report missing
+    """
+    resolved = _resolve_evaluation_files(run_id)
+    if not resolved:
+        return None
+    comparison_path, report_path = resolved
+
+    # Check for multi-model first (ensemble detection)
+    if comparison_path.is_file():
+        try:
+            data = json.loads(comparison_path.read_text())
+            # Extract available models from ranking
+            ranking = data.get("ranking", [])
+            available_models = [
+                item.get("name") for item in ranking if isinstance(item, dict) and "name" in item
+            ]
+            return {
+                "threshold_metrics": None,  # Not available in comparison.json
+                "cumulative_gains": None,
+                "current_threshold": None,
+                "available_models": available_models,
+                "is_multi": True,
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load {comparison_path} for run {run_id}: {e}")
+
+    # Single-model: read evaluation_report.json directly
+    if report_path.is_file():
+        try:
+            data = json.loads(report_path.read_text())
+            metrics = data.get("metrics", {})
+            return {
+                "threshold_metrics": data.get("threshold_metrics"),  # May be None for old runs
+                "cumulative_gains": metrics.get("cumulative_gains"),  # May be None for old runs
+                "current_threshold": metrics.get("threshold", 0.5),
+                "available_models": None,
+                "is_multi": False,
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load {report_path} for run {run_id}: {e}")
+
+    return None
+
+
+@app.get("/api/runs/compare")
+async def compare_runs_json(ids: str = ""):
+    """
+    Comparison API endpoint for run comparison data.
+
+    Returns JSON with evaluation data for multiple runs.
+    Supports both single-model and multi-model runs.
+    """
+    # Parse and validate run IDs
+    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # Load evaluation data for all runs (tolerant to missing files)
+    eval_data_dict = _load_run_evaluations_batch(run_ids)
+
+    # If all runs missing evaluation data, return 404
+    if not eval_data_dict:
+        raise HTTPException(
+            status_code=404, detail="No evaluation data found for any of the specified runs"
+        )
+
+    # Build response with run metadata and evaluation data
+    manager = RunManager()
+    results = {}
+
+    for run_id in run_ids:
+        # Skip runs without evaluation data (already omitted from eval_data_dict)
+        if run_id not in eval_data_dict:
+            continue
+
+        # Get run metadata
+        run = manager.get_run(run_id)
+        if not run:
+            continue
+
+        # Get evaluation data
+        eval_data = eval_data_dict[run_id]
+
+        # Build response entry
+        results[run_id] = {
+            "run_metadata": run.to_dict(),
+            "evaluation": eval_data,
+            "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
+            "is_multi": eval_data.get("is_multi", False),
+        }
+
+    return {"runs": results}
+
+
+@app.get("/api/runs/{run_id}/thresholds")
+async def get_threshold_sweep(run_id: str):
+    """
+    Threshold exploration data API endpoint.
+
+    Returns threshold sweep and cumulative gains data for a run.
+    Supports graceful degradation for ensemble runs and old runs lacking threshold data.
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        JSON with threshold_metrics, cumulative_gains, current_threshold, available_models, is_multi
+        404 if run not found or evaluation data missing
+    """
+    manager = RunManager()
+
+    # Validate run exists
+    run = manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Load threshold data
+    threshold_data = _load_threshold_data(run_id)
+
+    # Return 404 if no evaluation data found
+    if not threshold_data:
+        raise HTTPException(status_code=404, detail="Evaluation data not found")
+
+    return threshold_data
