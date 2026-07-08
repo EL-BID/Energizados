@@ -998,3 +998,51 @@ def _load_run_evaluations_batch(run_ids: List[str]) -> Dict[str, Dict]:
             results[run_id] = eval_data
 
     return results
+
+
+@app.get("/api/runs/compare")
+async def compare_runs_json(ids: str = ""):
+    """
+    Comparison API endpoint for run comparison data.
+
+    Returns JSON with evaluation data for multiple runs.
+    Supports both single-model and multi-model runs.
+    """
+    # Parse and validate run IDs
+    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # Load evaluation data for all runs (tolerant to missing files)
+    eval_data_dict = _load_run_evaluations_batch(run_ids)
+
+    # If all runs missing evaluation data, return 404
+    if not eval_data_dict:
+        raise HTTPException(
+            status_code=404, detail="No evaluation data found for any of the specified runs"
+        )
+
+    # Build response with run metadata and evaluation data
+    manager = RunManager()
+    results = {}
+
+    for run_id in run_ids:
+        # Skip runs without evaluation data (already omitted from eval_data_dict)
+        if run_id not in eval_data_dict:
+            continue
+
+        # Get run metadata
+        run = manager.get_run(run_id)
+        if not run:
+            continue
+
+        # Get evaluation data
+        eval_data = eval_data_dict[run_id]
+
+        # Build response entry
+        results[run_id] = {
+            "run_metadata": run.to_dict(),
+            "evaluation": eval_data,
+            "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
+            "is_multi": eval_data.get("is_multi", False),
+        }
+
+    return {"runs": results}

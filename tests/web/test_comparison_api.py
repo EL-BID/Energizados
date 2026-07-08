@@ -162,14 +162,17 @@ class TestComparisonApi:
 
     def test_compare_api_includes_available_models(self, client, mock_run_manager):
         """Ensemble runs should show available_models in response."""
-        # Mock ensemble run metadata
-        mock_run = Mock()
-        mock_run.run_id = "ensemble1"
-        mock_run.timestamp = datetime(2024, 1, 15, 10, 30, 0)
-        mock_run.status = "success"
-        mock_run.to_dict.return_value = {"run_id": "ensemble1", "status": "success"}
 
-        mock_run_manager.get_run.return_value = mock_run
+        # Mock runs metadata for ensemble and single run
+        def create_mock_run(run_id):
+            mock_run = Mock()
+            mock_run.run_id = run_id
+            mock_run.timestamp = datetime(2024, 1, 15, 10, 30, 0)
+            mock_run.status = "success"
+            mock_run.to_dict.return_value = {"run_id": run_id, "status": "success"}
+            return mock_run
+
+        mock_run_manager.get_run.side_effect = lambda x: create_mock_run(x)
 
         # Mock ensemble evaluation data
         ensemble_eval = {
@@ -182,10 +185,16 @@ class TestComparisonApi:
             },
         }
 
-        with patch("energizados.web.app._load_run_evaluations_batch") as mock_batch:
-            mock_batch.return_value = {"ensemble1": ensemble_eval}
+        # Mock single run evaluation data
+        single_eval = {"metrics": {"auc": 0.80}, "is_multi": False}
 
-            response = client.get("/api/runs/compare?ids=ensemble1")
+        with patch("energizados.web.app._load_run_evaluations_batch") as mock_batch:
+            mock_batch.return_value = {
+                "ensemble1": ensemble_eval,
+                "single1": single_eval,
+            }
+
+            response = client.get("/api/runs/compare?ids=ensemble1,single1")
 
             assert response.status_code == 200
             data = response.json()
@@ -194,3 +203,4 @@ class TestComparisonApi:
             assert "ensemble1" in data["runs"]
             # The available_models should be derived from ranking
             assert data["runs"]["ensemble1"]["is_multi"] is True
+            assert data["runs"]["ensemble1"]["available_models"] == ["lgbm", "cat", "xgb"]
