@@ -60,6 +60,17 @@ train:
             <button type="submit" class="btn btn-primary btn-lg">
                 🚀 Submit Job
             </button>
+
+            <button
+                type="button"
+                class="btn btn-secondary btn-lg"
+                hx-post="/plan"
+                hx-target="#validation-output"
+                hx-vals='js:{"yaml_content": document.getElementById("yaml-content").value, "config_type": document.getElementById("config-type").value}'
+                hx-include='[name="yaml_content"]'
+            >
+                👁️ Preview Plan
+            </button>
         </form>
     </div>
 </div>

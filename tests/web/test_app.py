@@ -917,3 +917,277 @@ class TestRunsListView:
             # Check that limit was applied
             call_args = mock_rm_instance.list_runs.call_args
             assert call_args is not None
+
+
+class TestPostPlan:
+    """Tests for POST /plan route (Phase 3, tasks 1.1-1.7)."""
+
+    def test_post_plan_valid_etl_returns_json(self, client):
+        """POST valid ETL config to /plan should return 200 with ExecutionPlan JSON."""
+        valid_etl_yaml = """
+        etl:
+          sample:
+            enabled: true
+            input: "data/raw/test.csv"
+            output: "data/processed/test.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+          another:
+            enabled: true
+            input: "data/raw/test2.csv"
+            output: "data/processed/test2.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+            depends_on: ["sample"]
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content=valid_etl_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        # First, this will fail with 404 or 5xx since endpoint doesn't exist yet
+        # After implementation, should return 200
+        assert response.status_code == 200
+        data = response.json()
+        # Should contain ExecutionPlan fields
+        assert "steps" in data
+        assert isinstance(data["steps"], list)
+        assert "dependencies" in data
+        assert isinstance(data["dependencies"], dict)
+        # estimated_duration can be None or absent
+        if "estimated_duration" in data:
+            assert data["estimated_duration"] is None
+
+    def test_post_plan_with_htmx_request_returns_html(self, client):
+        """POST with HX-Request header should return HTML fragment."""
+        valid_etl_yaml = """
+        etl:
+          first:
+            enabled: true
+            input: "data/raw/a.csv"
+            output: "data/processed/a.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+          second:
+            enabled: true
+            input: "data/raw/b.csv"
+            output: "data/processed/b.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+            depends_on: ["first"]
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content=valid_etl_yaml,
+            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
+        )
+
+        assert response.status_code == 200
+        # Should return HTML fragment (not JSON)
+        assert response.headers["content-type"].startswith("text/html")
+        # Should contain plan structure in HTML
+        assert "first" in response.text or "second" in response.text
+
+    def test_post_plan_train_config_returns_unavailable(self, client):
+        """POST train config (no etl:) should return 200 with available:false."""
+        train_yaml = """
+        train:
+          enabled: true
+          input_path: "data/processed/dataset.parquet"
+          target_column: "target"
+          models:
+            - type: "lightgbm"
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "train"},
+            content=train_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "ETL configs only" in data["message"]
+
+    def test_post_plan_eda_config_returns_unavailable(self, client):
+        """POST EDA config should return 200 with available:false."""
+        eda_yaml = """
+        eda:
+          enabled: true
+          input_path: "data/processed/dataset.parquet"
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "eda"},
+            content=eda_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "ETL configs only" in data["message"]
+
+    def test_post_plan_infer_config_returns_unavailable(self, client):
+        """POST inference config should return 200 with available:false."""
+        infer_yaml = """
+        infer:
+          enabled: true
+          model_path: "output/train-20240101_120000/models/model.pkl"
+          input_path: "data/processed/dataset.parquet"
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "infer"},
+            content=infer_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is False
+        assert "ETL configs only" in data["message"]
+
+    def test_post_plan_circular_dependency_returns_400(self, client):
+        """POST ETL with circular dependency should return 400."""
+        circular_yaml = """
+        etl:
+          etl_a:
+            enabled: true
+            input: "data/raw/a.csv"
+            output: "data/processed/a.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+            depends_on: ["etl_b"]
+          etl_b:
+            enabled: true
+            input: "data/raw/b.csv"
+            output: "data/processed/b.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+            depends_on: ["etl_a"]
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content=circular_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        # Should contain error information
+        assert "detail" in data or "error" in data
+        # Should mention cycle or dependency
+        error_detail = data.get("detail", data.get("error", {}))
+        error_str = str(error_detail)
+        assert "cycle" in error_str.lower() or "dependency" in error_str.lower()
+
+    def test_post_plan_self_dependency_returns_400(self, client):
+        """POST ETL with self-dependency should return 400."""
+        self_dep_yaml = """
+        etl:
+          etl_self:
+            enabled: true
+            input: "data/raw/self.csv"
+            output: "data/processed/self.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+            depends_on: ["etl_self"]
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content=self_dep_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        # Should contain error information
+        assert "detail" in data or "error" in data
+        # Should mention cycle or dependency or self
+        error_detail = data.get("detail", data.get("error", {}))
+        error_str = str(error_detail)
+        assert (
+            "cycle" in error_str.lower()
+            or "dependency" in error_str.lower()
+            or "self" in error_str.lower()
+        )
+
+    def test_post_plan_invalid_schema_returns_400(self, client):
+        """POST invalid schema should return 400 with validation error."""
+        invalid_yaml = """
+        etl:
+          sample:
+            enabled: true
+            # Missing required fields: input, output, custom_class
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content=invalid_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        # Should contain validation errors
+        assert "errors" in data or "detail" in data
+
+    def test_post_plan_disallowed_custom_class_returns_400(self, client):
+        """POST with disallowed custom_class prefix should return 400."""
+        malicious_yaml = """
+        etl:
+          evil:
+            enabled: true
+            input: "data/input.csv"
+            output: "data/output.parquet"
+            custom_class: "evil.malicious.Thing"
+        """
+
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content=malicious_yaml,
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        # Should contain custom_class/prefix error
+        assert "custom_class" in str(data).lower() or "prefix" in str(data).lower()
+
+    def test_post_plan_empty_body_returns_400(self, client):
+        """POST empty body should return 400."""
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content="",  # Empty body
+            headers={"Content-Type": "application/yaml"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        # Should contain error about empty body
+        assert "empty" in str(data).lower() or "body" in str(data).lower()
+
+    def test_post_plan_config_not_dict_returns_400(self, client):
+        """POST non-dict config should return 400."""
+        # Send a list instead of a dict
+        response = client.post(
+            "/plan",
+            params={"config_type": "etl"},
+            content='["not", "a", "dict"]',
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        # Should contain error about config must be dictionary
+        assert "dictionary" in str(data).lower() or "dict" in str(data).lower()
