@@ -929,6 +929,22 @@ async def get_run_detail(run_id: str, request: Request):
     # Load evaluation JSON (try both structures)
     evaluation = _load_run_evaluation(run_id)
 
+    # Determine threshold unavailability message
+    threshold_unavailable_message = None
+    threshold_data = _load_threshold_data(run_id)
+    if threshold_data:
+        if threshold_data.get("is_multi"):
+            threshold_unavailable_message = (
+                "Threshold exploration is not available for ensemble runs. "
+                "comparison.json does not contain threshold sweep data. "
+                "View individual model reports for detailed threshold analysis."
+            )
+        elif threshold_data.get("threshold_metrics") is None:
+            threshold_unavailable_message = (
+                "This run was created before threshold sweep data was added to evaluation reports. "
+                "Re-run the evaluation to generate threshold exploration data."
+            )
+
     # List config files
     config_files = _list_run_configs(run)
 
@@ -954,6 +970,7 @@ async def get_run_detail(run_id: str, request: Request):
             "has_log": has_log,
             "log_content": _read_run_log(run) if has_log else None,
             "eda_relative_path": eda_relative_path,
+            "threshold_unavailable_message": threshold_unavailable_message,
         },
     )
 
@@ -1087,6 +1104,70 @@ def _load_run_evaluations_batch(run_ids: List[str]) -> Dict[str, Dict]:
     return results
 
 
+def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load threshold sweep and cumulative gains data directly from eval JSON.
+
+    Bypasses _load_run_evaluation because it normalizes away threshold_metrics.
+    Reads evaluation_report.json directly; returns null for ensemble runs
+    (comparison.json does not contain threshold_metrics per current schema).
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        Dictionary with:
+            - threshold_metrics: {thresholds, precisions, recalls, f1s} or null
+            - cumulative_gains: {deciles, cumulative_gain, cumulative_population} or null
+            - current_threshold: float from metrics.threshold
+            - available_models: list of model names if ensemble, null otherwise
+            - is_multi: bool
+        None if run not found or report missing
+    """
+    manager = RunManager()
+    run_dir = manager.run_dir(run_id)
+    if not run_dir:
+        return None
+
+    # Check for multi-model first (ensemble detection)
+    comparison_path = run_dir / "reports" / "evaluation" / "comparison.json"
+    if comparison_path.is_file():
+        try:
+            data = json.loads(comparison_path.read_text())
+            # Extract available models from ranking
+            ranking = data.get("ranking", [])
+            available_models = [
+                item.get("name") for item in ranking if isinstance(item, dict) and "name" in item
+            ]
+            return {
+                "threshold_metrics": None,  # Not available in comparison.json
+                "cumulative_gains": None,
+                "current_threshold": None,
+                "available_models": available_models,
+                "is_multi": True,
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load comparison.json for threshold data: {e}")
+
+    # Single-model: read evaluation_report.json directly
+    report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
+    if report_path.is_file():
+        try:
+            data = json.loads(report_path.read_text())
+            metrics = data.get("metrics", {})
+            return {
+                "threshold_metrics": data.get("threshold_metrics"),  # May be None for old runs
+                "cumulative_gains": metrics.get("cumulative_gains"),  # May be None for old runs
+                "current_threshold": metrics.get("threshold", 0.5),
+                "available_models": None,
+                "is_multi": False,
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Failed to load evaluation_report.json for threshold data: {e}")
+
+    return None
+
+
 @app.get("/api/runs/compare")
 async def compare_runs_json(ids: str = ""):
     """
@@ -1133,3 +1214,35 @@ async def compare_runs_json(ids: str = ""):
         }
 
     return {"runs": results}
+
+
+@app.get("/api/runs/{run_id}/thresholds")
+async def get_threshold_sweep(run_id: str):
+    """
+    Threshold exploration data API endpoint.
+
+    Returns threshold sweep and cumulative gains data for a run.
+    Supports graceful degradation for ensemble runs and old runs lacking threshold data.
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        JSON with threshold_metrics, cumulative_gains, current_threshold, available_models, is_multi
+        404 if run not found or evaluation data missing
+    """
+    manager = RunManager()
+
+    # Validate run exists
+    run = manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Load threshold data
+    threshold_data = _load_threshold_data(run_id)
+
+    # Return 404 if no evaluation data found
+    if not threshold_data:
+        raise HTTPException(status_code=404, detail="Evaluation data not found")
+
+    return threshold_data

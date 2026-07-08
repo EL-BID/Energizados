@@ -65,6 +65,110 @@
             {% endif %}
         </section>
 
+        <!-- Threshold Exploration section -->
+        <section class="mb-4" id="thresholds-section">
+            <h5>🎯 Threshold Exploration</h5>
+            <div id="threshold-loading" class="text-muted">Loading...</div>
+            <div id="threshold-charts" style="display: none;">
+                <div id="pr-chart" style="height: 400px;"></div>
+                <div id="gains-chart" style="height: 400px;"></div>
+                <div id="threshold-controls" class="mt-3">
+                    <label>Threshold: <span id="threshold-value">0.50</span></label>
+                    <input type="range" id="threshold-slider" min="0" max="1" step="0.01" value="0.5" class="form-range">
+                    <div id="metrics-at-threshold" class="mt-2">
+                        <span>Precision: <strong id="precision-value">-</strong></span> |
+                        <span>Recall: <strong id="recall-value">-</strong></span> |
+                        <span>F1: <strong id="f1-value">-</strong></span>
+                    </div>
+                </div>
+            </div>
+            <div id="threshold-unavailable" style="display: none;" class="alert alert-info">
+                {% if threshold_unavailable_message %}
+                    {{ threshold_unavailable_message }}
+                {% else %}
+                    Threshold data not available for this run.
+                {% endif %}
+            </div>
+        </section>
+
+        <script>
+        fetch('/api/runs/{{ run.run_id }}/thresholds')
+          .then(r => {
+            if (!r.ok) throw new Error('Not found');
+            return r.json();
+          })
+          .then(data => {
+            if (data.threshold_metrics && data.cumulative_gains) {
+              // Render charts
+              document.getElementById('threshold-loading').style.display = 'none';
+              document.getElementById('threshold-charts').style.display = 'block';
+
+              // Precision/Recall vs Threshold
+              const prTrace = {
+                x: data.threshold_metrics.thresholds,
+                y: data.threshold_metrics.precisions,
+                name: 'Precision',
+                mode: 'lines'
+              };
+              const recTrace = {
+                x: data.threshold_metrics.thresholds,
+                y: data.threshold_metrics.recalls,
+                name: 'Recall',
+                mode: 'lines'
+              };
+              Plotly.newPlot('pr-chart', [prTrace, recTrace], {
+                title: 'Precision/Recall vs Threshold',
+                xaxis: { title: 'Threshold' },
+                yaxis: { title: 'Score' }
+              });
+
+              // Cumulative Gains
+              const gainsTrace = {
+                x: data.cumulative_gains.cumulative_population,
+                y: data.cumulative_gains.cumulative_gain,
+                mode: 'lines+markers'
+              };
+              Plotly.newPlot('gains-chart', [gainsTrace], {
+                title: 'Cumulative Gains',
+                xaxis: { title: 'Cumulative Population' },
+                yaxis: { title: 'Cumulative Gain' }
+              });
+
+              // Set current threshold value
+              if (data.current_threshold) {
+                document.getElementById('threshold-value').textContent = data.current_threshold.toFixed(2);
+                document.getElementById('threshold-slider').value = data.current_threshold;
+              }
+
+              // Slider interaction
+              const slider = document.getElementById('threshold-slider');
+              slider.addEventListener('input', (e) => {
+                const t = parseFloat(e.target.value);
+                document.getElementById('threshold-value').textContent = t.toFixed(2);
+
+                // Interpolate metrics at threshold
+                const thresholds = data.threshold_metrics.thresholds;
+                const idx = thresholds.findIndex(v => v >= t);
+                if (idx >= 0) {
+                  document.getElementById('precision-value').textContent =
+                    data.threshold_metrics.precisions[idx].toFixed(3);
+                  document.getElementById('recall-value').textContent =
+                    data.threshold_metrics.recalls[idx].toFixed(3);
+                  document.getElementById('f1-value').textContent =
+                    data.threshold_metrics.f1s[idx].toFixed(3);
+                }
+              });
+            } else {
+              document.getElementById('threshold-loading').style.display = 'none';
+              document.getElementById('threshold-unavailable').style.display = 'block';
+            }
+          })
+          .catch(() => {
+            document.getElementById('threshold-loading').style.display = 'none';
+            document.getElementById('threshold-unavailable').style.display = 'block';
+          });
+        </script>
+
         <!-- Config files section -->
         {% if config_files %}
         <section class="mb-4">
