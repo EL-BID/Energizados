@@ -71,7 +71,24 @@ class JobStore:
                 )
                 """)
 
-            # Create job_events table (reserved for Phase 5 SSE; NOT populated in Phase 1)
+            # Migrate job_events: drop if percent is INTEGER (old schema from Phase 1)
+            # Check if job_events table exists and has INTEGER percent column
+            existing_tables = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='job_events'"
+            ).fetchall()
+
+            if existing_tables:
+                existing_columns = conn.execute("PRAGMA table_info(job_events)").fetchall()
+                percent_col = [c for c in existing_columns if c[1] == "percent"]
+
+                # If percent column exists and is INTEGER, drop table for migration
+                if percent_col and len(percent_col) > 0 and percent_col[0][2] == "INTEGER":
+                    logger.info(
+                        "Migrating job_events.percent: INTEGER → REAL (dropping empty table)"
+                    )
+                    conn.execute("DROP TABLE job_events")
+
+            # Create job_events table with corrected schema (percent as REAL nullable)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS job_events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +97,7 @@ class JobStore:
                     phase TEXT NOT NULL,
                     step_name TEXT NOT NULL,
                     message TEXT NOT NULL,
-                    percent INTEGER,
+                    percent REAL,
                     timestamp TEXT NOT NULL,
                     FOREIGN KEY (job_id) REFERENCES jobs(job_id)
                 )
@@ -386,3 +403,73 @@ class JobStore:
             return None
 
         return JobRow.from_row(row)
+
+    def append_job_event(self, job_id: str, event) -> bool:
+        """
+        Append a progress event to job_events table.
+
+        Args:
+            job_id: Job identifier
+            event: ProgressEvent from pipeline execution
+
+        Returns:
+            True if written, False on error (logged, never raises)
+
+        Note:
+            Must NOT raise — called from worker child process callback.
+            Errors are logged and swallowed to avoid crashing the job.
+        """
+        try:
+            with self._get_connection() as conn:
+                # Get next seq for this job (transaction ensures monotonic)
+                cursor = conn.execute(
+                    "SELECT COALESCE(MAX(seq), 0) FROM job_events WHERE job_id = ?", (job_id,)
+                )
+                next_seq = cursor.fetchone()[0] + 1
+
+                # Insert event
+                conn.execute(
+                    """
+                    INSERT INTO job_events (job_id, seq, phase, step_name, message, percent, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        job_id,
+                        next_seq,
+                        event.phase,
+                        event.step_name,
+                        event.message,
+                        event.percent,  # None for coarse events
+                        event.timestamp.isoformat(),
+                    ),
+                )
+                conn.commit()
+                logger.debug(f"[{job_id}] Event {next_seq}: {event.step_name} - {event.phase}")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to write job event for {job_id}: {e}")
+            return False
+
+    def get_job_events_since(self, job_id: str, after_seq: int = 0) -> List[Dict[str, Any]]:
+        """
+        Get job events since a sequence number (for SSE tailing).
+
+        Args:
+            job_id: Job identifier
+            after_seq: Minimum seq to fetch (exclusive; 0 = fetch all)
+
+        Returns:
+            List of event dicts ordered by seq ASC
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT seq, phase, step_name, message, percent, timestamp
+                FROM job_events
+                WHERE job_id = ? AND seq > ?
+                ORDER BY seq ASC
+            """,
+                (job_id, after_seq),
+            ).fetchall()
+
+        return [dict(row) for row in rows]
