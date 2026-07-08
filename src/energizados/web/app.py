@@ -39,6 +39,22 @@ app = FastAPI(
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
+def _fmt_metric(value, best_run_id, current_run_id):
+    """Render a metric value, marking the best run across compared runs with a star."""
+    if value is None:
+        return "N/A"
+    try:
+        formatted = f"{float(value):.4f}"
+    except (TypeError, ValueError):
+        return str(value)
+    if best_run_id is not None and best_run_id == current_run_id:
+        return f"{formatted} ★"
+    return formatted
+
+
+templates.env.globals["fmt_metric"] = _fmt_metric
+
+
 # Add CORS middleware (for development; tighten in production)
 app.add_middleware(
     CORSMiddleware,
@@ -821,6 +837,77 @@ def _get_artifact_relative_path(run, absolute_path: str) -> str:
         raise ValueError(f"Path {absolute_path} not within run directory")
 
 
+@app.get("/runs/compare")
+async def compare_runs_page(request: Request, ids: str = ""):
+    """
+    Comparison HTML page for side-by-side run comparison.
+
+    Renders comparison table with metrics, ensemble rankings, and best value highlighting.
+
+    NOTE: Declared BEFORE /runs/{run_id} so FastAPI does not swallow the literal
+    "compare" segment as a run_id path parameter (route matching is order-sensitive).
+    """
+    # Parse and validate run IDs
+    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # Load evaluation data for all runs (tolerant to missing files)
+    eval_data_dict = _load_run_evaluations_batch(run_ids)
+
+    # If all runs missing evaluation data, return 404
+    if not eval_data_dict:
+        raise HTTPException(
+            status_code=404, detail="No evaluation data found for any of the specified runs"
+        )
+
+    # Build comparison data directly from evaluation data
+    runs_data = []
+
+    for run_id in run_ids:
+        # Skip runs without evaluation data (already omitted from eval_data_dict)
+        if run_id not in eval_data_dict:
+            continue
+
+        # Get evaluation data
+        eval_data = eval_data_dict[run_id]
+
+        # Build run entry with minimal data needed for template
+        runs_data.append(
+            {
+                "run_id": run_id,
+                "evaluation": eval_data,
+                "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
+                "is_multi": eval_data.get("is_multi", False),
+            }
+        )
+
+    if not runs_data:
+        raise HTTPException(status_code=404, detail="No valid runs found")
+
+    # Precompute best run per metric (single-model runs only) for ★ highlighting.
+    best = {"auc": None, "f1": None, "precision": None, "recall": None}
+    best_val = {k: float("-inf") for k in best}
+    for entry in runs_data:
+        if entry["is_multi"]:
+            continue
+        metrics = (entry["evaluation"] or {}).get("metrics") or {}
+        for key in best:
+            value = metrics.get(key)
+            if isinstance(value, (int, float)) and value > best_val[key]:
+                best_val[key] = value
+                best[key] = entry["run_id"]
+
+    return templates.TemplateResponse(
+        request,
+        "compare_runs.html",
+        {
+            "runs": runs_data,
+            "ids": ids,
+            "best": best,
+            "comparison_json": json.dumps(runs_data),
+        },
+    )
+
+
 @app.get("/runs/{run_id}")
 async def get_run_detail(run_id: str, request: Request):
     """
@@ -1046,51 +1133,3 @@ async def compare_runs_json(ids: str = ""):
         }
 
     return {"runs": results}
-
-
-@app.get("/runs/compare")
-async def compare_runs_page(request: Request, ids: str = ""):
-    """
-    Comparison HTML page for side-by-side run comparison.
-
-    Renders comparison table with metrics, ensemble rankings, and best value highlighting.
-    """
-    # Parse and validate run IDs
-    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
-
-    # Load evaluation data for all runs (tolerant to missing files)
-    eval_data_dict = _load_run_evaluations_batch(run_ids)
-
-    # If all runs missing evaluation data, return 404
-    if not eval_data_dict:
-        raise HTTPException(status_code=404, detail="No evaluation data found for any of the specified runs")
-
-    # Build comparison data directly from evaluation data
-    runs_data = []
-
-    for run_id in run_ids:
-        # Skip runs without evaluation data (already omitted from eval_data_dict)
-        if run_id not in eval_data_dict:
-            continue
-
-        # Get evaluation data
-        eval_data = eval_data_dict[run_id]
-
-        # Build run entry with minimal data needed for template
-        runs_data.append(
-            {
-                "run_id": run_id,
-                "evaluation": eval_data,
-                "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
-                "is_multi": eval_data.get("is_multi", False),
-            }
-        )
-
-    if not runs_data:
-        raise HTTPException(status_code=404, detail="No valid runs found")
-
-    return templates.TemplateResponse(
-        request,
-        "compare_runs.html",
-        {"runs": runs_data, "ids": ids},
-    )

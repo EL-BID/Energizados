@@ -11,269 +11,118 @@
         <button id="download-csv" class="btn btn-success float-end">Download CSV</button>
     </div>
 
-    <div id="comparison-loading" class="text-center my-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mt-2">Loading comparison data...</p>
+    {# Server-rendered comparison table (values must appear in the HTML response,
+       not injected by client-side JS, so the page is usable without JS and
+       testable via the response body). #}
+    <div class="table-responsive">
+        <table class="table table-hover" id="comparison-table">
+            <thead class="table-dark">
+                <tr>
+                    <th>Run ID</th>
+                    <th>Model(s)</th>
+                    <th>AUC</th>
+                    <th>F1</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>Threshold</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                {% set metrics = (run.evaluation or {}).get("metrics") or {} %}
+                {% set is_multi = run.is_multi %}
+                <tr>
+                    <td><strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong></td>
+                    <td>
+                        {% if is_multi and run.evaluation.ranking %}
+                            <span title="Ensemble">Ensemble ({{ run.evaluation.ranking | length }} models)</span>
+                        {% else %}
+                            Single Model
+                        {% endif %}
+                    </td>
+                    <td>{{ fmt_metric(metrics.get("auc"), best.auc, run.run_id) }}</td>
+                    <td>{{ fmt_metric(metrics.get("f1"), best.f1, run.run_id) }}</td>
+                    <td>{{ fmt_metric(metrics.get("precision"), best.precision, run.run_id) }}</td>
+                    <td>{{ fmt_metric(metrics.get("recall"), best.recall, run.run_id) }}</td>
+                    <td>{{ fmt_metric(metrics.get("threshold"), None, run.run_id) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
-    <div id="comparison-content" style="display: none;">
-        <div class="table-responsive">
-            <table class="table table-hover" id="comparison-table">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Run ID</th>
-                        <th>Model(s)</th>
-                        <th>AUC</th>
-                        <th>F1</th>
-                        <th>Precision</th>
-                        <th>Recall</th>
-                        <th>Threshold</th>
-                    </tr>
-                </thead>
-                <tbody id="comparison-tbody">
-                    <!-- Dynamic content -->
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Ensemble ranking tables (shown inline for multi-model runs) -->
-        <div id="ensemble-rankings"></div>
+    {# Per-run ensemble ranking tables (multi-model runs only). #}
+    {% for run in runs %}
+    {% if run.is_multi and run.evaluation.ranking %}
+    <div class="mt-4 p-3 border rounded bg-light">
+        <h6>Ensemble Ranking: {{ run.run_id }}</h6>
+        <table class="table table-sm table-bordered">
+            <thead>
+                <tr><th>Rank</th><th>Model</th><th>AUC</th><th>F1</th></tr>
+            </thead>
+            <tbody>
+                {% for model in run.evaluation.ranking %}
+                {% set mm = model.metrics or {} %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ model.name }}</td>
+                    <td>{{ fmt_metric(mm.get("auc"), None, run.run_id) }}</td>
+                    <td>{{ fmt_metric(mm.get("f1"), None, run.run_id) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% endif %}
+    {% endfor %}
 
-    <div id="comparison-error" class="alert alert-danger" style="display: none;">
-        <h5>Error loading comparison data</h5>
-        <p id="error-message"></p>
-    </div>
+    {# JSON data island for client-side CSV export (table itself is server-rendered). #}
+    <script id="comparison-data" type="application/json">{{ comparison_json | safe }}</script>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const ids = '{{ ids }}';
-    const comparisonUrl = `/api/runs/compare?ids=${ids}`;
-
-    fetch(comparisonUrl)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            document.getElementById('comparison-loading').style.display = 'none';
-            document.getElementById('comparison-content').style.display = 'block';
-
-            renderComparisonTable(data.runs);
-        })
-        .catch(error => {
-            console.error('Error loading comparison:', error);
-            document.getElementById('comparison-loading').style.display = 'none';
-            document.getElementById('comparison-error').style.display = 'block';
-            document.getElementById('error-message').textContent = error.message;
-        });
-
-    function renderComparisonTable(runs) {
-        const tbody = document.getElementById('comparison-tbody');
-        const ensembleRankings = document.getElementById('ensemble-rankings');
-        tbody.innerHTML = '';
-        ensembleRankings.innerHTML = '';
-
-        const runsArray = Object.entries(runs);
-        if (runsArray.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">No comparison data available</td></tr>';
-            return;
-        }
-
-        // Calculate best values for highlighting
-        const bestValues = calculateBestValues(runs);
-
-        runsArray.forEach(([runId, runData]) => {
-            const row = document.createElement('tr');
-            const isMulti = runData.is_multi;
-            const eval = runData.evaluation;
-
-            let modelsCell = '';
-            if (isMulti && eval.ranking) {
-                const modelNames = eval.ranking.map(m => m.name || m).join(', ');
-                modelsCell = `<span title="Ensemble: ${modelNames}">Ensemble (${eval.ranking.length} models)</span>`;
-            } else {
-                modelsCell = 'Single Model';
-            }
-
-            const metrics = isMulti ? null : (eval.metrics || {});
-            const auc = metrics ? metrics.auc : null;
-            const f1 = metrics ? metrics.f1 : null;
-            const precision = metrics ? metrics.precision : null;
-            const recall = metrics ? metrics.recall : null;
-            const threshold = metrics ? metrics.threshold : null;
-
-            row.innerHTML = `
-                <td><strong><a href="/runs/${runId}">${runId}</a></strong></td>
-                <td>${modelsCell}</td>
-                <td>${formatMetric(auc, bestValues.auc, runId)}</td>
-                <td>${formatMetric(f1, bestValues.f1, runId)}</td>
-                <td>${formatMetric(precision, bestValues.precision, runId)}</td>
-                <td>${formatMetric(recall, bestValues.recall, runId)}</td>
-                <td>${threshold ? threshold.toFixed(3) : 'N/A'}</td>
-            `;
-
-            tbody.appendChild(row);
-
-            // Add ensemble ranking table if multi-model
-            if (isMulti && eval.ranking) {
-                const rankingDiv = document.createElement('div');
-                rankingDiv.className = 'mt-4 p-3 border rounded bg-light';
-                rankingDiv.innerHTML = `
-                    <h6>Ensemble Ranking: ${runId}</h6>
-                    <table class="table table-sm table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Model</th>
-                                <th>AUC</th>
-                                <th>F1</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${eval.ranking.map((model, index) => {
-                                const modelMetrics = model.metrics || {};
-                                return `
-                                    <tr>
-                                        <td>${index + 1}</td>
-                                        <td>${model.name || model}</td>
-                                        <td>${modelMetrics.auc ? modelMetrics.auc.toFixed(4) : 'N/A'}</td>
-                                        <td>${modelMetrics.f1 ? modelMetrics.f1.toFixed(4) : 'N/A'}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                `;
-                ensembleRankings.appendChild(rankingDiv);
-            }
-        });
-    }
-
-    function calculateBestValues(runs) {
-        const best = { auc: null, f1: null, precision: null, recall: null };
-        let maxAuc = -Infinity;
-        let maxF1 = -Infinity;
-        let maxPrecision = -Infinity;
-        let maxRecall = -Infinity;
-
-        Object.entries(runs).forEach(([runId, runData]) => {
-            if (runData.is_multi) return; // Skip ensemble runs for best value calculation
-
-            const metrics = runData.evaluation.metrics || {};
-            if (metrics.auc !== null && metrics.auc !== undefined && metrics.auc > maxAuc) {
-                maxAuc = metrics.auc;
-                best.auc = runId;
-            }
-            if (metrics.f1 !== null && metrics.f1 !== undefined && metrics.f1 > maxF1) {
-                maxF1 = metrics.f1;
-                best.f1 = runId;
-            }
-            if (metrics.precision !== null && metrics.precision !== undefined && metrics.precision > maxPrecision) {
-                maxPrecision = metrics.precision;
-                best.precision = runId;
-            }
-            if (metrics.recall !== null && metrics.recall !== undefined && metrics.recall > maxRecall) {
-                maxRecall = metrics.recall;
-                best.recall = runId;
-            }
-        });
-
-        return best;
-    }
-
-    function formatMetric(value, bestRunId, currentRunId) {
-        if (value === null || value === undefined) {
-            return 'N/A';
-        }
-
-        const formatted = value.toFixed(4);
-        const isBest = bestRunId === currentRunId;
-        return isBest ? `<strong>${formatted} ★</strong>` : formatted;
-    }
-
-    // CSV download functionality
-    document.getElementById('download-csv').addEventListener('click', function() {
-        fetch(comparisonUrl)
-            .then(response => response.json())
-            .then(data => {
-                const csv = generateCSV(data.runs);
-                downloadCSV(csv, `comparison_${new Date().toISOString().slice(0,10)}.csv`);
-            })
-            .catch(error => {
-                console.error('Error downloading CSV:', error);
-                alert('Failed to generate CSV. Please try again.');
-            });
-    });
-
-    function generateCSV(runs) {
-        const rows = [['Run ID', 'Model Type', 'AUC', 'F1', 'Precision', 'Recall', 'Threshold']];
-
-        Object.entries(runs).forEach(([runId, runData]) => {
-            const isMulti = runData.is_multi;
-            const eval = runData.evaluation;
-
-            if (isMulti) {
-                // Ensemble run
+document.getElementById('download-csv').addEventListener('click', function() {
+    const data = JSON.parse(document.getElementById('comparison-data').textContent);
+    const rows = [['Run ID', 'Model Type', 'AUC', 'F1', 'Precision', 'Recall', 'Threshold']];
+    data.forEach(function(run) {
+        if (run.is_multi) {
+            const n = (run.evaluation.ranking || []).length;
+            rows.push([run.run_id, 'Ensemble (' + n + ' models)', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']);
+            (run.evaluation.ranking || []).forEach(function(model, i) {
+                const mm = model.metrics || {};
                 rows.push([
-                    runId,
-                    `Ensemble (${eval.ranking ? eval.ranking.length : 0} models)`,
-                    'N/A',
-                    'N/A',
-                    'N/A',
-                    'N/A',
+                    '  ' + (i + 1) + '. ' + (model.name || ''),
+                    'Base Model',
+                    mm.auc != null ? mm.auc.toFixed(4) : 'N/A',
+                    mm.f1 != null ? mm.f1.toFixed(4) : 'N/A',
+                    mm.precision != null ? mm.precision.toFixed(4) : 'N/A',
+                    mm.recall != null ? mm.recall.toFixed(4) : 'N/A',
                     'N/A'
                 ]);
-
-                // Add individual model rows
-                if (eval.ranking) {
-                    eval.ranking.forEach((model, index) => {
-                        const modelMetrics = model.metrics || {};
-                        rows.push([
-                            `  ${index + 1}. ${model.name || model}`,
-                            'Base Model',
-                            modelMetrics.auc ? modelMetrics.auc.toFixed(4) : 'N/A',
-                            modelMetrics.f1 ? modelMetrics.f1.toFixed(4) : 'N/A',
-                            modelMetrics.precision ? modelMetrics.precision.toFixed(4) : 'N/A',
-                            modelMetrics.recall ? modelMetrics.recall.toFixed(4) : 'N/A',
-                            'N/A'
-                        ]);
-                    });
-                }
-            } else {
-                // Single model run
-                const metrics = eval.metrics || {};
-                rows.push([
-                    runId,
-                    'Single Model',
-                    metrics.auc ? metrics.auc.toFixed(4) : 'N/A',
-                    metrics.f1 ? metrics.f1.toFixed(4) : 'N/A',
-                    metrics.precision ? metrics.precision.toFixed(4) : 'N/A',
-                    metrics.recall ? metrics.recall.toFixed(4) : 'N/A',
-                    metrics.threshold ? metrics.threshold.toFixed(4) : 'N/A'
-                ]);
-            }
-        });
-
-        return rows.map(row => row.join(',')).join('\n');
-    }
-
-    function downloadCSV(csvContent, filename) {
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-    }
+            });
+        } else {
+            const m = (run.evaluation || {}).metrics || {};
+            rows.push([
+                run.run_id,
+                'Single Model',
+                m.auc != null ? m.auc.toFixed(4) : 'N/A',
+                m.f1 != null ? m.f1.toFixed(4) : 'N/A',
+                m.precision != null ? m.precision.toFixed(4) : 'N/A',
+                m.recall != null ? m.recall.toFixed(4) : 'N/A',
+                m.threshold != null ? m.threshold.toFixed(4) : 'N/A'
+            ]);
+        }
+    });
+    const csv = rows.map(function(r) { return r.join(','); }).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'comparison.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 });
 </script>
 {% endblock %}
