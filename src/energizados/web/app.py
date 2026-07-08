@@ -1046,3 +1046,51 @@ async def compare_runs_json(ids: str = ""):
         }
 
     return {"runs": results}
+
+
+@app.get("/runs/compare")
+async def compare_runs_page(request: Request, ids: str = ""):
+    """
+    Comparison HTML page for side-by-side run comparison.
+
+    Renders comparison table with metrics, ensemble rankings, and best value highlighting.
+    """
+    # Parse and validate run IDs
+    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # Load evaluation data for all runs (tolerant to missing files)
+    eval_data_dict = _load_run_evaluations_batch(run_ids)
+
+    # If all runs missing evaluation data, return 404
+    if not eval_data_dict:
+        raise HTTPException(status_code=404, detail="No evaluation data found for any of the specified runs")
+
+    # Build comparison data directly from evaluation data
+    runs_data = []
+
+    for run_id in run_ids:
+        # Skip runs without evaluation data (already omitted from eval_data_dict)
+        if run_id not in eval_data_dict:
+            continue
+
+        # Get evaluation data
+        eval_data = eval_data_dict[run_id]
+
+        # Build run entry with minimal data needed for template
+        runs_data.append(
+            {
+                "run_id": run_id,
+                "evaluation": eval_data,
+                "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
+                "is_multi": eval_data.get("is_multi", False),
+            }
+        )
+
+    if not runs_data:
+        raise HTTPException(status_code=404, detail="No valid runs found")
+
+    return templates.TemplateResponse(
+        request,
+        "compare_runs.html",
+        {"runs": runs_data, "ids": ids},
+    )
