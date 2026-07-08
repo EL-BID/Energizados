@@ -19,7 +19,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from energizados.api import RunManager, validate_dict
+from energizados.api import RunManager, format_error, validate_dict
+from energizados.core.exceptions import ETLDependencyError
+from energizados.core.pipeline import Pipeline
 from energizados.web.models import JobStatus
 from energizados.web.store import JobStore
 
@@ -537,6 +539,191 @@ async def list_runs(request: Request, status: Optional[str] = None, limit: int =
     # Return HTML template
     return templates.TemplateResponse(
         request, "runs_list.html", {"runs": runs, "status_filter": status, "limit": limit}
+    )
+
+
+@app.post("/plan")
+async def get_execution_plan(request: Request):
+    """
+    Return execution plan without running the pipeline.
+
+    Expects YAML/JSON body and config_type query parameter.
+    Validates config via validate_dict() and checks custom_class prefixes.
+
+    Returns:
+        - 200 with ExecutionPlan (JSON) or plan HTML fragment (HTMX)
+        - 200 with {"available": false, "message": "..."} for non-ETL configs
+        - 400 with validation errors (JSON) or error HTML fragment (HTMX)
+        - 400 with cycle error (ETLDependencyError formatted via format_error)
+    """
+    # Check if HTMX request for content negotiation
+    is_htmx = request.headers.get("HX-Request") == "true"
+
+    # Get content type
+    content_type = request.headers.get("content-type", "")
+
+    # Parse YAML body
+    body = await request.body()
+    if not body:
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "components/validation.html",
+                {
+                    "errors": ["Empty request body"],
+                    "invalid_prefixes": None,
+                    "allowed_prefixes": None,
+                },
+                status_code=400,
+            )
+        raise HTTPException(status_code=400, detail="Empty request body")
+
+    try:
+        if "application/yaml" in content_type:
+            config = yaml.safe_load(body)
+        elif "application/json" in content_type:
+            config = json.loads(body)
+        else:
+            # Try YAML first, fallback to JSON
+            try:
+                config = yaml.safe_load(body)
+            except yaml.YAMLError:
+                config = json.loads(body)
+    except (yaml.YAMLError, json.JSONDecodeError) as e:
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "components/validation.html",
+                {
+                    "errors": [f"Invalid YAML or JSON: {str(e)}"],
+                    "invalid_prefixes": None,
+                    "allowed_prefixes": None,
+                },
+                status_code=400,
+            )
+        raise HTTPException(status_code=400, detail=f"Invalid YAML or JSON: {str(e)}")
+
+    if not isinstance(config, dict):
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "components/validation.html",
+                {
+                    "errors": ["Config must be a dictionary"],
+                    "invalid_prefixes": None,
+                    "allowed_prefixes": None,
+                },
+                status_code=400,
+            )
+        raise HTTPException(status_code=400, detail="Config must be a dictionary")
+
+    # Get config_type from query params
+    config_type = request.query_params.get("config_type", "train")
+
+    # Validate config via energizados.api
+    validation_result = validate_dict(config, config_type)
+    if not validation_result.is_valid:
+        # Convert errors to JSON-serializable format
+        errors = []
+        for error in validation_result.errors or []:
+            if hasattr(error, "__dict__"):
+                errors.append(str(error))
+            else:
+                errors.append(error)
+
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "components/validation.html",
+                {"errors": errors, "invalid_prefixes": None, "allowed_prefixes": None},
+                status_code=400,
+            )
+        raise HTTPException(
+            status_code=400, detail={"errors": errors, "message": "Configuration validation failed"}
+        )
+
+    # Check custom_class prefixes for security
+    invalid_prefixes = _check_custom_class_prefixes(config)
+    if invalid_prefixes:
+        allowed_prefixes = ["energizados.*", "src.*"]
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "components/validation.html",
+                {
+                    "errors": None,
+                    "invalid_prefixes": invalid_prefixes,
+                    "allowed_prefixes": allowed_prefixes,
+                },
+                status_code=400,
+            )
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "custom_class_prefix_validation",
+                "message": f"Disallowed custom_class prefixes: {invalid_prefixes}",
+                "invalid_prefixes": invalid_prefixes,
+                "allowed_prefixes": allowed_prefixes,
+            },
+        )
+
+    # Check if config has etl: section (plan preview only for ETL configs)
+    if "etl" not in config:
+        message = "Plan preview available for ETL configs only"
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "plan_preview.html",
+                {"plan": None, "available": False, "message": message, "error": None},
+                status_code=200,
+            )
+        return JSONResponse(status_code=200, content={"available": False, "message": message})
+
+    # Build Pipeline and compute execution plan
+    try:
+        pipeline = Pipeline.from_dict(config)
+        plan = pipeline.plan()
+    except ETLDependencyError as e:
+        # Circular dependency detected
+        error_dict = format_error(e)
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "plan_preview.html",
+                {"plan": None, "available": False, "message": None, "error": error_dict},
+                status_code=400,
+            )
+        raise HTTPException(status_code=400, detail=error_dict)
+    except Exception as e:
+        # Unexpected error
+        logger.error(f"Error computing execution plan: {e}")
+        error_dict = format_error(e)
+        if is_htmx:
+            return templates.TemplateResponse(
+                request,
+                "plan_preview.html",
+                {"plan": None, "available": False, "message": None, "error": error_dict},
+                status_code=500,
+            )
+        raise HTTPException(status_code=500, detail=error_dict)
+
+    # Return HTML for HTMX, JSON otherwise
+    if is_htmx:
+        return templates.TemplateResponse(
+            request,
+            "plan_preview.html",
+            {"plan": plan, "available": True, "message": None, "error": None},
+            status_code=200,
+        )
+
+    # JSON response
+    return JSONResponse(
+        status_code=200,
+        content={
+            "steps": plan.steps,
+            "dependencies": plan.dependencies,
+            "estimated_duration": plan.estimated_duration,
+        },
     )
 
 
