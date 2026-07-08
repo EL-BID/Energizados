@@ -39,7 +39,7 @@ app = FastAPI(
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
-def _fmt_metric(value, best_run_id, current_run_id):
+def _format_metric(value, best_run_id, current_run_id):
     """Render a metric value, marking the best run across compared runs with a star."""
     if value is None:
         return "N/A"
@@ -52,7 +52,7 @@ def _fmt_metric(value, best_run_id, current_run_id):
     return formatted
 
 
-templates.env.globals["fmt_metric"] = _fmt_metric
+templates.env.globals["format_metric"] = _format_metric
 
 
 # Add CORS middleware (for development; tighten in production)
@@ -686,6 +686,32 @@ async def get_execution_plan(request: Request):
 # ============================================================================
 
 
+def _resolve_evaluation_files(run_id: str):
+    """
+    Resolve the on-disk evaluation JSON paths for a run.
+
+    Shared by ``_load_run_evaluation`` and ``_load_threshold_data`` so the
+    run lookup + run_dir resolution + eval-dir layout lives in one place
+    (avoids the duplication that would otherwise re-appear per consumer).
+
+    Args:
+        run_id: Run identifier
+
+    Returns:
+        ``(comparison_path, report_path)`` tuple, or ``None`` if the run or its
+        directory cannot be resolved. Paths are returned even if the files do
+        not exist — callers check ``.is_file()`` to decide which to read.
+    """
+    manager = RunManager()
+    if not manager.get_run(run_id):
+        return None
+    run_dir = manager.run_dir(run_id)
+    if not run_dir:
+        return None
+    eval_dir = run_dir / "reports" / "evaluation"
+    return eval_dir / "comparison.json", eval_dir / "evaluation_report.json"
+
+
 def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
     """
     Load evaluation JSON for a run, handling both single-model and multi-model structures.
@@ -701,17 +727,12 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
         - is_multi: bool
         - None if no evaluation found
     """
-    manager = RunManager()
-    run = manager.get_run(run_id)
-    if not run:
+    resolved = _resolve_evaluation_files(run_id)
+    if not resolved:
         return None
-
-    run_dir = manager.run_dir(run_id)
-    if not run_dir:
-        return None
+    comparison_path, report_path = resolved
 
     # Try multi-model first
-    comparison_path = run_dir / "reports" / "evaluation" / "comparison.json"
     if comparison_path.is_file():
         try:
             data = json.loads(comparison_path.read_text())
@@ -722,10 +743,9 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
                 "is_multi": True,
             }
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load comparison.json: {e}")
+            logger.error(f"Failed to load {comparison_path} for run {run_id}: {e}")
 
     # Try single-model
-    report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
     if report_path.is_file():
         try:
             data = json.loads(report_path.read_text())
@@ -735,7 +755,7 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
                 "is_multi": False,
             }
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load evaluation_report.json: {e}")
+            logger.error(f"Failed to load {report_path} for run {run_id}: {e}")
 
     return None
 
@@ -903,7 +923,13 @@ async def compare_runs_page(request: Request, ids: str = ""):
             "runs": runs_data,
             "ids": ids,
             "best": best,
-            "comparison_json": json.dumps(runs_data),
+            # Embedded in a <script type="application/json"> data island via | safe.
+            # json.dumps does not escape "</script>"; neutralize the closing-tag
+            # sequence so a run_id/model name containing it cannot break out of the
+            # script element (defense-in-depth XSS hardening).
+            "comparison_json": json.dumps(runs_data)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e"),
         },
     )
 
@@ -1071,8 +1097,12 @@ def _parse_and_validate_run_ids(ids_str: str, max_count: int = 10) -> List[str]:
         run_id = run_id.strip()
         if not run_id:
             continue
+        # Defense in depth: block path traversal AND cap length (DoS hardening —
+        # without a cap a single huge id could dominate memory/string work).
         if ".." in run_id or "/" in run_id or "\\" in run_id:
             raise HTTPException(status_code=400, detail=f"Invalid run_id: {run_id}")
+        if len(run_id) > 256:
+            raise HTTPException(status_code=400, detail="run_id too long (max 256 chars)")
         validated.append(run_id)
 
     if len(validated) < 2:
@@ -1124,13 +1154,12 @@ def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
             - is_multi: bool
         None if run not found or report missing
     """
-    manager = RunManager()
-    run_dir = manager.run_dir(run_id)
-    if not run_dir:
+    resolved = _resolve_evaluation_files(run_id)
+    if not resolved:
         return None
+    comparison_path, report_path = resolved
 
     # Check for multi-model first (ensemble detection)
-    comparison_path = run_dir / "reports" / "evaluation" / "comparison.json"
     if comparison_path.is_file():
         try:
             data = json.loads(comparison_path.read_text())
@@ -1147,10 +1176,9 @@ def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
                 "is_multi": True,
             }
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load comparison.json for threshold data: {e}")
+            logger.error(f"Failed to load {comparison_path} for run {run_id}: {e}")
 
     # Single-model: read evaluation_report.json directly
-    report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
     if report_path.is_file():
         try:
             data = json.loads(report_path.read_text())
@@ -1163,7 +1191,7 @@ def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
                 "is_multi": False,
             }
         except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to load evaluation_report.json for threshold data: {e}")
+            logger.error(f"Failed to load {report_path} for run {run_id}: {e}")
 
     return None
 

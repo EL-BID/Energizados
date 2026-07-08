@@ -40,11 +40,11 @@
                             Single Model
                         {% endif %}
                     </td>
-                    <td>{{ fmt_metric(metrics.get("auc"), best.auc, run.run_id) }}</td>
-                    <td>{{ fmt_metric(metrics.get("f1"), best.f1, run.run_id) }}</td>
-                    <td>{{ fmt_metric(metrics.get("precision"), best.precision, run.run_id) }}</td>
-                    <td>{{ fmt_metric(metrics.get("recall"), best.recall, run.run_id) }}</td>
-                    <td>{{ fmt_metric(metrics.get("threshold"), None, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("auc"), best.auc, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("f1"), best.f1, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("precision"), best.precision, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("recall"), best.recall, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("threshold"), None, run.run_id) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -66,8 +66,8 @@
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td>{{ model.name }}</td>
-                    <td>{{ fmt_metric(mm.get("auc"), None, run.run_id) }}</td>
-                    <td>{{ fmt_metric(mm.get("f1"), None, run.run_id) }}</td>
+                    <td>{{ format_metric(mm.get("auc"), None, run.run_id) }}</td>
+                    <td>{{ format_metric(mm.get("f1"), None, run.run_id) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

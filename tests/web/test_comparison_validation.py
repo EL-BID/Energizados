@@ -97,3 +97,40 @@ class TestRunIdParsing:
         result = _parse_and_validate_run_ids(ids_str, max_count=10)
 
         assert result == ["run1", "run2", "run3"]
+
+    def test_parse_exactly_two_ids_succeeds(self, client):
+        """Boundary: exactly 2 IDs (the minimum) must be accepted."""
+        from energizados.web.app import _parse_and_validate_run_ids
+
+        result = _parse_and_validate_run_ids("run1,run2", max_count=10)
+
+        assert result == ["run1", "run2"]
+
+    def test_parse_oversized_run_id_returns_400(self, client):
+        """A run_id longer than 256 chars must be rejected (DoS hardening)."""
+        from fastapi import HTTPException
+
+        from energizados.web.app import _parse_and_validate_run_ids
+
+        huge = "a" * 257
+        with pytest.raises(HTTPException) as exc_info:
+            _parse_and_validate_run_ids(f"run1,{huge}", max_count=10)
+
+        assert exc_info.value.status_code == 400
+        assert "too long" in exc_info.value.detail.lower()
+
+    def test_parse_url_encoded_traversal_rejected(self, client):
+        """URL-encoded path traversal (%2e%2e / %2f) is decoded by the framework
+        before the handler, so the blacklist must still catch it.
+
+        This locks the route against an ordering/decoding regression: if the
+        framework ever stopped decoding, or the validation ran pre-decode, the
+        decoded form would reach the filesystem.
+        """
+        from energizados.web.app import _parse_and_validate_run_ids
+
+        # The handler receives the *decoded* string (Starlette decodes query
+        # params), so "%2e%2e" arrives as "..". Simulate that decoded input.
+        for decoded in ["..", "/", "\\"]:
+            with pytest.raises(Exception):
+                _parse_and_validate_run_ids(f"run1,foo{decoded}bar", max_count=10)

@@ -47,6 +47,19 @@ class TestComparisonPage:
         response = client.get(f"/runs/compare?ids={many_ids}")
         assert response.status_code == 400
 
+    def test_compare_route_not_shadowed_by_run_detail(self, client):
+        """Regression guard: GET /runs/compare must reach the comparison route,
+        NOT be swallowed by GET /runs/{run_id} (which would treat "compare" as a
+        run_id, call RunManager.get_run("compare") -> None, and return 404).
+
+        A 400 here proves the literal route wins; a 404 would mean route ordering
+        regressed (the literal /runs/compare must be declared before /runs/{run_id}).
+        """
+        response = client.get("/runs/compare?ids=single_id")
+
+        assert response.status_code == 400  # validation error from compare_runs_page
+        assert response.status_code != 404  # would indicate route shadowing
+
     def test_compare_page_shows_single_model_metrics(self, client):
         """Comparison page should display single-model metrics correctly."""
 
