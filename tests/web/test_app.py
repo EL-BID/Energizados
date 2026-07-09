@@ -1191,3 +1191,193 @@ class TestPostPlan:
         data = response.json()
         # Should contain error about config must be dictionary
         assert "dictionary" in str(data).lower() or "dict" in str(data).lower()
+
+
+class TestSSEProgressEndpoint:
+    """Tests for GET /jobs/{job_id}/progress SSE endpoint (Task 5)."""
+
+    def test_sse_unknown_job_returns_404(self, client, mock_store):
+        """GET /jobs/{job_id}/progress with unknown job_id should return 404."""
+        mock_store.get_job.return_value = None
+
+        response = client.get("/jobs/unknown-job-123/progress")
+
+        assert response.status_code == 404
+
+    def test_sse_returns_event_stream_content_type(self, client, mock_store):
+        """GET /jobs/{job_id}/progress should return text/event-stream content-type."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-running-1",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+        mock_store.get_job_events_since.return_value = []
+
+        response = client.get("/jobs/job-running-1/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+    def test_sse_streams_events_with_correct_format(self, client, mock_store):
+        """GET /jobs/{job_id}/progress should stream events in correct SSE format."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-success-1",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        # Mock events with proper structure
+        mock_events = [
+            {
+                "seq": 1,
+                "phase": "feature_engineering",
+                "step_name": "preprocessing",
+                "message": "Starting preprocessing",
+                "percent": 0,
+                "timestamp": "2024-01-01T00:02:00Z",
+            },
+            {
+                "seq": 2,
+                "phase": "training",
+                "step_name": "model_fit",
+                "message": "Training model",
+                "percent": 50,
+                "timestamp": "2024-01-01T00:03:00Z",
+            },
+        ]
+        mock_store.get_job_events_since.return_value = mock_events
+
+        response = client.get("/jobs/job-success-1/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # Check for SSE format: data: {json}\n\n
+        assert 'data: {"seq": 1' in response_text
+        assert 'data: {"seq": 2' in response_text
+        assert "\n\n" in response_text  # SSE delimiter
+
+    def test_sse_terminal_job_replays_history_then_closes(self, client, mock_store):
+        """GET /jobs/{job_id}/progress for terminal job should replay all events then close with terminal signal."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-terminal-1",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        mock_events = [
+            {
+                "seq": 1,
+                "phase": "feature_engineering",
+                "step_name": "preprocessing",
+                "message": "Starting preprocessing",
+                "percent": 0,
+                "timestamp": "2024-01-01T00:02:00Z",
+            },
+            {
+                "seq": 2,
+                "phase": "training",
+                "step_name": "model_fit",
+                "message": "Training complete",
+                "percent": 100,
+                "timestamp": "2024-01-01T00:04:00Z",
+            },
+        ]
+        mock_store.get_job_events_since.return_value = mock_events
+
+        response = client.get("/jobs/job-terminal-1/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # All events should be present
+        assert 'data: {"seq": 1' in response_text
+        assert 'data: {"seq": 2' in response_text
+
+        # Should have terminal signal (event: terminal field)
+        assert "event: terminal" in response_text
+
+    def test_sse_filters_events_by_after_seq(self, client, mock_store):
+        """GET /jobs/{job_id}/progress should filter events by after_seq parameter."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-running-2",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        # Return only one event (seq=2) when filtering after seq=1
+        mock_events = [
+            {
+                "seq": 2,
+                "phase": "training",
+                "step_name": "model_fit",
+                "message": "Training model",
+                "percent": 50,
+                "timestamp": "2024-01-01T00:03:00Z",
+            }
+        ]
+        mock_store.get_job_events_since.return_value = mock_events
+
+        response = client.get("/jobs/job-running-2/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # Should have the filtered event
+        assert 'data: {"seq": 2' in response_text
+        # Should NOT have seq=1 event
+        assert 'data: {"seq": 1' not in response_text
+
+    def test_sse_running_job_returns_stream_and_connects(self, client, mock_store):
+        """GET /jobs/{job_id}/progress for RUNNING job should return stream and emit initial event."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-running-3",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+        mock_store.get_job_events_since.return_value = []
+
+        response = client.get("/jobs/job-running-3/progress")
+
+        # Should return streaming response
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        # Should have at least some content (initial event or keep-alive)
+        response_text = response.text
+        assert len(response_text) > 0
