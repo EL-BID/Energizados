@@ -398,14 +398,8 @@ async def get_job_progress(job_id: str):
                     logger.info(f"Job {job_id} terminal, closing SSE stream")
                     return
 
-                # For testing: if we've sent events or heartbeat and job is still running, close quickly
-                if not current_job.is_terminal():
-                    # If we have sent any content (events or heartbeat), close after 1 iteration for test determinism
-                    if (initial_sent or events) and iteration >= 1:
-                        yield f"event: terminal\ndata: {json.dumps({'status': 'test_complete', 'reason': 'running_job_test_determinism'})}\n\n"
-                        return
-
-                # Wait before next poll
+                # Job still running: wait before next poll. The loop only exits when
+                # the job transitions to a terminal state or the safety cap is reached.
                 await asyncio.sleep(SSE_POLL_INTERVAL_SECONDS)
                 iteration += 1
 

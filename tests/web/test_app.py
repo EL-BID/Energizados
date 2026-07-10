@@ -1204,11 +1204,14 @@ class TestSSEProgressEndpoint:
 
         assert response.status_code == 404
 
-    def test_sse_returns_event_stream_content_type(self, client, mock_store):
+    def test_sse_returns_event_stream_content_type(self, client, mock_store, monkeypatch):
         """GET /jobs/{job_id}/progress should return text/event-stream content-type."""
         from energizados.web.models import JobRow, JobStatus
 
-        mock_job = JobRow(
+        # Poll instantly so the running-job loop is fast in tests.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+
+        running_job = JobRow(
             job_id="job-running-1",
             config={"train": {}},
             config_type="train",
@@ -1216,7 +1219,17 @@ class TestSSEProgressEndpoint:
             enqueued_at="2024-01-01T00:00:00Z",
             started_at="2024-01-01T00:01:00Z",
         )
-        mock_store.get_job.return_value = mock_job
+        terminal_job = JobRow(
+            job_id="job-running-1",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        # Route handler fetches once (running); generator polls running then terminal.
+        mock_store.get_job.side_effect = [running_job, running_job, terminal_job]
         mock_store.get_job_events_since.return_value = []
 
         response = client.get("/jobs/job-running-1/progress")
@@ -1319,11 +1332,14 @@ class TestSSEProgressEndpoint:
         # Should have terminal signal (event: terminal field)
         assert "event: terminal" in response_text
 
-    def test_sse_filters_events_by_after_seq(self, client, mock_store):
+    def test_sse_filters_events_by_after_seq(self, client, mock_store, monkeypatch):
         """GET /jobs/{job_id}/progress should filter events by after_seq parameter."""
         from energizados.web.models import JobRow, JobStatus
 
-        mock_job = JobRow(
+        # Poll instantly so the running-job loop is fast in tests.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+
+        running_job = JobRow(
             job_id="job-running-2",
             config={"train": {}},
             config_type="train",
@@ -1331,7 +1347,16 @@ class TestSSEProgressEndpoint:
             enqueued_at="2024-01-01T00:00:00Z",
             started_at="2024-01-01T00:01:00Z",
         )
-        mock_store.get_job.return_value = mock_job
+        terminal_job = JobRow(
+            job_id="job-running-2",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.side_effect = [running_job, running_job, terminal_job]
 
         # Return only one event (seq=2) when filtering after seq=1
         mock_events = [
@@ -1357,11 +1382,14 @@ class TestSSEProgressEndpoint:
         # Should NOT have seq=1 event
         assert 'data: {"seq": 1' not in response_text
 
-    def test_sse_running_job_returns_stream_and_connects(self, client, mock_store):
+    def test_sse_running_job_returns_stream_and_connects(self, client, mock_store, monkeypatch):
         """GET /jobs/{job_id}/progress for RUNNING job should return stream and emit initial event."""
         from energizados.web.models import JobRow, JobStatus
 
-        mock_job = JobRow(
+        # Poll instantly so the running-job loop is fast in tests.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+
+        running_job = JobRow(
             job_id="job-running-3",
             config={"train": {}},
             config_type="train",
@@ -1369,7 +1397,16 @@ class TestSSEProgressEndpoint:
             enqueued_at="2024-01-01T00:00:00Z",
             started_at="2024-01-01T00:01:00Z",
         )
-        mock_store.get_job.return_value = mock_job
+        terminal_job = JobRow(
+            job_id="job-running-3",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.side_effect = [running_job, running_job, terminal_job]
         mock_store.get_job_events_since.return_value = []
 
         response = client.get("/jobs/job-running-3/progress")
@@ -1378,6 +1415,8 @@ class TestSSEProgressEndpoint:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
 
-        # Should have at least some content (initial event or keep-alive)
+        # Running jobs with no events receive an immediate connected heartbeat.
         response_text = response.text
-        assert len(response_text) > 0
+        assert "event: connected" in response_text
+        # The stream closes once the job transitions to a terminal state.
+        assert "event: terminal" in response_text
