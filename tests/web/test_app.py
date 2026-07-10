@@ -1420,3 +1420,126 @@ class TestSSEProgressEndpoint:
         assert "event: connected" in response_text
         # The stream closes once the job transitions to a terminal state.
         assert "event: terminal" in response_text
+
+
+class TestJobDetailProgressUI:
+    """Tests for EventSource live-progress integration in job detail template (Task 6)."""
+
+    def test_job_detail_includes_eventsource_for_running_job(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include EventSource initialization."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-xyz",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-xyz")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should contain EventSource initialization
+        assert "EventSource" in content
+        # Should reference the progress URL
+        assert "/jobs/job-xyz/progress" in content
+        mock_store.get_job.assert_called_once_with("job-xyz")
+
+    def test_job_detail_includes_progress_container_for_running_job(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include progress log container."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-abc",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-abc")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should contain a progress container element (e.g., id="progress-log" or class="progress-log")
+        assert "progress-log" in content
+        mock_store.get_job.assert_called_once_with("job-abc")
+
+    def test_job_detail_no_eventsource_for_terminal_job(self, client, mock_store):
+        """GET /jobs/{id} for SUCCESS job should NOT include EventSource or progress URL."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-terminal",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-terminal")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should NOT contain EventSource
+        assert "EventSource" not in content
+        # Should NOT contain progress URL
+        assert "/jobs/job-terminal/progress" not in content
+        mock_store.get_job.assert_called_once_with("job-terminal")
+
+    def test_eventsource_terminal_handler_triggers_htmx_refresh(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include terminal event handler with HTMX refresh."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-running-refresh",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-running-refresh")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should contain handler for 'terminal' event
+        assert "terminal" in content
+        # Should trigger HTMX refresh or page reload
+        assert "htmx.ajax" in content or "location.reload" in content
+        mock_store.get_job.assert_called_once_with("job-running-refresh")
+
+    def test_eventsource_has_unsupported_fallback(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include fallback for unsupported EventSource."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-unsupported",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-unsupported")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should check for EventSource support
+        assert "typeof EventSource" in content
+        # Should show user-visible fallback message
+        assert "unsupported" in content.lower() or "not supported" in content.lower()
+        mock_store.get_job.assert_called_once_with("job-unsupported")
