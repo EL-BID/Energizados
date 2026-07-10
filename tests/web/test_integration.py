@@ -5,9 +5,16 @@ Following strict TDD: tests written first (RED), then implementation (GREEN).
 Tests worker startup, shutdown, and basic job processing.
 """
 
+from datetime import datetime, timezone
+from threading import Thread
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from energizados.api.progress import ProgressEvent
+from energizados.web.models import JobStatus
 from energizados.web.store import JobStore
+from energizados.web.store import JobStore as _RealJobStore
 from energizados.web.worker import main, parse_args
 
 
@@ -183,3 +190,119 @@ class TestWorkerIntegration:
         # Loop survived the exception and exited cleanly
         assert call_count["n"] >= 1
         assert runner.store is store
+
+
+class TestSseIntegration:
+    """Integration tests for SSE live progress with real JobStore."""
+
+    @pytest.fixture
+    def real_store_app(self, tmp_path, monkeypatch):
+        """FastAPI TestClient wired to a REAL JobStore on a tmp DB (no mocks)."""
+        db_path = str(tmp_path / "integration.db")
+        # Make app.JobStore() return a real store pointing at the tmp DB.
+        monkeypatch.setattr(
+            "energizados.web.app.JobStore",
+            lambda *a, **kw: _RealJobStore(db_path=db_path),
+        )
+        # IMPORTANT: poll instantly so the running-job loop does not sleep 1s per iteration.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+        from fastapi.testclient import TestClient
+
+        from energizados.web.app import app
+
+        return TestClient(app), _RealJobStore(db_path=db_path)
+
+    def test_sse_streams_real_events_then_closes_on_terminal(self, real_store_app):
+        """End-to-end: real store writes events, SSE streams them, then closes when terminal."""
+        client, store = real_store_app
+
+        # Create job and events
+        job_id = store.create_job({"train": {}}, "train")
+        store.update_status(job_id, JobStatus.RUNNING)
+        store.append_job_event(
+            job_id,
+            ProgressEvent(
+                run_id="unknown",
+                step_name="etl",
+                phase="start",
+                message="Starting ETL",
+                percent=0.0,
+                timestamp=datetime.now(timezone.utc),
+            ),
+        )
+        store.append_job_event(
+            job_id,
+            ProgressEvent(
+                run_id="unknown",
+                step_name="etl",
+                phase="complete",
+                message="ETL done",
+                percent=100.0,
+                timestamp=datetime.now(timezone.utc),
+            ),
+        )
+
+        # Mark terminal BEFORE requesting SSE stream for deterministic close
+        store.update_status(job_id, JobStatus.SUCCESS)
+
+        response = client.get(f"/jobs/{job_id}/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        text = response.text
+        assert 'data: {"seq": 1' in text
+        assert 'data: {"seq": 2' in text
+        assert "event: terminal" in text
+        assert '"status": "success"' in text
+
+
+class TestJobStoreConcurrency:
+    """Integration tests for JobStore thread-safety under concurrent load."""
+
+    def test_concurrent_read_write_isolation(self, tmp_path):
+        """Thread-safety of JobStore under concurrent worker writes + web reads."""
+        db_path = str(tmp_path / "concurrent.db")
+        store = _RealJobStore(db_path=db_path)
+        write_errors = []
+        read_errors = []
+
+        job_id = store.create_job({"train": {}}, "train")
+        store.update_status(job_id, JobStatus.RUNNING)
+
+        def writer():
+            for i in range(50):
+                try:
+                    store.append_job_event(
+                        job_id,
+                        ProgressEvent(
+                            run_id="unknown",
+                            step_name="step",
+                            phase="progress",
+                            message=f"Event {i}",
+                            percent=float(i),
+                            timestamp=datetime.now(timezone.utc),
+                        ),
+                    )
+                except Exception as e:
+                    write_errors.append(e)
+
+        def reader():
+            for _ in range(50):
+                try:
+                    store.get_job_events_since(job_id, after_seq=0)
+                except Exception as e:
+                    read_errors.append(e)
+
+        w = Thread(target=writer)
+        r = Thread(target=reader)
+        w.start()
+        r.start()
+        w.join()
+        r.join()
+
+        assert write_errors == []
+        assert read_errors == []
+        events = store.get_job_events_since(job_id, after_seq=0)
+        assert len(events) == 50
+        assert [e["seq"] for e in events] == list(range(1, 51))
