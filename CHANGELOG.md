@@ -9,15 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-07-10
 
-### Highlights
-
-The **web console MVP is feature-complete**. Operators can now run the
-framework — ETL, training, inference, EDA — from a browser: submit jobs,
-watch live progress, browse run results, compare metrics across runs, and
-explore thresholds, all without touching a terminal or notebook. Five
-phases landed (Phases 1-5), backed by `energizados.api` as a thin service
-layer over the existing framework.
-
 ### Added
 
 - **API: ConfigPipelineBuilder re-export** — `ConfigPipelineBuilder` is now re-exported from `energizados.api` for public API consumption, enabling worker processes to import from the public surface instead of internals.

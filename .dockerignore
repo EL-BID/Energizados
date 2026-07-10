@@ -9,6 +9,7 @@
 # Data and outputs (mounted as volumes)
 data/
 output/
+.proyects/
 
 # Python
 __pycache__/

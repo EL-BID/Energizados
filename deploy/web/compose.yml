@@ -16,14 +16,17 @@ services:
       context: ../..
       dockerfile: deploy/web/Dockerfile
       args:
-        INSTALL_EXTRAS: web # Override with 'all' to include ML deps (catboost/xgboost/tensorflow)
+        INSTALL_EXTRAS: "web,xgboost,catboost" # LightGBM (core) + xgboost + catboost; tensorflow opt-in via 'all'
     command: uvicorn energizados.web.app:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     volumes:
-      # Named volume for shared data (SQLite DB + run outputs)
+      # Named volume for SQLite DB (WAL-safe). Kept as a volume because SQLite
+      # WAL misbehaves on bind mounts under Docker Desktop.
       - energizados-data:/app/data
-      - energizados-output:/app/output
+      # Bind mount: run outputs land directly in <repo>/output on the host.
+      # Requires the host dir to exist & be writable by uid 1000 before first up.
+      - ../../output:/app/output
     environment:
       - ENERGIZADOS_WEB_DB_PATH=/app/data/web/jobs.db
       - ENERGIZADOS_WEB_LOG_LEVEL=INFO
@@ -40,12 +43,12 @@ services:
       context: ../..
       dockerfile: deploy/web/Dockerfile
       args:
-        INSTALL_EXTRAS: web # Override with 'all' to include ML deps
+        INSTALL_EXTRAS: "web,xgboost,catboost" # LightGBM (core) + xgboost + catboost; no tensorflow by default
     command: python -m energizados.web.worker --db-path /app/data/web/jobs.db --log-level INFO
     volumes:
-      # Same named volumes as web service for shared access
+      # Same mounts as the web service (DB volume + shared output bind mount)
       - energizados-data:/app/data
-      - energizados-output:/app/output
+      - ../../output:/app/output
     environment:
       - ENERGIZADOS_WEB_DB_PATH=/app/data/web/jobs.db
       - ENERGIZADOS_WEB_LOG_LEVEL=INFO
@@ -70,8 +73,7 @@ services:
       web:
         condition: service_healthy
 
-# Named volumes for data persistence (shared across services)
-# SQLite WAL mode works correctly on Linux-backed volumes
+# Named volume for the SQLite DB only (WAL-safe).
+# Outputs are a host bind mount (<repo>/output), declared per-service above.
 volumes:
   energizados-data:
-  energizados-output:
