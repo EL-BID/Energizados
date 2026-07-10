@@ -58,6 +58,52 @@
     </div>
     {% endif %}
 
+    {% if not job.is_terminal() %}
+    <div class="mt-3" id="live-progress-section">
+        <h6 class="small text-uppercase text-muted mb-2">Live Progress</h6>
+        <ul id="progress-log" class="list-unstyled small text-muted"></ul>
+        <div id="progress-unsupported" class="alert alert-warning small d-none">
+            Live progress is not supported in this browser.
+        </div>
+    </div>
+    <script>
+      (function () {
+        var log = document.getElementById("progress-log");
+        if (typeof EventSource === "undefined") {
+            document.getElementById("progress-unsupported").classList.remove("d-none");
+            return;
+        }
+        var eventSource = new EventSource("/jobs/{{ job.job_id }}/progress");
+        function appendProgressLine(text, cls) {
+            var li = document.createElement("li");
+            li.className = cls || "";
+            li.textContent = text;
+            log.appendChild(li);
+        }
+        eventSource.addEventListener("connected", function (e) {
+            appendProgressLine("Connected — waiting for progress events…", "text-muted");
+        });
+        eventSource.onmessage = function (e) {
+            var ev = JSON.parse(e.data);
+            var pct = ev.percent != null ? (" (" + ev.percent + "%)") : "";
+            appendProgressLine(ev.step_name + " · " + ev.phase + pct + " — " + ev.message, "");
+        };
+        eventSource.addEventListener("terminal", function (e) {
+            appendProgressLine("Job finished.", "fw-bold");
+            eventSource.close();
+            // Refresh the detail view so terminal state + run link render server-side.
+            if (window.htmx) { htmx.ajax("GET", "/jobs/{{ job.job_id }}",
+                            {target: ".job-card", swap: "outerHTML"}); }
+            else { location.reload(); }
+        });
+        eventSource.onerror = function () {
+            // EventSource reconnects automatically; do not close. The terminal event
+            // or the server-side safety cap ends the stream when appropriate.
+        };
+      })();
+    </script>
+    {% endif %}
+
     <div class="mt-3">
         <h6 class="small text-uppercase text-muted mb-2">Configuration</h6>
         <details>

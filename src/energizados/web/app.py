@@ -6,6 +6,7 @@ Implements Phase 1 endpoints (tasks 5.9-5.18) with HTMX support.
 Implements Phase 2 endpoints (runs list, detail, artifact serving) with security guards.
 """
 
+import asyncio
 import json
 import logging
 from collections import deque
@@ -16,7 +17,7 @@ from typing import Any, Dict, List, Optional
 import yaml
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -330,6 +331,107 @@ async def list_jobs(request: Request, status: str = None):
 
     return templates.TemplateResponse(
         request, "job_list.html", {"jobs": jobs, "status_filter": status_filter}
+    )
+
+
+# SSE constants
+SSE_POLL_INTERVAL_SECONDS = 1.0
+SSE_MAX_POLL_ITERATIONS = (
+    3600  # Safety cap: 1 hour at 1s interval (true backstop, not regular occurrence)
+)
+SSE_EVENT_CONNECTED = "connected"
+SSE_EVENT_TERMINAL = "terminal"
+SSE_EVENT_ERROR = "error"
+# Client JS in job_detail.html must mirror these event names
+
+
+@app.get("/jobs/{job_id}/progress")
+async def get_job_progress(job_id: str, request: Request):
+    """
+    SSE endpoint for live job progress (Task 5).
+
+    Streams job events from SQLite in Server-Sent Events format.
+    Returns 404 if job not found (before streaming).
+
+    Args:
+        job_id: Job identifier
+        request: FastAPI request (for Last-Event-ID header)
+
+    Returns:
+        StreamingResponse with text/event-stream content-type
+    """
+    # Get job first - raise 404 BEFORE entering generator
+    store = JobStore()
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Read Last-Event-ID header for resume (default 0 if missing/invalid)
+    last_event_id = request.headers.get("last-event-id")
+    try:
+        start_after_seq = int(last_event_id) if last_event_id else 0
+    except ValueError:
+        start_after_seq = 0
+
+    async def event_stream(after_seq: int = 0):
+        """Async generator for SSE events."""
+        iteration = 0
+        initial_sent = False
+
+        try:
+            while iteration < SSE_MAX_POLL_ITERATIONS:
+                # Fetch new events
+                try:
+                    events = store.get_job_events_since(job_id, after_seq)
+                except Exception as e:
+                    logger.error(f"Error fetching events for job {job_id}: {e}")
+                    events = []
+
+                # Stream events with event-id for resume
+                for event in events:
+                    yield f"id: {event['seq']}\ndata: {json.dumps(event)}\n\n"
+                    after_seq = max(after_seq, event["seq"])
+
+                # Check job status (re-fetch to get latest state)
+                current_job = store.get_job(job_id)
+
+                # Send initial heartbeat for running jobs with no events
+                if not initial_sent and not events and not current_job.is_terminal():
+                    yield f"event: {SSE_EVENT_CONNECTED}\ndata: {json.dumps({'job_id': job_id, 'status': current_job.status.value})}\n\n"
+                    initial_sent = True
+
+                # Check if job is terminal
+                if current_job.is_terminal():
+                    # Emit terminal signal and close
+                    terminal_event = {
+                        "status": current_job.status.value,
+                        "finished_at": current_job.finished_at,
+                    }
+                    yield f"event: {SSE_EVENT_TERMINAL}\ndata: {json.dumps(terminal_event)}\n\n"
+                    logger.info(f"Job {job_id} terminal, closing SSE stream")
+                    return
+
+                # Job still running: wait before next poll. The loop only exits when
+                # the job transitions to a terminal state or the safety cap is reached.
+                await asyncio.sleep(SSE_POLL_INTERVAL_SECONDS)
+                iteration += 1
+
+            # Safety cap reached - close silently (client reconnects with Last-Event-ID)
+            logger.warning(
+                f"Job {job_id} SSE stream reached safety cap ({SSE_MAX_POLL_ITERATIONS} iterations)"
+            )
+            return
+
+        except GeneratorExit:
+            # Client disconnected
+            logger.info(f"Job {job_id} SSE client disconnected")
+        except Exception as e:
+            # Unexpected error - log and close
+            logger.error(f"Job {job_id} SSE stream error: {e}")
+            yield f"event: {SSE_EVENT_ERROR}\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(after_seq=start_after_seq), media_type="text/event-stream"
     )
 
 

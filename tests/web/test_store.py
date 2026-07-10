@@ -47,6 +47,315 @@ class TestJobStoreSchema:
         assert "job_events" in table_names
 
 
+class TestJobStoreSchemaMigration:
+    """Test job_events.percent column migration INTEGER → REAL."""
+
+    def test_percent_column_is_real_nullable(self, tmp_path):
+        """Schema migration creates percent as REAL nullable."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(job_events)").fetchall()
+            percent_col = [c for c in columns if c["name"] == "percent"]
+
+        assert len(percent_col) == 1
+        assert percent_col[0]["type"] == "REAL"
+        assert percent_col[0]["notnull"] == 0  # Nullable
+
+    def test_migration_idempotent(self, tmp_path):
+        """Migration can run multiple times safely."""
+        db_path = tmp_path / "test.db"
+
+        # Create first store (triggers migration)
+        JobStore(db_path=str(db_path))
+
+        # Create second store (should not fail)
+        store = JobStore(db_path=str(db_path))
+
+        # Verify schema still valid
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(job_events)").fetchall()
+            percent_col = [c for c in columns if c["name"] == "percent"]
+
+        assert len(percent_col) == 1
+        assert percent_col[0]["type"] == "REAL"
+
+
+class TestJobStoreAppendEvent:
+    """Test append_job_event persistence with monotonic seq."""
+
+    def test_append_event_assigns_monotonic_seq(self, tmp_path):
+        """Seq increments monotonically per job (1, 2, 3...)."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        event1 = ProgressEvent(
+            run_id="unknown",
+            step_name="etl",
+            phase="start",
+            message="Starting ETL",
+            percent=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        event2 = ProgressEvent(
+            run_id="unknown",
+            step_name="etl",
+            phase="complete",
+            message="ETL complete",
+            percent=100.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        success1 = store.append_job_event(job_id, event1)
+        success2 = store.append_job_event(job_id, event2)
+
+        assert success1 is True
+        assert success2 is True
+
+        events = store.get_job_events_since(job_id, after_seq=0)
+        assert events[0]["seq"] == 1
+        assert events[1]["seq"] == 2
+
+    def test_append_event_maps_progressevent_fields(self, tmp_path):
+        """All ProgressEvent fields map to job_events columns."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        event = ProgressEvent(
+            run_id="run-123",
+            step_name="training",
+            phase="start",
+            message="Starting training",
+            percent=50.5,  # Float value
+            timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        )
+
+        store.append_job_event(job_id, event)
+
+        rows = store.get_job_events_since(job_id, after_seq=0)
+        assert len(rows) == 1
+        assert rows[0]["step_name"] == "training"
+        assert rows[0]["phase"] == "start"
+        assert rows[0]["message"] == "Starting training"
+        assert rows[0]["percent"] == 50.5
+        assert rows[0]["timestamp"] == "2024-01-01T12:00:00+00:00"
+
+    def test_append_event_isolated_per_job(self, tmp_path):
+        """Seq monotonicity isolated per job (not global)."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job1_id = store.create_job({"train": {}}, "train")
+        job2_id = store.create_job({"etl": {}}, "etl")
+
+        event1 = ProgressEvent(
+            run_id="unknown",
+            step_name="step1",
+            phase="start",
+            message="Job1 step1",
+            percent=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+        event2 = ProgressEvent(
+            run_id="unknown",
+            step_name="step2",
+            phase="start",
+            message="Job2 step2",
+            percent=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        store.append_job_event(job1_id, event1)
+        store.append_job_event(job2_id, event2)
+
+        # Each job has seq=1 (not global seq=1, seq=2)
+        job1_events = store.get_job_events_since(job1_id, after_seq=0)
+        job2_events = store.get_job_events_since(job2_id, after_seq=0)
+
+        assert job1_events[0]["seq"] == 1
+        assert job2_events[0]["seq"] == 1
+
+    def test_append_event_handles_write_failure(self, tmp_path):
+        """Write failure returns False, logs error, never raises."""
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+
+        from energizados.api.progress import ProgressEvent
+
+        # Mock store with broken connection
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        event = ProgressEvent(
+            run_id="unknown",
+            step_name="test",
+            phase="start",
+            message="Test event",
+            percent=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        # Mock _get_connection to raise exception
+        with patch.object(store, "_get_connection", side_effect=Exception("DB error")):
+            result = store.append_job_event(job_id, event)
+
+        assert result is False  # Returns False, doesn't raise
+
+    def test_append_job_event_concurrent_writers_unique_seq(self, tmp_path):
+        """Concurrent writers to same job generate unique monotonic seqs."""
+        import threading
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        num_threads = 10
+        events_per_thread = 10
+        errors = []
+
+        def append_events(thread_id):
+            """Append events from one thread (simulates concurrent worker callbacks)."""
+            for i in range(events_per_thread):
+                event = ProgressEvent(
+                    run_id="unknown",
+                    step_name=f"thread{thread_id}_step{i}",
+                    phase="running",
+                    message=f"Thread {thread_id} event {i}",
+                    percent=float(i * 10),
+                    timestamp=datetime.now(timezone.utc),
+                )
+                if not store.append_job_event(job_id, event):
+                    errors.append(f"Thread {thread_id} failed to write event {i}")
+
+        threads = []
+        for t in range(num_threads):
+            thread = threading.Thread(target=append_events, args=(t,))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        # No write failures
+        assert not errors, f"Write errors occurred: {errors}"
+
+        # All events persisted with unique seqs
+        events = store.get_job_events_since(job_id, after_seq=0)
+        expected_count = num_threads * events_per_thread
+        assert len(events) == expected_count, f"Expected {expected_count} events, got {len(events)}"
+
+        # Extract seqs and verify they are exactly 1..100 (no gaps, no duplicates)
+        seqs = {event["seq"] for event in events}
+        expected_seqs = set(range(1, expected_count + 1))
+        assert seqs == expected_seqs, f"Seqs are {sorted(seqs)}, expected {sorted(expected_seqs)}"
+
+
+class TestJobStoreGetEventsSince:
+    """Test get_job_events_since query and ordering."""
+
+    def test_get_events_filters_by_seq(self, tmp_path):
+        """Returns only events with seq > after_seq."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        # Append 5 events
+        for i in range(5):
+            event = ProgressEvent(
+                run_id="unknown",
+                step_name=f"step{i}",
+                phase="start",
+                message=f"Step {i}",
+                percent=0.0,
+                timestamp=datetime.now(timezone.utc),
+            )
+            store.append_job_event(job_id, event)
+
+        # Fetch after seq=3
+        events = store.get_job_events_since(job_id, after_seq=3)
+
+        assert len(events) == 2  # seq 4 and 5
+        assert events[0]["seq"] == 4
+        assert events[1]["seq"] == 5
+
+    def test_get_events_ordered_by_seq_asc(self, tmp_path):
+        """Events returned in strict seq ASC order."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        # Append events
+        for step in ["training", "etl", "eda"]:  # Intentionally out of order
+            event = ProgressEvent(
+                run_id="unknown",
+                step_name=step,
+                phase="start",
+                message=f"Running {step}",
+                percent=0.0,
+                timestamp=datetime.now(timezone.utc),
+            )
+            store.append_job_event(job_id, event)
+
+        events = store.get_job_events_since(job_id, after_seq=0)
+
+        # Should be in seq order (insertion order here)
+        assert events[0]["step_name"] == "training"
+        assert events[1]["step_name"] == "etl"
+        assert events[2]["step_name"] == "eda"
+
+    def test_get_events_empty_for_new_job(self, tmp_path):
+        """Returns empty list for job with no events."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        events = store.get_job_events_since(job_id, after_seq=0)
+
+        assert events == []
+
+    def test_get_events_after_seq_zero_returns_all(self, tmp_path):
+        """after_seq=0 returns all events for the job."""
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        event = ProgressEvent(
+            run_id="unknown",
+            step_name="test",
+            phase="complete",
+            message="Done",
+            percent=100.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+        store.append_job_event(job_id, event)
+
+        events = store.get_job_events_since(job_id, after_seq=0)
+
+        assert len(events) == 1
+        assert events[0]["seq"] == 1
+
+
 class TestJobStoreCRUD:
     """Test JobStore CRUD operations."""
 

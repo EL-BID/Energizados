@@ -79,6 +79,22 @@ def fake_run_dir(tmp_path):
     return run_dir
 
 
+def _make_job(job_id, status, **overrides):
+    """Helper to create JobRow instances with common defaults."""
+    from energizados.web.models import JobRow
+
+    base = dict(
+        job_id=job_id,
+        config={"train": {}},
+        config_type="train",
+        status=status,
+        enqueued_at="2024-01-01T00:00:00Z",
+        started_at="2024-01-01T00:01:00Z",
+    )
+    base.update(overrides)
+    return JobRow(**base)
+
+
 class TestRootRoute:
     """Tests for GET / route (task 5.10)."""
 
@@ -1191,3 +1207,340 @@ class TestPostPlan:
         data = response.json()
         # Should contain error about config must be dictionary
         assert "dictionary" in str(data).lower() or "dict" in str(data).lower()
+
+
+class TestSSEProgressEndpoint:
+    """Tests for GET /jobs/{job_id}/progress SSE endpoint (Task 5)."""
+
+    def test_sse_unknown_job_returns_404(self, client, mock_store):
+        """GET /jobs/{job_id}/progress with unknown job_id should return 404."""
+        mock_store.get_job.return_value = None
+
+        response = client.get("/jobs/unknown-job-123/progress")
+
+        assert response.status_code == 404
+
+    def test_sse_returns_event_stream_content_type(self, client, mock_store, monkeypatch):
+        """GET /jobs/{job_id}/progress should return text/event-stream content-type."""
+        from energizados.web.models import JobStatus
+
+        # Poll instantly so the running-job loop is fast in tests.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+
+        running_job = _make_job("job-running-1", JobStatus.RUNNING)
+        terminal_job = _make_job(
+            "job-running-1", JobStatus.SUCCESS, finished_at="2024-01-01T00:05:00Z"
+        )
+        # Route handler fetches once (running); generator polls running then terminal.
+        mock_store.get_job.side_effect = [running_job, running_job, terminal_job]
+        mock_store.get_job_events_since.return_value = []
+
+        response = client.get("/jobs/job-running-1/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+    def test_sse_streams_events_with_correct_format(self, client, mock_store):
+        """GET /jobs/{job_id}/progress should stream events in correct SSE format."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-success-1",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        # Mock events with proper structure
+        mock_events = [
+            {
+                "seq": 1,
+                "phase": "feature_engineering",
+                "step_name": "preprocessing",
+                "message": "Starting preprocessing",
+                "percent": 0,
+                "timestamp": "2024-01-01T00:02:00Z",
+            },
+            {
+                "seq": 2,
+                "phase": "training",
+                "step_name": "model_fit",
+                "message": "Training model",
+                "percent": 50,
+                "timestamp": "2024-01-01T00:03:00Z",
+            },
+        ]
+        mock_store.get_job_events_since.return_value = mock_events
+
+        response = client.get("/jobs/job-success-1/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # Check for SSE format: data: {json}\n\n
+        assert 'data: {"seq": 1' in response_text
+        assert 'data: {"seq": 2' in response_text
+        assert "\n\n" in response_text  # SSE delimiter
+
+    def test_sse_terminal_job_replays_history_then_closes(self, client, mock_store):
+        """GET /jobs/{job_id}/progress for terminal job should replay all events then close with terminal signal."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-terminal-1",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        mock_events = [
+            {
+                "seq": 1,
+                "phase": "feature_engineering",
+                "step_name": "preprocessing",
+                "message": "Starting preprocessing",
+                "percent": 0,
+                "timestamp": "2024-01-01T00:02:00Z",
+            },
+            {
+                "seq": 2,
+                "phase": "training",
+                "step_name": "model_fit",
+                "message": "Training complete",
+                "percent": 100,
+                "timestamp": "2024-01-01T00:04:00Z",
+            },
+        ]
+        mock_store.get_job_events_since.return_value = mock_events
+
+        response = client.get("/jobs/job-terminal-1/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # All events should be present
+        assert 'data: {"seq": 1' in response_text
+        assert 'data: {"seq": 2' in response_text
+
+        # Should have terminal signal (event: terminal field)
+        assert "event: terminal" in response_text
+
+    def test_sse_filters_events_by_after_seq(self, client, mock_store, monkeypatch):
+        """GET /jobs/{job_id}/progress should filter events by after_seq parameter."""
+        from energizados.web.models import JobStatus
+
+        # Poll instantly so the running-job loop is fast in tests.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+
+        running_job = _make_job("job-running-2", JobStatus.RUNNING)
+        terminal_job = _make_job(
+            "job-running-2", JobStatus.SUCCESS, finished_at="2024-01-01T00:05:00Z"
+        )
+        mock_store.get_job.side_effect = [running_job, running_job, terminal_job]
+
+        # Return only one event (seq=2) when filtering after seq=1
+        mock_events = [
+            {
+                "seq": 2,
+                "phase": "training",
+                "step_name": "model_fit",
+                "message": "Training model",
+                "percent": 50,
+                "timestamp": "2024-01-01T00:03:00Z",
+            }
+        ]
+        mock_store.get_job_events_since.return_value = mock_events
+
+        response = client.get("/jobs/job-running-2/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # Should have the filtered event
+        assert 'data: {"seq": 2' in response_text
+        # Should NOT have seq=1 event
+        assert 'data: {"seq": 1' not in response_text
+
+    def test_sse_running_job_returns_stream_and_connects(self, client, mock_store, monkeypatch):
+        """GET /jobs/{job_id}/progress for RUNNING job should return stream and emit initial event."""
+        from energizados.web.models import JobStatus
+
+        # Poll instantly so the running-job loop is fast in tests.
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+
+        running_job = _make_job("job-running-3", JobStatus.RUNNING)
+        terminal_job = _make_job(
+            "job-running-3", JobStatus.SUCCESS, finished_at="2024-01-01T00:05:00Z"
+        )
+        mock_store.get_job.side_effect = [running_job, running_job, terminal_job]
+        mock_store.get_job_events_since.return_value = []
+
+        response = client.get("/jobs/job-running-3/progress")
+
+        # Should return streaming response
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        # Running jobs with no events receive an immediate connected heartbeat.
+        response_text = response.text
+        assert "event: connected" in response_text
+        # The stream closes once the job transitions to a terminal state.
+        assert "event: terminal" in response_text
+
+    def test_sse_safety_cap_closes_without_terminal(self, client, mock_store, monkeypatch):
+        """SSE safety cap closes silently without emitting terminal event."""
+        from energizados.web.models import JobStatus
+
+        # Configure instant polling and small cap for fast test
+        monkeypatch.setattr("energizados.web.app.SSE_POLL_INTERVAL_SECONDS", 0.0)
+        monkeypatch.setattr("energizados.web.app.SSE_MAX_POLL_ITERATIONS", 3)
+
+        running_job = _make_job("job-running-forever", JobStatus.RUNNING)
+        # get_job is called once in route + once per iteration (3 iterations = 4 calls)
+        mock_store.get_job.side_effect = lambda *a, **kw: running_job
+        mock_store.get_job_events_since.return_value = []
+
+        response = client.get("/jobs/job-running-forever/progress")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+        response_text = response.text
+        # Should contain connected heartbeat
+        assert "event: connected" in response_text
+        # Should NOT contain terminal event (safety cap closes silently)
+        assert "event: terminal" not in response_text
+
+
+class TestJobDetailProgressUI:
+    """Tests for EventSource live-progress integration in job detail template (Task 6)."""
+
+    def test_job_detail_includes_eventsource_for_running_job(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include EventSource initialization."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-xyz",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-xyz")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should contain EventSource initialization
+        assert "EventSource" in content
+        # Should reference the progress URL
+        assert "/jobs/job-xyz/progress" in content
+        mock_store.get_job.assert_called_once_with("job-xyz")
+
+    def test_job_detail_includes_progress_container_for_running_job(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include progress log container."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-abc",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-abc")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should contain a progress container element (e.g., id="progress-log" or class="progress-log")
+        assert "progress-log" in content
+        mock_store.get_job.assert_called_once_with("job-abc")
+
+    def test_job_detail_no_eventsource_for_terminal_job(self, client, mock_store):
+        """GET /jobs/{id} for SUCCESS job should NOT include EventSource or progress URL."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-terminal",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.SUCCESS,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+            finished_at="2024-01-01T00:05:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-terminal")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should NOT contain EventSource
+        assert "EventSource" not in content
+        # Should NOT contain progress URL
+        assert "/jobs/job-terminal/progress" not in content
+        mock_store.get_job.assert_called_once_with("job-terminal")
+
+    def test_eventsource_terminal_handler_triggers_htmx_refresh(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include terminal event handler with HTMX refresh."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-running-refresh",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-running-refresh")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should contain handler for 'terminal' event
+        assert "terminal" in content
+        # Should trigger HTMX refresh or page reload
+        assert "htmx.ajax" in content or "location.reload" in content
+        mock_store.get_job.assert_called_once_with("job-running-refresh")
+
+    def test_eventsource_has_unsupported_fallback(self, client, mock_store):
+        """GET /jobs/{id} for RUNNING job should include fallback for unsupported EventSource."""
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_job = JobRow(
+            job_id="job-unsupported",
+            config={"train": {}},
+            config_type="train",
+            status=JobStatus.RUNNING,
+            enqueued_at="2024-01-01T00:00:00Z",
+            started_at="2024-01-01T00:01:00Z",
+        )
+        mock_store.get_job.return_value = mock_job
+
+        response = client.get("/jobs/job-unsupported")
+
+        assert response.status_code == 200
+        content = response.text
+        # Should check for EventSource support
+        assert "typeof EventSource" in content
+        # Should show user-visible fallback message
+        assert "unsupported" in content.lower() or "not supported" in content.lower()
+        mock_store.get_job.assert_called_once_with("job-unsupported")
