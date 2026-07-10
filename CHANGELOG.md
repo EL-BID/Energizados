@@ -7,19 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-10
+
+### Highlights
+
+The **web console MVP is feature-complete**. Operators can now run the
+framework — ETL, training, inference, EDA — from a browser: submit jobs,
+watch live progress, browse run results, compare metrics across runs, and
+explore thresholds, all without touching a terminal or notebook. Five
+phases landed (Phases 1-5), backed by `energizados.api` as a thin service
+layer over the existing framework.
+
 ### Added
 
 - **API: ConfigPipelineBuilder re-export** — `ConfigPipelineBuilder` is now re-exported from `energizados.api` for public API consumption, enabling worker processes to import from the public surface instead of internals.
 - **API: RunManager EDA report metadata** — `RunManager._write_run_metadata` now populates `output_paths["eda_report"]` when `context["eda_results"]["report_path"]` is available, providing generic artifact path support.
-- **Web: async job runner + web console** — Complete async job execution system with FastAPI web interface, SQLite-backed job queue, HTMX-powered UI, and worker process for pipeline execution. Includes job submission, monitoring, cancellation, retry, and state management.
+- **Web: async job runner + web console (Phase 1)** — Complete async job execution system with FastAPI web interface, SQLite-backed job queue, HTMX-powered UI, and a separate worker process for pipeline execution (`Pipeline.run()` blocks for hours, so it runs out-of-process). Includes job submission, monitoring, cancellation, retry, and state management. Entry points: `energizados-web` (server) and `energizados-web-worker` (worker).
 - **Web: HTMX content negotiation** — Web API supports both JSON and HTML responses based on `HX-Request` header, enabling seamless HTMX form validation feedback while maintaining programmatic JSON API compatibility.
 - **Web: security validation** — Two-layer `custom_class` prefix validation (web submit check + worker import guard) prevents arbitrary code execution. Allowed prefixes: `energizados.*`, `src.*`.
 - **Web: job lifecycle management** — FIFO queue with `concurrency=1`, legal state transitions (`QUEUED`→`RUNNING`→`SUCCESS|FAILED|ABORTED`), cancel/retry operations, and worker restart reconciliation.
+- **Web: cross-platform deployment** — Docker Compose setup plus a launcher entry point (`energizados-web`) for running server and worker together on local/multi-platform environments.
 - **Web: integration tests** — End-to-end tests covering submit→run→terminal flows, cancel semantics, retry links, worker reconciliation, and invalid config rejection.
 - **Web: documentation** — Deployment guide with systemd/Docker/supervisor configs, security considerations, air-gapped setup instructions, and troubleshooting guide.
 - **Web: Phase 2 runs browsing** — `GET /runs` paginated list (optional `status` filter and `limit`, default 100) and `GET /runs/{run_id}` detail view rendering metadata, single/multi-model metrics, plots gallery, EDA report iframe, config files, and a tailed `run.log`. Both routes return HTML or JSON via the `Accept` header.
 - **Web: secure artifact serving** — `GET /runs/{run_id}/artifacts/{path}` serves run files with a multi-layer path-traversal guard (run_id validation, `..`/absolute/backslash rejection, resolved-path containment check against the run directory, no directory listings).
 - **Web: job → run navigation** — The job detail view links to the corresponding run detail page when `job.run_id` is populated, closing the loop between async jobs and historical run inspection.
+- **Web: Phase 3 execution plan preview** — `POST /plan` dry-run endpoint renders the ETL DAG (and validates config) before enqueuing a job, so operators can preview what will run without executing. Backed by `Pipeline.plan()`.
+- **Web: Phase 4 metrics dashboard** — Three new views: a **timeline dashboard** (`/dashboard`, AUC/F1 evolution across the last N runs, `RunMetadata`-only), a **comparison view** (`/runs/compare`, server-rendered side-by-side table for up to 10 runs), and **threshold exploration** (`/api/runs/{run_id}/thresholds` + a Plotly precision/recall section on run detail).
+- **Web: Phase 5 live progress (SSE)** — `GET /jobs/{job_id}/progress` streams `ProgressEvent`s as Server-Sent Events with native reconnect and `Last-Event-ID` resume. The worker persists events to a `job_events` table (SQLite), and the job-detail UI uses an `EventSource` block for non-terminal jobs — replacing 2-second HTMX polling with a real-time step timeline.
+
+### Security
+
+- **Dependencies: poetry.lock bumps** — Updated vulnerable dev/notebook transitive dependencies out of their vulnerable ranges (clears 21 Dependabot alerts; runtime framework dependencies are unaffected since CI installs via pip from `pyproject.toml`): mistune 3.2.0→3.3.3, tornado 6.5.5→6.5.7, bleach 6.3.0→6.4.0, jupyterlab 4.5.6→4.6.1, urllib3 2.6.3→2.7.0, idna 3.11→3.18, cryptography 46.0.5→49.0.0, jupyter-server 2.17.0→2.20.0, pymdown-extensions 10.21→11.0.1.
+
+### Documentation
+
+- **Field pilot design guide** — Controlled-field protocol to validate the fraud-detection model before full deployment, measuring incremental lift of the model vs the company's current (BAU) inspection criteria. Canonical design: 200 model-prioritized vs 200 BAU-prioritized inspections, with a random arm as optional gold-standard third arm.
+
+### Notes
+
+- **`result["model_metrics"]` deprecation** — The legacy `model_metrics` result-dict key is still present (emits a `DeprecationWarning`); the earlier note that it "will be removed in v0.3.0" is revised — removal is deferred. Use `result["metrics"]` (canonical).
 
 ## [0.2.9] - 2026-07-05
 

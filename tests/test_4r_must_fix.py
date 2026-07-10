@@ -140,7 +140,7 @@ def test_list_runs_tolerates_corrupt_metadata():
                     "timestamp": "2024-01-01T12:00:00",
                     "status": "success",
                     "duration_seconds": 100.0,
-                    "energizados_version": "0.2.8",
+                    "energizados_version": "0.3.0",
                     "python_version": "3.11",
                     "git_commit": "abc123",
                     "model_types": ["LGBMModel"],
