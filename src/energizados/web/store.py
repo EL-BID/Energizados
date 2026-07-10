@@ -10,7 +10,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from sqlite3 import Connection, Row, connect
+from sqlite3 import Connection, IntegrityError, Row, connect
 from typing import Any, Dict, List, Optional
 
 from energizados.web.models import JobRow, JobStatus
@@ -83,10 +83,17 @@ class JobStore:
 
                 # If percent column exists and is INTEGER, drop table for migration
                 if percent_col and len(percent_col) > 0 and percent_col[0][2] == "INTEGER":
-                    logger.info(
-                        "Migrating job_events.percent: INTEGER → REAL (dropping empty table)"
-                    )
-                    conn.execute("DROP TABLE job_events")
+                    row_count = conn.execute("SELECT COUNT(*) FROM job_events").fetchone()[0]
+                    if row_count == 0:
+                        logger.info(
+                            "Migrating job_events.percent: INTEGER → REAL (dropping empty table)"
+                        )
+                        conn.execute("DROP TABLE job_events")
+                    else:
+                        logger.warning(
+                            f"job_events.percent is INTEGER but table has {row_count} rows; "
+                            "skipping migration to avoid data loss"
+                        )
 
             # Create job_events table with corrected schema (percent as REAL nullable)
             conn.execute("""
@@ -99,6 +106,7 @@ class JobStore:
                     message TEXT NOT NULL,
                     percent REAL,
                     timestamp TEXT NOT NULL,
+                    UNIQUE(job_id, seq),
                     FOREIGN KEY (job_id) REFERENCES jobs(job_id)
                 )
                 """)
@@ -419,36 +427,37 @@ class JobStore:
             Must NOT raise — called from worker child process callback.
             Errors are logged and swallowed to avoid crashing the job.
         """
-        try:
-            with self._get_connection() as conn:
-                # Get next seq for this job (transaction ensures monotonic)
-                cursor = conn.execute(
-                    "SELECT COALESCE(MAX(seq), 0) FROM job_events WHERE job_id = ?", (job_id,)
-                )
-                next_seq = cursor.fetchone()[0] + 1
-
-                # Insert event
-                conn.execute(
-                    """
-                    INSERT INTO job_events (job_id, seq, phase, step_name, message, percent, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        job_id,
-                        next_seq,
-                        event.phase,
-                        event.step_name,
-                        event.message,
-                        event.percent,  # None for coarse events
-                        event.timestamp.isoformat(),
-                    ),
-                )
-                conn.commit()
-                logger.debug(f"[{job_id}] Event {next_seq}: {event.step_name} - {event.phase}")
-                return True
-        except Exception as e:
-            logger.error(f"Failed to write job event for {job_id}: {e}")
-            return False
+        for attempt in range(20):
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.execute(
+                        "SELECT COALESCE(MAX(seq), 0) FROM job_events WHERE job_id = ?", (job_id,)
+                    )
+                    next_seq = cursor.fetchone()[0] + 1
+                    conn.execute(
+                        "INSERT INTO job_events (job_id, seq, phase, step_name, message, percent, timestamp) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            job_id,
+                            next_seq,
+                            event.phase,
+                            event.step_name,
+                            event.message,
+                            event.percent,
+                            event.timestamp.isoformat(),
+                        ),
+                    )
+                    conn.commit()
+                    logger.debug(f"[{job_id}] Event {next_seq}: {event.step_name} - {event.phase}")
+                    return True
+            except IntegrityError:
+                # concurrent writer inserted this seq first; recompute and retry
+                continue
+            except Exception as e:
+                logger.error(f"Failed to write job event for {job_id}: {e}")
+                return False
+        logger.error(f"Failed to write job event for {job_id}: seq contention after 20 attempts")
+        return False
 
     def get_job_events_since(self, job_id: str, after_seq: int = 0) -> List[Dict[str, Any]]:
         """

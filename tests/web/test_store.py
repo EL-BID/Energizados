@@ -212,6 +212,56 @@ class TestJobStoreAppendEvent:
 
         assert result is False  # Returns False, doesn't raise
 
+    def test_append_job_event_concurrent_writers_unique_seq(self, tmp_path):
+        """Concurrent writers to same job generate unique monotonic seqs."""
+        import threading
+        from datetime import datetime, timezone
+
+        from energizados.api.progress import ProgressEvent
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        num_threads = 10
+        events_per_thread = 10
+        errors = []
+
+        def append_events(thread_id):
+            """Append events from one thread (simulates concurrent worker callbacks)."""
+            for i in range(events_per_thread):
+                event = ProgressEvent(
+                    run_id="unknown",
+                    step_name=f"thread{thread_id}_step{i}",
+                    phase="running",
+                    message=f"Thread {thread_id} event {i}",
+                    percent=float(i * 10),
+                    timestamp=datetime.now(timezone.utc),
+                )
+                if not store.append_job_event(job_id, event):
+                    errors.append(f"Thread {thread_id} failed to write event {i}")
+
+        threads = []
+        for t in range(num_threads):
+            thread = threading.Thread(target=append_events, args=(t,))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        # No write failures
+        assert not errors, f"Write errors occurred: {errors}"
+
+        # All events persisted with unique seqs
+        events = store.get_job_events_since(job_id, after_seq=0)
+        expected_count = num_threads * events_per_thread
+        assert len(events) == expected_count, f"Expected {expected_count} events, got {len(events)}"
+
+        # Extract seqs and verify they are exactly 1..100 (no gaps, no duplicates)
+        seqs = {event["seq"] for event in events}
+        expected_seqs = set(range(1, expected_count + 1))
+        assert seqs == expected_seqs, f"Seqs are {sorted(seqs)}, expected {sorted(expected_seqs)}"
+
 
 class TestJobStoreGetEventsSince:
     """Test get_job_events_since query and ordering."""
