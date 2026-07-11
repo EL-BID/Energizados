@@ -774,3 +774,168 @@ class TestJobStoreFIFO:
         next_job = store.get_next_queued_job()
 
         assert next_job.job_id == job2_id
+
+
+class TestJobStoreProjectPathMigration:
+    """Test project_path column migration and filtering (Phase 1 multi-project)."""
+
+    def test_fresh_db_has_project_path_in_schema(self, tmp_path):
+        """Fresh DBs include project_path column in the CREATE TABLE literal."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            names = {c["name"] for c in columns}
+
+        assert "project_path" in names
+
+    def test_legacy_db_without_project_path_gets_migrated(self, tmp_path):
+        """Existing DB without project_path column gets ALTERed on next open."""
+        import sqlite3
+
+        db_path = tmp_path / "legacy.db"
+        # Build an old-schema jobs table WITHOUT project_path and insert a row
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("""
+                CREATE TABLE jobs (
+                    job_id TEXT PRIMARY KEY,
+                    config TEXT NOT NULL,
+                    config_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    enqueued_at TEXT NOT NULL,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    run_id TEXT,
+                    run_dir TEXT,
+                    error TEXT,
+                    retried_from TEXT
+                )
+                """)
+            conn.execute(
+                "INSERT INTO jobs (job_id, config, config_type, status, enqueued_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                ("job-legacy-1", '{"train": {}}', "train", "queued", "2024-01-01T00:00:00Z"),
+            )
+            conn.commit()
+
+        # Open via JobStore — migration runs in _ensure_schema
+        store = JobStore(db_path=str(db_path))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            names = {c["name"] for c in columns}
+
+        assert "project_path" in names
+
+        # Pre-existing row has project_path = NULL (the Global bucket)
+        legacy_job = store.get_job("job-legacy-1")
+        assert legacy_job is not None
+        assert legacy_job.project_path is None
+
+    def test_migration_idempotent_project_path(self, tmp_path):
+        """Migration for project_path can run multiple times safely."""
+        db_path = tmp_path / "test.db"
+
+        JobStore(db_path=str(db_path))
+        store = JobStore(db_path=str(db_path))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            project_cols = [c for c in columns if c["name"] == "project_path"]
+
+        assert len(project_cols) == 1  # Exactly one column, not duplicated
+
+    def test_create_job_with_project_path_roundtrip(self, tmp_path):
+        """create_job accepts project_path and persists it."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        project = str(tmp_path / "myproj")
+
+        job_id = store.create_job({"train": {}}, "train", project_path=project)
+
+        job = store.get_job(job_id)
+        assert job.project_path == project
+
+    def test_create_job_without_project_path_defaults_null(self, tmp_path):
+        """create_job without project_path stores NULL (Global)."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        job_id = store.create_job({"train": {}}, "train")
+
+        job = store.get_job(job_id)
+        assert job.project_path is None
+
+    def test_list_jobs_filter_by_project_path(self, tmp_path):
+        """list_jobs(project_path=...) filters to that project only."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        proj_a = str(tmp_path / "proj_a")
+        proj_b = str(tmp_path / "proj_b")
+        store.create_job({"train": {}}, "train", project_path=proj_a)
+        store.create_job({"train": {}}, "train", project_path=proj_b)
+        store.create_job({"train": {}}, "train")  # Global (NULL)
+
+        a_jobs = store.list_jobs(project_path=proj_a)
+        assert len(a_jobs) == 1
+        assert a_jobs[0].project_path == proj_a
+
+        b_jobs = store.list_jobs(project_path=proj_b)
+        assert len(b_jobs) == 1
+        assert b_jobs[0].project_path == proj_b
+
+    def test_list_jobs_no_project_filter_returns_all(self, tmp_path):
+        """list_jobs() with no project_path filter returns ALL jobs (Global view)."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        proj = str(tmp_path / "proj")
+        store.create_job({"train": {}}, "train", project_path=proj)
+        store.create_job({"train": {}}, "train")  # NULL project
+
+        all_jobs = store.list_jobs()
+        assert len(all_jobs) == 2  # Both the project-scoped and the NULL job
+
+    def test_db_path_env_override(self, tmp_path, monkeypatch):
+        """JobStore() with no args reads ENERGIZADOS_JOBS_DB from env."""
+        env_path = tmp_path / "env_override.db"
+        monkeypatch.setenv("ENERGIZADOS_JOBS_DB", str(env_path))
+
+        store = JobStore()  # No explicit db_path
+
+        assert store.db_path == env_path
+        assert env_path.exists()
+
+    def test_explicit_db_path_wins_over_env(self, tmp_path, monkeypatch):
+        """Explicit db_path arg takes priority over the env var."""
+        env_path = tmp_path / "env.db"
+        explicit_path = tmp_path / "explicit.db"
+        monkeypatch.setenv("ENERGIZADOS_JOBS_DB", str(env_path))
+
+        store = JobStore(db_path=str(explicit_path))
+
+        assert store.db_path == explicit_path
+
+    def test_project_path_index_created(self, tmp_path):
+        """idx_jobs_project index is created for query performance."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        with store._get_connection() as conn:
+            indexes = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='jobs'"
+            ).fetchall()
+            index_names = {i["name"] for i in indexes}
+
+        assert "idx_jobs_project" in index_names
+
+    def test_retry_preserves_project_path(self, tmp_path):
+        """Retrying a job preserves the original project_path."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        project = str(tmp_path / "myproj")
+
+        original_id = store.create_job({"train": {}}, "train", project_path=project)
+        store.update_status(original_id, JobStatus.RUNNING)
+        store.update_status(original_id, JobStatus.FAILED, error={"error_code": "X"})
+
+        new_id = store.retry_job(original_id)
+
+        assert new_id is not None
+        new_job = store.get_job(new_id)
+        assert new_job.project_path == project

@@ -229,3 +229,65 @@ class TestJobRow:
         # Illegal: terminal → anything
         assert success_job.can_transition_to(JobStatus.RUNNING) is False
         assert success_job.can_transition_to(JobStatus.FAILED) is False
+
+
+class TestJobRowProjectPath:
+    """Test project_path field parsing (Phase 1 multi-project)."""
+
+    def test_from_row_with_project_path(self):
+        """from_row parses project_path when the column is present."""
+        row_data = {
+            "job_id": "job-1",
+            "config": '{"train": {"enabled": true}}',
+            "config_type": "train",
+            "status": "queued",
+            "enqueued_at": "2024-01-01T12:00:00",
+            "started_at": None,
+            "finished_at": None,
+            "run_id": None,
+            "run_dir": None,
+            "error": None,
+            "retried_from": None,
+            "project_path": "/data/workspace/myproj",
+        }
+
+        job = JobRow.from_row(row_data)
+
+        assert job.project_path == "/data/workspace/myproj"
+
+    def test_from_row_without_project_path_column(self):
+        """from_row does not crash on rows lacking project_path (legacy DBs)."""
+        row_data = {
+            "job_id": "job-2",
+            "config": '{"train": {"enabled": true}}',
+            "config_type": "train",
+            "status": "queued",
+            "enqueued_at": "2024-01-01T12:00:00",
+            "started_at": None,
+            "finished_at": None,
+            "run_id": None,
+            "run_dir": None,
+            "error": None,
+            "retried_from": None,
+            # project_path intentionally absent
+        }
+
+        job = JobRow.from_row(row_data)
+
+        assert job.project_path is None
+
+    def test_to_dict_includes_project_path(self):
+        """to_dict serializes project_path."""
+        job = JobRow(
+            job_id="job-3",
+            config={},
+            config_type="train",
+            status=JobStatus.QUEUED,
+            enqueued_at="2024-01-01T12:00:00",
+            project_path="/data/workspace/proj",
+        )
+
+        result = job.to_dict()
+
+        assert result["project_path"] == "/data/workspace/proj"
+        json.dumps(result)  # JSON serializable

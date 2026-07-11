@@ -3,7 +3,7 @@
         <h5 class="mb-0">📝 Pipeline Configuration (YAML)</h5>
     </div>
     <div class="card-body">
-        <form hx-post="/jobs" hx-target="#validation-output" hx-swap="innerHTML">
+        <form hx-post="{{ submit_url | default('/jobs') }}" hx-target="#validation-output" hx-swap="innerHTML">
             <div class="mb-3">
                 <label for="config-type" class="form-label">Configuration Type</label>
                 <select name="config_type" id="config-type" class="form-select" required>

@@ -5,6 +5,7 @@ Following strict TDD: tests written first (RED), then implementation (GREEN).
 Uses mocked child processes to avoid real pipeline execution.
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -427,3 +428,135 @@ class TestJobRunnerErrorHandling:
 
         # Verify runner is still functional
         assert runner._shutdown is False
+
+
+class TestJobRunnerProjectPath:
+    """Test project_path-aware job execution (Phase 1 multi-project)."""
+
+    def test_run_job_chdirs_into_project_path(self, tmp_path):
+        """_run_job os.chdir's into project_path before running the builder."""
+        from energizados.web.runner import _run_job
+
+        project = tmp_path / "myproj"
+        project.mkdir()
+        captured = {}
+
+        with (
+            patch("energizados.core.utils.import_utils.register_allowed_prefix"),
+            patch("energizados.api.ConfigPipelineBuilder") as mock_builder_cls,
+            patch("energizados.api.RunManager.get_run", return_value=None),
+        ):
+            mock_builder = MagicMock()
+            mock_builder.run = lambda progress_callback=None: (
+                captured.__setitem__("cwd", Path.cwd()) or {"run_id": "eda-x"}
+            )
+            mock_builder.run_dir = tmp_path / "output" / "eda-x"
+            mock_builder_cls.return_value = mock_builder
+
+            with patch("energizados.web.store.JobStore") as mock_store_cls:
+                mock_store = MagicMock()
+                mock_store.update_status.return_value = True
+                mock_store_cls.return_value = mock_store
+
+                _run_job("job-1", {"eda": {}}, str(project))
+
+        assert captured["cwd"] == project.resolve()
+
+    def test_os_chdir_isolation_child_does_not_affect_parent(self, tmp_path):
+        """A child process chdir does not change the parent process cwd."""
+        import os
+        from multiprocessing import Process
+
+        parent_cwd_before = Path.cwd()
+        child_target = tmp_path / "child_cwd"
+        child_target.mkdir()
+
+        def chdir_child():
+            os.chdir(child_target)
+
+        p = Process(target=chdir_child)
+        p.start()
+        p.join(timeout=10)
+
+        assert Path.cwd() == parent_cwd_before
+
+    def test_poll_passes_project_path_to_process(self, tmp_path):
+        """_poll passes job.project_path as the 3rd Process arg."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        project = str(tmp_path / "proj")
+        store.create_job({"train": {}}, "train", project_path=project)
+
+        with patch("energizados.web.runner.Process") as mock_process_class:
+            mock_process = MagicMock()
+            mock_process.is_alive.return_value = False
+            mock_process.exitcode = 0
+            mock_process_class.return_value = mock_process
+
+            runner = JobRunner(store=store)
+            runner._poll()
+
+        args = mock_process_class.call_args[1]["args"]
+        # args = (job_id, config, project_path)
+        assert args[2] == project
+
+    @patch("energizados.web.runner.Process")
+    def test_poll_child_already_terminal_parent_does_not_overwrite(
+        self, mock_process_class, tmp_path
+    ):
+        """If child wrote SUCCESS itself, parent must not overwrite (child=truth)."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        mock_process = MagicMock()
+        mock_process.is_alive.return_value = False
+        mock_process.exitcode = 0
+        mock_process_class.return_value = mock_process
+
+        # Simulate the child having written SUCCESS (with run_id) before join.
+        store.update_status(job_id, JobStatus.RUNNING)
+        store.update_status(job_id, JobStatus.SUCCESS, run_id="train-x")
+
+        runner = JobRunner(store=store)
+        runner._poll()
+
+        job = store.get_job(job_id)
+        assert job.status == JobStatus.SUCCESS
+        # run_id preserved (child's value), not clobbered to None
+        assert job.run_id == "train-x"
+
+    @patch("energizados.web.runner.Process")
+    def test_poll_nonzero_exit_marks_failed(self, mock_process_class, tmp_path):
+        """On non-zero child exit, parent marks the job FAILED."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        mock_process = MagicMock()
+        mock_process.is_alive.return_value = False
+        mock_process.exitcode = 1  # crash
+        mock_process_class.return_value = mock_process
+
+        runner = JobRunner(store=store)
+        runner._poll()
+
+        job = store.get_job(job_id)
+        assert job.status == JobStatus.FAILED
+        assert job.error is not None
+
+    @patch("energizados.web.runner.Process")
+    def test_poll_zero_exit_child_wrote_no_terminal_marks_success(
+        self, mock_process_class, tmp_path
+    ):
+        """exit_code==0 but child didn't write terminal (e.g. inference) -> SUCCESS."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+
+        mock_process = MagicMock()
+        mock_process.is_alive.return_value = False
+        mock_process.exitcode = 0
+        mock_process_class.return_value = mock_process
+
+        runner = JobRunner(store=store)
+        runner._poll()
+
+        job = store.get_job(job_id)
+        assert job.status == JobStatus.SUCCESS

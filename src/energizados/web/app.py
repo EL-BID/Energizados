@@ -25,6 +25,7 @@ from energizados.api import RunManager, format_error, validate_dict
 from energizados.core.exceptions import ETLDependencyError
 from energizados.core.pipeline import Pipeline
 from energizados.web.models import JobStatus
+from energizados.web.projects import ProjectService, default_project_service
 from energizados.web.store import JobStore
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,66 @@ app.add_middleware(
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.on_event("startup")
+async def _init_project_service() -> None:
+    """Build the ProjectService from env/args and attach it to app.state.
+
+    Workspace root resolution: ``ENERGIZADOS_WORKSPACE_ROOT`` env → default
+    ``data/web/workspace``. The launcher's ``--workspace-root`` flag exports
+    this env var so both the web and worker processes share it.
+    """
+    app.state.project_service = default_project_service()
+
+
+def _project_service() -> ProjectService:
+    """Return the app-level ProjectService (lazily built if missing)."""
+    if not getattr(app.state, "project_service", None):
+        app.state.project_service = default_project_service()
+    return app.state.project_service
+
+
+def _run_manager_for(project_id: Optional[str], project_service: ProjectService) -> RunManager:
+    """
+    Build a RunManager scoped to a project's output dir, or the Global default.
+
+    Args:
+        project_id: Project slug from the URL (or None for the Global view).
+        project_service: The ProjectService used to resolve project_id.
+
+    Returns:
+        ``RunManager(output_dir=<project>/output)`` for a registered project,
+        or a plain ``RunManager()`` (cwd-relative ``output/``) for the Global
+        view / unknown project_id.
+    """
+    if project_id:
+        project = project_service.get_project(project_id)
+        if project is not None:
+            return RunManager(output_dir=str(Path(project.path) / "output"))
+    return RunManager()
+
+
+def _resolve_run_dir(manager: RunManager, run_id: str) -> Optional[Path]:
+    """
+    Resolve the on-disk run directory for a run_id, mirroring RunManager.get_run.
+
+    ``RunManager.run_dir`` is a ``@property`` (the current run's dir, None on a
+    fresh instance) — it is NOT a method taking a run_id. The old code called
+    ``manager.run_dir(run_id)`` which is ``None(...)`` → TypeError → 500. This
+    helper replaces all those call sites with the canonical pattern already used
+    inside ``RunManager.get_run`` (``run_manager.py:441``): ``base / run_id``.
+
+    Args:
+        manager: A RunManager (its ``_output_dir`` selects the output base).
+        run_id: Run identifier.
+
+    Returns:
+        The run directory Path if it exists on disk, else None.
+    """
+    base = getattr(manager, "_output_dir", None) or Path("output")
+    run_dir = base / run_id
+    return run_dir if run_dir.is_dir() else None
 
 
 class _HtmxErrorResponse(Exception):
@@ -626,7 +687,7 @@ async def get_artifact(run_id: str, path: str):
         raise HTTPException(status_code=404, detail="Run not found")
 
     # Step 2: Resolve run directory
-    run_dir = manager.run_dir(run_id)
+    run_dir = _resolve_run_dir(manager, run_id)
     if not run_dir:
         raise HTTPException(status_code=404, detail="Run directory not found")
 
@@ -788,7 +849,7 @@ async def get_execution_plan(request: Request):
 # ============================================================================
 
 
-def _resolve_evaluation_files(run_id: str):
+def _resolve_evaluation_files(run_id: str, manager: Optional[RunManager] = None):
     """
     Resolve the on-disk evaluation JSON paths for a run.
 
@@ -798,27 +859,33 @@ def _resolve_evaluation_files(run_id: str):
 
     Args:
         run_id: Run identifier
+        manager: Optional RunManager (project-scoped). Defaults to a Global
+            ``RunManager()``.
 
     Returns:
         ``(comparison_path, report_path)`` tuple, or ``None`` if the run or its
         directory cannot be resolved. Paths are returned even if the files do
         not exist — callers check ``.is_file()`` to decide which to read.
     """
-    manager = RunManager()
+    manager = manager or RunManager()
     if not manager.get_run(run_id):
         return None
-    run_dir = manager.run_dir(run_id)
+    run_dir = _resolve_run_dir(manager, run_id)
     if not run_dir:
         return None
     eval_dir = run_dir / "reports" / "evaluation"
     return eval_dir / "comparison.json", eval_dir / "evaluation_report.json"
 
 
-def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
+def _load_run_evaluation(
+    run_id: str, manager: Optional[RunManager] = None
+) -> Optional[Dict[str, Any]]:
     """
     Load evaluation JSON for a run, handling both single-model and multi-model structures.
 
     Args:
+        run_id: Run identifier
+        manager: Optional RunManager (project-scoped). Defaults to a Global one.
         run_id: Run identifier
 
     Returns:
@@ -829,7 +896,7 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
         - is_multi: bool
         - None if no evaluation found
     """
-    resolved = _resolve_evaluation_files(run_id)
+    resolved = _resolve_evaluation_files(run_id, manager)
     if not resolved:
         return None
     comparison_path, report_path = resolved
@@ -862,18 +929,19 @@ def _load_run_evaluation(run_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _list_run_configs(run) -> List[str]:
+def _list_run_configs(run, manager: Optional[RunManager] = None) -> List[str]:
     """
     List config filenames in run directory.
 
     Args:
         run: RunMetadata object
+        manager: Optional RunManager (project-scoped). Defaults to a Global one.
 
     Returns:
         List of config filenames
     """
-    manager = RunManager()
-    run_dir = manager.run_dir(run.run_id)
+    manager = manager or RunManager()
+    run_dir = _resolve_run_dir(manager, run.run_id)
     if not run_dir:
         return []
 
@@ -884,37 +952,39 @@ def _list_run_configs(run) -> List[str]:
     return [f.name for f in config_dir.iterdir() if f.is_file()]
 
 
-def _has_run_log(run) -> bool:
+def _has_run_log(run, manager: Optional[RunManager] = None) -> bool:
     """
     Check if run.log exists.
 
     Args:
         run: RunMetadata object
+        manager: Optional RunManager (project-scoped). Defaults to a Global one.
 
     Returns:
         True if log exists, False otherwise
     """
-    manager = RunManager()
-    run_dir = manager.run_dir(run.run_id)
+    manager = manager or RunManager()
+    run_dir = _resolve_run_dir(manager, run.run_id)
     if not run_dir:
         return False
 
     return (run_dir / "run.log").is_file()
 
 
-def _read_run_log(run, max_lines: int = 1000) -> str:
+def _read_run_log(run, max_lines: int = 1000, manager: Optional[RunManager] = None) -> str:
     """
     Read last N lines from run.log.
 
     Args:
         run: RunMetadata object
         max_lines: Maximum number of lines to read (default 1000)
+        manager: Optional RunManager (project-scoped). Defaults to a Global one.
 
     Returns:
         Log file contents as string
     """
-    manager = RunManager()
-    run_dir = manager.run_dir(run.run_id)
+    manager = manager or RunManager()
+    run_dir = _resolve_run_dir(manager, run.run_id)
     if not run_dir:
         return "Log not found"
 
@@ -934,13 +1004,16 @@ def _read_run_log(run, max_lines: int = 1000) -> str:
         return f"Error reading log: {e}"
 
 
-def _get_artifact_relative_path(run, absolute_path: str) -> str:
+def _get_artifact_relative_path(
+    run, absolute_path: str, manager: Optional[RunManager] = None
+) -> str:
     """
     Convert absolute artifact path to relative path for artifact route.
 
     Args:
         run: RunMetadata object
         absolute_path: Absolute path to artifact
+        manager: Optional RunManager (project-scoped). Defaults to a Global one.
 
     Returns:
         Relative path for artifact route
@@ -948,8 +1021,8 @@ def _get_artifact_relative_path(run, absolute_path: str) -> str:
     Raises:
         ValueError: If path is not within run directory
     """
-    manager = RunManager()
-    run_dir = manager.run_dir(run.run_id)
+    manager = manager or RunManager()
+    run_dir = _resolve_run_dir(manager, run.run_id)
     if not run_dir:
         raise ValueError("Invalid run directory")
 
@@ -1236,7 +1309,9 @@ def _load_run_evaluations_batch(run_ids: List[str]) -> Dict[str, Dict]:
     return results
 
 
-def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
+def _load_threshold_data(
+    run_id: str, manager: Optional[RunManager] = None
+) -> Optional[Dict[str, Any]]:
     """
     Load threshold sweep and cumulative gains data directly from eval JSON.
 
@@ -1246,6 +1321,7 @@ def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
 
     Args:
         run_id: Run identifier
+        manager: Optional RunManager (project-scoped). Defaults to a Global one.
 
     Returns:
         Dictionary with:
@@ -1256,7 +1332,7 @@ def _load_threshold_data(run_id: str) -> Optional[Dict[str, Any]]:
             - is_multi: bool
         None if run not found or report missing
     """
-    resolved = _resolve_evaluation_files(run_id)
+    resolved = _resolve_evaluation_files(run_id, manager)
     if not resolved:
         return None
     comparison_path, report_path = resolved
@@ -1376,3 +1452,468 @@ async def get_threshold_sweep(run_id: str):
         raise HTTPException(status_code=404, detail="Evaluation data not found")
 
     return threshold_data
+
+
+# ============================================================================
+# PHASE 1 (multi-project): Project registry + project-scoped routes
+# ============================================================================
+#
+# The un-scoped routes above (/jobs, /runs, /dashboard) remain as the legacy
+# "Global" view. The routes below scope jobs/runs to a specific registered
+# project via /projects/{project_id}/... . project_id is ALWAYS resolved through
+# ProjectService before any filesystem use — raw filesystem paths never appear
+# in URLs.
+
+
+def _require_project(project_id: str):
+    """
+    Resolve a project_id via ProjectService, 404 if unknown or path invalid.
+
+    Args:
+        project_id: URL-safe project slug.
+
+    Returns:
+        ``(project, project_service)``.
+
+    Raises:
+        HTTPException(404): If the project is not registered or its directory is
+            no longer valid on disk.
+    """
+    ps = _project_service()
+    project = ps.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project, ps
+
+
+@app.get("/projects")
+async def list_projects(request: Request):
+    """
+    List all registered projects (card grid home).
+    """
+    ps = _project_service()
+    projects = ps.list_projects()
+    return templates.TemplateResponse(request, "projects_list.html", {"projects": projects})
+
+
+@app.post("/projects")
+async def create_project_route(request: Request):
+    """
+    Create a new project under the workspace root.
+
+    Form fields: ``name`` (required), ``template`` (optional, default "default").
+    Returns an HTMX-friendly redirect/fragment.
+    """
+    from urllib.parse import urlencode
+
+    ps = _project_service()
+    form = await request.form()
+    name = (form.get("name") or "").strip()
+    template = (form.get("template") or "default").strip() or "default"
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name is required")
+
+    try:
+        project = ps.create_project(name=name, template=template)
+    except (ValueError, FileExistsError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Redirect to the new project detail page
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(
+        url=f"/projects/{project.project_id}?{urlencode({'created': '1'})}",
+        status_code=303,
+    )
+
+
+@app.post("/projects/register")
+async def register_project_route(request: Request):
+    """
+    Register an existing project directory by absolute path.
+
+    Form fields: ``path`` (required), ``name`` (optional).
+    """
+    ps = _project_service()
+    form = await request.form()
+    raw_path = (form.get("path") or "").strip()
+    name = (form.get("name") or "").strip() or None
+
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    try:
+        project = ps.register_existing(Path(raw_path), name=name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url=f"/projects/{project.project_id}", status_code=303)
+
+
+@app.get("/projects/{project_id}")
+async def project_detail(request: Request, project_id: str):
+    """
+    Per-project dashboard: project header + job list + runs/dashboard links +
+    a YAML editor scoped to the project.
+    """
+    project, ps = _require_project(project_id)
+    store = JobStore()
+    jobs = store.list_jobs(project_path=str(project.path), limit=20)
+    manager = _run_manager_for(project_id, ps)
+    runs = manager.list_runs(limit=20)
+    return templates.TemplateResponse(
+        request,
+        "project_detail.html",
+        {
+            "project": project,
+            "project_id": project.project_id,
+            "jobs": jobs,
+            "runs": runs,
+            "submit_url": f"/projects/{project.project_id}/jobs",
+        },
+    )
+
+
+@app.get("/projects/{project_id}/jobs")
+async def list_project_jobs(request: Request, project_id: str, status: str = None):
+    """List jobs for a project (HTMX fragment, reuses job_list.html)."""
+    project, _ = _require_project(project_id)
+    status_filter = None
+    if status:
+        try:
+            status_filter = JobStatus(status)
+        except ValueError:
+            pass
+    store = JobStore()
+    jobs = store.list_jobs(status_filter=status_filter, project_path=str(project.path), limit=100)
+    return templates.TemplateResponse(
+        request, "job_list.html", {"jobs": jobs, "status_filter": status_filter}
+    )
+
+
+@app.post("/projects/{project_id}/jobs")
+async def create_project_job(request: Request, project_id: str):
+    """
+    Create and enqueue a job scoped to a project.
+
+    The job row stores ``project_path`` so the worker child ``os.chdir``s into
+    the project directory before running.
+    """
+    project, _ = _require_project(project_id)
+    is_htmx = request.headers.get("HX-Request") == "true"
+
+    validated = await _validate_request_config(request, htmx_error_template="job_validation.html")
+    config, config_type = validated.config, validated.config_type
+
+    store = JobStore()
+    job_id = store.create_job(config, config_type, project_path=str(project.path))
+
+    if is_htmx:
+        return templates.TemplateResponse(
+            request,
+            "job_created.html",
+            {"job_id": job_id, "status": "queued", "config_type": config_type},
+            status_code=201,
+        )
+    return JSONResponse(
+        status_code=201,
+        content={
+            "job_id": job_id,
+            "status": "queued",
+            "config_type": config_type,
+            "project_id": project.project_id,
+        },
+    )
+
+
+@app.get("/projects/{project_id}/jobs/{job_id}")
+async def get_project_job(project_id: str, job_id: str, request: Request):
+    """Get job detail within a project."""
+    project, _ = _require_project(project_id)
+    store = JobStore()
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept:
+        return job.to_dict()
+    return templates.TemplateResponse(request, "job_detail.html", {"job": job})
+
+
+@app.post("/projects/{project_id}/jobs/{job_id}/cancel")
+async def cancel_project_job(project_id: str, job_id: str):
+    """Cancel a running job within a project."""
+    _require_project(project_id)
+    store = JobStore()
+    job = store.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    cancelled = store.cancel_job(job_id)
+    return {
+        "job_id": job_id,
+        "status": "aborted" if cancelled else job.status.value,
+        "cancelled": cancelled,
+    }
+
+
+@app.post("/projects/{project_id}/jobs/{job_id}/retry")
+async def retry_project_job(project_id: str, job_id: str):
+    """Retry a terminal job within a project."""
+    _require_project(project_id)
+    store = JobStore()
+    original_job = store.get_job(job_id)
+    if original_job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    new_job_id = store.retry_job(job_id)
+    if new_job_id is None:
+        raise HTTPException(
+            status_code=400, detail=f"Cannot retry job with status: {original_job.status.value}"
+        )
+    return JSONResponse(
+        status_code=201, content={"job_id": new_job_id, "status": "queued", "retried_from": job_id}
+    )
+
+
+@app.get("/projects/{project_id}/jobs/{job_id}/progress")
+async def get_project_job_progress(project_id: str, job_id: str, request: Request):
+    """SSE endpoint for live job progress (project-scoped). job_id is globally unique."""
+    _require_project(project_id)
+    # Delegate to the same SSE logic as the global route by reusing the handler.
+    return await get_job_progress(job_id, request)
+
+
+@app.get("/projects/{project_id}/runs")
+async def list_project_runs(
+    request: Request, project_id: str, status: Optional[str] = None, limit: int = 100
+):
+    """List runs for a project (scoped to <project>/output/)."""
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept:
+        return {"runs": [run.to_dict() for run in runs]}
+    return templates.TemplateResponse(
+        request,
+        "runs_list.html",
+        {
+            "runs": runs,
+            "status_filter": status,
+            "limit": limit,
+            "project_id": project.project_id,
+        },
+    )
+
+
+@app.get("/projects/{project_id}/runs/compare")
+async def compare_project_runs_page(request: Request, project_id: str, ids: str = ""):
+    """Comparison page for side-by-side run comparison (project-scoped)."""
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+    eval_data_dict = _load_run_evaluations_batch_scoped(run_ids, manager)
+    if not eval_data_dict:
+        raise HTTPException(
+            status_code=404, detail="No evaluation data found for any of the specified runs"
+        )
+    runs_data = []
+    for run_id in run_ids:
+        if run_id not in eval_data_dict:
+            continue
+        eval_data = eval_data_dict[run_id]
+        runs_data.append(
+            {
+                "run_id": run_id,
+                "evaluation": eval_data,
+                "available_models": eval_data.get("ranking") if eval_data.get("is_multi") else None,
+                "is_multi": eval_data.get("is_multi", False),
+            }
+        )
+    if not runs_data:
+        raise HTTPException(status_code=404, detail="No valid runs found")
+    best = {"auc": None, "f1": None, "precision": None, "recall": None}
+    best_val = {k: float("-inf") for k in best}
+    for entry in runs_data:
+        if entry["is_multi"]:
+            continue
+        metrics = (entry["evaluation"] or {}).get("metrics") or {}
+        for key in best:
+            value = metrics.get(key)
+            if isinstance(value, (int, float)) and value > best_val[key]:
+                best_val[key] = value
+                best[key] = entry["run_id"]
+    return templates.TemplateResponse(
+        request,
+        "compare_runs.html",
+        {
+            "runs": runs_data,
+            "ids": ids,
+            "best": best,
+            "comparison_json": json.dumps(runs_data)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e"),
+        },
+    )
+
+
+@app.get("/projects/{project_id}/runs/{run_id}/artifacts/{path:path}")
+async def get_project_artifact(project_id: str, run_id: str, path: str):
+    """
+    Serve run artifacts scoped to a project's output dir, with traversal guards.
+
+    Reuses the same layered guard as the global artifact route, but anchored on
+    the project-scoped RunManager's output base.
+    """
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+
+    run = manager.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    run_dir = _resolve_run_dir(manager, run_id)
+    if not run_dir:
+        raise HTTPException(status_code=404, detail="Run directory not found")
+
+    if ".." in path or path.startswith("/") or "\\" in path:
+        raise HTTPException(status_code=403, detail="Invalid path")
+
+    try:
+        artifact_path = (run_dir / path).resolve()
+    except (OSError, ValueError) as e:
+        logger.error(f"Error resolving artifact path: {e}")
+        raise HTTPException(status_code=400, detail="Invalid artifact path")
+
+    try:
+        artifact_path.relative_to(run_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Path traversal detected")
+
+    if not artifact_path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    media_type = _guess_media_type(artifact_path)
+    cache_control = "public, max-age=3600" if _is_cacheable(artifact_path) else None
+    return FileResponse(
+        artifact_path,
+        media_type=media_type,
+        headers={"Cache-Control": cache_control} if cache_control else {},
+    )
+
+
+@app.get("/projects/{project_id}/runs/{run_id}")
+async def get_project_run_detail(project_id: str, run_id: str, request: Request):
+    """Run detail page scoped to a project (reuses run_detail.html)."""
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    run = manager.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    evaluation = _load_run_evaluation(run_id, manager)
+    threshold_unavailable_message = None
+    threshold_data = _load_threshold_data(run_id, manager)
+    if threshold_data:
+        if threshold_data.get("is_multi"):
+            threshold_unavailable_message = (
+                "Threshold exploration is not available for ensemble runs."
+            )
+        elif threshold_data.get("threshold_metrics") is None:
+            threshold_unavailable_message = (
+                "This run predates threshold sweep data. Re-run evaluation to generate it."
+            )
+
+    config_files = _list_run_configs(run, manager)
+    has_log = _has_run_log(run, manager)
+    eda_relative_path = None
+    if run.output_paths.get("eda_report"):
+        try:
+            eda_relative_path = _get_artifact_relative_path(
+                run, run.output_paths["eda_report"], manager
+            )
+        except ValueError:
+            pass
+
+    pid = project.project_id
+    runs_base = f"/projects/{pid}/runs"
+    api_base = f"/projects/{pid}/api/runs"
+    return templates.TemplateResponse(
+        request,
+        "run_detail.html",
+        {
+            "run": run,
+            "evaluation": evaluation,
+            "config_files": config_files,
+            "has_log": has_log,
+            "log_content": _read_run_log(run, manager=manager) if has_log else None,
+            "eda_relative_path": eda_relative_path,
+            "threshold_unavailable_message": threshold_unavailable_message,
+            "project_id": pid,
+            "runs_base": runs_base,
+            "api_base": api_base,
+        },
+    )
+
+
+@app.get("/projects/{project_id}/dashboard")
+async def project_dashboard(
+    request: Request, project_id: str, limit: int = 20, status: Optional[str] = None
+):
+    """Per-project dashboard (reuses dashboard.html with project-scoped runs)."""
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+    if status:
+        runs = [run for run in runs if run.status == status]
+    runs = runs[:limit] if len(runs) > limit else runs
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {"runs": runs, "limit": limit, "status": status, "project_id": project.project_id},
+    )
+
+
+@app.get("/projects/{project_id}/api/dashboard/timeline")
+async def project_timeline_data(project_id: str, limit: int = 100, status: Optional[str] = None):
+    """Timeline data API scoped to a project's runs."""
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    filter_dict = {"status": status} if status else None
+    runs = manager.list_runs(filter=filter_dict, limit=limit)
+    if status:
+        runs = [run for run in runs if run.status == status]
+    runs = runs[:limit] if len(runs) > limit else runs
+    timestamps = [run.timestamp.isoformat() if run.timestamp else None for run in runs]
+    auc = [run.val_auc for run in runs]
+    f1 = [run.val_f1 for run in runs]
+    run_ids = [run.run_id for run in runs]
+    return {"timestamps": timestamps, "auc": auc, "f1": f1, "run_ids": run_ids}
+
+
+@app.get("/projects/{project_id}/api/runs/{run_id}/thresholds")
+async def get_project_threshold_sweep(project_id: str, run_id: str):
+    """Threshold sweep data scoped to a project's run."""
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    run = manager.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    threshold_data = _load_threshold_data(run_id, manager)
+    if not threshold_data:
+        raise HTTPException(status_code=404, detail="Evaluation data not found")
+    return threshold_data
+
+
+def _load_run_evaluations_batch_scoped(run_ids: List[str], manager: RunManager) -> Dict[str, Dict]:
+    """Load evaluation data for multiple runs using a specific (scoped) manager."""
+    results = {}
+    for run_id in run_ids:
+        eval_data = _load_run_evaluation(run_id, manager)
+        if eval_data:
+            results[run_id] = eval_data
+    return results

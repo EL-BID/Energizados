@@ -37,7 +37,6 @@ class TestThresholdApi:
         mock_run = Mock()
         mock_run.run_id = "single-model-run"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create evaluation report with threshold data
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -89,7 +88,8 @@ class TestThresholdApi:
             )
         )
 
-        response = client.get("/api/runs/single-model-run/thresholds")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            response = client.get("/api/runs/single-model-run/thresholds")
 
         assert response.status_code == 200
         data = response.json()
@@ -111,7 +111,6 @@ class TestThresholdApi:
         mock_run = Mock()
         mock_run.run_id = "ensemble-run"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create comparison.json (ensemble marker)
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -132,7 +131,8 @@ class TestThresholdApi:
             )
         )
 
-        response = client.get("/api/runs/ensemble-run/thresholds")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            response = client.get("/api/runs/ensemble-run/thresholds")
 
         assert response.status_code == 200
         data = response.json()
@@ -151,7 +151,6 @@ class TestThresholdApi:
         mock_run = Mock()
         mock_run.run_id = "old-run"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create evaluation report WITHOUT threshold_metrics (old run)
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -162,7 +161,8 @@ class TestThresholdApi:
 
         eval_report.write_text(json.dumps({"metrics": {"auc": 0.85, "f1": 0.78}}))
 
-        response = client.get("/api/runs/old-run/thresholds")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            response = client.get("/api/runs/old-run/thresholds")
 
         # Should return 200 with null threshold_metrics (graceful degradation)
         assert response.status_code == 200
@@ -189,7 +189,6 @@ class TestThresholdApi:
         mock_run = Mock()
         mock_run.run_id = "structure-test-run"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create minimal evaluation report
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -219,7 +218,8 @@ class TestThresholdApi:
             )
         )
 
-        response = client.get("/api/runs/structure-test-run/thresholds")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            response = client.get("/api/runs/structure-test-run/thresholds")
 
         assert response.status_code == 200
         data = response.json()

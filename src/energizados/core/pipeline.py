@@ -395,14 +395,19 @@ class ConfigPipelineBuilder:
         """Generate index HTML."""
         self._director.run_manager.generate_index_html()
 
-    def run(self) -> Dict[str, Any]:
+    def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """
         Convenience method: builds and runs the pipeline, then performs post-run tasks.
+
+        Args:
+            progress_callback: Optional callback invoked with ProgressEvent objects,
+                forwarded to PipelineDirector.run → Pipeline.run. Used by the web
+                worker to stream live job progress to the SSE endpoint.
 
         Returns:
             Dict: Final context with pipeline results
         """
-        return self._director.run()
+        return self._director.run(progress_callback=progress_callback)
 
     def build(self) -> Pipeline:
         """

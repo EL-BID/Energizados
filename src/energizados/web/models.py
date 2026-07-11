@@ -50,6 +50,7 @@ class JobRow:
     run_dir: Optional[str] = None  # Path to output/<run_id>
     error: Optional[Dict[str, Any]] = None  # Parsed from format_error
     retried_from: Optional[str] = None  # Parent job_id
+    project_path: Optional[str] = None  # Absolute path to the owning project (Global = None)
 
     @classmethod
     def from_row(cls, row: Any) -> "JobRow":
@@ -87,6 +88,7 @@ class JobRow:
             run_dir=row["run_dir"] if "run_dir" in row.keys() else None,
             error=error,
             retried_from=row["retried_from"] if "retried_from" in row.keys() else None,
+            project_path=row["project_path"] if "project_path" in row.keys() else None,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -103,6 +105,7 @@ class JobRow:
             "run_dir": self.run_dir,
             "error": self.error,
             "retried_from": self.retried_from,
+            "project_path": self.project_path,
         }
 
     def is_terminal(self) -> bool:

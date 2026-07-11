@@ -67,6 +67,16 @@ def parse_args():
         help="Logging level (default: INFO)",
     )
 
+    parser.add_argument(
+        "--workspace-root",
+        type=str,
+        default=None,
+        help=(
+            "Root directory under which new projects are created "
+            "(default: data/web/workspace, or $ENERGIZADOS_WORKSPACE_ROOT)"
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -84,9 +94,9 @@ def _web_argv(host: str, port: int) -> List[str]:
     ]
 
 
-def _worker_argv(db_path: str, log_level: str) -> List[str]:
+def _worker_argv(db_path: str, log_level: str, workspace_root: str = None) -> List[str]:
     """Build argv list for worker process."""
-    return [
+    argv = [
         sys.executable,
         "-m",
         "energizados.web.worker",
@@ -95,6 +105,9 @@ def _worker_argv(db_path: str, log_level: str) -> List[str]:
         "--log-level",
         log_level,
     ]
+    if workspace_root:
+        argv.extend(["--workspace-root", workspace_root])
+    return argv
 
 
 def _prefix_output(process: subprocess.Popen, prefix: str):
@@ -158,9 +171,21 @@ def main():
     # Set log level
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 
+    # Resolve workspace root and export to env so both the web (uvicorn) and
+    # worker subprocesses share the same ProjectService workspace root.
+    import os
+    from pathlib import Path
+
+    if args.workspace_root:
+        workspace_root = str(Path(args.workspace_root).resolve())
+        os.environ["ENERGIZADOS_WORKSPACE_ROOT"] = workspace_root
+    else:
+        workspace_root = os.environ.get("ENERGIZADOS_WORKSPACE_ROOT", "data/web/workspace")
+
     logger.info("Energizados Web Console starting")
     logger.info(f"Web server: http://{args.host}:{args.port}")
     logger.info(f"Database: {args.db_path}")
+    logger.info(f"Workspace root: {workspace_root}")
     logger.info(f"Log level: {args.log_level}")
 
     # Setup signal handlers
@@ -176,7 +201,7 @@ def main():
         )  # nosec B603
 
         # Start worker
-        worker_cmd = _worker_argv(args.db_path, args.log_level)
+        worker_cmd = _worker_argv(args.db_path, args.log_level, workspace_root=args.workspace_root)
         logger.info(f"Starting worker: {' '.join(worker_cmd)}")
         # worker_cmd is a fixed arg list (sys.executable -m energizados.web.worker); no shell.
         _worker_process = subprocess.Popen(

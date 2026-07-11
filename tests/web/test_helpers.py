@@ -71,7 +71,10 @@ class TestLoadRunEvaluation:
         report_path = temp_run_dir / "reports" / "evaluation" / "evaluation_report.json"
         report_path.write_text(json.dumps(single_model_data))
 
-        with patch("energizados.web.app.RunManager") as mock_rm_class:
+        with (
+            patch("energizados.web.app.RunManager") as mock_rm_class,
+            patch("energizados.web.app._resolve_run_dir", return_value=temp_run_dir),
+        ):
             mock_rm_instance = Mock()
             mock_rm_class.return_value = mock_rm_instance
 
@@ -96,7 +99,6 @@ class TestLoadRunEvaluation:
             )
 
             mock_rm_instance.get_run.return_value = mock_metadata
-            mock_rm_instance.run_dir.return_value = temp_run_dir
 
             result = _load_run_evaluation("test-run-123")
 
@@ -114,10 +116,12 @@ class TestListRunConfigs:
         """Test _list_run_configs returns config filenames."""
         from energizados.web.app import _list_run_configs
 
-        with patch("energizados.web.app.RunManager") as mock_rm_class:
+        with (
+            patch("energizados.web.app.RunManager") as mock_rm_class,
+            patch("energizados.web.app._resolve_run_dir", return_value=temp_run_dir),
+        ):
             mock_rm_instance = Mock()
             mock_rm_class.return_value = mock_rm_instance
-            mock_rm_instance.run_dir.return_value = temp_run_dir
 
             configs = _list_run_configs(sample_run_metadata)
 

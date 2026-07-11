@@ -121,12 +121,14 @@ def integration_client_with_runs(temp_run_dir):
         )
     ]
 
-    with patch("energizados.web.app.RunManager") as mock_rm_class:
+    with (
+        patch("energizados.web.app.RunManager") as mock_rm_class,
+        patch("energizados.web.app._resolve_run_dir", return_value=temp_run_dir),
+    ):
         mock_rm_instance = Mock()
         mock_rm_class.return_value = mock_rm_instance
         mock_rm_instance.list_runs.return_value = mock_runs
         mock_rm_instance.get_run.return_value = mock_runs[0]
-        mock_rm_instance.run_dir.return_value = temp_run_dir
 
         yield TestClient(app)
 
@@ -234,11 +236,13 @@ class TestRunsIntegration:
             with patch("energizados.web.app.JobStore") as mock_store_class:
                 mock_store_class.return_value = store
 
-                with patch("energizados.web.app.RunManager") as mock_rm_class:
+                with (
+                    patch("energizados.web.app.RunManager") as mock_rm_class,
+                    patch("energizados.web.app._resolve_run_dir", return_value=temp_run_dir),
+                ):
                     mock_rm_instance = Mock()
                     mock_rm_class.return_value = mock_rm_instance
                     mock_rm_instance.get_run.return_value = run_metadata
-                    mock_rm_instance.run_dir.return_value = temp_run_dir
 
                     client = TestClient(app)
 

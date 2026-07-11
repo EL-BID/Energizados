@@ -28,7 +28,6 @@ class TestThresholdDataLoader:
         mock_run = Mock()
         mock_run.run_id = "test-run-123"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create evaluation report with threshold data
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -83,7 +82,8 @@ class TestThresholdDataLoader:
         # Import and test the function
         from energizados.web.app import _load_threshold_data
 
-        result = _load_threshold_data("test-run-123")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            result = _load_threshold_data("test-run-123")
 
         assert result is not None
         assert result["threshold_metrics"] is not None
@@ -99,7 +99,6 @@ class TestThresholdDataLoader:
         mock_run = Mock()
         mock_run.run_id = "ensemble-run-456"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create comparison.json (ensemble marker)
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -123,7 +122,8 @@ class TestThresholdDataLoader:
         # Import and test the function
         from energizados.web.app import _load_threshold_data
 
-        result = _load_threshold_data("ensemble-run-456")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            result = _load_threshold_data("ensemble-run-456")
 
         assert result is not None
         assert result["threshold_metrics"] is None  # No threshold data for ensembles
@@ -138,7 +138,6 @@ class TestThresholdDataLoader:
         mock_run = Mock()
         mock_run.run_id = "old-run-789"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create evaluation report WITHOUT threshold_metrics (old run)
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -162,7 +161,8 @@ class TestThresholdDataLoader:
         # Import and test the function
         from energizados.web.app import _load_threshold_data
 
-        result = _load_threshold_data("old-run-789")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            result = _load_threshold_data("old-run-789")
 
         assert result is not None
         # Should return nulls for missing data (graceful degradation)
@@ -177,7 +177,6 @@ class TestThresholdDataLoader:
         mock_run = Mock()
         mock_run.run_id = "partial-run-999"
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
 
         # Create evaluation report with threshold_metrics but NO cumulative_gains
         eval_dir = tmp_path / "reports" / "evaluation"
@@ -206,7 +205,8 @@ class TestThresholdDataLoader:
         # Import and test the function
         from energizados.web.app import _load_threshold_data
 
-        result = _load_threshold_data("partial-run-999")
+        with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
+            result = _load_threshold_data("partial-run-999")
 
         assert result is not None
         # Should have threshold_metrics but null cumulative_gains
@@ -218,7 +218,6 @@ class TestThresholdDataLoader:
         """Non-existent run should return None."""
         # Setup mock for non-existent run
         mock_run_manager.get_run.return_value = None
-        mock_run_manager.run_dir.return_value = None
 
         # Import and test the function
         from energizados.web.app import _load_threshold_data

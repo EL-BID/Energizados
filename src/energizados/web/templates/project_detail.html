@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% from "components/status_badge.html" import status_badge %}
+
+{% block title %}{{ project.name }} — Project{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Project header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2>📁 {{ project.name }}</h2>
+            <code class="small text-muted">{{ project.path }}</code>
+        </div>
+        <div>
+            <a href="/projects/{{ project.project_id }}/runs" class="btn btn-outline-secondary btn-sm">📊 Runs</a>
+            <a href="/projects/{{ project.project_id }}/dashboard" class="btn btn-outline-secondary btn-sm">📈 Dashboard</a>
+            <a href="/projects" class="btn btn-outline-secondary btn-sm">← All projects</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- YAML editor scoped to this project -->
+        <div class="col-md-6">
+            {% set submit_url = '/projects/' ~ project.project_id ~ '/jobs' %}
+            {% include "components/editor.html" %}
+        </div>
+        <div class="col-md-6">
+            <div id="validation-output">
+                <div class="alert alert-secondary">
+                    ℹ️ Submit a configuration to see validation results. Jobs run in
+                    <code>{{ project.path }}</code>.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent jobs (project-scoped) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h5>📋 Recent Jobs</h5>
+            <div id="project-job-list">
+                {% if jobs %}
+                <table class="table table-hover table-sm">
+                    <thead>
+                        <tr><th>Job ID</th><th>Type</th><th>Status</th><th>Run ID</th><th>Enqueued</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td>
+                                <a href="/projects/{{ project.project_id }}/jobs/{{ job.job_id }}">
+                                    <code class="small">{{ job.job_id[:16] }}…</code>
+                                </a>
+                            </td>
+                            <td>{{ job.config_type }}</td>
+                            <td>{{ status_badge(job.status.value) }}</td>
+                            <td><code class="small">{{ job.run_id or "—" }}</code></td>
+                            <td class="small">{{ job.enqueued_at[:19] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="alert alert-info">ℹ️ No jobs yet for this project.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent runs (project-scoped) -->
+    <div class="row mt-2">
+        <div class="col-12">
+            <h5>📊 Recent Runs</h5>
+            {% if runs %}
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr><th>Run ID</th><th>Status</th><th>AUC</th><th>F1</th></tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                    <tr>
+                        <td>
+                            <a href="/projects/{{ project.project_id }}/runs/{{ run.run_id }}">
+                                <code class="small">{{ run.run_id }}</code>
+                            </a>
+                        </td>
+                        <td>{{ status_badge(run.status) }}</td>
+                        <td>{{ "%.3f"|format(run.val_auc) if run.val_auc else "—" }}</td>
+                        <td>{{ "%.3f"|format(run.val_f1) if run.val_f1 else "—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-info">ℹ️ No runs yet for this project.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Load the project job list via HTMX shortly after page load.
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            htmx.ajax('get', '/projects/{{ project.project_id }}/jobs', {target: '#project-job-list'});
+        }, 100);
+    });
+</script>
+{% endblock %}

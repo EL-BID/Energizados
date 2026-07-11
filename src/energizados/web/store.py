@@ -7,6 +7,7 @@ Following web-job-runner spec: single source of truth for job state.
 
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,14 +27,23 @@ class JobStore:
     Thread-safe for web+worker concurrent access (WAL mode).
     """
 
-    def __init__(self, db_path: str = "data/web/jobs.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """
         Initialize JobStore with SQLite database.
+
+        Resolution order for ``db_path``:
+
+        1. Explicit argument (wins if provided).
+        2. ``ENERGIZADOS_JOBS_DB`` environment variable (set by the worker so
+           spawned child processes inherit the absolute DB path, which matters
+           because children ``os.chdir`` into a project directory before running).
+        3. Default ``data/web/jobs.db``.
 
         Args:
             db_path: Path to SQLite database file (created if missing)
         """
-        self.db_path = Path(db_path)
+        resolved = db_path or os.environ.get("ENERGIZADOS_JOBS_DB") or "data/web/jobs.db"
+        self.db_path = Path(resolved)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._ensure_schema()
 
@@ -67,9 +77,18 @@ class JobStore:
                     run_dir TEXT,
                     error TEXT,
                     retried_from TEXT,
+                    project_path TEXT,
                     FOREIGN KEY (retried_from) REFERENCES jobs(job_id)
                 )
                 """)
+
+            # Migrate jobs: add project_path column for existing DBs (Phase 1
+            # multi-project). Idempotent: only ALTERs if the column is missing.
+            jobs_columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            jobs_col_names = {c[1] for c in jobs_columns}
+            if "project_path" not in jobs_col_names:
+                logger.info("Migrating jobs: adding project_path TEXT column")
+                conn.execute("ALTER TABLE jobs ADD COLUMN project_path TEXT")
 
             # Migrate job_events: drop if percent is INTEGER (old schema from Phase 1)
             # Check if job_events table exists and has INTEGER percent column
@@ -118,17 +137,25 @@ class JobStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_job_events_job_seq ON job_events(job_id, seq)"
             )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_path)")
 
             conn.commit()
             logger.info(f"Schema initialized: {self.db_path}")
 
-    def create_job(self, config: Dict[str, Any], config_type: str) -> str:
+    def create_job(
+        self,
+        config: Dict[str, Any],
+        config_type: str,
+        project_path: Optional[str] = None,
+    ) -> str:
         """
         Create a new queued job.
 
         Args:
             config: Merged configuration dict (will be JSON-serialized)
             config_type: Config type ("etl" | "train" | "eda" | "infer")
+            project_path: Optional absolute path to the owning project. When
+                ``None`` the job belongs to the Global view.
 
         Returns:
             job_id: UUID-based job identifier
@@ -139,10 +166,17 @@ class JobStore:
         with self._get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO jobs (job_id, config, config_type, status, enqueued_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO jobs (job_id, config, config_type, status, enqueued_at, project_path)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, json.dumps(config), config_type, JobStatus.QUEUED.value, enqueued_at),
+                (
+                    job_id,
+                    json.dumps(config),
+                    config_type,
+                    JobStatus.QUEUED.value,
+                    enqueued_at,
+                    project_path,
+                ),
             )
             conn.commit()
             logger.info(f"Job created: {job_id} ({config_type})")
@@ -168,38 +202,52 @@ class JobStore:
         return JobRow.from_row(row)
 
     def list_jobs(
-        self, status_filter: Optional[JobStatus] = None, limit: int = 100
+        self,
+        status_filter: Optional[JobStatus] = None,
+        limit: int = 100,
+        project_path: Optional[str] = None,
     ) -> List[JobRow]:
         """
-        List jobs with optional status filter (FIFO ordered).
+        List jobs with optional status and project filters (FIFO ordered).
 
         Args:
             status_filter: Optional JobStatus filter
             limit: Maximum jobs to return (default 100)
+            project_path: Optional absolute project path to filter by. When
+                ``None`` (the default) NO project filter is applied and all
+                jobs are returned (the legacy Global view). When a concrete
+                path string is given, only jobs whose ``project_path`` matches
+                exactly are returned.
 
         Returns:
             List of JobRow ordered by enqueued_at DESC
         """
+        clauses: List[str] = []
+        params: List[Any] = []
+
+        if status_filter:
+            clauses.append("status = ?")
+            params.append(status_filter.value)
+
+        # project_path None -> no project filter (Global view = all jobs).
+        # A non-None string -> exact match on that project.
+        if project_path is not None:
+            clauses.append("project_path = ?")
+            params.append(project_path)
+
+        where = " AND ".join(clauses) if clauses else "1=1"
+        params.append(limit)
+
         with self._get_connection() as conn:
-            if status_filter:
-                rows = conn.execute(
-                    """
-                    SELECT * FROM jobs
-                    WHERE status = ?
-                    ORDER BY enqueued_at DESC
-                    LIMIT ?
-                    """,
-                    (status_filter.value, limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT * FROM jobs
-                    ORDER BY enqueued_at DESC
-                    LIMIT ?
-                    """,
-                    (limit,),
-                ).fetchall()
+            rows = conn.execute(
+                f"""
+                SELECT * FROM jobs
+                WHERE {where}
+                ORDER BY enqueued_at DESC
+                LIMIT ?
+                """,  # nosec B608 — clauses are static literals, params parameterized
+                tuple(params),
+            ).fetchall()
 
         return [JobRow.from_row(row) for row in rows]
 
@@ -318,7 +366,7 @@ class JobStore:
             logger.warning(f"Cannot retry job {job_id}: not terminal (status={job.status.value})")
             return None
 
-        new_job_id = self.create_job(job.config, job.config_type)
+        new_job_id = self.create_job(job.config, job.config_type, project_path=job.project_path)
 
         # Link to original job
         with self._get_connection() as conn:

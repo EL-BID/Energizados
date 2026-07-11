@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Projects — Energizados Web Console{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📁 Projects</h2>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#create-project-form">
+            ＋ Create Project
+        </button>
+    </div>
+
+    <!-- Create + Register forms (collapsible) -->
+    <div class="collapse mb-4" id="create-project-form">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h6 class="mb-0">Create new project</h6></div>
+                    <div class="card-body">
+                        <form action="/projects" method="post">
+                            <div class="mb-2">
+                                <label class="form-label">Project name</label>
+                                <input type="text" name="name" class="form-control" required placeholder="my-fraud-project">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Template</label>
+                                <select name="template" class="form-select">
+                                    <option value="default" selected>default</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">Create</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h6 class="mb-0">Register existing project</h6></div>
+                    <div class="card-body">
+                        <form action="/projects/register" method="post">
+                            <div class="mb-2">
+                                <label class="form-label">Absolute path</label>
+                                <input type="text" name="path" class="form-control" required placeholder="/path/to/existing/project">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Display name (optional)</label>
+                                <input type="text" name="name" class="form-control" placeholder="defaults to directory name">
+                            </div>
+                            <button type="submit" class="btn btn-secondary btn-sm">Register</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project cards -->
+    {% if projects %}
+    <div class="row">
+        {% for project in projects %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ project.name }}</h5>
+                    <p class="card-text small text-muted text-truncate">{{ project.path }}</p>
+                    <code class="small text-muted">{{ project.project_id }}</code>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="/projects/{{ project.project_id }}" class="btn btn-primary btn-sm">Open</a>
+                    <a href="/projects/{{ project.project_id }}/runs" class="btn btn-outline-secondary btn-sm">Runs</a>
+                    <a href="/projects/{{ project.project_id }}/dashboard" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        ℹ️ No projects registered yet. Create one above, or register an existing project directory.
+    </div>
+    {% endif %}
+
+    <hr class="my-4">
+    <p class="text-muted small">
+        <a href="/jobs">Global job list</a> · <a href="/runs">Global runs</a> · <a href="/dashboard">Global dashboard</a>
+    </p>
+</div>
+{% endblock %}

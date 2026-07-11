@@ -71,8 +71,26 @@
 <body>
     <div class="container main-container">
         <header class="mb-4">
-            <h1>Energizados Web Console</h1>
-            <p class="text-muted">Async job runner and web interface for Energizados ML framework</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>Energizados Web Console</h1>
+                    <p class="text-muted">Async job runner and web interface for Energizados ML framework</p>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        📁 Projects
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="/projects">All projects</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">Global view</h6></li>
+                        <li><a class="dropdown-item" href="/jobs">Global jobs</a></li>
+                        <li><a class="dropdown-item" href="/runs">Global runs</a></li>
+                        <li><a class="dropdown-item" href="/dashboard">Global dashboard</a></li>
+                    </ul>
+                </div>
+            </div>
         </header>
 
         {% block content %}{% endblock %}

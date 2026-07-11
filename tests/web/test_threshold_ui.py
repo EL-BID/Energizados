@@ -45,7 +45,6 @@ class TestThresholdUi:
         mock_run.output_paths = {}
 
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
         mock_run_manager.list_configs.return_value = []
 
         # Create evaluation report with threshold data
@@ -81,7 +80,10 @@ class TestThresholdUi:
         )
 
         # Mock the helper functions
-        with patch("energizados.web.app._load_run_evaluation") as mock_eval:
+        with (
+            patch("energizados.web.app._load_run_evaluation") as mock_eval,
+            patch("energizados.web.app._resolve_run_dir", return_value=tmp_path),
+        ):
             mock_eval.return_value = {
                 "metrics": {
                     "threshold": 0.5,
@@ -124,7 +126,6 @@ class TestThresholdUi:
         mock_run.output_paths = {}
 
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
         mock_run_manager.list_configs.return_value = []
 
         # Create evaluation report WITHOUT threshold_metrics
@@ -148,7 +149,10 @@ class TestThresholdUi:
         )
 
         # Mock the helper functions
-        with patch("energizados.web.app._load_run_evaluation") as mock_eval:
+        with (
+            patch("energizados.web.app._load_run_evaluation") as mock_eval,
+            patch("energizados.web.app._resolve_run_dir", return_value=tmp_path),
+        ):
             mock_eval.return_value = {
                 "metrics": {
                     "auc": 0.85,
@@ -191,7 +195,6 @@ class TestThresholdUi:
         mock_run.output_paths = {}
 
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
         mock_run_manager.list_configs.return_value = []
 
         # Create comparison.json (ensemble marker)
@@ -220,7 +223,10 @@ class TestThresholdUi:
         )
 
         # Mock the helper functions
-        with patch("energizados.web.app._load_run_evaluation") as mock_eval:
+        with (
+            patch("energizados.web.app._load_run_evaluation") as mock_eval,
+            patch("energizados.web.app._resolve_run_dir", return_value=tmp_path),
+        ):
             mock_eval.return_value = {
                 "ranking": [
                     {
@@ -267,7 +273,6 @@ class TestThresholdUi:
         mock_run.output_paths = {}
 
         mock_run_manager.get_run.return_value = mock_run
-        mock_run_manager.run_dir.return_value = tmp_path
         mock_run_manager.list_configs.return_value = []
 
         # Create evaluation report without threshold data
@@ -291,7 +296,10 @@ class TestThresholdUi:
         )
 
         # Mock the helper functions
-        with patch("energizados.web.app._load_run_evaluation") as mock_eval:
+        with (
+            patch("energizados.web.app._load_run_evaluation") as mock_eval,
+            patch("energizados.web.app._resolve_run_dir", return_value=tmp_path),
+        ):
             mock_eval.return_value = {
                 "metrics": {
                     "auc": 0.85,

@@ -169,7 +169,7 @@ class PipelineDirector:
 
         return pipeline
 
-    def run(self) -> Dict[str, Any]:
+    def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """
         Convenience method: builds and runs the pipeline, then performs post-run tasks.
 
@@ -179,13 +179,18 @@ class PipelineDirector:
 
         If pipeline fails, cleans up empty run directories.
 
+        Args:
+            progress_callback: Optional callback invoked with ProgressEvent objects,
+                forwarded to Pipeline.run. Used by the web worker to stream live
+                job progress to the SSE endpoint.
+
         Returns:
             Dict: Final context with pipeline results
         """
         pipeline = self.build()
 
         try:
-            result = pipeline.run()
+            result = pipeline.run(progress_callback=progress_callback)
         except Exception:
             # Clean up empty run directory on failure
             self._cleanup_failed_run()
