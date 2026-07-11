@@ -56,7 +56,39 @@
     </div>
 
     <!-- Project cards -->
-    {% if projects %}
+    {% if projects_with_stats %}
+    <div class="row">
+        {% for item in projects_with_stats %}
+        {% set project = item.project %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ project.name }}</h5>
+                    <p class="card-text small text-muted text-truncate">{{ project.path }}</p>
+                    <code class="small text-muted">{{ project.project_id }}</code>
+                    <div class="small text-muted mt-2">
+                        <span class="fw-bold">{{ item.run_count }} run{{ '' if item.run_count == 1 else 's' }}</span>
+                        {% if item.last_run %}
+                        · last:
+                        {% set lr = item.last_run %}
+                        <span class="badge {% if lr.status == 'success' %}bg-success{% elif lr.status == 'failed' %}bg-danger{% elif lr.status == 'partial' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ lr.status }}</span>
+                        {% if lr.val_auc is not none %} AUC <span class="fw-bold">{{ '%.2f'|format(lr.val_auc) }}</span>{% else %} AUC —{% endif %}
+                        {% else %}
+                        · last: —
+                        {% endif %}
+                        · <span class="fw-bold">queued: {{ item.queue_depth }}</span>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="/projects/{{ project.project_id }}" class="btn btn-primary btn-sm">Open</a>
+                    <a href="/projects/{{ project.project_id }}/runs" class="btn btn-outline-secondary btn-sm">Runs</a>
+                    <a href="/projects/{{ project.project_id }}/dashboard" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif projects %}
     <div class="row">
         {% for project in projects %}
         <div class="col-md-4 mb-3">

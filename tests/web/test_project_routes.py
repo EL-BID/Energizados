@@ -254,6 +254,172 @@ class TestGlobalViewStillWorks:
         r = client.get("/dashboard")
         assert r.status_code == 200
 
-    def test_root_route(self, client):
-        r = client.get("/")
+    def test_global_editor_route(self, client):
+        """GET /global renders the legacy global YAML editor + job list.
+
+        Phase 4 redirected ``GET /`` to ``/projects``, orphaning the global
+        editor (``index.html``). The dedicated ``/global`` route keeps it
+        reachable.
+        """
+        r = client.get("/global")
         assert r.status_code == 200
+        # The editor form (components/editor.html, included by index.html) is
+        # present — confirms the editor renders, not just a blank page.
+        assert "Pipeline Configuration (YAML)" in r.text
+
+    def test_root_route_redirects_to_projects(self, client):
+        """GET / now 302-redirects to /projects (projects home is the entry point)."""
+        r = client.get("/", follow_redirects=False)
+        assert r.status_code == 302
+        assert r.headers["location"] == "/projects"
+
+    def test_global_dashboard_uses_global_timeline_url(self, client):
+        """Regression guard: the global /dashboard references the global timeline URL."""
+        r = client.get("/dashboard")
+        assert r.status_code == 200
+        assert "/api/dashboard/timeline" in r.text
+        # Must NOT reference a project-scoped timeline URL
+        assert "/projects/" not in r.text.split("api/dashboard/timeline")[0].splitlines()[-1]
+
+    def test_project_dashboard_uses_project_timeline_url(self, client, project_service):
+        """The project dashboard wires the chart to the project-scoped timeline URL."""
+        project = _make_valid_project_on_disk(project_service, "proj-dash")
+        r = client.get(f"/projects/{project.project_id}/dashboard")
+        assert r.status_code == 200
+        # The embedded JS must reference the project-scoped timeline endpoint
+        assert f"/projects/{project.project_id}/api/dashboard/timeline" in r.text
+        # And the project-scoped run link base (RUNS_BASE const, no trailing slash)
+        assert f"/projects/{project.project_id}/runs" in r.text
+
+
+def _write_run_metadata(
+    run_dir, run_id, *, status="success", val_auc=0.9, val_f1=0.8, timestamp="2024-01-01T00:00:00Z"
+):
+    """Fabricate a run directory with run_metadata.json (mirrors RunManager output)."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "run_id": run_id,
+        "timestamp": timestamp,
+        "duration_seconds": 1.0,
+        "status": status,
+        "model_types": ["lightgbm"],
+        "val_auc": val_auc,
+        "val_f1": val_f1,
+        "feature_count": 5,
+        "energizados_version": "0.3.0",
+        "python_version": "3.10",
+        "git_commit": "",
+        "config_files": [],
+        "output_paths": {},
+    }
+    (run_dir / "run_metadata.json").write_text(json.dumps(metadata))
+    return run_dir
+
+
+class TestProjectsHomeStats:
+    """Item B — per-project card stats on the /projects home."""
+
+    def test_project_card_shows_run_count_last_run_and_queue_depth(self, client, project_service):
+        from energizados.web.store import JobStore
+
+        project = _make_valid_project_on_disk(project_service, "statme")
+        out = project.path / "output"
+        # Two runs — the second is the most recent (newer timestamp).
+        _write_run_metadata(
+            out / "train-20240101_120000",
+            "train-20240101_120000",
+            status="success",
+            val_auc=0.91,
+            val_f1=0.77,
+            timestamp="2024-01-01T12:00:00Z",
+        )
+        _write_run_metadata(
+            out / "train-20240201_120000",
+            "train-20240201_120000",
+            status="success",
+            val_auc=0.85,
+            val_f1=0.66,
+            timestamp="2024-02-01T12:00:00Z",
+        )
+        # One queued job for this project.
+        JobStore().create_job({"etl": {}}, "etl", project_path=str(project.path))
+
+        r = client.get("/projects")
+        assert r.status_code == 200
+        text = r.text
+        # Run count
+        assert "2 runs" in text
+        # Queue depth
+        assert "queued: 1" in text
+        # Last run AUC of the most-recent run (0.85)
+        assert "0.85" in text
+
+    def test_project_card_zero_state(self, client, project_service):
+        """A brand-new project shows 0 runs and queued: 0, no metrics."""
+        _make_valid_project_on_disk(project_service, "emptystats")
+        r = client.get("/projects")
+        assert r.status_code == 200
+        text = r.text
+        assert "0 runs" in text
+        assert "queued: 0" in text
+        # The empty metrics placeholder
+        assert "—" in text
+
+
+class TestJobDetailProjectLink:
+    """Item D — job_detail shows the owning project + project-scoped run link."""
+
+    def test_job_with_registered_project_shows_project_link(self, client, project_service):
+        from energizados.web.store import JobStore
+
+        project = _make_valid_project_on_disk(project_service, "joblink")
+        store = JobStore()
+        job_id = store.create_job({"train": {}}, "train", project_path=str(project.path))
+
+        r = client.get(f"/jobs/{job_id}")
+        assert r.status_code == 200
+        text = r.text
+        # Project deep link present
+        assert f'href="/projects/{project.project_id}"' in text
+        assert "joblink" in text
+
+    def test_global_job_shows_no_project_link(self, client):
+        from energizados.web.store import JobStore
+
+        store = JobStore()
+        # Global job — project_path=None — but with a run_id to render the run button.
+        job_id = store.create_job({"train": {}}, "train", project_path=None)
+        # Stamp a run_id so the "View Run Results" button renders.
+        with store._get_connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET run_id = ? WHERE job_id = ?",
+                ("train-global-1", job_id),
+            )
+            conn.commit()
+
+        r = client.get(f"/jobs/{job_id}")
+        assert r.status_code == 200
+        text = r.text
+        # No project section header/link for a global job
+        assert "Project:" not in text
+        # The run button points to the GLOBAL run route
+        assert 'href="/runs/train-global-1"' in text
+        # And NOT to a project-scoped route
+        assert "/projects/" not in text.split("View Run Results")[1].split("</a>")[0]
+
+    def test_job_with_project_uses_project_scoped_run_link(self, client, project_service):
+        from energizados.web.store import JobStore
+
+        project = _make_valid_project_on_disk(project_service, "jobrunlink")
+        store = JobStore()
+        job_id = store.create_job({"train": {}}, "train", project_path=str(project.path))
+        run_id = "train-scoped-1"
+        with store._get_connection() as conn:
+            conn.execute("UPDATE jobs SET run_id = ? WHERE job_id = ?", (run_id, job_id))
+            conn.commit()
+
+        r = client.get(f"/jobs/{job_id}")
+        assert r.status_code == 200
+        text = r.text
+        # Run button points to the PROJECT-scoped run route
+        assert f'href="/projects/{project.project_id}/runs/{run_id}"' in text

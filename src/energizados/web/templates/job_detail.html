@@ -28,6 +28,11 @@
         <div class="col-md-6">
             <h6 class="small text-uppercase text-muted mb-2">Execution</h6>
             <ul class="list-unstyled small">
+                {% if project_id %}
+                <li><strong>Project:</strong> <a href="/projects/{{ project_id }}">{{ project_name }}</a></li>
+                {% elif project_path %}
+                <li><strong>Project:</strong> <code>{{ project_path }}</code> <span class="text-muted">(unregistered)</span></li>
+                {% endif %}
                 {% if job.run_id %}
                 <li><strong>Run ID:</strong> <code>{{ job.run_id }}</code></li>
                 {% endif %}
@@ -52,9 +57,15 @@
 
     {% if job.run_id %}
     <div class="mt-3">
+        {% if project_id %}
+        <a href="/projects/{{ project_id }}/runs/{{ job.run_id }}" class="btn btn-sm btn-primary">
+            📊 View Run Results
+        </a>
+        {% else %}
         <a href="/runs/{{ job.run_id }}" class="btn btn-sm btn-primary">
             📊 View Run Results
         </a>
+        {% endif %}
     </div>
     {% endif %}
 

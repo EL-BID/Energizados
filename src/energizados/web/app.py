@@ -18,7 +18,13 @@ from typing import Any, Dict, List, Optional
 import yaml
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -321,10 +327,26 @@ async def _validate_request_config(request: Request, htmx_error_template: str) -
 @app.get("/")
 async def root(request: Request):
     """
-    Main page - render index.html (task 5.10).
+    Entry point — redirect to the projects home.
 
-    Returns:
-        HTML page with YAML editor and job list interface
+    The projects home (``/projects``) is the v0.4 entry point. The legacy
+    Global YAML editor that used to live here is kept reachable at ``/global``
+    (project-agnostic job creation); each project's detail page
+    (``/projects/{project_id}``) also hosts a project-scoped editor. The Global
+    job list, runs, and dashboard remain reachable from the nav at ``/jobs``,
+    ``/runs`` and ``/dashboard``.
+    """
+    return RedirectResponse(url="/projects", status_code=302)
+
+
+@app.get("/global")
+async def global_editor(request: Request):
+    """
+    Global YAML editor + job list (project-agnostic job creation).
+
+    The project-first home is at ``/`` (which redirects to ``/projects``); this
+    keeps the legacy global editor reachable. Renders ``index.html``, which
+    embeds ``components/editor.html`` and the global job list (POSTs to ``/jobs``).
     """
     return templates.TemplateResponse(request, "index.html", {})
 
@@ -524,7 +546,25 @@ async def get_job(job_id: str, request: Request):
     if "application/json" in accept:
         return job.to_dict()
 
-    return templates.TemplateResponse(request, "job_detail.html", {"job": job})
+    # Resolve the owning project (None for Global jobs or unregistered paths).
+    project_id = None
+    project_name = None
+    if job.project_path:
+        project = _project_service().get_by_path(Path(job.project_path))
+        if project is not None:
+            project_id = project.project_id
+            project_name = project.name
+
+    return templates.TemplateResponse(
+        request,
+        "job_detail.html",
+        {
+            "job": job,
+            "project_id": project_id,
+            "project_name": project_name,
+            "project_path": job.project_path,
+        },
+    )
 
 
 @app.post("/jobs/{job_id}/cancel")
@@ -1577,11 +1617,38 @@ def _require_project(project_id: str):
 @app.get("/projects")
 async def list_projects(request: Request):
     """
-    List all registered projects (card grid home).
+    List all registered projects (card grid home) with per-project stats.
+
+    Each card shows: run count, the most recent run's status + val_auc, and the
+    queue depth (QUEUED jobs) for that project's path.
     """
     ps = _project_service()
     projects = ps.list_projects()
-    return templates.TemplateResponse(request, "projects_list.html", {"projects": projects})
+    store = JobStore()
+
+    projects_with_stats = []
+    for project in projects:
+        manager = _run_manager_for(project.project_id, ps)
+        # list_runs() reads all run dirs from disk before applying the limit, so a
+        # large limit gives an accurate count at no extra I/O cost. TODO(v0.5):
+        # add a lightweight count() to RunManager to avoid per-project N+1 reads.
+        runs = manager.list_runs(limit=1000)
+        last_run = runs[0] if runs else None
+        queued = store.list_jobs(status_filter=JobStatus.QUEUED, project_path=str(project.path))
+        projects_with_stats.append(
+            {
+                "project": project,
+                "run_count": len(runs),
+                "last_run": last_run,
+                "queue_depth": len(queued),
+            }
+        )
+
+    return templates.TemplateResponse(
+        request,
+        "projects_list.html",
+        {"projects": projects, "projects_with_stats": projects_with_stats},
+    )
 
 
 @app.post("/projects")
@@ -1608,8 +1675,6 @@ async def create_project_route(request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
     # Redirect to the new project detail page
-    from fastapi.responses import RedirectResponse
-
     return RedirectResponse(
         url=f"/projects/{project.project_id}?{urlencode({'created': '1'})}",
         status_code=303,
@@ -1635,8 +1700,6 @@ async def register_project_route(request: Request):
         project = ps.register_existing(Path(raw_path), name=name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-    from fastapi.responses import RedirectResponse
 
     return RedirectResponse(url=f"/projects/{project.project_id}", status_code=303)
 

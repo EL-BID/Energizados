@@ -76,7 +76,22 @@
 {% endblock %}
 
 {% block extra_scripts %}
+{# Item A: scope the dashboard's fetch/click/redirect URLs to the project when
+   project_id is present in context; otherwise keep the legacy Global URLs. #}
+{% if project_id %}
+    {% set dash_base = '/projects/' ~ project_id ~ '/dashboard' %}
+    {% set timeline_url = '/projects/' ~ project_id ~ '/api/dashboard/timeline' %}
+    {% set runs_base = '/projects/' ~ project_id ~ '/runs' %}
+{% else %}
+    {% set dash_base = '/dashboard' %}
+    {% set timeline_url = '/api/dashboard/timeline' %}
+    {% set runs_base = '/runs' %}
+{% endif %}
 <script>
+const DASH_BASE = {{ dash_base | tojson }};
+const TIMELINE_URL = {{ timeline_url | tojson }};
+const RUNS_BASE = {{ runs_base | tojson }};
+
 function updateDashboard() {
     const status = document.getElementById('status-filter').value;
     const limit = document.getElementById('limit-input').value;
@@ -86,8 +101,8 @@ function updateDashboard() {
     if (status) params.append('status', status);
     if (limit) params.append('limit', limit);
 
-    // Navigate to dashboard with new parameters
-    window.location.href = `/dashboard?${params.toString()}`;
+    // Navigate to dashboard with new parameters (project-scoped or global)
+    window.location.href = `${DASH_BASE}?${params.toString()}`;
 }
 
 function loadTimelineChart() {
@@ -99,7 +114,7 @@ function loadTimelineChart() {
     params.append('limit', limit);
     if (status) params.append('status', status);
 
-    fetch(`/api/dashboard/timeline?${params.toString()}`)
+    fetch(`${TIMELINE_URL}?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
             // Hide loading indicator
@@ -151,12 +166,12 @@ function loadTimelineChart() {
 
             Plotly.newPlot('timeline-chart', [traceAUC, traceF1], layout, config);
 
-            // Add click handler to navigate to run detail
+            // Add click handler to navigate to run detail (project-scoped or global)
             document.getElementById('timeline-chart').on('plotly_click', function(data) {
                 const point = data.points[0];
                 const runId = point.data.customdata[point.pointNumber];
                 if (runId) {
-                    window.open(`/runs/${runId}`, '_blank');
+                    window.open(`${RUNS_BASE}/${runId}`, '_blank');
                 }
             });
         })
