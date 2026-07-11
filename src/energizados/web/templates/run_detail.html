@@ -12,6 +12,25 @@
             {{ status_badge(run.status) }}
         </div>
 
+        {% if project_id %}
+        <!-- Phase 3: Retrain + Inference actions (project-scoped only) -->
+        <div class="d-flex gap-2 mb-3">
+            <button class="btn btn-outline-primary btn-sm"
+                    hx-post="/projects/{{ project_id }}/runs/{{ run.run_id }}/retrain"
+                    hx-target="#phase3-action-result"
+                    hx-swap="innerHTML">
+                Retrain
+            </button>
+            <button class="btn btn-outline-primary btn-sm"
+                    hx-get="/projects/{{ project_id }}/runs/{{ run.run_id }}/inference"
+                    hx-target="#phase3-action-result"
+                    hx-swap="innerHTML">
+                Run inference
+            </button>
+        </div>
+        <div id="phase3-action-result"></div>
+        {% endif %}
+
         <!-- Metadata section -->
         <section class="mb-4">
             <h5>📋 Metadata</h5>

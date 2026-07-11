@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import energizados
-from energizados.api import RunManager, format_error, validate_dict
+from energizados.api import RunManager, format_error, merge_configs, validate_dict
 from energizados.core.exceptions import ETLDependencyError
 from energizados.core.pipeline import Pipeline
 from energizados.web.models import JobStatus
@@ -2036,6 +2036,367 @@ async def get_project_threshold_sweep(project_id: str, run_id: str):
     if not threshold_data:
         raise HTTPException(status_code=404, detail="Evaluation data not found")
     return threshold_data
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — Retrain + Inference UX (project-scoped)
+# ---------------------------------------------------------------------------
+
+
+def _eligible_inference_runs(manager: RunManager) -> List[Dict[str, str]]:
+    """Runs that can provide a trained model for inference.
+
+    A run is eligible when its metadata advertises ``output_paths.model`` and
+    its run directory still exists on disk.
+
+    Args:
+        manager: A project-scoped RunManager.
+
+    Returns:
+        List of ``{"run_id", "label"}`` dicts (most-recent first, as returned
+        by ``list_runs``).
+    """
+    eligible: List[Dict[str, str]] = []
+    for run in manager.list_runs(limit=100):
+        if not run.output_paths.get("model"):
+            continue
+        if not _resolve_run_dir(manager, run.run_id):
+            continue
+        model_types = getattr(run, "model_types", None) or []
+        label = f"{run.run_id} ({', '.join(model_types)})" if model_types else run.run_id
+        eligible.append({"run_id": run.run_id, "label": label})
+    return eligible
+
+
+def _list_processed_input_files(project_path: Path) -> List[str]:
+    """List non-recursive ``.parquet``/``.csv`` files under ``data/processed/``.
+
+    The directory is built from the trusted project path (no user input), so
+    there is no traversal risk in the listing itself; this returns
+    project-relative paths (e.g. ``data/processed/foo.parquet``).
+
+    Args:
+        project_path: Absolute path to the project root.
+
+    Returns:
+        Sorted list of project-relative input file paths. Empty if the
+        directory does not exist.
+    """
+    base = project_path / "data" / "processed"
+    if not base.is_dir():
+        return []
+    proj_resolved = Path(project_path).resolve()
+    files: List[str] = []
+    for entry in sorted(base.iterdir()):
+        if not entry.is_file():
+            continue
+        if entry.suffix.lower() not in (".parquet", ".csv"):
+            continue
+        try:
+            rel = entry.resolve().relative_to(proj_resolved)
+        except (ValueError, OSError):
+            continue
+        files.append(str(rel))
+    return files
+
+
+def _validate_processed_input_path(
+    project_path: Path, input_path: str, request: Request, is_htmx: bool
+) -> str:
+    """Validate that ``input_path`` is a file strictly under ``data/processed/``.
+
+    Args:
+        project_path: Absolute path to the project root.
+        input_path: Project-relative path submitted by the user.
+        request: The current request (for rendering an HTMX error fragment).
+        is_htmx: Whether the request is an HTMX request.
+
+    Returns:
+        The validated project-relative input path.
+
+    Raises:
+        HTTPException(400): For non-HTMX requests on any violation.
+        _HtmxErrorResponse: For HTMX requests (renders ``job_validation.html``).
+    """
+
+    def _fail(message: str) -> None:
+        if is_htmx:
+            _raise_htmx_error(request, "job_validation.html", errors=[message])
+        raise HTTPException(status_code=400, detail=message)
+
+    if not input_path:
+        _fail("input_path is required")
+    if ".." in input_path or input_path.startswith("/") or "\\" in input_path:
+        _fail("Invalid input path")
+
+    base = (project_path / "data" / "processed").resolve()
+    try:
+        target = (project_path / input_path).resolve()
+    except (OSError, ValueError):
+        _fail("Invalid input path")
+        return ""  # pragma: no cover - _fail always raises
+    try:
+        target.relative_to(base)
+    except ValueError:
+        _fail("Invalid input path")
+        return ""  # pragma: no cover - _fail always raises
+
+    if not target.is_file():
+        _fail("Input file not found")
+    return input_path
+
+
+@app.post("/projects/{project_id}/runs/{run_id}/retrain")
+async def retrain_from_run(request: Request, project_id: str, run_id: str):
+    """
+    Re-enqueue a run from its saved configs.
+
+    Reads every YAML file in ``<run_dir>/config/`` (typically ``etl.yaml`` +
+    ``train.yaml``), deep-merges them, validates the merged config as ``train``,
+    and enqueues a new job scoped to the project.
+
+    Execution semantics (verified against ``PipelineDirector.build`` /
+    ``ConfigPipelineBuilder``): ``config_type='train'`` is only a web-layer /
+    schema-validation label. The worker builds the pipeline from the merged
+    config DICT, and ``PipelineDirector.build`` adds a step for every ENABLED
+    section it finds — including ``etl:``. So retrain re-runs the run's full
+    effective merged config (ETL + split + train + evaluation), NOT training
+    alone. Caveat: because ETL re-runs, the run's original source/input files
+    must still be present; a run whose ETL used ``CleanFilesETL`` to delete its
+    own inputs may not be retrainable.
+    """
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    run = manager.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    run_dir = _resolve_run_dir(manager, run_id)
+    if not run_dir:
+        raise HTTPException(status_code=404, detail="Run directory not found")
+
+    is_htmx = request.headers.get("HX-Request") == "true"
+
+    config_dir = run_dir / "config"
+    config_names = _list_run_configs(run, manager)
+    if not config_names:
+        msg = "Run has no saved configs to retrain from"
+        if is_htmx:
+            _raise_htmx_error(request, "job_validation.html", errors=[msg])
+        raise HTTPException(status_code=400, detail=msg)
+
+    configs: List[Dict[str, Any]] = []
+    for name in config_names:
+        try:
+            with open(config_dir / name) as f:
+                parsed = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError) as e:
+            logger.warning(f"[retrain run {run_id}] Failed to read config '{name}': {e}")
+            msg = f"Failed to read config '{name}': {e}"
+            if is_htmx:
+                _raise_htmx_error(request, "job_validation.html", errors=[msg])
+            raise HTTPException(status_code=400, detail=msg)
+        if isinstance(parsed, dict):
+            configs.append(parsed)
+
+    if not configs:
+        msg = "Run has no saved configs to retrain from"
+        if is_htmx:
+            _raise_htmx_error(request, "job_validation.html", errors=[msg])
+        raise HTTPException(status_code=400, detail=msg)
+
+    merged = merge_configs(configs)
+
+    result = validate_dict(merged, "train")
+    if not result.is_valid:
+        errors = [e.message if hasattr(e, "message") else str(e) for e in result.errors]
+        if is_htmx:
+            _raise_htmx_error(request, "job_validation.html", errors=errors)
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+
+    # Security: enforce the same custom_class trust boundary as POST /jobs.
+    # The configs are disk-sourced (not user-typed), but the guard keeps the
+    # retrain path consistent with /jobs and the documented allowlist policy.
+    invalid_prefixes = _check_custom_class_prefixes(merged)
+    if invalid_prefixes:
+        allowed_prefixes = ["energizados.*", "src.*"]
+        if is_htmx:
+            _raise_htmx_error(
+                request,
+                "job_validation.html",
+                invalid_prefixes=invalid_prefixes,
+                allowed_prefixes=allowed_prefixes,
+            )
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "custom_class_prefix_validation",
+                "message": f"Disallowed custom_class prefixes: {invalid_prefixes}",
+                "invalid_prefixes": invalid_prefixes,
+                "allowed_prefixes": allowed_prefixes,
+            },
+        )
+
+    store = JobStore()
+    job_id = store.create_job(merged, "train", project_path=str(project.path))
+
+    if is_htmx:
+        return templates.TemplateResponse(
+            request,
+            "job_created.html",
+            {"job_id": job_id, "status": "queued", "config_type": "train"},
+            status_code=201,
+        )
+    return JSONResponse(
+        status_code=201,
+        content={
+            "job_id": job_id,
+            "status": "queued",
+            "config_type": "train",
+            "project_id": project.project_id,
+        },
+    )
+
+
+@app.get("/projects/{project_id}/runs/{run_id}/inference")
+async def inference_form(request: Request, project_id: str, run_id: str):
+    """
+    Render the inference form (HTMX fragment) or describe its data as JSON.
+
+    Lists runs eligible to provide a model (those with ``output_paths.model``
+    and an existing run dir) and the input files under the project's
+    ``data/processed/`` directory. The context ``run_id`` (from the URL) is the
+    default-selected model source when it is itself eligible.
+    """
+    project, ps = _require_project(project_id)
+    manager = _run_manager_for(project_id, ps)
+    run = manager.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    is_htmx = request.headers.get("HX-Request") == "true"
+
+    eligible_runs = _eligible_inference_runs(manager)
+    # Stable sort: bring the context run to the front if it is eligible.
+    eligible_runs.sort(key=lambda item: item["run_id"] != run_id)
+
+    input_files = _list_processed_input_files(project.path)
+
+    if not is_htmx:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "project_id": project.project_id,
+                "context_run_id": run_id,
+                "eligible_runs": eligible_runs,
+                "input_files": input_files,
+            },
+        )
+
+    return templates.TemplateResponse(
+        request,
+        "inference_form.html",
+        {
+            "project_id": project.project_id,
+            "context_run_id": run_id,
+            "eligible_runs": eligible_runs,
+            "input_files": input_files,
+            "threshold": 0.5,
+        },
+    )
+
+
+@app.post("/projects/{project_id}/inference")
+async def create_inference_job(request: Request, project_id: str):
+    """
+    Enqueue an inference job from a chosen trained run + input file.
+
+    Form fields: ``model_run_id`` (a run with a trained model), ``input_path``
+    (a file under ``data/processed/``), and ``threshold`` (float in [0, 1],
+    default 0.5). The ``model_path`` is built relative to the project cwd so the
+    worker (which ``os.chdir``s into the project) resolves it correctly.
+    ``feature_engineering_path`` is intentionally omitted: ``InferenceBuilder``
+    auto-detects ``feature_engineering.pkl`` from the model's directory.
+    """
+    project, ps = _require_project(project_id)
+    is_htmx = request.headers.get("HX-Request") == "true"
+
+    form = await request.form()
+    model_run_id = (form.get("model_run_id") or "").strip()
+    input_path = (form.get("input_path") or "").strip()
+    threshold_raw = (form.get("threshold") or "0.5").strip()
+
+    manager = _run_manager_for(project_id, ps)
+
+    def _fail(message: str) -> None:
+        if is_htmx:
+            _raise_htmx_error(request, "job_validation.html", errors=[message])
+        raise HTTPException(status_code=400, detail=message)
+
+    # Validate model_run_id: must reference a run with a trained model.
+    run = manager.get_run(model_run_id) if model_run_id else None
+    if run is None or not run.output_paths.get("model"):
+        reason = "run not found" if run is None else "run has no trained model artifact"
+        logger.warning(
+            f"[inference project {project.project_id}] model_run_id "
+            f"'{model_run_id}' ineligible: {reason}"
+        )
+        _fail("Selected run has no trained model")
+
+    # Validate input_path: must resolve strictly under data/processed/ and exist.
+    input_rel = _validate_processed_input_path(project.path, input_path, request, is_htmx)
+
+    # Validate threshold: float in [0, 1].
+    try:
+        threshold = float(threshold_raw)
+    except (TypeError, ValueError):
+        threshold = None
+    if threshold is None or threshold < 0.0 or threshold > 1.0:
+        _fail(f"threshold must be a float in [0, 1], got {threshold_raw!r}")
+
+    # Build the model path RELATIVE TO PROJECT CWD.
+    run_dir = _resolve_run_dir(manager, model_run_id)
+    if not run_dir:
+        _fail("Selected run directory not found")
+    model_abs = run_dir / run.output_paths["model"]
+    try:
+        model_rel = str(model_abs.relative_to(project.path))
+    except ValueError:
+        _fail("Model artifact is not located under the project directory")
+
+    infer_config = {
+        "infer": {
+            "enabled": True,
+            "model_path": model_rel,
+            "input_path": input_rel,
+            "threshold": threshold,
+        }
+    }
+
+    result = validate_dict(infer_config, "infer")
+    if not result.is_valid:
+        errors = [e.message if hasattr(e, "message") else str(e) for e in result.errors]
+        _fail("; ".join(errors))
+
+    store = JobStore()
+    job_id = store.create_job(infer_config, "infer", project_path=str(project.path))
+
+    if is_htmx:
+        return templates.TemplateResponse(
+            request,
+            "job_created.html",
+            {"job_id": job_id, "status": "queued", "config_type": "infer"},
+            status_code=201,
+        )
+    return JSONResponse(
+        status_code=201,
+        content={
+            "job_id": job_id,
+            "status": "queued",
+            "config_type": "infer",
+            "project_id": project.project_id,
+        },
+    )
 
 
 def _load_run_evaluations_batch_scoped(run_ids: List[str], manager: RunManager) -> Dict[str, Dict]:

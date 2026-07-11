@@ -1,0 +1,57 @@
+{% from "components/validation.html" import validation_errors with context %}
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5 class="card-title">Run inference</h5>
+        <p class="text-muted small mb-3">
+            Pick a trained model and an input file to enqueue an inference job.
+        </p>
+
+        {% if not eligible_runs %}
+        {{ validation_errors(["No trained runs available. Train a model first."]) }}
+        {% endif %}
+        {% if not input_files %}
+        {{ validation_errors(["No input files found under data/processed/."]) }}
+        {% endif %}
+
+        <form
+            hx-post="/projects/{{ project_id }}/inference"
+            hx-target="this"
+            hx-swap="outerHTML"
+        >
+            <div class="mb-3">
+                <label for="model_run_id" class="form-label">Model source (trained run)</label>
+                <select class="form-select" id="model_run_id" name="model_run_id"
+                        {% if not eligible_runs %}disabled{% endif %}>
+                    {% for item in eligible_runs %}
+                    <option value="{{ item.run_id }}"
+                        {% if item.run_id == context_run_id %}selected{% endif %}>
+                        {{ item.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="input_path" class="form-label">Input file</label>
+                <select class="form-select" id="input_path" name="input_path"
+                        {% if not input_files %}disabled{% endif %}>
+                    {% for path in input_files %}
+                    <option value="{{ path }}">{{ path }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="threshold" class="form-label">Threshold</label>
+                <input type="number" class="form-control" id="threshold" name="threshold"
+                       step="0.01" min="0" max="1" value="{{ threshold }}">
+            </div>
+
+            <button type="submit" class="btn btn-primary"
+                    {% if not eligible_runs or not input_files %}disabled{% endif %}>
+                Enqueue inference
+            </button>
+        </form>
+    </div>
+</div>
