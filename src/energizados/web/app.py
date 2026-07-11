@@ -9,6 +9,7 @@ Implements Phase 2 endpoints (runs list, detail, artifact serving) with security
 import asyncio
 import json
 import logging
+import re
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import energizados
 from energizados.api import RunManager, format_error, validate_dict
 from energizados.core.exceptions import ETLDependencyError
 from energizados.core.pipeline import Pipeline
@@ -611,6 +613,92 @@ async def list_runs_api():
     except Exception as e:
         logger.error(f"Error listing runs: {e}")
         return JSONResponse(status_code=500, content={"runs": [], "error": str(e)})
+
+
+# ============================================================================
+# Config templates API (config authoring — raw .tpl content, no substitution)
+# ============================================================================
+
+#: Strict filename guard for config-type identifiers served from a project's
+#: ``config/`` dir. Rejects path separators (``/``, ``\``), traversal (``..``),
+#: and any non-filename characters. ``^[A-Za-z0-9_]+$`` is intentionally narrow.
+_CONFIG_TYPE_RE = re.compile(r"^[A-Za-z0-9_]+$")
+
+#: Suffix of the shipped config templates (matches ``cli/init.py`` resolution).
+_CONFIG_TEMPLATE_SUFFIX = ".yaml.tpl"
+
+
+def _config_templates_dir() -> Path:
+    """
+    Resolve the shipped config-template directory.
+
+    Mirrors ``cli/init.py``'s ``_get_template_path``: the ``.yaml.tpl`` files
+    live under ``energizados/templates/config/`` inside the installed package.
+    """
+    return Path(energizados.__file__).resolve().parent / "templates" / "config"
+
+
+def _available_config_template_names() -> List[str]:
+    """
+    Enumerate the stems of the shipped ``.yaml.tpl`` config templates.
+
+    Returns the fixed set actually present on disk (e.g. ``["eda", "etl",
+    "infer", "train"]``), sorted. This set is the allowlist for
+    ``GET /api/templates/{name}`` — only these names are ever read, so the
+    endpoint never reads an arbitrary path.
+    """
+    tpl_dir = _config_templates_dir()
+    if not tpl_dir.is_dir():
+        logger.warning(f"Config templates dir not found: {tpl_dir}")
+        return []
+    return sorted(
+        p.name[: -len(_CONFIG_TEMPLATE_SUFFIX)]
+        for p in tpl_dir.glob(f"*{_CONFIG_TEMPLATE_SUFFIX}")
+        if p.is_file()
+    )
+
+
+@app.get("/api/templates")
+async def list_config_templates() -> Dict[str, List[str]]:
+    """
+    List the available config-template names (stems of the shipped ``.yaml.tpl``).
+
+    Returns:
+        ``{"templates": ["eda", "etl", "infer", "train"]}`` (order may vary).
+    """
+    return {"templates": _available_config_template_names()}
+
+
+@app.get("/api/templates/{name}")
+async def get_config_template(name: str) -> Response:
+    """
+    Serve a single config template's raw ``.tpl`` content as ``text/yaml``.
+
+    Security: ``name`` MUST be in the fixed set of shipped template stems
+    (derived from the package's ``templates/config/`` dir). Anything else —
+    including traversal like ``..`` or ``foo/bar`` — returns 404. No arbitrary
+    file is ever read; only ``<templates_dir>/<name>.yaml.tpl`` for a known
+    ``name``.
+
+    The content is returned RAW (no ``{{project_name}}`` substitution) — config
+    templates are plain YAML the user edits after loading.
+    """
+    valid_names = set(_available_config_template_names())
+    if name not in valid_names:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    tpl_dir = _config_templates_dir().resolve()
+    target = (tpl_dir / f"{name}{_CONFIG_TEMPLATE_SUFFIX}").resolve()
+    # Defense-in-depth: the resolved path must live inside the templates dir
+    # (guards against any future escape via the stem).
+    try:
+        target.relative_to(tpl_dir)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return Response(content=target.read_text(), media_type="text/yaml")
 
 
 # ============================================================================
@@ -1575,6 +1663,47 @@ async def project_detail(request: Request, project_id: str):
             "submit_url": f"/projects/{project.project_id}/jobs",
         },
     )
+
+
+@app.get("/projects/{project_id}/config/{type}")
+async def get_project_config(project_id: str, type: str):
+    """
+    Serve a project's real ``config/{type}.yaml`` as ``text/yaml``.
+
+    Used by the editor's "Load from project config" control to prefill the YAML
+    textarea with the project's actual config file.
+
+    Security (layered):
+        1. ``project_id`` resolved via ``_require_project`` (404 if unknown).
+        2. ``type`` must match ``^[A-Za-z0-9_]+$`` — rejects ``/``, ``\\``,
+           ``..``, dots, and any non-filename character (404 otherwise).
+        3. The resolved path is anchored under the project's ``config/`` dir
+           via ``relative_to`` (defense-in-depth against symlink escapes).
+        4. 404 if the file does not exist (no directory listing).
+
+    Args:
+        project_id: URL-safe project slug.
+        type: Config basename (without ``.yaml``), e.g. ``etl``, ``train``.
+
+    Returns:
+        ``FileResponse`` with ``media_type="text/yaml"``.
+    """
+    project, _ = _require_project(project_id)
+
+    if not _CONFIG_TYPE_RE.match(type):
+        raise HTTPException(status_code=404, detail="Invalid config type")
+
+    config_dir = (Path(project.path) / "config").resolve()
+    target = (config_dir / f"{type}.yaml").resolve()
+    try:
+        target.relative_to(config_dir)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Config not found")
+
+    return FileResponse(target, media_type="text/yaml")
 
 
 @app.get("/projects/{project_id}/jobs")
