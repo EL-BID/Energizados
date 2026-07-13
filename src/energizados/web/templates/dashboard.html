@@ -7,70 +7,65 @@
     .chart-container {
         height: 500px;
         margin: 20px 0;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-lg);
         padding: 15px;
-        background-color: white;
+        background-color: var(--app-surface);
     }
     .empty-state {
         text-align: center;
         padding: 60px 20px;
-        color: #6c757d;
+        color: var(--app-muted);
     }
     .empty-state h3 {
         margin-bottom: 20px;
-        color: #495057;
+        color: var(--app-text);
     }
     .filter-section {
         margin-bottom: 20px;
         padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 6px;
+        background-color: var(--app-surface-2);
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-md);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h2 class="mb-4">📈 Metrics Timeline Dashboard</h2>
+<h2 class="app-hero__title mb-4">📈 Metrics Timeline Dashboard</h2>
 
-            <!-- Filter Section -->
-            <div class="filter-section">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <label for="status-filter" class="form-label">Status Filter:</label>
-                        <select id="status-filter" class="form-select" onchange="updateDashboard()">
-                            <option value="">All Statuses</option>
-                            <option value="success" {% if status == 'success' %}selected{% endif %}>Success</option>
-                            <option value="partial" {% if status == 'partial' %}selected{% endif %}>Partial</option>
-                            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="limit-input" class="form-label">Show Last:</label>
-                        <input type="number" id="limit-input" class="form-control" value="{{ limit }}" min="1" max="100" onchange="updateDashboard()">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Timeline Chart -->
-            <div class="chart-container">
-                <div id="timeline-chart"></div>
-                <div id="chart-loading" class="text-center text-muted mt-5">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Loading timeline data...</p>
-                </div>
-                <div id="chart-empty" class="empty-state" style="display: none;">
-                    <h3>No runs available</h3>
-                    <p>There are no runs to display. Try adjusting your filters or run some experiments first.</p>
-                    <a href="/" class="btn btn-primary">Go to Home</a>
-                </div>
-            </div>
+<!-- Filter Section -->
+<div class="filter-section">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <label for="status-filter" class="form-label">Status Filter:</label>
+            <select id="status-filter" class="form-select" onchange="updateDashboard()">
+                <option value="">All Statuses</option>
+                <option value="success" {% if status == 'success' %}selected{% endif %}>Success</option>
+                <option value="partial" {% if status == 'partial' %}selected{% endif %}>Partial</option>
+                <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
+            </select>
         </div>
+        <div class="col-md-6">
+            <label for="limit-input" class="form-label">Show Last:</label>
+            <input type="number" id="limit-input" class="form-control" value="{{ limit }}" min="1" max="100" onchange="updateDashboard()">
+        </div>
+    </div>
+</div>
+
+<!-- Timeline Chart -->
+<div class="chart-container">
+    <div id="timeline-chart"></div>
+    <div id="chart-loading" class="text-center text-muted mt-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading timeline data...</p>
+    </div>
+    <div id="chart-empty" class="empty-state" style="display: none;">
+        <h3>No runs available</h3>
+        <p>There are no runs to display. Try adjusting your filters or run some experiments first.</p>
+        <a href="/" class="btn btn-primary">Go to Home</a>
     </div>
 </div>
 {% endblock %}
@@ -91,6 +86,15 @@
 const DASH_BASE = {{ dash_base | tojson }};
 const TIMELINE_URL = {{ timeline_url | tojson }};
 const RUNS_BASE = {{ runs_base | tojson }};
+
+// Resolve a design token to its computed value, with a hex fallback so the
+// chart still renders if the var is ever missing.
+function readAppVar(name, fallback) {
+    try {
+        var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    } catch (e) { return fallback; }
+}
 
 function updateDashboard() {
     const status = document.getElementById('status-filter').value;
@@ -114,6 +118,12 @@ function loadTimelineChart() {
     params.append('limit', limit);
     if (status) params.append('status', status);
 
+    // Theme-aware chart palette (reads the active token set, so dark mode adapts).
+    const colorAuc = readAppVar('--app-success', '#10b981');
+    const colorF1 = readAppVar('--app-primary', '#6366f1');
+    const colorText = readAppVar('--app-text', '#0f172a');
+    const colorGrid = readAppVar('--app-border', '#e2e8f0');
+
     fetch(`${TIMELINE_URL}?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
@@ -132,7 +142,7 @@ function loadTimelineChart() {
                 y: data.auc,
                 name: 'AUC',
                 mode: 'lines+markers',
-                line: {color: '#28a745'},
+                line: {color: colorAuc},
                 customdata: data.run_ids,
             };
 
@@ -141,19 +151,28 @@ function loadTimelineChart() {
                 y: data.f1,
                 name: 'F1',
                 mode: 'lines+markers',
-                line: {color: '#007bff'},
+                line: {color: colorF1},
                 customdata: data.run_ids,
             };
 
             const layout = {
                 title: 'Metrics Evolution Over Time',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: colorText },
                 xaxis: {
                     title: 'Timestamp',
                     automargin: true,
+                    gridcolor: colorGrid,
+                    linecolor: colorGrid,
+                    zerolinecolor: colorGrid,
                 },
                 yaxis: {
                     title: 'Score',
                     range: [0, 1],
+                    gridcolor: colorGrid,
+                    linecolor: colorGrid,
+                    zerolinecolor: colorGrid,
                 },
                 hovermode: 'closest',
                 margin: {l: 50, r: 50, t: 50, b: 100},

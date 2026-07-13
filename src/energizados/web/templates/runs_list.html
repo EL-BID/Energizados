@@ -4,53 +4,55 @@
 {% block title %}Runs — Energizados Web Console{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>📊 Runs History</h2>
+<h2 class="app-hero__title mb-3">📊 Runs History</h2>
 
-    <!-- Filter controls -->
-    <div class="mb-3">
-        <a href="/runs?status=success" class="btn btn-sm btn-outline-success">✅ Success</a>
-        <a href="/runs?status=partial" class="btn btn-sm btn-outline-warning">⚠️ Partial</a>
-        <a href="/runs?status=failed" class="btn btn-sm btn-outline-danger">❌ Failed</a>
-        <a href="/runs" class="btn btn-sm btn-outline-secondary">🔄 All</a>
-    </div>
-
-    <!-- Table -->
-    {% if runs %}
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Run ID</th>
-                <th>Status</th>
-                <th>Models</th>
-                <th>AUC</th>
-                <th>F1</th>
-                <th>Duration</th>
-                <th>Timestamp</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for run in runs %}
-            <tr>
-                <td><code class="small">{{ run.run_id }}</code></td>
-                <td>{{ status_badge(run.status) }}</td>
-                <td>{{ run.model_types|join(", ") }}</td>
-                <td>{{ "%.3f"|format(run.val_auc) if run.val_auc else "—" }}</td>
-                <td>{{ "%.3f"|format(run.val_f1) if run.val_f1 else "—" }}</td>
-                <td>{{ "%.1f"|format(run.duration_seconds) }}s</td>
-                <td class="small">{{ run.timestamp[:19] }} UTC</td>
-                <td>
-                    <a href="/runs/{{ run.run_id }}" class="btn btn-sm btn-primary">
-                        👁️ View
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="alert alert-info">ℹ️ No runs found.</div>
-    {% endif %}
+<!-- Filter controls -->
+<div class="mb-3">
+    <a href="/runs?status=success" class="btn btn-sm btn-outline-success">✅ Success</a>
+    <a href="/runs?status=partial" class="btn btn-sm btn-outline-warning">⚠️ Partial</a>
+    <a href="/runs?status=failed" class="btn btn-sm btn-outline-danger">❌ Failed</a>
+    <a href="/runs" class="btn btn-sm btn-outline-secondary">🔄 All</a>
 </div>
+
+<!-- Table -->
+{% if runs %}
+<section class="app-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Run ID</th>
+                    <th>Status</th>
+                    <th>Models</th>
+                    <th>AUC</th>
+                    <th>F1</th>
+                    <th>Duration</th>
+                    <th>Timestamp</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td><code class="small">{{ run.run_id }}</code></td>
+                    <td>{{ status_badge(run.status) }}</td>
+                    <td>{{ run.model_types|join(", ") }}</td>
+                    <td>{{ "%.3f"|format(run.val_auc) if run.val_auc else "—" }}</td>
+                    <td>{{ "%.3f"|format(run.val_f1) if run.val_f1 else "—" }}</td>
+                    <td>{{ "%.1f"|format(run.duration_seconds) }}s</td>
+                    <td class="small">{{ run.timestamp[:19] }} UTC</td>
+                    <td>
+                        <a href="/runs/{{ run.run_id }}" class="btn btn-sm btn-primary">
+                            👁️ View
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<div class="app-empty">ℹ️ No runs found.</div>
+{% endif %}
 {% endblock %}

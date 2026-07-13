@@ -3,20 +3,20 @@
 {% block title %}Compare Runs{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>📊 Compare Runs</h1>
+<h1 class="app-hero__title mb-3">📊 Compare Runs</h1>
 
-    <div class="mb-3">
-        <a href="/runs" class="btn btn-secondary">← Back to Runs</a>
-        <button id="download-csv" class="btn btn-success float-end">Download CSV</button>
-    </div>
+<div class="mb-3">
+    <a href="/runs" class="btn btn-outline-secondary">← Back to Runs</a>
+    <button id="download-csv" class="btn btn-success float-end">Download CSV</button>
+</div>
 
-    {# Server-rendered comparison table (values must appear in the HTML response,
-       not injected by client-side JS, so the page is usable without JS and
-       testable via the response body). #}
+{# Server-rendered comparison table (values must appear in the HTML response,
+   not injected by client-side JS, so the page is usable without JS and
+   testable via the response body). #}
+<section class="app-card">
     <div class="table-responsive">
-        <table class="table table-hover" id="comparison-table">
-            <thead class="table-dark">
+        <table class="table table-hover align-middle mb-0" id="comparison-table">
+            <thead>
                 <tr>
                     <th>Run ID</th>
                     <th>Model(s)</th>
@@ -50,35 +50,37 @@
             </tbody>
         </table>
     </div>
+</section>
 
-    {# Per-run ensemble ranking tables (multi-model runs only). #}
-    {% for run in runs %}
-    {% if run.is_multi and run.evaluation.ranking %}
-    <div class="mt-4 p-3 border rounded bg-light">
-        <h6>Ensemble Ranking: {{ run.run_id }}</h6>
-        <table class="table table-sm table-bordered">
-            <thead>
-                <tr><th>Rank</th><th>Model</th><th>AUC</th><th>F1</th></tr>
-            </thead>
-            <tbody>
-                {% for model in run.evaluation.ranking %}
-                {% set mm = model.metrics or {} %}
-                <tr>
-                    <td>{{ loop.index }}</td>
-                    <td>{{ model.name }}</td>
-                    <td>{{ format_metric(mm.get("auc"), None, run.run_id) }}</td>
-                    <td>{{ format_metric(mm.get("f1"), None, run.run_id) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+{# Per-run ensemble ranking tables (multi-model runs only). #}
+{% for run in runs %}
+{% if run.is_multi and run.evaluation.ranking %}
+<section class="app-card mt-4">
+    <div class="app-card__header">
+        <h3 class="app-card__title app-card__title--sm">Ensemble Ranking: {{ run.run_id }}</h3>
     </div>
-    {% endif %}
-    {% endfor %}
+    <table class="table table-sm mb-0">
+        <thead>
+            <tr><th>Rank</th><th>Model</th><th>AUC</th><th>F1</th></tr>
+        </thead>
+        <tbody>
+            {% for model in run.evaluation.ranking %}
+            {% set mm = model.metrics or {} %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ model.name }}</td>
+                <td>{{ format_metric(mm.get("auc"), None, run.run_id) }}</td>
+                <td>{{ format_metric(mm.get("f1"), None, run.run_id) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% endfor %}
 
-    {# JSON data island for client-side CSV export (table itself is server-rendered). #}
-    <script id="comparison-data" type="application/json">{{ comparison_json | safe }}</script>
-</div>
+{# JSON data island for client-side CSV export (table itself is server-rendered). #}
+<script id="comparison-data" type="application/json">{{ comparison_json | safe }}</script>
 
 <script>
 document.getElementById('download-csv').addEventListener('click', function() {

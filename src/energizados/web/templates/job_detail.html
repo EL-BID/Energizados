@@ -14,8 +14,8 @@
 
     <div class="row mt-3">
         <div class="col-md-6">
-            <h6 class="small text-uppercase text-muted mb-2">Timeline</h6>
-            <ul class="list-unstyled small">
+            <h6 class="app-subtitle mb-2">Timeline</h6>
+            <ul class="list-unstyled small mb-0">
                 <li><strong>Enqueued:</strong> {{ job.enqueued_at[:19] }} UTC</li>
                 {% if job.started_at %}
                 <li><strong>Started:</strong> {{ job.started_at[:19] }} UTC</li>
@@ -26,8 +26,8 @@
             </ul>
         </div>
         <div class="col-md-6">
-            <h6 class="small text-uppercase text-muted mb-2">Execution</h6>
-            <ul class="list-unstyled small">
+            <h6 class="app-subtitle mb-2">Execution</h6>
+            <ul class="list-unstyled small mb-0">
                 {% if project_id %}
                 <li><strong>Project:</strong> <a href="/projects/{{ project_id }}">{{ project_name }}</a></li>
                 {% elif project_path %}
@@ -48,9 +48,9 @@
 
     {% if job.error %}
     <div class="mt-3">
-        <h6 class="small text-uppercase text-danger mb-2">Error</h6>
-        <div class="alert alert-danger small">
-            <pre class="mb-0">{{ job.error|tojson(indent=2) }}</pre>
+        <h6 class="app-subtitle text-danger mb-2">Error</h6>
+        <div class="alert alert-danger small mb-0">
+            <pre class="mb-0 font-mono">{{ job.error|tojson(indent=2) }}</pre>
         </div>
     </div>
     {% endif %}
@@ -71,7 +71,7 @@
 
     {% if not job.is_terminal() %}
     <div class="mt-3" id="live-progress-section">
-        <h6 class="small text-uppercase text-muted mb-2">Live Progress</h6>
+        <h6 class="app-subtitle mb-2">Live Progress</h6>
         <ul id="progress-log" class="list-unstyled small text-muted"></ul>
         <div id="progress-unsupported" class="alert alert-warning small d-none">
             Live progress is not supported in this browser.
@@ -116,10 +116,10 @@
     {% endif %}
 
     <div class="mt-3">
-        <h6 class="small text-uppercase text-muted mb-2">Configuration</h6>
+        <h6 class="app-subtitle mb-2">Configuration</h6>
         <details>
-            <summary class="small pointer">View full config</summary>
-            <pre class="small bg-light p-2 mt-2">{{ job.config|tojson(indent=2) }}</pre>
+            <summary class="small">View full config</summary>
+            <pre class="small bg-body-tertiary p-2 mt-2 mb-0 font-mono">{{ job.config|tojson(indent=2) }}</pre>
         </details>
     </div>
 </div>

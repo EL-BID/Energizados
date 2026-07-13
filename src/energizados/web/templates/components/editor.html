@@ -1,9 +1,8 @@
-<div class="card editor-section">
-    <div class="card-header">
-        <h5 class="mb-0">📝 Pipeline Configuration (YAML)</h5>
+<section class="app-card editor-section">
+    <div class="app-card__header">
+        <h2 class="app-card__title">📝 Pipeline Configuration (YAML)</h2>
     </div>
-    <div class="card-body">
-        <form hx-post="{{ submit_url | default('/jobs') }}" hx-target="#validation-output" hx-swap="innerHTML">
+    <form hx-post="{{ submit_url | default('/jobs') }}" hx-target="#validation-output" hx-swap="innerHTML">
             <div class="mb-3">
                 <label for="config-type" class="form-label">Configuration Type</label>
                 <select name="config_type" id="config-type" class="form-select" required>
@@ -102,7 +101,7 @@ train:
 
             <button
                 type="button"
-                class="btn btn-secondary btn-lg"
+                class="btn btn-outline-secondary btn-lg"
                 hx-post="/plan"
                 hx-target="#validation-output"
                 hx-vals='js:{"yaml_content": document.getElementById("yaml-content").value, "config_type": document.getElementById("config-type").value}'
@@ -111,8 +110,7 @@ train:
                 👁️ Preview Plan
             </button>
         </form>
-    </div>
-</div>
+</section>
 
 <script>
     // File upload handler - populates textarea when file is selected
