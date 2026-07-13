@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- **Web: domain model** — Framework-core and web-console bounded contexts documented as ubiquitous-language glossaries (`src/energizados/CONTEXT.md`, `src/energizados/web/CONTEXT.md`) bound by a repo `CONTEXT-MAP.md`, plus three web-console ADRs (generalized run, deprecating the Global scope, run-level lineage).
+- **Web: domain model** — Framework-core and web-console bounded contexts documented as ubiquitous-language glossaries with a context map, unified in the repo-root `CONTEXT.md`, plus three web-console ADRs (generalized run, deprecating the Global scope, run-level lineage).
 
 ## [0.3.0] - 2026-07-10
 

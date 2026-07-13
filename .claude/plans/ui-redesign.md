@@ -1,7 +1,7 @@
 # UI Redesign — Web Console
 
 Goal: lift the web console UI into a clean, modern data-app, grounded in the
-domain model (`src/energizados/CONTEXT.md`, `src/energizados/web/CONTEXT.md`).
+domain model (`CONTEXT.md`).
 The UI hangs off the model, not the other way around.
 
 ## Design system (Foundation)

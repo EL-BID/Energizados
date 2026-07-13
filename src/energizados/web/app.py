@@ -1744,7 +1744,7 @@ async def register_project_route(request: Request):
 
 
 # Canonical Run-type buckets shown on the project hero page. The console groups
-# Jobs and Runs by Run type (web/CONTEXT.md). Run type is derived from the
+# Jobs and Runs by Run type (CONTEXT.md, Web Console). Run type is derived from the
 # producing Job's ``config_type``: run dirs themselves are not type-specific
 # (RunManager prefixes every auto-named run with "train-" — see ADR-0001), so
 # the Job→Run join via ``run_id`` is the authoritative type signal.
