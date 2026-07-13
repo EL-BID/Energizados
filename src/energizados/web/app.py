@@ -1726,26 +1726,91 @@ async def register_project_route(request: Request):
     return RedirectResponse(url=f"/projects/{project.project_id}", status_code=303)
 
 
+# Canonical Run-type buckets shown on the project hero page. The console groups
+# Jobs and Runs by Run type (web/CONTEXT.md). Run type is derived from the
+# producing Job's ``config_type``: run dirs themselves are not type-specific
+# (RunManager prefixes every auto-named run with "train-" — see ADR-0001), so
+# the Job→Run join via ``run_id`` is the authoritative type signal.
+_RUN_TYPE_BUCKETS = ("etl", "eda", "inference", "training")
+
+
+def _config_type_to_run_type(config_type: Optional[str]) -> str:
+    """Map a Job ``config_type`` to a canonical Run-type bucket.
+
+    ``config_type`` is a validation label (etl / train / eda / infer). Unknown
+    values default to ``training`` — the dominant run type in practice, and the
+    prefix RunManager falls back to for auto-named run dirs.
+    """
+    mapping = {"etl": "etl", "eda": "eda", "infer": "inference", "train": "training"}
+    ct = (config_type or "").strip().lower()
+    return mapping.get(ct, "training")
+
+
 @app.get("/projects/{project_id}")
 async def project_detail(request: Request, project_id: str):
-    """
-    Per-project dashboard: project header + job list + runs/dashboard links +
-    a YAML editor scoped to the project.
+    """Project hero page: the at-a-glance landing for a Project.
+
+    Sections: header with key counts, Jobs/Runs grouped by Run type, the latest
+    training summary (metrics + model types), and a lineage placeholder. The
+    YAML editor scoped to the project remains available further down the page.
     """
     project, ps = _require_project(project_id)
     store = JobStore()
-    jobs = store.list_jobs(project_path=str(project.path), limit=20)
+    # Wider window than the old limit=20 so the type-grouped tables have enough
+    # context; each table is capped in the template.
+    jobs = store.list_jobs(project_path=str(project.path), limit=100)
     manager = _run_manager_for(project_id, ps)
-    runs = manager.list_runs(limit=20)
+    runs = manager.list_runs(limit=100)
+
+    # Authoritative run-type signal: the producing Job's config_type, joined via
+    # run_id. Falls back to "training" for runs with no matching job row (e.g.
+    # CLI-created runs) since auto-named run dirs default to the "train-" prefix.
+    run_type_by_run_id = {j.run_id: j.config_type for j in jobs if j.run_id}
+
+    def _run_type(run) -> str:
+        return _config_type_to_run_type(run_type_by_run_id.get(run.run_id))
+
+    job_groups = {bucket: [] for bucket in _RUN_TYPE_BUCKETS}
+    for job in jobs:
+        job_groups[_config_type_to_run_type(job.config_type)].append(job)
+
+    run_groups = {bucket: [] for bucket in _RUN_TYPE_BUCKETS}
+    for run in runs:
+        run_groups[_run_type(run)].append(run)
+
+    # Latest training run + its evaluation summary. Full metrics (incl. precision
+    # and recall) live in the evaluation report loaded by _load_run_evaluation;
+    # RunMetadata only carries val_auc / val_f1.
+    latest_training = next((r for r in runs if _run_type(r) == "training"), None)
+    latest_training_eval = (
+        _load_run_evaluation(latest_training.run_id, manager)
+        if latest_training is not None
+        else None
+    )
+    latest_job = jobs[0] if jobs else None
+
     return templates.TemplateResponse(
         request,
         "project_detail.html",
         {
             "project": project,
             "project_id": project.project_id,
-            "jobs": jobs,
-            "runs": runs,
+            # Preserved keys (backward-compat data contract):
+            "jobs": jobs[:20],
+            "runs": runs[:20],
             "submit_url": f"/projects/{project.project_id}/jobs",
+            # Hero additions:
+            "job_groups": job_groups,
+            "run_groups": run_groups,
+            "run_type_buckets": _RUN_TYPE_BUCKETS,
+            "latest_training": latest_training,
+            "latest_training_eval": latest_training_eval,
+            "latest_job": latest_job,
+            "jobs_total": len(jobs),
+            "runs_total": len(runs),
+            # derived_from (Run→Run retrain lineage) is not yet persisted
+            # (ADR-0003 deferred). The hero renders a muted placeholder.
+            "lineage_available": False,
         },
     )
 

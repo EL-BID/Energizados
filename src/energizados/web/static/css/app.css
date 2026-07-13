@@ -370,3 +370,123 @@ a:hover { color: var(--bs-link-hover-color); }
   font-family: var(--app-font-mono);
   min-height: 300px;
 }
+
+/* ============================================================
+ * Project hero (project_detail.html) — token-grounded helpers
+ * Extends the .app-* shell vocabulary (not a parallel system).
+ * ============================================================ */
+.app-hero {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  padding: var(--app-space-5);
+  box-shadow: var(--app-shadow-sm);
+}
+.app-hero__title { font-size: 1.5rem; font-weight: 700; margin: 0; line-height: 1.15; }
+.app-hero__path {
+  display: block;
+  font-family: var(--app-font-mono);
+  font-size: .82rem;
+  color: var(--app-muted);
+  word-break: break-all;
+  margin-top: var(--app-space-1);
+}
+.app-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-5);
+  margin-top: var(--app-space-5);
+  padding-top: var(--app-space-4);
+  border-top: 1px solid var(--app-border);
+}
+.app-stat { display: flex; flex-direction: column; gap: var(--app-space-1); min-width: 120px; }
+.app-stat__value { font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
+.app-stat__label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--app-muted);
+}
+
+.app-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  padding: var(--app-space-4) var(--app-space-5);
+  box-shadow: var(--app-shadow-sm);
+}
+.app-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-3);
+}
+.app-card__title { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.app-card__title--sm { font-size: .98rem; }
+.app-card__link { font-size: .85rem; }
+.app-card__count { font-size: .8rem; color: var(--app-muted); }
+.app-card__meta {
+  margin-top: var(--app-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.app-section-title {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--app-muted);
+  margin: 0 0 var(--app-space-3);
+}
+.app-subtitle {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--app-muted);
+  margin: 0 0 var(--app-space-2);
+}
+
+.app-metrics { display: flex; flex-wrap: wrap; gap: var(--app-space-4); }
+.app-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  min-width: 92px;
+  padding: var(--app-space-3) var(--app-space-4);
+  background-color: var(--app-surface-2);
+  border-radius: var(--app-radius-md);
+}
+.app-metric__label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--app-muted);
+}
+.app-metric__value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-empty {
+  color: var(--app-muted);
+  font-size: .9rem;
+  padding: var(--app-space-3);
+  background-color: var(--app-surface-2);
+  border-radius: var(--app-radius-md);
+}
+.app-empty--inline { padding: var(--app-space-2) var(--app-space-3); }
+
+/* Compact tables inside hero cards (Foundation density) */
+.app-card .table { --bs-table-bg: transparent; margin: 0; }
+.app-card .table th {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--app-muted);
+  font-weight: 600;
+}
+.app-card .table td { font-size: .88rem; }
