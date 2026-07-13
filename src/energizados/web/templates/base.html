@@ -1,12 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Energizados Web Console{% endblock %}</title>
 
+    <!-- Anti-flash theme bootstrap: apply stored theme BEFORE first paint.
+         Light is the default; localStorage "theme" upgrades to dark.
+         Inline + synchronous so the attribute is set before CSS applies. -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("theme");
+                t = (t === "dark") ? "dark" : "light";
+            } catch (e) { t = "light"; }
+            var h = document.documentElement;
+            h.setAttribute("data-bs-theme", t);
+            h.setAttribute("data-theme", t);
+        })();
+    </script>
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Inter (Google Fonts CDN; self-host is a tracked TODO) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Design tokens + app shell (Foundation phase) -->
+    <link href="{{ url_for('static', path='css/app.css') }}" rel="stylesheet">
 
     <!-- HTMX CDN -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -14,99 +38,110 @@
     <!-- Plotly.js for interactive charts -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
-    <!-- Custom styles -->
-    <style>
-        body {
-            padding-top: 20px;
-            background-color: #f8f9fa;
-        }
-        .main-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .editor-section {
-            margin-bottom: 30px;
-        }
-        .jobs-section {
-            margin-top: 30px;
-        }
-        .status-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            font-weight: 600;
-        }
-        .status-queued { background-color: #ffc107; color: #000; }
-        .status-running { background-color: #0d6efd; color: #fff; }
-        .status-success { background-color: #198754; color: #fff; }
-        .status-partial { background-color: #fd7e14; color: #fff; }
-        .status-failed { background-color: #dc3545; color: #fff; }
-        .status-aborted { background-color: #6c757d; color: #fff; }
-        .job-card {
-            margin-bottom: 15px;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 15px;
-            background-color: #fff;
-        }
-        .validation-errors {
-            background-color: #f8d7da;
-            border: 1px solid #f5c2c7;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        .yaml-editor {
-            font-family: 'Courier New', monospace;
-            min-height: 300px;
-        }
-    </style>
-
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <div class="container main-container">
-        <header class="mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1>Energizados Web Console</h1>
-                    <p class="text-muted">Async job runner and web interface for Energizados ML framework</p>
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                        📁 Projects
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="/projects">All projects</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><h6 class="dropdown-header">Global view</h6></li>
-                        <li><a class="dropdown-item" href="/global">Global editor</a></li>
-                        <li><a class="dropdown-item" href="/jobs">Global jobs</a></li>
-                        <li><a class="dropdown-item" href="/runs">Global runs</a></li>
-                        <li><a class="dropdown-item" href="/dashboard">Global dashboard</a></li>
-                    </ul>
-                </div>
-            </div>
+{% set app_projects = registered_projects() %}
+{% set app_path = request.url.path if request else '' %}
+<div class="app-shell">
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="app-sidebar" id="app-sidebar">
+        <a class="app-sidebar__brand" href="/projects">
+            <span class="app-logo">E</span>
+            <span>
+                <span class="d-block app-sidebar__brand-title">Energizados</span>
+                <span class="d-block app-sidebar__brand-sub">Web Console</span>
+            </span>
+        </a>
+
+        <nav class="app-nav" aria-label="Workspace">
+            <div class="app-nav__section-label">Workspace</div>
+            <a class="app-nav__link{% if app_path == '/projects' %} is-active{% endif %}"
+               href="/projects">
+                <span class="app-nav__icon"><i class="bi bi-grid"></i></span>
+                <span class="app-nav__name">All projects</span>
+            </a>
+
+            {% if app_projects %}
+            <div class="app-nav__section-label">Projects</div>
+            {% for project in app_projects %}
+            <a class="app-nav__link{% if app_path.startswith('/projects/' ~ project.project_id) %} is-active{% endif %}"
+               href="/projects/{{ project.project_id }}"
+               title="{{ project.name }}">
+                <span class="app-nav__icon"><i class="bi bi-folder2-open"></i></span>
+                <span class="app-nav__name">{{ project.name }}</span>
+            </a>
+            {% endfor %}
+            {% else %}
+            <a class="app-nav__link text-muted small" href="/projects">
+                <span class="app-nav__icon"><i class="bi bi-plus-circle"></i></span>
+                <span class="app-nav__name">Register or create a project</span>
+            </a>
+            {% endif %}
+        </nav>
+
+        <div class="app-sidebar__footer">
+            Energizados v0.3.0
+        </div>
+    </aside>
+
+    <!-- ================= MAIN COLUMN ================= -->
+    <div class="app-main">
+        <header class="app-topbar">
+            <!-- Mobile sidebar toggle (foundation: minimal off-canvas) -->
+            <button type="button" class="app-theme-toggle app-sidebar-toggle d-md-none"
+                    aria-label="Toggle navigation"
+                    onclick="var s=document.getElementById('app-sidebar');if(s){s.classList.toggle('is-open');}">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <h1 class="app-topbar__title">{% block app_title %}Energizados Web Console{% endblock %}</h1>
+            <div class="app-topbar__spacer"></div>
+
+            <!-- Theme toggle -->
+            <button type="button" class="app-theme-toggle" data-theme-toggle
+                    aria-pressed="false" aria-label="Toggle color theme">
+                <span class="app-theme-toggle__icon" data-theme-toggle-icon>🌙</span>
+                <span data-theme-toggle-label>Dark</span>
+            </button>
         </header>
 
-        {% block content %}{% endblock %}
+        <main class="app-content">
+            {% block content %}{% endblock %}
+        </main>
 
-        <footer class="mt-5 pt-3 border-top">
-            <p class="text-muted small">
-                Energizados v0.3.0 | <a href="/health">Health Check</a> |
-                <a href="/api/runs">API Runs</a> | <a href="/runs">📊 Runs</a>
-            </p>
+        <footer class="app-footer">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <span>Energizados v0.3.0</span>
+                <span aria-hidden="true">·</span>
+                <a href="/health">Health Check</a>
+                <span aria-hidden="true">·</span>
+                <a href="/api/runs">API Runs</a>
+                <span aria-hidden="true">·</span>
+                <a href="/runs">📊 Runs</a>
+                <span class="app-topbar__spacer"></span>
+                <!--
+                    Legacy Global scope (deprecated — ADR-0002). Global data is
+                    preserved read-only; these routes are intentionally NOT
+                    promoted in the sidebar. Surfaced here as muted footer links.
+                -->
+                <span class="app-footer__legacy">
+                    <span class="app-footer__legacy-label text-muted small">Legacy:</span>
+                    <a href="/global">Global editor</a>
+                    <a href="/jobs">Global jobs</a>
+                    <a href="/runs">Global runs</a>
+                    <a href="/dashboard">Global dashboard</a>
+                </span>
+            </div>
         </footer>
     </div>
+</div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Theme toggle -->
+<script src="{{ url_for('static', path='js/theme.js') }}"></script>
 
-    {% block extra_scripts %}{% endblock %}
+{% block extra_scripts %}{% endblock %}
 </body>
 </html>

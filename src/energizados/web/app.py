@@ -97,6 +97,28 @@ def _project_service() -> ProjectService:
     return app.state.project_service
 
 
+def _registered_projects() -> list:
+    """Return registered workspace projects for the sidebar navigation.
+
+    This is the FastAPI equivalent of a Flask context processor: registered as
+    a Jinja global (see below) so ``base.html`` can render the sidebar without
+    every route having to pass ``projects`` explicitly. Re-reads the registry
+    on each render (cheap JSON read + path validation) so newly registered
+    projects appear immediately.
+
+    Wrapped + logged so a registry/IO failure can never break rendering of the
+    app shell — the sidebar simply renders empty in that case.
+    """
+    try:
+        return _project_service().list_projects()
+    except Exception:  # noqa: BLE001 - never break the shell
+        logger.exception("Failed to load registered projects for sidebar")
+        return []
+
+
+templates.env.globals["registered_projects"] = _registered_projects
+
+
 def _run_manager_for(project_id: Optional[str], project_service: ProjectService) -> RunManager:
     """
     Build a RunManager scoped to a project's output dir, or the Global default.
