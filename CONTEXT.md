@@ -143,6 +143,16 @@ cross-column (under `global_transformers`, e.g. `if_score`, `tsfel_vars`,
 after).
 _Avoid_: estimator, processor, mapper
 
+**FeatureSelector**:
+A `fit`/`transform` unit that drops columns during FeatureSelection, following
+the scikit-learn convention (`BaseEstimator` / `TransformerMixin`). Defined by
+the frozen `BaseFeatureSelector` contract and resolved by config name
+(`"boruta"`, `"correlation"`, `"constant"`) through `selector_registry` — the
+same Registry that catalogs Models and Transformers. The *reduce* counterpart
+to a Transformer: a Transformer modifies columns during Preprocessing; a
+FeatureSelector drops them during FeatureSelection.
+_Avoid_: filter, reducer, column selector
+
 **TransformerError**:
 The framework exception raised when a Transformer's transform fails during
 FeatureEngineering. Frozen public-API type (`EnergizadosError`, `ValueError`).
@@ -204,6 +214,20 @@ contract (`predict` / `predict_proba` / `load_model` / `save_predictions`).
 The framework ships `DefaultInference` (single Model) and
 `HierarchicalInference` (routes rows to per-route Models by condition).
 _Avoid_: predictor, scorer
+
+## Output
+
+**Run**:
+The persisted output bundle of a successful training execution — everything
+the Pipeline left behind under `output/train-YYYYMMDD_HHMM/` (trained Models,
+reports, plots, config snapshot, `run.log`), described by `RunMetadata`
+(persisted as `run_metadata.json`) and queryable through `RunManager`. The
+core sense is a **training run** — the only kind the core produces; the web
+console generalizes Run to etl / eda / inference / training types (see the
+Web Console context). Distinct from the in-memory **Context** (the live dict
+flowing between Steps) and from a **Job** (the web console's attempt to
+execute).
+_Avoid_: output, result, run-dir, experiment
 
 ## Web Console
 
