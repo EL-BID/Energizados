@@ -373,6 +373,19 @@ async def global_editor(request: Request):
     return templates.TemplateResponse(request, "index.html", {})
 
 
+@app.get("/ui")
+async def style_guide(request: Request):
+    """
+    Living style guide for the web console design system.
+
+    Renders ``ui.html`` — a self-documenting page that demonstrates the real
+    design tokens and component classes defined in ``static/css/app.css``. Every
+    swatch/sample is grounded in ``var(--app-*)`` tokens, so the whole page
+    auto-adapts to the active light/dark theme via the global topbar toggle.
+    """
+    return templates.TemplateResponse(request, "ui.html", {})
+
+
 @app.post("/jobs")
 async def create_job(request: Request):
     """

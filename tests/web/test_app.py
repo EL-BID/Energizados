@@ -105,6 +105,19 @@ class TestRootRoute:
         assert response.headers["content-type"].startswith("text/html")
 
 
+class TestStyleGuideRoute:
+    """Tests for GET /ui route (Rollout-3 living style guide)."""
+
+    def test_get_ui_returns_html(self, client):
+        """GET /ui should return the style-guide HTML page (200, text/html)."""
+        response = client.get("/ui")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        # The guide documents the real tokens; assert a couple of them render.
+        assert "--app-primary" in response.text
+        assert "app-card" in response.text
+
+
 class TestPostJobs:
     """Tests for POST /jobs route (tasks 5.11, 5.12, 5.20)."""
 
