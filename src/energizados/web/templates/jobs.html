@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Global Job List — Energizados Web Console{% endblock %}
+
+{% block content %}
+<div class="mb-2">
+    <h2 class="app-hero__title">🗂️ Global Job List</h2>
+    <p class="text-muted small mb-0">
+        Legacy project-agnostic view. Project-scoped jobs live under each
+        <a href="/projects">project</a>.
+    </p>
+</div>
+<div class="mt-4">
+{% include "job_list.html" %}
+</div>
+{% endblock %}

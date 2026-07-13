@@ -422,7 +422,8 @@ async def list_jobs(request: Request, status: str = None):
         status: Optional status filter (queued|running|success|failed|aborted)
 
     Returns:
-        HTML fragment with job list table
+        HTMX fragment for auto-refresh polls (HX-Request); on direct navigation
+        returns the full themed jobs page (jobs.html).
     """
     # Parse status filter
     status_filter = None
@@ -436,8 +437,11 @@ async def list_jobs(request: Request, status: str = None):
     store = JobStore()
     jobs = store.list_jobs(status_filter=status_filter, limit=100)
 
+    # HTMX auto-refresh poll -> bare fragment; direct navigation -> full themed page.
+    is_htmx = request.headers.get("HX-Request") == "true"
+    template = "job_list.html" if is_htmx else "jobs.html"
     return templates.TemplateResponse(
-        request, "job_list.html", {"jobs": jobs, "status_filter": status_filter}
+        request, template, {"jobs": jobs, "status_filter": status_filter}
     )
 
 
