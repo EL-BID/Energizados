@@ -480,6 +480,49 @@ a:hover { color: var(--bs-link-hover-color); }
 }
 .app-empty--inline { padding: var(--app-space-2) var(--app-space-3); }
 
+/* ============================================================
+ * Loading states — token-grounded spinner + region placeholder.
+ *
+ * HTMX-native wiring: pair .app-spinner.htmx-indicator with
+ * hx-disabled-elt="this" on the triggering element. htmx toggles the
+ * htmx-request class for the duration of an in-flight request, which
+ * flips the spinner from display:none to inline-block below. No JS.
+ * ============================================================ */
+.app-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  border: 2px solid color-mix(in srgb, var(--app-primary) 30%, transparent);
+  border-top-color: var(--app-primary);
+  border-radius: 50%;
+  animation: app-spin 0.65s linear infinite;
+}
+@keyframes app-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner { animation: none; }
+}
+
+/* Region placeholder: spinner + label for initial async loads
+   (e.g. the job list before its first HTMX fetch resolves). */
+.app-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  color: var(--app-muted);
+  font-size: .9rem;
+  padding: var(--app-space-3);
+  background-color: var(--app-surface-2);
+  border-radius: var(--app-radius-md);
+}
+
+/* A spinner carrying the htmx-indicator class is hidden until the owning
+   request is in flight. We toggle display (not the default opacity) so the
+   spinner reserves no layout space while idle. */
+.app-spinner.htmx-indicator { display: none; }
+.htmx-request .app-spinner.htmx-indicator,
+.app-spinner.htmx-indicator.htmx-request { display: inline-block; }
+
 /* Compact tables inside hero cards (Foundation density) */
 .app-card .table { --bs-table-bg: transparent; margin: 0; }
 .app-card .table th {

@@ -50,8 +50,9 @@
         </div>
 
         <button type="submit" class="btn btn-primary"
-                {% if not eligible_runs or not input_files %}disabled{% endif %}>
+                {% if not eligible_runs or not input_files %}disabled{% else %}hx-disabled-elt="this"{% endif %}>
             Enqueue inference
+            <span class="app-spinner htmx-indicator" role="status" aria-label="Enqueuing"></span>
         </button>
     </form>
 </section>

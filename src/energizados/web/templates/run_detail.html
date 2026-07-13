@@ -16,14 +16,18 @@
     <button class="btn btn-outline-primary btn-sm"
             hx-post="/projects/{{ project_id }}/runs/{{ run.run_id }}/retrain"
             hx-target="#phase3-action-result"
-            hx-swap="innerHTML">
+            hx-swap="innerHTML"
+            hx-disabled-elt="this">
         Retrain
+        <span class="app-spinner htmx-indicator" role="status" aria-label="Retraining"></span>
     </button>
     <button class="btn btn-outline-primary btn-sm"
             hx-get="/projects/{{ project_id }}/runs/{{ run.run_id }}/inference"
             hx-target="#phase3-action-result"
-            hx-swap="innerHTML">
+            hx-swap="innerHTML"
+            hx-disabled-elt="this">
         Run inference
+        <span class="app-spinner htmx-indicator" role="status" aria-label="Loading"></span>
     </button>
 </div>
 <div id="phase3-action-result"></div>

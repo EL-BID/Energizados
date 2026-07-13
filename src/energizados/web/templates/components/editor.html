@@ -95,8 +95,9 @@ train:
                 <small class="form-text text-muted">File upload will populate the editor above</small>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-lg">
+            <button type="submit" class="btn btn-primary btn-lg" hx-disabled-elt="this">
                 🚀 Submit Job
+                <span class="app-spinner htmx-indicator" role="status" aria-label="Submitting"></span>
             </button>
 
             <button
@@ -106,8 +107,10 @@ train:
                 hx-target="#validation-output"
                 hx-vals='js:{"yaml_content": document.getElementById("yaml-content").value, "config_type": document.getElementById("config-type").value}'
                 hx-include='[name="yaml_content"]'
+                hx-disabled-elt="this"
             >
                 👁️ Preview Plan
+                <span class="app-spinner htmx-indicator" role="status" aria-label="Loading plan"></span>
             </button>
         </form>
 </section>

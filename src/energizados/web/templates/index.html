@@ -22,11 +22,16 @@
             <div class="app-card__header">
                 <h2 class="app-card__title app-card__title--sm">📋 Job List</h2>
             </div>
-            <div class="app-empty">
-                Loading jobs...
+            <div class="app-loading">
+                <span class="app-spinner" aria-hidden="true"></span>
+                <span>Loading jobs…</span>
             </div>
         </section>
     </div>
+    {# OOB refresh anchor: job_created.html (returned by POST /jobs) emits an
+       OOB element with this id that re-fetches /jobs on load, so a newly
+       created job appears in #job-list-container without a manual reload. #}
+    <span id="job-created-refresh" aria-hidden="true"></span>
 </section>
 {% endblock %}
 

@@ -1,3 +1,16 @@
 {% from "components/validation.html" import validation_success with context %}
 
 {{ validation_success(job_id, status, config_type) }}
+
+{# OOB refresh: when a job is created, re-fetch the job list so the new job
+   appears immediately without a manual reload. This element targets the
+   #job-created-refresh seed that lives on the global editor page (index.html).
+   On pages without that seed (project detail / run detail), HTMX ignores OOB
+   elements whose id is absent from the document — so this is a safe no-op there. #}
+<span id="job-created-refresh"
+      hx-swap-oob="true"
+      hx-get="/jobs"
+      hx-target="#job-list-container"
+      hx-swap="innerHTML"
+      hx-trigger="load"
+      aria-hidden="true"></span>

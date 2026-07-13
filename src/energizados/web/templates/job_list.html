@@ -40,8 +40,10 @@
                                 hx-post="/jobs/{{ job.job_id }}/cancel"
                                 hx-swap="none"
                                 hx-confirm="Cancel this job?"
+                                hx-disabled-elt="this"
                             >
                                 🛑 Cancel
+                                <span class="app-spinner htmx-indicator" role="status" aria-label="Cancelling"></span>
                             </button>
                             {% endif %}
 
@@ -51,13 +53,20 @@
                                 hx-post="/jobs/{{ job.job_id }}/retry"
                                 hx-swap="none"
                                 hx-confirm="Retry this job?"
+                                hx-disabled-elt="this"
                             >
                                 🔄 Retry
+                                <span class="app-spinner htmx-indicator" role="status" aria-label="Retrying"></span>
                             </button>
                             {% endif %}
 
-                            <a href="/jobs/{{ job.job_id }}" class="btn btn-sm btn-info" hx-get="/jobs/{{ job.job_id }}" hx-target="#job-detail-{{ job.job_id }}" hx-swap="innerHTML">
+                            <a href="/jobs/{{ job.job_id }}" class="btn btn-sm btn-info"
+                               hx-get="/jobs/{{ job.job_id }}"
+                               hx-target="#job-detail-{{ job.job_id }}"
+                               hx-swap="innerHTML"
+                               hx-disabled-elt="this">
                                 👁️ Details
+                                <span class="app-spinner htmx-indicator" role="status" aria-label="Loading"></span>
                             </a>
                         </td>
                     </tr>
