@@ -1804,6 +1804,25 @@ async def project_detail(request: Request, project_id: str):
     )
     latest_job = jobs[0] if jobs else None
 
+    # ADR-0003 lineage: walk the latest training run's derived_from chain via
+    # RunManager.get_run until a run has no parent. O(depth) — fine for typical
+    # retrain depth. The chain is ordered root→leaf; lineage_available is True
+    # only when at least one member has a derived_from link (a real retrain).
+    # A purged ancestor (get_run returns None) ends the walk cleanly.
+    lineage_chain: List[Any] = []
+    if latest_training is not None:
+        seen: set = set()
+        current = latest_training
+        while current is not None and current.run_id not in seen:
+            seen.add(current.run_id)
+            lineage_chain.append(current)
+            parent_id = getattr(current, "derived_from", None)
+            if not parent_id:
+                break
+            current = manager.get_run(parent_id)
+        lineage_chain.reverse()  # root→leaf
+    lineage_available = any(getattr(r, "derived_from", None) for r in lineage_chain)
+
     return templates.TemplateResponse(
         request,
         "project_detail.html",
@@ -1823,9 +1842,10 @@ async def project_detail(request: Request, project_id: str):
             "latest_job": latest_job,
             "jobs_total": len(jobs),
             "runs_total": len(runs),
-            # derived_from (Run→Run retrain lineage) is not yet persisted
-            # (ADR-0003 deferred). The hero renders a muted placeholder.
-            "lineage_available": False,
+            # ADR-0003 Run→Run retrain lineage (root→leaf); empty list when the
+            # latest training run has no derived_from chain.
+            "lineage_available": lineage_available,
+            "lineage_chain": lineage_chain,
         },
     )
 
@@ -2403,7 +2423,13 @@ async def retrain_from_run(request: Request, project_id: str, run_id: str):
         )
 
     store = JobStore()
-    job_id = store.create_job(merged, "train", project_path=str(project.path))
+    # ADR-0003: stamp the SOURCE run_id (the URL path param) as the new job's
+    # derived_from_run_id. The worker threads this to
+    # ConfigPipelineBuilder(derived_from=...) so the re-run records its lineage
+    # in run_metadata.json["derived_from"] at finalization (Phase 2 passthrough).
+    job_id = store.create_job(
+        merged, "train", project_path=str(project.path), derived_from_run_id=run_id
+    )
 
     if is_htmx:
         return templates.TemplateResponse(

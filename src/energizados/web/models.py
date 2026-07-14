@@ -49,8 +49,9 @@ class JobRow:
     run_id: Optional[str] = None  # RunMetadata.run_id
     run_dir: Optional[str] = None  # Path to output/<run_id>
     error: Optional[Dict[str, Any]] = None  # Parsed from format_error
-    retried_from: Optional[str] = None  # Parent job_id
+    retried_from: Optional[str] = None  # Parent job_id (Retry = Job→Job)
     project_path: Optional[str] = None  # Absolute path to the owning project (Global = None)
+    derived_from_run_id: Optional[str] = None  # ADR-0003 source run_id (Retrain = Run→Run)
 
     @classmethod
     def from_row(cls, row: Any) -> "JobRow":
@@ -89,6 +90,9 @@ class JobRow:
             error=error,
             retried_from=row["retried_from"] if "retried_from" in row.keys() else None,
             project_path=row["project_path"] if "project_path" in row.keys() else None,
+            derived_from_run_id=(
+                row["derived_from_run_id"] if "derived_from_run_id" in row.keys() else None
+            ),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -106,6 +110,7 @@ class JobRow:
             "error": self.error,
             "retried_from": self.retried_from,
             "project_path": self.project_path,
+            "derived_from_run_id": self.derived_from_run_id,
         }
 
     def is_terminal(self) -> bool:
