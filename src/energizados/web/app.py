@@ -364,13 +364,18 @@ async def root(request: Request):
 @app.get("/global")
 async def global_editor(request: Request):
     """
-    Global YAML editor + job list (project-agnostic job creation).
+    Global YAML editor + job list (project-agnostic; creation deprecated).
 
-    The project-first home is at ``/`` (which redirects to ``/projects``); this
-    keeps the legacy global editor reachable. Renders ``index.html``, which
-    embeds ``components/editor.html`` and the global job list (POSTs to ``/jobs``).
+    ADR-0002: Global job creation is blocked at ``POST /jobs``. The editor is
+    kept visible for inspection but its submit is disabled; a banner points
+    users at the project-scoped workflow. The job list below remains a
+    read-only view of legacy Global rows.
     """
-    return templates.TemplateResponse(request, "index.html", {})
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"global_deprecated": True, "submit_disabled": True},
+    )
 
 
 @app.get("/ui")
@@ -388,39 +393,26 @@ async def style_guide(request: Request):
 
 @app.post("/jobs")
 async def create_job(request: Request):
-    """
-    Create and enqueue a new job (tasks 5.11, 5.12, 5.20).
+    """Reject Global job creation (ADR-0002).
 
-    Expects YAML body and config_type parameter. Validates config via
-    validate_dict() and checks custom_class prefixes before enqueue.
+    Global (project-agnostic) job creation is deprecated. This endpoint no
+    longer parses, validates, or enqueues anything — it always returns 400.
+    The canonical route is ``POST /projects/{project_id}/jobs``. Existing
+    Global rows remain readable via ``GET /jobs`` (legacy read-only surface).
 
     Returns:
-        JSON with job_id and status, or 400 with validation errors
-        HTML fragments if HX-Request header is present (PR3 content negotiation)
+        400 with an ADR-0002 message — JSON ``{"detail": ...}`` for plain
+        requests, or the ``job_validation.html`` fragment for HTMX requests
+        (same helper the project-scoped route uses for validation errors).
     """
-    # Check if HTMX request for content negotiation (PR3 UX fix)
-    is_htmx = request.headers.get("HX-Request") == "true"
-
-    # Parse + validate + security-check the request config (shared with POST /plan).
-    # Raises HTTPException (JSON) or _HtmxErrorResponse (HTMX) on any validation error.
-    validated = await _validate_request_config(request, htmx_error_template="job_validation.html")
-    config, config_type = validated.config, validated.config_type
-
-    # Create job in JobStore
-    store = JobStore()
-    job_id = store.create_job(config, config_type)
-
-    # Return HTML for HTMX, JSON otherwise (PR3 content negotiation)
-    if is_htmx:
-        return templates.TemplateResponse(
-            request,
-            "job_created.html",
-            {"job_id": job_id, "status": "queued", "config_type": config_type},
-            status_code=201,
-        )
-    return JSONResponse(
-        status_code=201, content={"job_id": job_id, "status": "queued", "config_type": config_type}
+    message = (
+        "Global job creation is deprecated (ADR-0002). "
+        "Create jobs via POST /projects/{project_id}/jobs instead."
     )
+    is_htmx = request.headers.get("HX-Request") == "true"
+    if is_htmx:
+        _raise_htmx_error(request, "job_validation.html", errors=[message])
+    raise HTTPException(status_code=400, detail=message)
 
 
 @app.get("/jobs")

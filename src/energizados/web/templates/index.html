@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if global_deprecated %}
+<div id="global-deprecation-banner" class="alert alert-warning d-flex align-items-center gap-2" role="alert">
+    <span aria-hidden="true">⚠️</span>
+    <div>
+        <strong>Global job creation is deprecated (ADR-0002).</strong>
+        Use a <a href="/projects">project</a> to create and run jobs.
+        Existing Global jobs remain visible below (read-only).
+    </div>
+</div>
+{% endif %}
 <div class="row g-4">
     <div class="col-md-6">
         {% include "components/editor.html" %}

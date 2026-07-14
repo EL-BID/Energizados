@@ -119,10 +119,19 @@ class TestStyleGuideRoute:
 
 
 class TestPostJobs:
-    """Tests for POST /jobs route (tasks 5.11, 5.12, 5.20)."""
+    """Tests for POST /jobs route (ADR-0002 — Global creation deprecated).
 
-    def test_post_valid_yaml_creates_job(self, client, mock_store):
-        """POST valid YAML should create job and return job_id."""
+    POST /jobs no longer creates Global (project-agnostic) jobs. It always
+    returns 400 with a message naming ADR-0002 and pointing at the canonical
+    project-scoped route ``POST /projects/{project_id}/jobs``. The body is no
+    longer parsed, schema-validated, or custom_class-checked, and the JobStore
+    is never touched. Existing Global rows stay readable via ``GET /jobs``.
+    """
+
+    _ADR = "ADR-0002"
+
+    def test_post_valid_yaml_rejected_with_400(self, client, mock_store):
+        """POST valid YAML to /jobs is rejected (ADR-0002); store untouched."""
         valid_yaml = """
         etl:
           sample:
@@ -132,8 +141,6 @@ class TestPostJobs:
             custom_class: "energizados.etl.pipeline.SourceETL"
         """
 
-        mock_store.create_job.return_value = "job-test-123"
-
         response = client.post(
             "/jobs",
             params={"config_type": "etl"},
@@ -141,19 +148,70 @@ class TestPostJobs:
             headers={"Content-Type": "application/yaml"},
         )
 
-        assert response.status_code == 201
-        data = response.json()
-        assert data["job_id"] == "job-test-123"
-        assert data["status"] == "queued"
-        mock_store.create_job.assert_called_once()
+        assert response.status_code == 400
+        assert self._ADR in response.text
+        assert "/projects/" in response.text
+        mock_store.create_job.assert_not_called()
 
-    def test_post_invalid_yaml_returns_400(self, client, mock_store):
-        """POST invalid YAML should return 400 with validation errors."""
+    def test_post_json_rejected_with_detail(self, client, mock_store):
+        """POST JSON to /jobs returns 400 JSON detail naming ADR-0002."""
+        import json
+
+        config = {
+            "etl": {
+                "sample": {
+                    "enabled": True,
+                    "input": "data/raw/test.csv",
+                    "output": "data/processed/test.parquet",
+                    "custom_class": "energizados.etl.pipeline.SourceETL",
+                }
+            }
+        }
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=json.dumps(config),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 400
+        assert response.headers["content-type"] == "application/json"
+        detail = str(response.json())
+        assert self._ADR in detail
+        assert "/projects/" in detail
+        mock_store.create_job.assert_not_called()
+
+    def test_post_htmx_rejected_with_html_fragment(self, client, mock_store):
+        """POST /jobs with HX-Request returns the 400 validation fragment (ADR-0002)."""
+        valid_yaml = """
+        etl:
+          sample:
+            enabled: true
+            input: "data/raw/test.csv"
+            output: "data/processed/test.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+        """
+
+        response = client.post(
+            "/jobs",
+            params={"config_type": "etl"},
+            content=valid_yaml,
+            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
+        )
+
+        assert response.status_code == 400
+        assert response.headers["content-type"].startswith("text/html")
+        assert self._ADR in response.text
+        mock_store.create_job.assert_not_called()
+
+    def test_post_rejects_before_schema_validation(self, client, mock_store):
+        """The deprecation 400 fires before any schema validation runs."""
         invalid_yaml = """
         etl:
           sample:
             enabled: true
-            # Missing required fields
+            # Missing required fields: input, output, custom_class
         """
 
         response = client.post(
@@ -164,12 +222,13 @@ class TestPostJobs:
         )
 
         assert response.status_code == 400
-        data = response.json()
-        assert "errors" in data or "detail" in data
+        assert self._ADR in response.text
+        # Not a schema-validation payload
+        assert "errors" not in response.json()
         mock_store.create_job.assert_not_called()
 
-    def test_post_disallowed_custom_class_returns_400(self, client, mock_store):
-        """POST YAML with disallowed custom_class prefix should return 400."""
+    def test_post_rejects_before_custom_class_check(self, client, mock_store):
+        """The deprecation 400 fires before the custom_class security check."""
         malicious_yaml = """
         etl:
           evil:
@@ -187,140 +246,36 @@ class TestPostJobs:
         )
 
         assert response.status_code == 400
-        data = response.json()
-        assert "custom_class" in str(data).lower() or "prefix" in str(data).lower()
+        assert self._ADR in response.text
+        # The rejection is the deprecation, NOT the custom_class guard
+        assert "custom_class" not in response.text.lower()
+        assert "prefix" not in response.text.lower()
         mock_store.create_job.assert_not_called()
 
-    def test_post_mixed_custom_classes_validates_all(self, client, mock_store):
-        """POST should validate ALL custom_class entries in config."""
-        mixed_yaml = """
-        train:
-          models:
-            - type: "lightgbm"
-              custom_class: "src.models.LightGBMModel"
-            - type: "custom"
-              custom_class: "malicious.EvilModel"
-        """
-
+    def test_post_empty_body_rejected_with_adr(self, client, mock_store):
+        """Even an empty body is rejected with the ADR-0002 message (no parsing)."""
         response = client.post(
             "/jobs",
-            params={"config_type": "train"},
-            content=mixed_yaml,
+            params={"config_type": "etl"},
+            content="",
             headers={"Content-Type": "application/yaml"},
         )
 
         assert response.status_code == 400
+        assert self._ADR in response.text
         mock_store.create_job.assert_not_called()
 
-    def test_post_allowed_prefixes_accepted(self, client, mock_store):
-        """POST should accept energizados.* and src.* prefixes."""
-        valid_yaml = """
-        etl:
-          custom:
-            enabled: true
-            input: "data/input.csv"
-            output: "data/output.parquet"
-            custom_class: "src.etl.custom.MyCustomETL"
-        """
-
-        mock_store.create_job.return_value = "job-custom-456"
-
+    def test_post_no_content_type_rejected_with_adr(self, client, mock_store):
+        """Missing Content-Type is still rejected with ADR-0002 (no fallback parsing)."""
         response = client.post(
             "/jobs",
             params={"config_type": "etl"},
-            content=valid_yaml,
-            headers={"Content-Type": "application/yaml"},
+            content="etl:\n  sample:\n    enabled: true\n",
         )
 
-        assert response.status_code == 201
-        mock_store.create_job.assert_called_once()
-
-    def test_post_json_content_type_creates_job(self, client, mock_store):
-        """POST with Content-Type: application/json should create job."""
-        import json
-
-        valid_json_config = {
-            "etl": {
-                "sample": {
-                    "enabled": True,
-                    "input": "data/raw/test.csv",
-                    "output": "data/processed/test.parquet",
-                    "custom_class": "energizados.etl.pipeline.SourceETL",
-                }
-            }
-        }
-
-        mock_store.create_job.return_value = "job-json-789"
-
-        response = client.post(
-            "/jobs",
-            params={"config_type": "etl"},
-            content=json.dumps(valid_json_config),
-            headers={"Content-Type": "application/json"},
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-        assert data["job_id"] == "job-json-789"
-        assert data["status"] == "queued"
-        mock_store.create_job.assert_called_once()
-
-    def test_post_no_content_type_fallback_to_yaml(self, client, mock_store):
-        """POST with no content-type should try YAML first, then JSON."""
-        valid_yaml = """
-        train:
-          enabled: true
-          input_path: 'data/processed/dataset.parquet'
-          target_column: 'target'
-          models:
-            - type: 'lightgbm'
-        """
-
-        mock_store.create_job.return_value = "job-yaml-fallback"
-
-        response = client.post(
-            "/jobs",
-            params={"config_type": "train"},
-            content=valid_yaml,
-            # No Content-Type header
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-        assert data["job_id"] == "job-yaml-fallback"
-        mock_store.create_job.assert_called_once()
-
-    def test_post_no_content_type_json_fallback(self, client, mock_store):
-        """POST with no content-type should fallback to JSON if YAML fails."""
-
-        # Use a JSON structure that would fail YAML parsing
-        # (trailing commas are valid in JSON but not in YAML)
-        valid_json_config = """
-        {
-            "etl": {
-                "sample": {
-                    "enabled": true,
-                    "input": "data/raw/test.csv",
-                    "output": "data/processed/test.parquet",
-                    "custom_class": "energizados.etl.pipeline.SourceETL",
-                }
-            }
-        }
-        """
-
-        mock_store.create_job.return_value = "job-json-fallback"
-
-        response = client.post(
-            "/jobs",
-            params={"config_type": "etl"},
-            content=valid_json_config,
-            # No Content-Type header - should try YAML first, fail, then JSON
-        )
-
-        assert response.status_code == 201
-        data = response.json()
-        assert data["job_id"] == "job-json-fallback"
-        mock_store.create_job.assert_called_once()
+        assert response.status_code == 400
+        assert self._ADR in response.text
+        mock_store.create_job.assert_not_called()
 
 
 class TestGetJobs:
@@ -385,6 +340,31 @@ class TestGetJobs:
         assert "status-success" in content
         # Should show the status text
         assert "Success" in content
+        mock_store.list_jobs.assert_called_once()
+
+    def test_get_jobs_still_lists_preexisting_global_job(self, client, mock_store):
+        """ADR-0002 read-only: a pre-existing Global row still appears in GET /jobs.
+
+        Blocking creation of NEW Global jobs must not hide legacy Global rows —
+        the Global job list remains a read-only view of existing data.
+        """
+        from energizados.web.models import JobRow, JobStatus
+
+        mock_store.list_jobs.return_value = [
+            JobRow(
+                job_id="legacy-global-1",
+                config={"train": {}},
+                config_type="train",
+                status=JobStatus.SUCCESS,
+                enqueued_at="2024-01-01T00:00:00Z",
+                # project_path omitted → Global (legacy) row
+            ),
+        ]
+
+        response = client.get("/jobs")
+
+        assert response.status_code == 200
+        assert "legacy-global-1" in response.text
         mock_store.list_jobs.assert_called_once()
 
 
@@ -725,32 +705,10 @@ class TestCustomClassPrefixValidation:
 
 
 class TestHTMXContentNegotiation:
-    """Tests for HTMX content negotiation in POST /jobs (PR3 UX gap fix)."""
+    """HTMX vs JSON content negotiation for the POST /jobs deprecation 400 (ADR-0002)."""
 
-    def test_post_with_htmx_request_validation_error_returns_html(self, client, mock_store):
-        """POST with HX-Request header should return HTML fragment on validation error."""
-        invalid_yaml = """
-        etl:
-          sample:
-            enabled: true
-            # Missing required fields
-        """
-
-        response = client.post(
-            "/jobs",
-            params={"config_type": "etl"},
-            content=invalid_yaml,
-            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
-        )
-
-        assert response.status_code == 400
-        assert response.headers["content-type"].startswith("text/html")
-        # Should contain validation error structure
-        assert "validation" in response.text.lower() or "error" in response.text.lower()
-        mock_store.create_job.assert_not_called()
-
-    def test_post_with_htmx_request_success_returns_html(self, client, mock_store):
-        """POST with HX-Request header should return HTML fragment on success."""
+    def test_post_htmx_returns_html_fragment(self, client, mock_store):
+        """POST /jobs with HX-Request returns the 400 HTML fragment naming ADR-0002."""
         valid_yaml = """
         etl:
           sample:
@@ -759,8 +717,6 @@ class TestHTMXContentNegotiation:
             output: "data/processed/test.parquet"
             custom_class: "energizados.etl.pipeline.SourceETL"
         """
-
-        mock_store.create_job.return_value = "job-htmx-123"
 
         response = client.post(
             "/jobs",
@@ -769,14 +725,13 @@ class TestHTMXContentNegotiation:
             headers={"Content-Type": "application/yaml", "HX-Request": "true"},
         )
 
-        assert response.status_code == 201
+        assert response.status_code == 400
         assert response.headers["content-type"].startswith("text/html")
-        # Should contain job creation success indicator
-        assert "job" in response.text.lower() or "success" in response.text.lower()
-        mock_store.create_job.assert_called_once()
+        assert "ADR-0002" in response.text
+        mock_store.create_job.assert_not_called()
 
-    def test_post_without_htmx_request_keeps_json_behavior(self, client, mock_store):
-        """POST without HX-Request header should return JSON (existing behavior)."""
+    def test_post_json_returns_json_detail(self, client, mock_store):
+        """POST /jobs without HX-Request returns 400 JSON detail naming ADR-0002."""
         valid_yaml = """
         etl:
           sample:
@@ -785,45 +740,17 @@ class TestHTMXContentNegotiation:
             output: "data/processed/test.parquet"
             custom_class: "energizados.etl.pipeline.SourceETL"
         """
-
-        mock_store.create_job.return_value = "job-json-456"
 
         response = client.post(
             "/jobs",
             params={"config_type": "etl"},
             content=valid_yaml,
             headers={"Content-Type": "application/yaml"},
-            # No HX-Request header
-        )
-
-        assert response.status_code == 201
-        assert response.headers["content-type"] == "application/json"
-        data = response.json()
-        assert data["job_id"] == "job-json-456"
-        mock_store.create_job.assert_called_once()
-
-    def test_post_htmx_custom_class_error_returns_html(self, client, mock_store):
-        """POST with HX-Request should return HTML on custom_class validation error."""
-        malicious_yaml = """
-        etl:
-          evil:
-            enabled: true
-            input: "data/input.csv"
-            output: "data/output.parquet"
-            custom_class: "evil.malicious.Thing"
-        """
-
-        response = client.post(
-            "/jobs",
-            params={"config_type": "etl"},
-            content=malicious_yaml,
-            headers={"Content-Type": "application/yaml", "HX-Request": "true"},
         )
 
         assert response.status_code == 400
-        assert response.headers["content-type"].startswith("text/html")
-        # Should contain custom_class/prefix error message
-        assert "custom_class" in response.text.lower() or "prefix" in response.text.lower()
+        assert response.headers["content-type"] == "application/json"
+        assert "ADR-0002" in str(response.json())
         mock_store.create_job.assert_not_called()
 
 
@@ -1557,3 +1484,85 @@ class TestJobDetailProgressUI:
         # Should show user-visible fallback message
         assert "unsupported" in content.lower() or "not supported" in content.lower()
         mock_store.get_job.assert_called_once_with("job-unsupported")
+
+
+class TestGlobalEditorDeprecation:
+    """GET /global shows the ADR-0002 deprecation banner (UI counterpart to POST /jobs 400).
+
+    With POST /jobs blocking Global creation, the /global editor must surface the
+    deprecation to users and disable submission instead of silently 400-ing on the
+    next click. The editor stays visible (read-only/inspection), matching the
+    existing ``test_global_editor_route`` contract.
+    """
+
+    def test_global_editor_shows_deprecation_banner(self, client):
+        response = client.get("/global")
+
+        assert response.status_code == 200
+        # Unique banner marker (not the pre-existing footer HTML comment)
+        assert 'id="global-deprecation-banner"' in response.text
+        assert "ADR-0002" in response.text
+        # CTA points to the projects home
+        assert "/projects" in response.text
+
+    def test_global_editor_submit_disabled(self, client):
+        response = client.get("/global")
+
+        assert response.status_code == 200
+        # The Submit Job button is rendered disabled with a distinct label
+        assert "Submit Job (deprecated)" in response.text
+        assert "disabled" in response.text
+        # The editor itself still renders for inspection
+        assert "Pipeline Configuration (YAML)" in response.text
+
+
+class TestCanonicalProjectJobCreation:
+    """Positive coverage: POST /projects/{project_id}/jobs still creates a job.
+
+    ADR-0002 blocks only the Global POST /jobs. The project-scoped route is the
+    supported replacement, so we assert it still returns 201 and enqueues a job
+    with ``project_path`` set. Uses the isolated workspace fixture pattern from
+    ``tests/web/test_project_routes.py``.
+    """
+
+    @pytest.fixture
+    def client(self, tmp_path, monkeypatch):
+        """Isolated workspace + jobs DB under tmp_path (mirrors test_project_routes)."""
+        from energizados.web.app import app
+        from energizados.web.projects import ProjectService
+
+        monkeypatch.setenv("ENERGIZADOS_WORKSPACE_ROOT", str(tmp_path / "ws"))
+        app.state.project_service = ProjectService(
+            workspace_root=tmp_path / "ws",
+            registry_path=tmp_path / "projects.json",
+        )
+        monkeypatch.setenv("ENERGIZADOS_JOBS_DB", str(tmp_path / "jobs.db"))
+        return TestClient(app)
+
+    def test_create_job_via_project_route_returns_201(self, client):
+        from energizados.web.app import app
+        from energizados.web.store import JobStore
+
+        ps = app.state.project_service
+        project = ps.create_project("canonical")
+
+        valid_yaml = """
+        etl:
+          sample:
+            enabled: true
+            input: "data/raw/test.csv"
+            output: "data/processed/test.parquet"
+            custom_class: "energizados.etl.pipeline.SourceETL"
+        """
+
+        response = client.post(
+            f"/projects/{project.project_id}/jobs?config_type=etl",
+            data=valid_yaml,
+            headers={"HX-Request": "true"},
+        )
+
+        assert response.status_code == 201
+        # The created job is scoped to the project (project_path set)
+        jobs = JobStore().list_jobs(project_path=str(project.path))
+        assert len(jobs) == 1
+        assert jobs[0].project_path == str(project.path)
