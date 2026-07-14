@@ -7,9 +7,30 @@
 
 <div class="mb-3">
     <a href="/runs" class="btn btn-outline-secondary">← Back to Runs</a>
+    {% if run_type == "training" and not mixed_types %}
     <button id="download-csv" class="btn btn-success float-end">Download CSV</button>
+    {% endif %}
 </div>
 
+{% if mixed_types %}
+{# ADR-0001: cross-type Compare is rejected with a typed empty-state. The runs
+   exist but are not comparable; list each run with its type so the user can
+   re-select a same-type set. No metrics/metadata table renders here. #}
+<section class="app-card">
+    <div class="alert alert-warning mb-0">
+        <strong>Runs are of different types and cannot be compared.</strong>
+        <p class="mb-1 mt-2">
+            Compare scopes runs of a single type (training, etl, eda, or inference).
+            Select runs of the same type to compare them side by side.
+        </p>
+        <ul class="mb-0">
+            {% for run_id, rt in run_types.items() %}
+            <li><a href="/runs/{{ run_id }}"><strong>{{ run_id }}</strong></a> — {{ rt }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+{% elif run_type == "training" %}
 {# Server-rendered comparison table (values must appear in the HTML response,
    not injected by client-side JS, so the page is usable without JS and
    testable via the response body). #}
@@ -127,4 +148,51 @@ document.getElementById('download-csv').addEventListener('click', function() {
     window.URL.revokeObjectURL(url);
 });
 </script>
+{% else %}
+{# ADR-0001: homogeneous non-training compare renders a metadata table. These
+   run types (etl/eda/inference) do not carry training metrics, so we surface
+   timestamp/duration/status/output_paths/feature_count instead. #}
+<section class="app-card">
+    <div class="alert alert-info">
+        <strong>Scope:</strong> comparing <strong>{{ run_type }}</strong> runs.
+        Training metrics (AUC, F1, precision, recall) are not produced for this run type.
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="comparison-metadata-table">
+            <thead>
+                <tr>
+                    <th>Run ID</th>
+                    <th>Timestamp</th>
+                    <th>Duration (s)</th>
+                    <th>Status</th>
+                    <th>Feature count</th>
+                    <th>Outputs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in meta_runs %}
+                {% set meta = entry.metadata or {} %}
+                {% set outputs = meta.get("output_paths") or {} %}
+                <tr>
+                    <td><strong><a href="/runs/{{ entry.run_id }}">{{ entry.run_id }}</a></strong></td>
+                    <td>{{ meta.get("timestamp") or "—" }}</td>
+                    <td>{{ meta.get("duration_seconds") if meta.get("duration_seconds") is not none else "—" }}</td>
+                    <td>{{ meta.get("status") or "—" }}</td>
+                    <td>{{ meta.get("feature_count") if meta.get("feature_count") is not none else "—" }}</td>
+                    <td>
+                        {% if outputs %}
+                        <ul class="mb-0">
+                            {% for key, path in outputs.items() %}
+                            <li><code>{{ key }}</code>: {{ path }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
 {% endblock %}

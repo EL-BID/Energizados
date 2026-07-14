@@ -9,6 +9,7 @@ Implements Phase 2 endpoints (runs list, detail, artifact serving) with security
 import asyncio
 import json
 import logging
+import os
 import re
 from collections import deque
 from dataclasses import dataclass
@@ -1198,15 +1199,88 @@ async def compare_runs_page(request: Request, ids: str = ""):
 
     Renders comparison table with metrics, ensemble rankings, and best value highlighting.
 
+    ADR-0001 (Phase 4): Compare is explicit about Run type. Only same-type Runs
+    are comparable; cross-type sets render a typed empty-state banner (the JSON
+    endpoint returns HTTP 409 for the same condition). Training runs keep the
+    existing AUC/F1/precision/recall/threshold table; non-training homogeneous
+    sets render a metadata table.
+
     NOTE: Declared BEFORE /runs/{run_id} so FastAPI does not swallow the literal
     "compare" segment as a run_id path parameter (route matching is order-sensitive).
     """
     # Parse and validate run IDs
     run_ids = _parse_and_validate_run_ids(ids, max_count=10)
 
-    # Load evaluation data for all runs (tolerant to missing files)
+    # ADR-0001: resolve each requested Run's type BEFORE eval-data filtering so a
+    # mixed-type set is rejected rather than silently narrowed to whatever
+    # training runs happen to carry evaluation data.
+    manager = RunManager()
+    run_meta_by_id, run_types = _load_compare_run_types(run_ids, manager)
+
+    # Cross-type set → typed empty-state banner (page surface). Not a 404: the
+    # runs exist, they are simply not comparable.
+    if len(set(run_types.values())) > 1:
+        return templates.TemplateResponse(
+            request,
+            "compare_runs.html",
+            {
+                "mixed_types": True,
+                "run_types": run_types,
+                "runs": [],
+                "meta_runs": [],
+                "best": {"auc": None, "f1": None, "precision": None, "recall": None},
+                "ids": ids,
+                "run_type": None,
+                "comparison_json": "[]",
+            },
+        )
+
+    run_type = next(iter(set(run_types.values())))
+
+    # Load evaluation data for all runs (tolerant to missing files).
     eval_data_dict = _load_run_evaluations_batch(run_ids)
 
+    if run_type == "training":
+        return _render_training_compare(request, ids, run_ids, eval_data_dict)
+
+    # Homogeneous non-training compare: render a metadata table. These Runs do
+    # not produce evaluation_report.json, so missing eval data is expected and
+    # not a 404. Runs without metadata are skipped; if none resolve, 404.
+    meta_runs = [
+        {"run_id": run_id, "metadata": run_meta_by_id[run_id].to_dict()}
+        for run_id in run_ids
+        if run_meta_by_id.get(run_id) is not None
+    ]
+    if not meta_runs:
+        raise HTTPException(status_code=404, detail="No valid runs found")
+
+    return templates.TemplateResponse(
+        request,
+        "compare_runs.html",
+        {
+            "mixed_types": False,
+            "run_types": run_types,
+            "runs": [],
+            "meta_runs": meta_runs,
+            "best": {"auc": None, "f1": None, "precision": None, "recall": None},
+            "ids": ids,
+            "run_type": run_type,
+            "comparison_json": "[]",
+        },
+    )
+
+
+def _render_training_compare(
+    request: Request,
+    ids: str,
+    run_ids: List[str],
+    eval_data_dict: Dict[str, Dict],
+):
+    """Render the training-run comparison table (unchanged ADR-0001 pre-Phase-4 behavior).
+
+    Factored out of compare_runs_page so the training path stays byte-for-byte
+    identical while the page handler branches on Run type.
+    """
     # If all runs missing evaluation data, return 404
     if not eval_data_dict:
         raise HTTPException(
@@ -1254,9 +1328,13 @@ async def compare_runs_page(request: Request, ids: str = ""):
         request,
         "compare_runs.html",
         {
+            "mixed_types": False,
+            "run_types": {},
             "runs": runs_data,
+            "meta_runs": [],
             "ids": ids,
             "best": best,
+            "run_type": "training",
             # Embedded in a <script type="application/json"> data island via | safe.
             # json.dumps does not escape "</script>"; neutralize the closing-tag
             # sequence so a run_id/model name containing it cannot break out of the
@@ -1540,9 +1618,31 @@ async def compare_runs_json(ids: str = ""):
 
     Returns JSON with evaluation data for multiple runs.
     Supports both single-model and multi-model runs.
+
+    ADR-0001 (Phase 4): cross-type Run sets are rejected with HTTP 409 (the
+    page surface renders a banner for the same condition). Homogeneous sets
+    echo ``run_type`` at the top level so clients can branch like the template.
     """
     # Parse and validate run IDs
     run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # ADR-0001: resolve each Run's type before eval-data filtering so mixed-type
+    # sets are rejected rather than silently narrowed to training runs.
+    manager = RunManager()
+    run_meta_by_id, run_types = _load_compare_run_types(run_ids, manager)
+
+    if len(set(run_types.values())) > 1:
+        # Typed empty-state: runs exist but are not comparable. 409 (Conflict)
+        # communicates "request well-formed, but this comparison is invalid."
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "Runs are of different types and cannot be compared",
+                "run_types": run_types,
+            },
+        )
+
+    run_type = next(iter(set(run_types.values())))
 
     # Load evaluation data for all runs (tolerant to missing files)
     eval_data_dict = _load_run_evaluations_batch(run_ids)
@@ -1554,7 +1654,6 @@ async def compare_runs_json(ids: str = ""):
         )
 
     # Build response with run metadata and evaluation data
-    manager = RunManager()
     results = {}
 
     for run_id in run_ids:
@@ -1562,8 +1661,9 @@ async def compare_runs_json(ids: str = ""):
         if run_id not in eval_data_dict:
             continue
 
-        # Get run metadata
-        run = manager.get_run(run_id)
+        # Get run metadata (already loaded during type resolution; avoids a
+        # second get_run round-trip per run).
+        run = run_meta_by_id.get(run_id)
         if not run:
             continue
 
@@ -1578,7 +1678,7 @@ async def compare_runs_json(ids: str = ""):
             "is_multi": eval_data.get("is_multi", False),
         }
 
-    return {"runs": results}
+    return {"runs": results, "run_type": run_type}
 
 
 @app.get("/api/runs/{run_id}/thresholds")
@@ -1753,6 +1853,69 @@ def _config_type_to_run_type(config_type: Optional[str]) -> str:
     mapping = {"etl": "etl", "eda": "eda", "infer": "inference", "train": "training"}
     ct = (config_type or "").strip().lower()
     return mapping.get(ct, "training")
+
+
+def _resolve_run_type(run: Optional[Any], fallback: Optional[Dict[str, str]] = None) -> str:
+    """Resolve a Run's type for Compare scoping (ADR-0001).
+
+    Prefers ``RunMetadata.run_type`` (the canonical signal since Phase 2 — every
+    finalized typed Run carries it, and RunMetadata.from_dict defaults legacy
+    files to "training"). Falls back to the producing Job's ``config_type``
+    joined via run_id for old/CLI runs whose run_metadata.json predates run_type.
+    Defaults to "training" when neither signal is available, preserving the
+    pre-Phase-4 UI where every compare was a training compare.
+    """
+    rt = getattr(run, "run_type", None)
+    if isinstance(rt, str) and rt:
+        return rt
+    if run is not None and fallback:
+        return _config_type_to_run_type(fallback.get(getattr(run, "run_id", None)))
+    return "training"
+
+
+def _run_type_fallback_map() -> Dict[str, str]:
+    """Best-effort ``{run_id: config_type}`` from recent jobs (legacy type fallback).
+
+    Only consulted when a Run lacks a canonical ``run_type``. Skipped when the
+    jobs database does not yet exist so the global Compare read-path never
+    creates a stray DB; the worker owns DB creation. Returns ``{}`` on any error
+    so Compare degrades to the "training" default rather than failing.
+    """
+    db_path = Path(os.environ.get("ENERGIZADOS_JOBS_DB") or "data/web/jobs.db")
+    if not db_path.exists():
+        return {}
+    try:
+        jobs = JobStore().list_jobs(limit=500)
+        return {j.run_id: j.config_type for j in jobs if j.run_id}
+    except Exception:
+        logger.warning("run-type fallback map unavailable; defaulting to training", exc_info=True)
+        return {}
+
+
+def _load_compare_run_types(run_ids: List[str], manager: "RunManager") -> tuple:
+    """Resolve ``(run_metadata, run_type)`` for each requested Run (ADR-0001).
+
+    Two-pass: read RunMetadata.run_type first and only build the job-join
+    fallback map when some Run lacks a canonical type (avoids a DB read on the
+    all-typed common path). Returns ``run_meta_by_id`` (run_id → RunMetadata or
+    None) and ``run_types`` (run_id → resolved type string).
+    """
+    run_meta_by_id: Dict[str, Any] = {}
+    raw: Dict[str, Optional[str]] = {}
+    for run_id in run_ids:
+        run = manager.get_run(run_id)
+        run_meta_by_id[run_id] = run
+        rt = getattr(run, "run_type", None)
+        raw[run_id] = rt if isinstance(rt, str) and rt else None
+    if any(v is None for v in raw.values()):
+        fallback = _run_type_fallback_map()
+        run_types: Dict[str, str] = {
+            rid: (rt if rt is not None else _config_type_to_run_type(fallback.get(rid)))
+            for rid, rt in raw.items()
+        }
+    else:
+        run_types = {rid: rt for rid, rt in raw.items()}  # type: ignore[misc]
+    return run_meta_by_id, run_types
 
 
 @app.get("/projects/{project_id}")
