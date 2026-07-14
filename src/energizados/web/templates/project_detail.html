@@ -156,14 +156,16 @@
                 <h4 class="app-subtitle">Runs</h4>
                 {% if truns %}
                 <table class="table table-sm table-hover align-middle">
-                    <thead><tr><th>Run</th><th>Status</th><th>AUC</th><th>F1</th></tr></thead>
+                    <thead><tr><th>Run</th><th>Status</th>{% if bucket == "training" %}<th>AUC</th><th>F1</th>{% endif %}</tr></thead>
                     <tbody>
                     {% for run in truns[:10] %}
                     <tr>
                         <td><a href="/projects/{{ pid }}/runs/{{ run.run_id }}"><code class="small">{{ run.run_id[:20] }}</code></a></td>
                         <td>{{ status_badge(run.status) }}</td>
+                        {% if bucket == "training" %}
                         <td>{{ "%.3f"|format(run.val_auc) if run.val_auc is not none else "—" }}</td>
                         <td>{{ "%.3f"|format(run.val_f1) if run.val_f1 is not none else "—" }}</td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                     </tbody>

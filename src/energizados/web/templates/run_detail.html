@@ -41,8 +41,10 @@
     <table class="table table-sm mb-0">
         <tr><th>Timestamp</th><td>{{ run.timestamp[:19] }} UTC</td></tr>
         <tr><th>Duration</th><td>{{ "%.1f"|format(run.duration_seconds) }}s</td></tr>
+        {% if run.run_type == "training" %}
         <tr><th>Models</th><td>{{ run.model_types|join(", ") }}</td></tr>
         <tr><th>Features</th><td>{{ run.feature_count if run.feature_count else "—" }}</td></tr>
+        {% endif %}
         <tr><th>Version</th><td>{{ run.energizados_version }}</td></tr>
     </table>
 </section>

@@ -37,8 +37,8 @@
                     <td><code class="small">{{ run.run_id }}</code></td>
                     <td>{{ status_badge(run.status) }}</td>
                     <td>{{ run.model_types|join(", ") }}</td>
-                    <td>{{ "%.3f"|format(run.val_auc) if run.val_auc else "—" }}</td>
-                    <td>{{ "%.3f"|format(run.val_f1) if run.val_f1 else "—" }}</td>
+                    <td>{% if run.run_type == "training" %}{{ "%.3f"|format(run.val_auc) if run.val_auc else "—" }}{% endif %}</td>
+                    <td>{% if run.run_type == "training" %}{{ "%.3f"|format(run.val_f1) if run.val_f1 else "—" }}{% endif %}</td>
                     <td>{{ "%.1f"|format(run.duration_seconds) }}s</td>
                     <td class="small">{{ run.timestamp[:19] }} UTC</td>
                     <td>

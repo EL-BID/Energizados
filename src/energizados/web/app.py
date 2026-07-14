@@ -1435,11 +1435,16 @@ async def timeline_data(limit: int = 100, status: Optional[str] = None):
     # Ensure we don't exceed the limit (defensive in case RunManager doesn't respect it)
     runs = runs[:limit] if len(runs) > limit else runs
 
-    # Extract data from RunMetadata, preserving None values for missing metrics
-    timestamps = [run.timestamp.isoformat() if run.timestamp else None for run in runs]
-    auc = [run.val_auc for run in runs]
-    f1 = [run.val_f1 for run in runs]
-    run_ids = [run.run_id for run in runs]
+    # ADR-0001: AUC/F1 are training-only metrics. Non-training runs carry None
+    # and would pollute the timeline — scope to training runs. Reuses the
+    # canonical _resolve_run_type helper; legacy runs default to "training".
+    training_runs = [run for run in runs if _resolve_run_type(run) == "training"]
+    # RunMetadata.timestamp is already a serialized ISO string — use it
+    # verbatim (.isoformat() only works on a datetime and 500s on real runs).
+    timestamps = [run.timestamp or None for run in training_runs]
+    auc = [run.val_auc for run in training_runs]
+    f1 = [run.val_f1 for run in training_runs]
+    run_ids = [run.run_id for run in training_runs]
 
     return {
         "timestamps": timestamps,
@@ -2365,10 +2370,15 @@ async def project_timeline_data(project_id: str, limit: int = 100, status: Optio
     if status:
         runs = [run for run in runs if run.status == status]
     runs = runs[:limit] if len(runs) > limit else runs
-    timestamps = [run.timestamp.isoformat() if run.timestamp else None for run in runs]
-    auc = [run.val_auc for run in runs]
-    f1 = [run.val_f1 for run in runs]
-    run_ids = [run.run_id for run in runs]
+    # ADR-0001: AUC/F1 are training-only metrics — scope to training runs so
+    # non-training runs don't inject None points. Reuses _resolve_run_type.
+    training_runs = [run for run in runs if _resolve_run_type(run) == "training"]
+    # RunMetadata.timestamp is already a serialized ISO string — use it
+    # verbatim (.isoformat() only works on a datetime and 500s on real runs).
+    timestamps = [run.timestamp or None for run in training_runs]
+    auc = [run.val_auc for run in training_runs]
+    f1 = [run.val_f1 for run in training_runs]
+    run_ids = [run.run_id for run in training_runs]
     return {"timestamps": timestamps, "auc": auc, "f1": f1, "run_ids": run_ids}
 
 
