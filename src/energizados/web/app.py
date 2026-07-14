@@ -911,9 +911,29 @@ async def list_runs(request: Request, status: Optional[str] = None, limit: int =
     if "application/json" in accept:
         return {"runs": [run.to_dict() for run in runs]}
 
+    # ADR-0001: group runs by type for the HTML index (mirrors project_detail's
+    # by-type tables). Legacy runs default to the "training" bucket.
+    run_groups = {bucket: [] for bucket in _RUN_TYPE_BUCKETS}
+    for run in runs:
+        run_groups[_resolve_run_type(run)].append(run)
+    run_outputs: Dict[str, str] = {}
+    for run in runs:
+        label = _primary_output_label(run)
+        if label:
+            run_outputs[run.run_id] = label
+
     # Return HTML template
     return templates.TemplateResponse(
-        request, "runs_list.html", {"runs": runs, "status_filter": status, "limit": limit}
+        request,
+        "runs_list.html",
+        {
+            "runs": runs,
+            "run_groups": run_groups,
+            "run_type_buckets": _RUN_TYPE_BUCKETS,
+            "run_outputs": run_outputs,
+            "status_filter": status,
+            "limit": limit,
+        },
     )
 
 
@@ -1472,6 +1492,13 @@ async def dashboard_page(request: Request, limit: int = 20, status: Optional[str
     # Ensure we don't exceed the limit
     runs = runs[:limit] if len(runs) > limit else runs
 
+    # ADR-0001: per-type counts so the dashboard can show the run-type mix.
+    # The timeline itself is training-only (AUC/F1), so the counts make the
+    # scope of the chart legible at a glance.
+    run_counts = {bucket: 0 for bucket in _RUN_TYPE_BUCKETS}
+    for run in runs:
+        run_counts[_resolve_run_type(run)] += 1
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -1479,6 +1506,8 @@ async def dashboard_page(request: Request, limit: int = 20, status: Optional[str
             "runs": runs,
             "limit": limit,
             "status": status,
+            "run_counts": run_counts,
+            "run_type_buckets": _RUN_TYPE_BUCKETS,
         },
     )
 
@@ -1876,6 +1905,27 @@ def _resolve_run_type(run: Optional[Any], fallback: Optional[Dict[str, str]] = N
     if run is not None and fallback:
         return _config_type_to_run_type(fallback.get(getattr(run, "run_id", None)))
     return "training"
+
+
+def _primary_output_label(run: Any) -> Optional[str]:
+    """Short label for the primary artifact a non-training Run produced.
+
+    Used by the global ``/runs`` index to communicate what each etl/eda/
+    inference run actually generated. Returns ``None`` for training runs and
+    for non-training runs that recorded no output artifact. The label is a
+    stable, human-readable summary (not the raw filesystem path).
+    """
+    op = getattr(run, "output_paths", {}) or {}
+    rt = _resolve_run_type(run)
+    if rt == "eda" and op.get("eda_report"):
+        return "EDA report"
+    if rt == "inference" and op.get("inference_predictions"):
+        return "Predictions"
+    if rt == "etl":
+        etl_keys = [k for k in op if k.startswith("etl_")]
+        if etl_keys:
+            return f"ETL: {etl_keys[0][len('etl_') :]}"
+    return None
 
 
 def _run_type_fallback_map() -> Dict[str, str]:

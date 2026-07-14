@@ -72,6 +72,7 @@ def _meta_dict(
     feature_count=None,
     status="success",
     timestamp="2024-01-15T10:30:00",
+    output_paths=None,
 ):
     """Build a run_metadata.json-style dict.
 
@@ -87,7 +88,7 @@ def _meta_dict(
         "git_commit": "deadbeef",
         "config_files": [],
         "status": status,
-        "output_paths": {},
+        "output_paths": output_paths or {},
         "run_type": run_type,
         "model_types": model_types if model_types is not None else [],
     }
@@ -140,6 +141,16 @@ def _extract_row(html, run_id):
         if run_id in row:
             return row
     return None
+
+
+def _bucket_section(html, bucket):
+    """Return the <section data-run-type="bucket">...</section> block, or None."""
+    m = re.search(
+        rf'<section[^>]*data-run-type="{re.escape(bucket)}"[^>]*>.*?</section>',
+        html,
+        re.DOTALL,
+    )
+    return m.group(0) if m else None
 
 
 # ---------------------------------------------------------------------------
@@ -343,3 +354,79 @@ class TestProjectDetailByTypeTable:
         assert html.count("<th>F1</th>") == 1
         # The training run's formatted AUC still renders inside its bucket.
         assert "0.909" in html
+
+
+# ---------------------------------------------------------------------------
+# Work-unit 2: global /runs grouped by run_type + /dashboard type-awareness
+# ---------------------------------------------------------------------------
+
+
+class TestRunsListGroupedByType:
+    """/runs HTML groups runs by run_type, mirroring project_detail by-type tables.
+
+    The JSON API contract stays flat ({"runs": [...]}).
+    """
+
+    def test_runs_list_groups_runs_by_type_html(self, client):
+        etl_with_output = _meta(
+            "etl-001",
+            "etl",
+            output_paths={"etl_sample": "data/processed/sample.parquet"},
+        )
+        runs = [_training_meta("train-001"), etl_with_output]
+        with patch("energizados.web.app.RunManager") as mock_rm:
+            mock_rm.return_value.list_runs.return_value = runs
+            response = client.get("/runs")
+
+        assert response.status_code == 200
+        html = response.text
+        # The etl run lands in the etl bucket; the training run does not.
+        etl_section = _bucket_section(html, "etl")
+        assert etl_section is not None
+        assert "etl-001" in etl_section
+        assert "train-001" not in etl_section
+        # Non-training bucket renders the produced-artifact label (not the raw
+        # filesystem path) as its "Output".
+        assert "ETL: sample" in etl_section
+        # Training bucket keeps its AUC column.
+        train_section = _bucket_section(html, "training")
+        assert train_section is not None
+        assert "train-001" in train_section
+        assert "0.909" in train_section
+
+    def test_runs_list_json_api_still_flat(self, client):
+        """The /runs JSON branch must keep the flat {"runs": [...]} contract."""
+        runs = [_training_meta("train-001"), _etl_meta("etl-001")]
+        with patch("energizados.web.app.RunManager") as mock_rm:
+            mock_rm.return_value.list_runs.return_value = runs
+            response = client.get("/runs", headers={"accept": "application/json"})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert list(data.keys()) == ["runs"]
+        assert {r["run_id"] for r in data["runs"]} == {"train-001", "etl-001"}
+
+
+class TestDashboardTypeAwareness:
+    """/dashboard communicates the training-only timeline + per-type counts."""
+
+    def test_dashboard_renders_run_counts_and_training_label(self, client):
+        runs = [
+            _training_meta("train-001", timestamp=datetime(2024, 1, 15, 10, 30, 0)),
+            _etl_meta("etl-a", timestamp=datetime(2024, 1, 15, 11, 0, 0)),
+            _etl_meta("etl-b", timestamp=datetime(2024, 1, 15, 12, 0, 0)),
+            _meta("eda-001", "eda", timestamp=datetime(2024, 1, 15, 13, 0, 0)),
+        ]
+        with patch("energizados.web.app.RunManager") as mock_rm:
+            mock_rm.return_value.list_runs.return_value = runs
+            response = client.get("/dashboard")
+
+        assert response.status_code == 200
+        html = response.text
+        # Timeline is training-only since work-unit 1 — the chart is labeled so.
+        assert "Training runs" in html
+        # Per-type count tiles (data-run-count="<bucket>">N<) are rendered.
+        assert 'data-run-count="training">1<' in html
+        assert 'data-run-count="etl">2<' in html
+        assert 'data-run-count="eda">1<' in html
+        assert 'data-run-count="inference">0<' in html

@@ -34,6 +34,23 @@
 {% block content %}
 <h2 class="app-hero__title mb-4">📈 Metrics Timeline Dashboard</h2>
 
+{# Per-type run counts: the timeline is training-only (AUC/F1), so the mix of
+   run types makes the chart's scope legible at a glance. #}
+{% set type_meta = {
+    "etl": {"icon": "bi-database", "label": "ETL"},
+    "eda": {"icon": "bi-bar-chart", "label": "EDA"},
+    "inference": {"icon": "bi-lightning", "label": "Inference"},
+    "training": {"icon": "bi-cpu", "label": "Training"}
+} %}
+<div class="app-hero__stats mb-4">
+    {% for bucket in run_type_buckets %}
+    <div class="app-stat">
+        <span class="app-stat__value" data-run-count="{{ bucket }}">{{ run_counts[bucket] }}</span>
+        <span class="app-stat__label">{{ type_meta[bucket].label }}</span>
+    </div>
+    {% endfor %}
+</div>
+
 <!-- Filter Section -->
 <div class="filter-section">
     <div class="row align-items-center">
@@ -55,6 +72,7 @@
 
 <!-- Timeline Chart -->
 <div class="chart-container">
+    <p class="text-muted small mb-3">Training runs — AUC/F1 over time</p>
     <div id="timeline-chart"></div>
     <div id="chart-loading" class="text-center text-muted mt-5">
         <div class="spinner-border" role="status">
@@ -156,7 +174,7 @@ function loadTimelineChart() {
             };
 
             const layout = {
-                title: 'Metrics Evolution Over Time',
+                title: 'Training runs — AUC/F1 over time',
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 font: { color: colorText },
