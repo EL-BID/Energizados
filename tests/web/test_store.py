@@ -1047,13 +1047,15 @@ class TestJobStoreDerivedFromMigration:
 
         assert "idx_jobs_derived_from" in index_names
 
-    def test_retry_does_not_propagate_derived_from_run_id(self, tmp_path):
-        """Retry is Job→Job (via retried_from), NOT Run→Run.
+    def test_retry_preserves_derived_from_run_id(self, tmp_path):
+        """Retry preserves the Run→Run lineage while adding the Job→Job link.
 
-        ADR-0003 non-collapse contract: even if the original job carried a
-        ``derived_from_run_id`` (it was a retrain), the retried job must NOT
-        inherit it — retry re-runs the same config, it does not re-derive from
-        the source run. Only ``retried_from`` is set on the new job.
+        A retried retrain is still derived from the same source Run: retry
+        re-runs the original config, so the new job carries BOTH links —
+        ``retried_from`` (Job→Job) AND the original ``derived_from_run_id``
+        (Run→Run transport). The two relationships stay separate (ADR-0003
+        non-collapse); retry does not create a *new* derivation, it reuses the
+        original's.
         """
         store = JobStore(db_path=str(tmp_path / "test.db"))
 
@@ -1070,8 +1072,9 @@ class TestJobStoreDerivedFromMigration:
         new_job = store.get_job(new_id)
         # retried_from IS set (Job→Job link)
         assert new_job.retried_from == original_id
-        # derived_from_run_id is NOT propagated (Run→Run link is not copied)
-        assert new_job.derived_from_run_id is None
+        # derived_from_run_id IS preserved (a retried retrain is still derived
+        # from the same source Run)
+        assert new_job.derived_from_run_id == "train-source-run"
 
     def test_to_dict_includes_derived_from_run_id(self, tmp_path):
         """JobRow.to_dict serializes derived_from_run_id."""

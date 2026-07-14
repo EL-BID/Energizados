@@ -389,7 +389,16 @@ class JobStore:
             logger.warning(f"Cannot retry job {job_id}: not terminal (status={job.status.value})")
             return None
 
-        new_job_id = self.create_job(job.config, job.config_type, project_path=job.project_path)
+        # Preserve the Run→Run lineage: a retried retrain is still derived from
+        # the same source Run, so the new job carries the original
+        # derived_from_run_id. retried_from (Job→Job) is set separately below —
+        # the two relationships stay distinct (ADR-0003 non-collapse).
+        new_job_id = self.create_job(
+            job.config,
+            job.config_type,
+            project_path=job.project_path,
+            derived_from_run_id=job.derived_from_run_id,
+        )
 
         # Link to original job
         with self._get_connection() as conn:
