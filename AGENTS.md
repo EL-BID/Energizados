@@ -91,6 +91,8 @@ These scripts use `ConfigPipelineBuilder` API directly.
 
 ## Code Architecture
 
+**Domain language**: `CONTEXT.md` is the single source of truth for ubiquitous-language terms (Pipeline, Step, Context, Model, Ensemble, Registry, Run, Job, Project…). Use the canonical terms and respect each `_Avoid_` list when naming code or writing docs. Key disambiguations: framework `Pipeline` ≠ user `Custom Pipeline` (`BasePipeline`); core `Run` (training output) is generalized by the web console; `Model` = `BaseModel` unit (single Adapter or Ensemble), not the raw estimator.
+
 ### Directory Structure
 
 **Framework source (`src/energizados/`):**

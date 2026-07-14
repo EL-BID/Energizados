@@ -560,3 +560,97 @@ class TestJobRunnerProjectPath:
 
         job = store.get_job(job_id)
         assert job.status == JobStatus.SUCCESS
+
+
+class TestJobRunnerTypedRunAttribution:
+    """Phase 2 (ADR-0001): pure EDA/inference jobs now produce a run_dir, so the
+    child writes SUCCESS with run_id/run_dir (the no-run_dir branch is no longer
+    taken for typed non-training runs)."""
+
+    def test_run_job_writes_success_with_run_dir_for_typed_run(self, tmp_path):
+        """When builder.run_dir is set (now true for EDA/inference), child writes
+        SUCCESS with run_id + run_dir directly to the jobs row."""
+        from energizados.web.runner import _run_job
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"eda": {"enabled": True}}, "eda")
+        # The parent (_poll) marks the job RUNNING before spawning the child;
+        # mirror that so the child's SUCCESS write is a legal transition.
+        store.update_status(job_id, JobStatus.RUNNING)
+
+        run_dir = tmp_path / "output" / "eda-20240101_120000"
+        run_dir.mkdir(parents=True)
+
+        with (
+            patch("energizados.core.utils.import_utils.register_allowed_prefix"),
+            patch("energizados.api.ConfigPipelineBuilder") as mock_builder_cls,
+            patch("energizados.api.RunManager.get_run", return_value=None),
+        ):
+            mock_builder = MagicMock()
+            mock_builder.run = lambda progress_callback=None: {"run_id": "eda-x"}
+            mock_builder.run_dir = run_dir
+            mock_builder_cls.return_value = mock_builder
+
+            _run_job(job_id, {"eda": {"enabled": True}}, None, str(store.db_path.resolve()))
+
+        job = store.get_job(job_id)
+        assert job.status == JobStatus.SUCCESS
+        assert job.run_id == "eda-20240101_120000"
+        assert job.run_dir == str(run_dir)
+
+    def test_run_job_forwards_derived_from_to_builder(self, tmp_path):
+        """ADR-0003: _run_job forwards derived_from_run_id to ConfigPipelineBuilder.
+
+        Phase 2 added ConfigPipelineBuilder(derived_from=...) → Director →
+        RunManager._derived_from → run_metadata.json. This test locks the last
+        hop of the transport: the worker child must pass the job's
+        derived_from_run_id through to the builder so it reaches metadata.
+        """
+        from energizados.web.runner import _run_job
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"train": {}}, "train")
+        store.update_status(job_id, JobStatus.RUNNING)
+
+        run_dir = tmp_path / "output" / "train-20240101_120000"
+        run_dir.mkdir(parents=True)
+
+        with (
+            patch("energizados.core.utils.import_utils.register_allowed_prefix"),
+            patch("energizados.api.ConfigPipelineBuilder") as mock_builder_cls,
+            patch("energizados.api.RunManager.get_run", return_value=None),
+        ):
+            mock_builder = MagicMock()
+            mock_builder.run = lambda progress_callback=None: {"run_id": "train-x"}
+            mock_builder.run_dir = run_dir
+            mock_builder_cls.return_value = mock_builder
+
+            _run_job(
+                job_id,
+                {"train": {}},
+                None,
+                str(store.db_path.resolve()),
+                "train-20240101_120000",  # derived_from_run_id (source run)
+            )
+
+        # ConfigPipelineBuilder was constructed with derived_from=<source run>.
+        _, kwargs = mock_builder_cls.call_args
+        assert kwargs.get("derived_from") == "train-20240101_120000"
+
+    @patch("energizados.web.runner.Process")
+    def test_poll_passes_derived_from_run_id_to_process(self, mock_process_class, tmp_path):
+        """ADR-0003: _poll passes job.derived_from_run_id as a Process arg."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        store.create_job({"train": {}}, "train", derived_from_run_id="train-source-run")
+
+        mock_process = MagicMock()
+        mock_process.is_alive.return_value = False
+        mock_process.exitcode = 0
+        mock_process_class.return_value = mock_process
+
+        runner = JobRunner(store=store)
+        runner._poll()
+
+        args = mock_process_class.call_args[1]["args"]
+        # args = (job_id, config, project_path, db_path, derived_from_run_id)
+        assert args[4] == "train-source-run"

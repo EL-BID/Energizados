@@ -9,6 +9,7 @@ Implements Phase 2 endpoints (runs list, detail, artifact serving) with security
 import asyncio
 import json
 import logging
+import os
 import re
 from collections import deque
 from dataclasses import dataclass
@@ -364,13 +365,18 @@ async def root(request: Request):
 @app.get("/global")
 async def global_editor(request: Request):
     """
-    Global YAML editor + job list (project-agnostic job creation).
+    Global YAML editor + job list (project-agnostic; creation deprecated).
 
-    The project-first home is at ``/`` (which redirects to ``/projects``); this
-    keeps the legacy global editor reachable. Renders ``index.html``, which
-    embeds ``components/editor.html`` and the global job list (POSTs to ``/jobs``).
+    ADR-0002: Global job creation is blocked at ``POST /jobs``. The editor is
+    kept visible for inspection but its submit is disabled; a banner points
+    users at the project-scoped workflow. The job list below remains a
+    read-only view of legacy Global rows.
     """
-    return templates.TemplateResponse(request, "index.html", {})
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"global_deprecated": True, "submit_disabled": True},
+    )
 
 
 @app.get("/ui")
@@ -388,39 +394,26 @@ async def style_guide(request: Request):
 
 @app.post("/jobs")
 async def create_job(request: Request):
-    """
-    Create and enqueue a new job (tasks 5.11, 5.12, 5.20).
+    """Reject Global job creation (ADR-0002).
 
-    Expects YAML body and config_type parameter. Validates config via
-    validate_dict() and checks custom_class prefixes before enqueue.
+    Global (project-agnostic) job creation is deprecated. This endpoint no
+    longer parses, validates, or enqueues anything — it always returns 400.
+    The canonical route is ``POST /projects/{project_id}/jobs``. Existing
+    Global rows remain readable via ``GET /jobs`` (legacy read-only surface).
 
     Returns:
-        JSON with job_id and status, or 400 with validation errors
-        HTML fragments if HX-Request header is present (PR3 content negotiation)
+        400 with an ADR-0002 message — JSON ``{"detail": ...}`` for plain
+        requests, or the ``job_validation.html`` fragment for HTMX requests
+        (same helper the project-scoped route uses for validation errors).
     """
-    # Check if HTMX request for content negotiation (PR3 UX fix)
-    is_htmx = request.headers.get("HX-Request") == "true"
-
-    # Parse + validate + security-check the request config (shared with POST /plan).
-    # Raises HTTPException (JSON) or _HtmxErrorResponse (HTMX) on any validation error.
-    validated = await _validate_request_config(request, htmx_error_template="job_validation.html")
-    config, config_type = validated.config, validated.config_type
-
-    # Create job in JobStore
-    store = JobStore()
-    job_id = store.create_job(config, config_type)
-
-    # Return HTML for HTMX, JSON otherwise (PR3 content negotiation)
-    if is_htmx:
-        return templates.TemplateResponse(
-            request,
-            "job_created.html",
-            {"job_id": job_id, "status": "queued", "config_type": config_type},
-            status_code=201,
-        )
-    return JSONResponse(
-        status_code=201, content={"job_id": job_id, "status": "queued", "config_type": config_type}
+    message = (
+        "Global job creation is deprecated (ADR-0002). "
+        "Create jobs via POST /projects/{project_id}/jobs instead."
     )
+    is_htmx = request.headers.get("HX-Request") == "true"
+    if is_htmx:
+        _raise_htmx_error(request, "job_validation.html", errors=[message])
+    raise HTTPException(status_code=400, detail=message)
 
 
 @app.get("/jobs")
@@ -1206,15 +1199,88 @@ async def compare_runs_page(request: Request, ids: str = ""):
 
     Renders comparison table with metrics, ensemble rankings, and best value highlighting.
 
+    ADR-0001 (Phase 4): Compare is explicit about Run type. Only same-type Runs
+    are comparable; cross-type sets render a typed empty-state banner (the JSON
+    endpoint returns HTTP 409 for the same condition). Training runs keep the
+    existing AUC/F1/precision/recall/threshold table; non-training homogeneous
+    sets render a metadata table.
+
     NOTE: Declared BEFORE /runs/{run_id} so FastAPI does not swallow the literal
     "compare" segment as a run_id path parameter (route matching is order-sensitive).
     """
     # Parse and validate run IDs
     run_ids = _parse_and_validate_run_ids(ids, max_count=10)
 
-    # Load evaluation data for all runs (tolerant to missing files)
+    # ADR-0001: resolve each requested Run's type BEFORE eval-data filtering so a
+    # mixed-type set is rejected rather than silently narrowed to whatever
+    # training runs happen to carry evaluation data.
+    manager = RunManager()
+    run_meta_by_id, run_types = _load_compare_run_types(run_ids, manager)
+
+    # Cross-type set → typed empty-state banner (page surface). Not a 404: the
+    # runs exist, they are simply not comparable.
+    if len(set(run_types.values())) > 1:
+        return templates.TemplateResponse(
+            request,
+            "compare_runs.html",
+            {
+                "mixed_types": True,
+                "run_types": run_types,
+                "runs": [],
+                "meta_runs": [],
+                "best": {"auc": None, "f1": None, "precision": None, "recall": None},
+                "ids": ids,
+                "run_type": None,
+                "comparison_json": "[]",
+            },
+        )
+
+    run_type = next(iter(set(run_types.values())))
+
+    # Load evaluation data for all runs (tolerant to missing files).
     eval_data_dict = _load_run_evaluations_batch(run_ids)
 
+    if run_type == "training":
+        return _render_training_compare(request, ids, run_ids, eval_data_dict)
+
+    # Homogeneous non-training compare: render a metadata table. These Runs do
+    # not produce evaluation_report.json, so missing eval data is expected and
+    # not a 404. Runs without metadata are skipped; if none resolve, 404.
+    meta_runs = [
+        {"run_id": run_id, "metadata": run_meta_by_id[run_id].to_dict()}
+        for run_id in run_ids
+        if run_meta_by_id.get(run_id) is not None
+    ]
+    if not meta_runs:
+        raise HTTPException(status_code=404, detail="No valid runs found")
+
+    return templates.TemplateResponse(
+        request,
+        "compare_runs.html",
+        {
+            "mixed_types": False,
+            "run_types": run_types,
+            "runs": [],
+            "meta_runs": meta_runs,
+            "best": {"auc": None, "f1": None, "precision": None, "recall": None},
+            "ids": ids,
+            "run_type": run_type,
+            "comparison_json": "[]",
+        },
+    )
+
+
+def _render_training_compare(
+    request: Request,
+    ids: str,
+    run_ids: List[str],
+    eval_data_dict: Dict[str, Dict],
+):
+    """Render the training-run comparison table (unchanged ADR-0001 pre-Phase-4 behavior).
+
+    Factored out of compare_runs_page so the training path stays byte-for-byte
+    identical while the page handler branches on Run type.
+    """
     # If all runs missing evaluation data, return 404
     if not eval_data_dict:
         raise HTTPException(
@@ -1262,9 +1328,13 @@ async def compare_runs_page(request: Request, ids: str = ""):
         request,
         "compare_runs.html",
         {
+            "mixed_types": False,
+            "run_types": {},
             "runs": runs_data,
+            "meta_runs": [],
             "ids": ids,
             "best": best,
+            "run_type": "training",
             # Embedded in a <script type="application/json"> data island via | safe.
             # json.dumps does not escape "</script>"; neutralize the closing-tag
             # sequence so a run_id/model name containing it cannot break out of the
@@ -1548,9 +1618,31 @@ async def compare_runs_json(ids: str = ""):
 
     Returns JSON with evaluation data for multiple runs.
     Supports both single-model and multi-model runs.
+
+    ADR-0001 (Phase 4): cross-type Run sets are rejected with HTTP 409 (the
+    page surface renders a banner for the same condition). Homogeneous sets
+    echo ``run_type`` at the top level so clients can branch like the template.
     """
     # Parse and validate run IDs
     run_ids = _parse_and_validate_run_ids(ids, max_count=10)
+
+    # ADR-0001: resolve each Run's type before eval-data filtering so mixed-type
+    # sets are rejected rather than silently narrowed to training runs.
+    manager = RunManager()
+    run_meta_by_id, run_types = _load_compare_run_types(run_ids, manager)
+
+    if len(set(run_types.values())) > 1:
+        # Typed empty-state: runs exist but are not comparable. 409 (Conflict)
+        # communicates "request well-formed, but this comparison is invalid."
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "Runs are of different types and cannot be compared",
+                "run_types": run_types,
+            },
+        )
+
+    run_type = next(iter(set(run_types.values())))
 
     # Load evaluation data for all runs (tolerant to missing files)
     eval_data_dict = _load_run_evaluations_batch(run_ids)
@@ -1562,7 +1654,6 @@ async def compare_runs_json(ids: str = ""):
         )
 
     # Build response with run metadata and evaluation data
-    manager = RunManager()
     results = {}
 
     for run_id in run_ids:
@@ -1570,8 +1661,9 @@ async def compare_runs_json(ids: str = ""):
         if run_id not in eval_data_dict:
             continue
 
-        # Get run metadata
-        run = manager.get_run(run_id)
+        # Get run metadata (already loaded during type resolution; avoids a
+        # second get_run round-trip per run).
+        run = run_meta_by_id.get(run_id)
         if not run:
             continue
 
@@ -1586,7 +1678,7 @@ async def compare_runs_json(ids: str = ""):
             "is_multi": eval_data.get("is_multi", False),
         }
 
-    return {"runs": results}
+    return {"runs": results, "run_type": run_type}
 
 
 @app.get("/api/runs/{run_id}/thresholds")
@@ -1744,10 +1836,10 @@ async def register_project_route(request: Request):
 
 
 # Canonical Run-type buckets shown on the project hero page. The console groups
-# Jobs and Runs by Run type (CONTEXT.md, Web Console). Run type is derived from the
-# producing Job's ``config_type``: run dirs themselves are not type-specific
-# (RunManager prefixes every auto-named run with "train-" — see ADR-0001), so
-# the Job→Run join via ``run_id`` is the authoritative type signal.
+# Jobs and Runs by Run type (CONTEXT.md, Web Console). Since ADR-0001 Phase 2,
+# RunMetadata carries a ``run_type`` discriminator and run dirs are typed
+# (train-/etl-/eda-/inference-); the Job→Run ``config_type`` join remains as a
+# fallback for legacy/CLI runs whose run_metadata.json predates run_type.
 _RUN_TYPE_BUCKETS = ("etl", "eda", "inference", "training")
 
 
@@ -1755,12 +1847,75 @@ def _config_type_to_run_type(config_type: Optional[str]) -> str:
     """Map a Job ``config_type`` to a canonical Run-type bucket.
 
     ``config_type`` is a validation label (etl / train / eda / infer). Unknown
-    values default to ``training`` — the dominant run type in practice, and the
-    prefix RunManager falls back to for auto-named run dirs.
+    values default to ``training`` — the dominant run type in practice and the
+    from_dict default for RunMetadata.run_type.
     """
     mapping = {"etl": "etl", "eda": "eda", "infer": "inference", "train": "training"}
     ct = (config_type or "").strip().lower()
     return mapping.get(ct, "training")
+
+
+def _resolve_run_type(run: Optional[Any], fallback: Optional[Dict[str, str]] = None) -> str:
+    """Resolve a Run's type for Compare scoping (ADR-0001).
+
+    Prefers ``RunMetadata.run_type`` (the canonical signal since Phase 2 — every
+    finalized typed Run carries it, and RunMetadata.from_dict defaults legacy
+    files to "training"). Falls back to the producing Job's ``config_type``
+    joined via run_id for old/CLI runs whose run_metadata.json predates run_type.
+    Defaults to "training" when neither signal is available, preserving the
+    pre-Phase-4 UI where every compare was a training compare.
+    """
+    rt = getattr(run, "run_type", None)
+    if isinstance(rt, str) and rt:
+        return rt
+    if run is not None and fallback:
+        return _config_type_to_run_type(fallback.get(getattr(run, "run_id", None)))
+    return "training"
+
+
+def _run_type_fallback_map() -> Dict[str, str]:
+    """Best-effort ``{run_id: config_type}`` from recent jobs (legacy type fallback).
+
+    Only consulted when a Run lacks a canonical ``run_type``. Skipped when the
+    jobs database does not yet exist so the global Compare read-path never
+    creates a stray DB; the worker owns DB creation. Returns ``{}`` on any error
+    so Compare degrades to the "training" default rather than failing.
+    """
+    db_path = Path(os.environ.get("ENERGIZADOS_JOBS_DB") or "data/web/jobs.db")
+    if not db_path.exists():
+        return {}
+    try:
+        jobs = JobStore().list_jobs(limit=500)
+        return {j.run_id: j.config_type for j in jobs if j.run_id}
+    except Exception:
+        logger.warning("run-type fallback map unavailable; defaulting to training", exc_info=True)
+        return {}
+
+
+def _load_compare_run_types(run_ids: List[str], manager: "RunManager") -> tuple:
+    """Resolve ``(run_metadata, run_type)`` for each requested Run (ADR-0001).
+
+    Two-pass: read RunMetadata.run_type first and only build the job-join
+    fallback map when some Run lacks a canonical type (avoids a DB read on the
+    all-typed common path). Returns ``run_meta_by_id`` (run_id → RunMetadata or
+    None) and ``run_types`` (run_id → resolved type string).
+    """
+    run_meta_by_id: Dict[str, Any] = {}
+    raw: Dict[str, Optional[str]] = {}
+    for run_id in run_ids:
+        run = manager.get_run(run_id)
+        run_meta_by_id[run_id] = run
+        rt = getattr(run, "run_type", None)
+        raw[run_id] = rt if isinstance(rt, str) and rt else None
+    if any(v is None for v in raw.values()):
+        fallback = _run_type_fallback_map()
+        run_types: Dict[str, str] = {
+            rid: (rt if rt is not None else _config_type_to_run_type(fallback.get(rid)))
+            for rid, rt in raw.items()
+        }
+    else:
+        run_types = {rid: rt for rid, rt in raw.items()}  # type: ignore[misc]
+    return run_meta_by_id, run_types
 
 
 @app.get("/projects/{project_id}")
@@ -1779,12 +1934,18 @@ async def project_detail(request: Request, project_id: str):
     manager = _run_manager_for(project_id, ps)
     runs = manager.list_runs(limit=100)
 
-    # Authoritative run-type signal: the producing Job's config_type, joined via
-    # run_id. Falls back to "training" for runs with no matching job row (e.g.
-    # CLI-created runs) since auto-named run dirs default to the "train-" prefix.
+    # Authoritative run-type signal (ADR-0001): prefer the type recorded in the
+    # Run's own metadata; fall back to the producing Job's config_type joined via
+    # run_id (for old/CLI runs whose run_metadata.json predates run_type). Old
+    # training files load as run_type=="training" via RunMetadata.from_dict.
     run_type_by_run_id = {j.run_id: j.config_type for j in jobs if j.run_id}
 
     def _run_type(run) -> str:
+        # RunMetadata.run_type is the canonical signal once a run is finalized
+        # with the typed schema. "training" is the from_dict default, so legacy
+        # runs without the key land in the training bucket (preserving old UI).
+        if getattr(run, "run_type", None):
+            return run.run_type
         return _config_type_to_run_type(run_type_by_run_id.get(run.run_id))
 
     job_groups = {bucket: [] for bucket in _RUN_TYPE_BUCKETS}
@@ -1806,6 +1967,25 @@ async def project_detail(request: Request, project_id: str):
     )
     latest_job = jobs[0] if jobs else None
 
+    # ADR-0003 lineage: walk the latest training run's derived_from chain via
+    # RunManager.get_run until a run has no parent. O(depth) — fine for typical
+    # retrain depth. The chain is ordered root→leaf; lineage_available is True
+    # only when at least one member has a derived_from link (a real retrain).
+    # A purged ancestor (get_run returns None) ends the walk cleanly.
+    lineage_chain: List[Any] = []
+    if latest_training is not None:
+        seen: set = set()
+        current = latest_training
+        while current is not None and current.run_id not in seen:
+            seen.add(current.run_id)
+            lineage_chain.append(current)
+            parent_id = getattr(current, "derived_from", None)
+            if not parent_id:
+                break
+            current = manager.get_run(parent_id)
+        lineage_chain.reverse()  # root→leaf
+    lineage_available = any(getattr(r, "derived_from", None) for r in lineage_chain)
+
     return templates.TemplateResponse(
         request,
         "project_detail.html",
@@ -1825,9 +2005,10 @@ async def project_detail(request: Request, project_id: str):
             "latest_job": latest_job,
             "jobs_total": len(jobs),
             "runs_total": len(runs),
-            # derived_from (Run→Run retrain lineage) is not yet persisted
-            # (ADR-0003 deferred). The hero renders a muted placeholder.
-            "lineage_available": False,
+            # ADR-0003 Run→Run retrain lineage (root→leaf); empty list when the
+            # latest training run has no derived_from chain.
+            "lineage_available": lineage_available,
+            "lineage_chain": lineage_chain,
         },
     )
 
@@ -2405,7 +2586,13 @@ async def retrain_from_run(request: Request, project_id: str, run_id: str):
         )
 
     store = JobStore()
-    job_id = store.create_job(merged, "train", project_path=str(project.path))
+    # ADR-0003: stamp the SOURCE run_id (the URL path param) as the new job's
+    # derived_from_run_id. The worker threads this to
+    # ConfigPipelineBuilder(derived_from=...) so the re-run records its lineage
+    # in run_metadata.json["derived_from"] at finalization (Phase 2 passthrough).
+    job_id = store.create_job(
+        merged, "train", project_path=str(project.path), derived_from_run_id=run_id
+    )
 
     if is_htmx:
         return templates.TemplateResponse(

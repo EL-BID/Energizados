@@ -24,9 +24,10 @@ ubiquitous MLOps meaning.
 
 ## Consequences
 
-This decision documents intent **not yet fully realized in code**. Making it real
-requires: ETL/EDA Jobs to start emitting typed Runs (run dir + metadata) instead
-of writing bare to `output/<type>/`; `RunManager` to generalize beyond training;
-and Compare Runs to become type-scoped (compare only same-type Runs, training by
-default). Run metadata becomes type-discriminated — training-specific fields
-(AUC, F1) no longer apply to every Run.
+**Realized in code (2026-07-14)** — commits `dd1103c` and `11a775f`. ETL/EDA/
+inference Jobs now emit typed Runs (run dir + metadata) instead of writing bare
+to `output/<type>/`; `RunManager` is generalized beyond training via a `run_type`
+discriminator on `RunMetadata` (training-specific fields omitted for other
+types); and Compare is type-scoped (only same-type Runs, training by default).
+Run metadata is type-discriminated — training-specific fields (AUC, F1) no longer
+apply to every Run.

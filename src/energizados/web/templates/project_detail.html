@@ -179,19 +179,36 @@
 </section>
 
 {# ---------------- 4. Lineage snippet ---------------- #}
-{# derived_from (Run→Run retrain chain) is not persisted yet (ADR-0003 deferred).
-   The hero renders a muted placeholder rather than inventing lineage data. #}
+{# ADR-0003: derived_from (Run→Run retrain chain). lineage_chain is ordered
+   root→leaf; lineage_available is True only when at least one run has a real
+   derived_from link. The muted placeholder is the empty-state. #}
 <section class="app-card mb-4">
     <div class="app-card__header">
         <h2 class="app-card__title">Lineage</h2>
+        {% if lineage_available %}
+        <span class="app-card__count">retrain chain · {{ lineage_chain|length }} run{{ '' if lineage_chain|length == 1 else 's' }}</span>
+        {% endif %}
     </div>
     {% if lineage_available %}
-    {# Future: render the derived_from retrain chain (Run → Run) here. #}
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        {% for run in lineage_chain %}
+        {% if not loop.first %}<span class="text-muted" aria-label="derived from">→</span>{% endif %}
+        <a href="/projects/{{ pid }}/runs/{{ run.run_id }}" class="app-card__link">
+            <code class="small">{{ run.run_id[:24] }}</code>
+        </a>
+        {% endfor %}
+    </div>
+    <div class="app-card__meta">
+        <span class="text-muted small">
+            <i class="bi bi-diagram-3 me-1"></i>
+            Each run was retrained from the one before it (<code>derived_from</code>).
+        </span>
+    </div>
     {% else %}
     <div class="app-empty">
         <i class="bi bi-diagram-3 me-1"></i>
-        Retrain lineage (Run → Run) is not available yet — <code>derived_from</code>
-        is not persisted (ADR-0003, deferred).
+        No retrain lineage yet — runs Retrained from another Run will appear here
+        as a <code>derived_from</code> chain (ADR-0003).
     </div>
     {% endif %}
 </section>

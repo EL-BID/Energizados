@@ -101,6 +101,16 @@ class ETLBuilder(StepBuilder):
                     context["data"] = results[last_etl]
 
                 context["etl_results"] = results
+                # ADR-0001: surface configured output paths so run-metadata can
+                # reference the dataset (the dataset itself stays at its
+                # configured path — not relocated).
+                etl_output_paths = {
+                    name: cfg["output"]
+                    for name, cfg in self.orchestrator.etl_configs.items()
+                    if cfg.get("output")
+                }
+                if etl_output_paths:
+                    context["etl_output_paths"] = etl_output_paths
                 return context
 
             def get_required_keys(self) -> List[str]:

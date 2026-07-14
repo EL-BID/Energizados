@@ -90,6 +90,16 @@ class JobStore:
                 logger.info("Migrating jobs: adding project_path TEXT column")
                 conn.execute("ALTER TABLE jobs ADD COLUMN project_path TEXT")
 
+            # Migrate jobs: add derived_from_run_id column for existing DBs
+            # (Phase 3, ADR-0003 — Run→Run retrain lineage). Idempotent: only
+            # ALTERs if the column is missing. Mirrors run_id storage: the value
+            # lives in BOTH the jobs row (transport + queryable) and the run's
+            # run_metadata.json["derived_from"] (portable Run property). Points to
+            # a run_id, distinct from retried_from (which points to a job_id).
+            if "derived_from_run_id" not in jobs_col_names:
+                logger.info("Migrating jobs: adding derived_from_run_id TEXT column")
+                conn.execute("ALTER TABLE jobs ADD COLUMN derived_from_run_id TEXT")
+
             # Migrate job_events: drop if percent is INTEGER (old schema from Phase 1)
             # Check if job_events table exists and has INTEGER percent column
             existing_tables = conn.execute(
@@ -138,6 +148,9 @@ class JobStore:
                 "CREATE INDEX IF NOT EXISTS idx_job_events_job_seq ON job_events(job_id, seq)"
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_path)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_derived_from ON jobs(derived_from_run_id)"
+            )
 
             conn.commit()
             logger.info(f"Schema initialized: {self.db_path}")
@@ -147,6 +160,7 @@ class JobStore:
         config: Dict[str, Any],
         config_type: str,
         project_path: Optional[str] = None,
+        derived_from_run_id: Optional[str] = None,
     ) -> str:
         """
         Create a new queued job.
@@ -156,6 +170,12 @@ class JobStore:
             config_type: Config type ("etl" | "train" | "eda" | "infer")
             project_path: Optional absolute path to the owning project. When
                 ``None`` the job belongs to the Global view.
+            derived_from_run_id: Optional ADR-0003 source run_id for retrain
+                lineage (Run→Run). Points to a run_id, NOT a job_id — distinct
+                from ``retried_from``. The worker threads this to
+                ``ConfigPipelineBuilder(derived_from=...)`` so it lands in
+                ``run_metadata.json["derived_from"]`` at finalization. Retry does
+                NOT set this (retry is Job→Job via ``retried_from``).
 
         Returns:
             job_id: UUID-based job identifier
@@ -166,8 +186,10 @@ class JobStore:
         with self._get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO jobs (job_id, config, config_type, status, enqueued_at, project_path)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO jobs
+                    (job_id, config, config_type, status, enqueued_at, project_path,
+                     derived_from_run_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id,
@@ -176,6 +198,7 @@ class JobStore:
                     JobStatus.QUEUED.value,
                     enqueued_at,
                     project_path,
+                    derived_from_run_id,
                 ),
             )
             conn.commit()
@@ -366,7 +389,16 @@ class JobStore:
             logger.warning(f"Cannot retry job {job_id}: not terminal (status={job.status.value})")
             return None
 
-        new_job_id = self.create_job(job.config, job.config_type, project_path=job.project_path)
+        # Preserve the Run→Run lineage: a retried retrain is still derived from
+        # the same source Run, so the new job carries the original
+        # derived_from_run_id. retried_from (Job→Job) is set separately below —
+        # the two relationships stay distinct (ADR-0003 non-collapse).
+        new_job_id = self.create_job(
+            job.config,
+            job.config_type,
+            project_path=job.project_path,
+            derived_from_run_id=job.derived_from_run_id,
+        )
 
         # Link to original job
         with self._get_connection() as conn:

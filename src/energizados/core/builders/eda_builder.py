@@ -17,7 +17,17 @@ class EDABuilder(StepBuilder):
 
     Constructs a step that performs exploratory data analysis
     based on the 'eda' section of the configuration.
+
+    ADR-0001: when ``run_dir`` is provided (typed EDA run), the HTML report is
+    written into the run dir (``<run_dir>/eda_report.html``) instead of the
+    fixed ``output/eda/`` location, and the report path is pushed to context as
+    ``eda_report_path`` for run-metadata bookkeeping.
     """
+
+    def __init__(self, config: Dict[str, Any], run_dir: Optional[Any] = None):
+        super().__init__(config)
+        # ``run_dir`` may be a Path or None; kept as-is (DatasetExplorer wants a str).
+        self._run_dir = run_dir
 
     def build(self) -> Optional[PipelineStep]:
         """
@@ -31,6 +41,13 @@ class EDABuilder(StepBuilder):
             return None
 
         full_config = self.config
+        run_dir = self._run_dir
+
+        # ADR-0001: relocate the report into the run dir for typed EDA runs.
+        if run_dir is not None:
+            default_output_dir = str(run_dir)
+        else:
+            default_output_dir = "output/eda/"
 
         class EDAStep(PipelineStep):
             """Pipeline step that runs Exploratory Data Analysis."""
@@ -53,12 +70,15 @@ class EDABuilder(StepBuilder):
                     lon_column=col_detection.get("lon_col"),
                     zone_column=col_detection.get("zone_col"),
                     periods_suffix=col_detection.get("periods_suffix", "_anterior"),
-                    output_dir=output_cfg.get("output_dir", "output/eda/"),
+                    output_dir=output_cfg.get("output_dir", default_output_dir),
                     sections=eda_config.get("sections"),
                     config=full_config,
                 )
                 results = explorer.run()
                 context["eda_results"] = results
+                # ADR-0001: surface the report path for run-metadata output_paths.
+                if isinstance(results, dict) and results.get("report_path"):
+                    context["eda_report_path"] = results["report_path"]
                 return context
 
             def get_required_keys(self) -> List[str]:

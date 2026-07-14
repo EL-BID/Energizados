@@ -26,6 +26,12 @@ retrained from.
 
 ## Consequences
 
+**Realized in code (2026-07-14)** — commit `2f21c06`. `derived_from` is persisted
+both as a `jobs.derived_from_run_id` column and in `run_metadata.json`; the
+retrain flow records the source Run; `project_detail` renders the lineage chain.
+Retry (Job→Job `retried_from`) and Retrain (Run→Run `derived_from`) remain
+separate.
+
 Requires persisting `derived_from` (on RunMetadata or in the job/run store) and
 the retrain flow recording the source Run. The UI gains an experiment-lineage
 view (Run A → Run B → Run C). Retry and Retrain remain two non-overlapping

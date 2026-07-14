@@ -16,7 +16,7 @@ This repo has two bounded contexts.
 ### Relationships
 
 - **Web Console → Framework Core**: the web console is a thin observer/controller over the core. It triggers runs through the core's `ConfigPipelineBuilder` (via the `energizados.api` service layer), streams progress events, and reads core-produced artifacts (Runs, metrics, models, reports). The core has no dependency on the web console.
-- **Shared vocabulary**: both contexts use *Run* (the core produces one per successful training execution; the web console generalizes it — see each context's section below). *Pipeline*, *Step*, *Model* are core concepts the web console references but does not own.
+- **Shared vocabulary**: both contexts use *Run* — the core produces a typed Run (training / etl / eda / inference) per successful execution, and the web console surfaces and compares them (see each context's section below). *Pipeline*, *Step*, *Model* are core concepts the web console references but does not own.
 
 ## Framework Core
 
@@ -143,6 +143,16 @@ cross-column (under `global_transformers`, e.g. `if_score`, `tsfel_vars`,
 after).
 _Avoid_: estimator, processor, mapper
 
+**FeatureSelector**:
+A `fit`/`transform` unit that drops columns during FeatureSelection, following
+the scikit-learn convention (`BaseEstimator` / `TransformerMixin`). Defined by
+the frozen `BaseFeatureSelector` contract and resolved by config name
+(`"boruta"`, `"correlation"`, `"constant"`) through `selector_registry` — the
+same Registry that catalogs Models and Transformers. The *reduce* counterpart
+to a Transformer: a Transformer modifies columns during Preprocessing; a
+FeatureSelector drops them during FeatureSelection.
+_Avoid_: filter, reducer, column selector
+
 **TransformerError**:
 The framework exception raised when a Transformer's transform fails during
 FeatureEngineering. Frozen public-API type (`EnergizadosError`, `ValueError`).
@@ -204,6 +214,20 @@ contract (`predict` / `predict_proba` / `load_model` / `save_predictions`).
 The framework ships `DefaultInference` (single Model) and
 `HierarchicalInference` (routes rows to per-route Models by condition).
 _Avoid_: predictor, scorer
+
+## Output
+
+**Run**:
+The persisted output bundle of a successful execution — everything the
+Pipeline left behind under `output/<type>-YYYYMMDD_HHMM/` (trained Models +
+reports for training; the EDA report for eda; predictions for inference; a
+processed-dataset reference for etl), described by `RunMetadata` (persisted
+as `run_metadata.json`, carrying a `run_type`) and queryable through
+`RunManager`. Typed: a Run is one of training / etl / eda / inference, and
+only same-type Runs are comparable. Distinct from the in-memory **Context**
+(the live dict flowing between Steps) and from a **Job** (the web console's
+attempt to execute).
+_Avoid_: output, result, run-dir, experiment
 
 ## Web Console
 

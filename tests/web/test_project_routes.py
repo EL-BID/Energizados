@@ -316,6 +316,125 @@ def _write_run_metadata(
     return run_dir
 
 
+def _write_run_metadata_derived(
+    run_dir, run_id, *, derived_from=None, timestamp="2024-01-01T00:00:00Z"
+):
+    """Write a run_metadata.json carrying the ADR-0003 derived_from link.
+
+    Mirrors RunManager output for a finalized typed run. When ``derived_from``
+    is None it is omitted (matching RunMetadata.to_dict for non-derived runs).
+    """
+    run_dir.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "run_id": run_id,
+        "timestamp": timestamp,
+        "duration_seconds": 1.0,
+        "status": "success",
+        "model_types": ["lightgbm"],
+        "val_auc": 0.9,
+        "val_f1": 0.8,
+        "feature_count": 5,
+        "energizados_version": "0.3.0",
+        "python_version": "3.10",
+        "git_commit": "",
+        "config_files": [],
+        "output_paths": {},
+        "run_type": "training",
+    }
+    if derived_from is not None:
+        metadata["derived_from"] = derived_from
+    (run_dir / "run_metadata.json").write_text(json.dumps(metadata))
+    return run_dir
+
+
+def _lineage_section(html):
+    """Extract the Lineage card slice from the project detail HTML.
+
+    Run ids also appear in the "Latest training" hero and the type-grouped
+    tables, so whole-document ordering checks are unreliable. This isolates the
+    lineage card (between its heading and the next section) for robust asserts.
+    """
+    start = html.index("Lineage")
+    # The next section after Lineage is the YAML editor ("Submit a job").
+    end = html.index("Submit a job", start)
+    return html[start:end]
+
+
+class TestProjectDetailLineage:
+    """Phase 3 (ADR-0003): the project hero renders the Run→Run retrain chain.
+
+    ``project_detail`` walks ``run.derived_from`` via ``RunManager.get_run`` and
+    passes ``lineage_available`` + ``lineage_chain`` (ordered root→leaf) to the
+    template. The muted placeholder is the empty-state when no run has a
+    ``derived_from``.
+    """
+
+    def test_lineage_empty_state_when_no_derived_from(self, client, project_service):
+        """A project whose runs have no derived_from renders the muted placeholder."""
+        project = _make_valid_project_on_disk(project_service, "lineage-empty")
+        _write_run_metadata_derived(
+            project.path / "output" / "train-20240101_120000",
+            "train-20240101_120000",
+            timestamp="2024-01-01T12:00:00Z",
+        )
+
+        r = client.get(f"/projects/{project.project_id}")
+        assert r.status_code == 200
+        text = r.text
+        # The empty-state placeholder copy is present.
+        assert "No retrain lineage yet" in text
+        assert "derived_from" in text
+
+    def test_lineage_available_when_derived_from_present(self, client, project_service):
+        """A latest run with derived_from triggers lineage_available + chain depth 2."""
+        project = _make_valid_project_on_disk(project_service, "lineage-one")
+        root = "train-20240101_120000"
+        leaf = "train-20240201_120000"
+        _write_run_metadata_derived(
+            project.path / "output" / root, root, timestamp="2024-01-01T12:00:00Z"
+        )
+        _write_run_metadata_derived(
+            project.path / "output" / leaf,
+            leaf,
+            derived_from=root,
+            timestamp="2024-02-01T12:00:00Z",
+        )
+
+        r = client.get(f"/projects/{project.project_id}")
+        assert r.status_code == 200
+        section = _lineage_section(r.text)
+        # Both run ids appear within the lineage section.
+        assert root in section
+        assert leaf in section
+        # An arrow separator is rendered between chain links.
+        assert "→" in section
+
+    def test_lineage_chain_depth_three_root_to_leaf(self, client, project_service):
+        """A→B→C chain renders all three runs ordered root→leaf."""
+        project = _make_valid_project_on_disk(project_service, "lineage-chain")
+        a = "train-20240101_120000"
+        b = "train-20240201_120000"
+        c = "train-20240301_120000"
+        _write_run_metadata_derived(
+            project.path / "output" / a, a, timestamp="2024-01-01T12:00:00Z"
+        )
+        _write_run_metadata_derived(
+            project.path / "output" / b, b, derived_from=a, timestamp="2024-02-01T12:00:00Z"
+        )
+        _write_run_metadata_derived(
+            project.path / "output" / c, c, derived_from=b, timestamp="2024-03-01T12:00:00Z"
+        )
+
+        r = client.get(f"/projects/{project.project_id}")
+        assert r.status_code == 200
+        section = _lineage_section(r.text)
+        # All three chain members render within the lineage section, root→leaf.
+        assert a in section
+        assert b in section
+        assert c in section
+        assert section.index(a) < section.index(b) < section.index(c)
+
+
 class TestProjectsHomeStats:
     """Item B — per-project card stats on the /projects home."""
 

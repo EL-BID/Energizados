@@ -23,6 +23,7 @@ def _run_job(
     config: Dict[str, Any],
     project_path: Optional[str] = None,
     db_path: Optional[str] = None,
+    derived_from_run_id: Optional[str] = None,
 ):
     """
     Child process function: run a single job via ConfigPipelineBuilder.
@@ -42,6 +43,11 @@ def _run_job(
     (the source of truth), so the parent no longer relies on a fragile
     "grab global latest run" attribution.
 
+    When ``derived_from_run_id`` is given (ADR-0003 retrain), it is forwarded to
+    ``ConfigPipelineBuilder(derived_from=...)`` so the Phase 2 passthrough writes
+    it into the new run's ``run_metadata.json["derived_from"]`` at finalization.
+    Retry does NOT set it (retry is Job→Job via ``retried_from``, not Run→Run).
+
     Args:
         job_id: Job identifier
         config: Merged configuration dict
@@ -50,6 +56,7 @@ def _run_job(
             success-attribution write and progress callback so both resolve
             correctly after os.chdir (rather than relying on the env fallback,
             which silently creates a shadow DB if unset).
+        derived_from_run_id: Optional ADR-0003 source run_id (retrain lineage).
     """
     # chdir FIRST, before any builder imports/run, so relative config paths
     # resolve against the project directory. Child-only; no parent effect.
@@ -95,8 +102,10 @@ def _run_job(
                 logger_callback = logging.getLogger(__name__)
                 logger_callback.error(f"Progress callback failed for job {job_id}: {e}")
 
-        # Build and run pipeline
-        builder = ConfigPipelineBuilder(config=config)
+        # Build and run pipeline. ADR-0003: forward derived_from so the Phase 2
+        # passthrough (ConfigPipelineBuilder → Director → RunManager._derived_from)
+        # records the source run_id in run_metadata.json at finalization.
+        builder = ConfigPipelineBuilder(config=config, derived_from=derived_from_run_id)
         builder.on_step_start = on_step_start
         builder.on_step_complete = on_step_complete
         builder.on_step_error = on_step_error
@@ -201,7 +210,13 @@ class JobRunner:
         # env fallback.
         self._current_child = Process(
             target=_run_job,
-            args=(job.job_id, job.config, job.project_path, str(self.store.db_path.resolve())),
+            args=(
+                job.job_id,
+                job.config,
+                job.project_path,
+                str(self.store.db_path.resolve()),
+                job.derived_from_run_id,
+            ),
         )
         self._current_child.start()
 

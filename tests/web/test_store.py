@@ -939,3 +939,149 @@ class TestJobStoreProjectPathMigration:
         assert new_id is not None
         new_job = store.get_job(new_id)
         assert new_job.project_path == project
+
+
+class TestJobStoreDerivedFromMigration:
+    """Phase 3 (ADR-0003): derived_from_run_id column — Run→Run retrain lineage.
+
+    ``derived_from_run_id`` is the transport + queryable mirror of
+    ``run_metadata.json["derived_from"]``. It points to a run_id (NOT a job_id),
+    keeping retrain lineage (Run→Run) distinct from retry lineage (Job→Job via
+    ``retried_from``).
+    """
+
+    def test_fresh_db_has_derived_from_run_id_in_schema(self, tmp_path):
+        """Fresh DBs include derived_from_run_id column."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            names = {c["name"] for c in columns}
+
+        assert "derived_from_run_id" in names
+
+    def test_legacy_db_without_derived_from_gets_migrated(self, tmp_path):
+        """Existing DB without derived_from_run_id gets ALTERed on next open."""
+        import sqlite3
+
+        db_path = tmp_path / "legacy.db"
+        # Old-schema jobs table WITHOUT derived_from_run_id (pre-ADR-0003).
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.execute("""
+                CREATE TABLE jobs (
+                    job_id TEXT PRIMARY KEY,
+                    config TEXT NOT NULL,
+                    config_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    enqueued_at TEXT NOT NULL,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    run_id TEXT,
+                    run_dir TEXT,
+                    error TEXT,
+                    retried_from TEXT,
+                    project_path TEXT
+                )
+                """)
+            conn.execute(
+                "INSERT INTO jobs (job_id, config, config_type, status, enqueued_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                ("job-old-1", '{"train": {}}', "train", "queued", "2024-01-01T00:00:00Z"),
+            )
+            conn.commit()
+
+        store = JobStore(db_path=str(db_path))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            names = {c["name"] for c in columns}
+
+        assert "derived_from_run_id" in names
+        # Pre-existing row has derived_from_run_id = NULL (no lineage).
+        legacy_job = store.get_job("job-old-1")
+        assert legacy_job is not None
+        assert legacy_job.derived_from_run_id is None
+
+    def test_migration_idempotent_derived_from(self, tmp_path):
+        """The derived_from_run_id migration can run multiple times safely."""
+        db_path = tmp_path / "test.db"
+
+        JobStore(db_path=str(db_path))
+        store = JobStore(db_path=str(db_path))
+
+        with store._get_connection() as conn:
+            columns = conn.execute("PRAGMA table_info(jobs)").fetchall()
+            df_cols = [c for c in columns if c["name"] == "derived_from_run_id"]
+
+        assert len(df_cols) == 1  # Exactly one column, not duplicated
+
+    def test_create_job_with_derived_from_run_id_roundtrip(self, tmp_path):
+        """create_job accepts derived_from_run_id and persists it."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        job_id = store.create_job(
+            {"train": {}}, "train", derived_from_run_id="train-20240101_120000"
+        )
+
+        job = store.get_job(job_id)
+        assert job.derived_from_run_id == "train-20240101_120000"
+
+    def test_create_job_without_derived_from_defaults_null(self, tmp_path):
+        """create_job without derived_from_run_id stores NULL."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        job_id = store.create_job({"train": {}}, "train")
+
+        job = store.get_job(job_id)
+        assert job.derived_from_run_id is None
+
+    def test_derived_from_index_created(self, tmp_path):
+        """idx_jobs_derived_from index is created for query performance."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        with store._get_connection() as conn:
+            indexes = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='jobs'"
+            ).fetchall()
+            index_names = {i["name"] for i in indexes}
+
+        assert "idx_jobs_derived_from" in index_names
+
+    def test_retry_preserves_derived_from_run_id(self, tmp_path):
+        """Retry preserves the Run→Run lineage while adding the Job→Job link.
+
+        A retried retrain is still derived from the same source Run: retry
+        re-runs the original config, so the new job carries BOTH links —
+        ``retried_from`` (Job→Job) AND the original ``derived_from_run_id``
+        (Run→Run transport). The two relationships stay separate (ADR-0003
+        non-collapse); retry does not create a *new* derivation, it reuses the
+        original's.
+        """
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        # Original job was a retrain (has derived_from_run_id).
+        original_id = store.create_job(
+            {"train": {}}, "train", derived_from_run_id="train-source-run"
+        )
+        store.update_status(original_id, JobStatus.RUNNING)
+        store.update_status(original_id, JobStatus.FAILED, error={"error_code": "X"})
+
+        new_id = store.retry_job(original_id)
+
+        assert new_id is not None
+        new_job = store.get_job(new_id)
+        # retried_from IS set (Job→Job link)
+        assert new_job.retried_from == original_id
+        # derived_from_run_id IS preserved (a retried retrain is still derived
+        # from the same source Run)
+        assert new_job.derived_from_run_id == "train-source-run"
+
+    def test_to_dict_includes_derived_from_run_id(self, tmp_path):
+        """JobRow.to_dict serializes derived_from_run_id."""
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+
+        job_id = store.create_job({"train": {}}, "train", derived_from_run_id="train-abc")
+        job = store.get_job(job_id)
+
+        d = job.to_dict()
+        assert d["derived_from_run_id"] == "train-abc"

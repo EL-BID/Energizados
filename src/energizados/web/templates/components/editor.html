@@ -95,10 +95,17 @@ train:
                 <small class="form-text text-muted">File upload will populate the editor above</small>
             </div>
 
+            {% if submit_disabled %}
+            <button type="submit" class="btn btn-primary btn-lg" disabled aria-disabled="true"
+                    title="Global job creation is deprecated (ADR-0002)">
+                🚀 Submit Job (deprecated)
+            </button>
+            {% else %}
             <button type="submit" class="btn btn-primary btn-lg" hx-disabled-elt="this">
                 🚀 Submit Job
                 <span class="app-spinner htmx-indicator" role="status" aria-label="Submitting"></span>
             </button>
+            {% endif %}
 
             <button
                 type="button"

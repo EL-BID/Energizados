@@ -245,6 +245,36 @@ class TestRetrain:
         assert len(jobs) == 1
         assert jobs[0].config_type == "train"
 
+    def test_retrain_stores_derived_from_run_id(self, client, project_service):
+        """ADR-0003: retrain records the SOURCE run_id as derived_from_run_id.
+
+        The new job's ``derived_from_run_id`` points at the URL path ``run_id``
+        (the source Run being re-derived). This is the transport mirror of the
+        ``run_metadata.json["derived_from"]`` that the worker later writes via
+        ``ConfigPipelineBuilder(derived_from=...)`` (Phase 2 passthrough).
+        """
+        from energizados.web.store import JobStore
+
+        project = _make_project(project_service, "retrain-lineage")
+        run_id = "train-20240106_120000"
+        run_dir = project.path / "output" / run_id
+        _write_run_metadata(run_dir, run_id)
+        (run_dir / "config").mkdir(parents=True, exist_ok=True)
+        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML)
+
+        r = client.post(
+            f"/projects/{project.project_id}/runs/{run_id}/retrain",
+        )
+        assert r.status_code == 201, r.text
+
+        store = JobStore()
+        jobs = store.list_jobs(project_path=str(project.path))
+        assert len(jobs) == 1
+        # The source run_id is stored on the new job — distinct from retried_from
+        # (which is None here: this is a fresh retrain, not a retry).
+        assert jobs[0].derived_from_run_id == run_id
+        assert jobs[0].retried_from is None
+
 
 # ---------------------------------------------------------------------------
 # Inference — form
