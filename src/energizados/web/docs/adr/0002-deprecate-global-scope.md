@@ -23,6 +23,10 @@ created; existing ones surface read-only.
 
 ## Consequences
 
+**Realized in code (2026-07-14)** — commit `ecf9cdf`. `POST /jobs` no longer
+enqueues Global jobs (always 400); the `/global` editor is deprecated with a
+disabled submit. Legacy Global data remains read-only.
+
 Stop enqueuing `project_path=NULL` Jobs; retire Global routes from prominent UI
 (the sidebar) and degrade them to legacy/hidden. The special global-cwd and
 global-attribution logic in the runner can be removed once no Global Jobs remain.
