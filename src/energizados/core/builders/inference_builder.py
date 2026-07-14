@@ -26,7 +26,16 @@ class InferenceBuilder(StepBuilder):
 
     Constructs a step that makes predictions with trained models
     based on the 'inference' section of the configuration.
+
+    ADR-0001: when ``run_dir`` is provided (typed inference run) and no explicit
+    ``output_path`` is configured, predictions are written into the run dir
+    (``<run_dir>/predictions.<ext>``) and the path is pushed to context as
+    ``inference_output_path`` for run-metadata bookkeeping.
     """
+
+    def __init__(self, config: Dict[str, Any], run_dir: Optional[Any] = None):
+        super().__init__(config)
+        self._run_dir = run_dir
 
     def build(self) -> Optional[PipelineStep]:
         """
@@ -186,7 +195,11 @@ class InferenceBuilder(StepBuilder):
 
                 # --- Load inference data ---
                 _input_path = self.config.get("input_path")
-                _output_path = self.config.get("output_path")
+                # ADR-0001: prefer the resolved output path (run-dir relocation)
+                # over a raw config value.
+                _output_path = self.config.get("_resolved_output_path") or self.config.get(
+                    "output_path"
+                )
                 if _input_path:
                     data = pd.read_parquet(_input_path)
                     # Keep original input for enrichment
@@ -323,6 +336,8 @@ class InferenceBuilder(StepBuilder):
                         _include_input,
                     )
                     logger.info(f"Predictions saved to: {_output_path}")
+                    # ADR-0001: surface predictions path for run-metadata output_paths.
+                    context["inference_output_path"] = _output_path
 
                 return context
 
@@ -547,6 +562,15 @@ class InferenceBuilder(StepBuilder):
         inference_config_filtered = inference_config.copy()
         inference_config_filtered["_resolved_model_path"] = model_path
         inference_config_filtered["_resolved_feature_engineering_path"] = feature_engineering_path
+
+        # ADR-0001: relocate predictions into the run dir when no explicit
+        # output_path is configured. The models still live in training runs
+        # (auto-detection globs train-*), only the PREDICTIONS output relocates.
+        resolved_output_path = inference_config.get("output_path")
+        if not resolved_output_path and self._run_dir is not None:
+            _fmt = inference_config.get("output_format", "csv")
+            resolved_output_path = str(Path(self._run_dir) / f"predictions.{_fmt}")
+        inference_config_filtered["_resolved_output_path"] = resolved_output_path
 
         return InferenceStep(
             inference,

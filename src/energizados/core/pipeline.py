@@ -353,6 +353,7 @@ class ConfigPipelineBuilder:
         config_paths: List[str] = None,
         run_name: Optional[str] = None,
         overwrite: bool = False,
+        derived_from: Optional[str] = None,
     ):
         """
         Initialize the builder.
@@ -363,6 +364,9 @@ class ConfigPipelineBuilder:
             config_paths: List of all config files used (for copying to run dir)
             run_name: Optional custom run directory name
             overwrite: If True, overwrite existing run directory
+            derived_from: ADR-0003 optional source run_id for retrain lineage.
+                ``run_type`` is NOT a constructor param — it is derived from the
+                config by the director.
         """
         # Store config paths for backwards compatibility
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
@@ -376,6 +380,7 @@ class ConfigPipelineBuilder:
             config_paths=self.config_paths,
             run_name=run_name,
             overwrite=overwrite,
+            derived_from=derived_from,
         )
 
     def _load_config(self, path: str) -> Dict:

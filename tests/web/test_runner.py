@@ -560,3 +560,40 @@ class TestJobRunnerProjectPath:
 
         job = store.get_job(job_id)
         assert job.status == JobStatus.SUCCESS
+
+
+class TestJobRunnerTypedRunAttribution:
+    """Phase 2 (ADR-0001): pure EDA/inference jobs now produce a run_dir, so the
+    child writes SUCCESS with run_id/run_dir (the no-run_dir branch is no longer
+    taken for typed non-training runs)."""
+
+    def test_run_job_writes_success_with_run_dir_for_typed_run(self, tmp_path):
+        """When builder.run_dir is set (now true for EDA/inference), child writes
+        SUCCESS with run_id + run_dir directly to the jobs row."""
+        from energizados.web.runner import _run_job
+
+        store = JobStore(db_path=str(tmp_path / "test.db"))
+        job_id = store.create_job({"eda": {"enabled": True}}, "eda")
+        # The parent (_poll) marks the job RUNNING before spawning the child;
+        # mirror that so the child's SUCCESS write is a legal transition.
+        store.update_status(job_id, JobStatus.RUNNING)
+
+        run_dir = tmp_path / "output" / "eda-20240101_120000"
+        run_dir.mkdir(parents=True)
+
+        with (
+            patch("energizados.core.utils.import_utils.register_allowed_prefix"),
+            patch("energizados.api.ConfigPipelineBuilder") as mock_builder_cls,
+            patch("energizados.api.RunManager.get_run", return_value=None),
+        ):
+            mock_builder = MagicMock()
+            mock_builder.run = lambda progress_callback=None: {"run_id": "eda-x"}
+            mock_builder.run_dir = run_dir
+            mock_builder_cls.return_value = mock_builder
+
+            _run_job(job_id, {"eda": {"enabled": True}}, None, str(store.db_path.resolve()))
+
+        job = store.get_job(job_id)
+        assert job.status == JobStatus.SUCCESS
+        assert job.run_id == "eda-20240101_120000"
+        assert job.run_dir == str(run_dir)

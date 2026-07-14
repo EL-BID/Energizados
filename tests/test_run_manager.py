@@ -482,3 +482,333 @@ class TestRunNameValidation:
         manager = self._manager()
         with pytest.raises(ConfigurationError):
             manager.generate_run_dir(base_output_dir=str(base), run_name="legit/../../sibling")
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — ADR-0001: generalized, typed Runs
+# ---------------------------------------------------------------------------
+
+
+class TestRunMetadataRunType:
+    """RunMetadata run_type / derived_from fields (ADR-0001)."""
+
+    def test_run_type_defaults_to_training(self):
+        """A RunMetadata with no run_type defaults to 'training'."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        m = RunMetadata(
+            run_id="x",
+            timestamp="",
+            duration_seconds=0.0,
+            energizados_version="",
+            python_version="",
+            git_commit="",
+            model_types=[],
+        )
+        assert m.run_type == "training"
+        assert m.derived_from is None
+
+    def test_from_dict_run_type_default_when_missing(self):
+        """Old metadata without run_type/derived_from loads as training/None."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        m = RunMetadata.from_dict({"run_id": "train-x", "val_auc": 0.9})
+        assert m.run_type == "training"
+        assert m.derived_from is None
+        assert m.val_auc == 0.9  # old training data preserved
+
+    def test_from_dict_loads_run_type_and_derived_from(self):
+        """Explicit run_type/derived_from are loaded."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        m = RunMetadata.from_dict({"run_id": "eda-x", "run_type": "eda", "derived_from": "train-x"})
+        assert m.run_type == "eda"
+        assert m.derived_from == "train-x"
+
+    def test_to_dict_training_includes_training_keys(self):
+        """A training RunMetadata's to_dict keeps val_auc/val_f1/model_types/feature_count."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        m = RunMetadata(
+            run_id="train-x",
+            timestamp="",
+            duration_seconds=0.0,
+            energizados_version="",
+            python_version="",
+            git_commit="",
+            model_types=["LGBMModel"],
+            val_auc=0.9,
+            val_f1=0.8,
+            feature_count=10,
+            run_type="training",
+        )
+        d = m.to_dict()
+        assert d["run_type"] == "training"
+        assert "val_auc" in d and d["val_auc"] == 0.9
+        assert "val_f1" in d and d["val_f1"] == 0.8
+        assert "model_types" in d
+        assert "feature_count" in d
+
+    def test_to_dict_non_training_omits_training_keys(self):
+        """A non-training RunMetadata's to_dict drops AUC/F1/model_types/feature_count."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        m = RunMetadata(
+            run_id="eda-x",
+            timestamp="",
+            duration_seconds=0.0,
+            energizados_version="",
+            python_version="",
+            git_commit="",
+            model_types=[],
+            run_type="eda",
+        )
+        d = m.to_dict()
+        assert d["run_type"] == "eda"
+        for k in ("val_auc", "val_f1", "model_types", "feature_count"):
+            assert k not in d, f"{k} should be omitted for non-training runs"
+
+    def test_old_training_metadata_file_loads_as_training(self, tmp_path):
+        """An old run_metadata.json (no run_type key) still loads as run_type=='training'."""
+        from energizados.core.builders.run_manager import RunMetadata
+
+        old = {
+            "run_id": "train-20240101_120000",
+            "timestamp": "2024-01-01T12:00:00",
+            "duration_seconds": 10.0,
+            "energizados_version": "0.2.6",
+            "python_version": "3.10.12",
+            "git_commit": "abc",
+            "model_types": ["LGBMModel"],
+            "val_auc": 0.85,
+            "val_f1": 0.7,
+            "config_files": ["train.yaml"],
+        }
+        f = tmp_path / "run_metadata.json"
+        f.write_text(json.dumps(old))
+
+        m = RunMetadata.from_dict(json.loads(f.read_text()))
+        assert m.run_type == "training"
+        assert m.val_auc == 0.85
+        assert m.derived_from is None
+
+
+class TestRunManagerRunType:
+    """RunManager constructor run_type/derived_from + prefix logic (ADR-0001)."""
+
+    def test_constructor_accepts_run_type(self):
+        assert RunManager(run_type="eda")._run_type == "eda"
+
+    def test_constructor_default_run_type_training(self):
+        assert RunManager()._run_type == "training"
+
+    def test_constructor_accepts_derived_from(self):
+        assert RunManager(derived_from="train-x")._derived_from == "train-x"
+
+    def test_constructor_default_derived_from_none(self):
+        assert RunManager()._derived_from is None
+
+    def test_set_derived_from_setter(self):
+        rm = RunManager()
+        rm.set_derived_from("train-y")
+        assert rm._derived_from == "train-y"
+
+    def test_generate_run_dir_eda_prefix(self, tmp_path):
+        base = tmp_path / "output"
+        rm = RunManager(run_type="eda")
+        run_dir = rm.generate_run_dir(base_output_dir=str(base))
+        assert run_dir.name.startswith("eda-")
+        assert run_dir.exists()
+
+    def test_generate_run_dir_inference_prefix(self, tmp_path):
+        base = tmp_path / "output"
+        rm = RunManager(run_type="inference")
+        run_dir = rm.generate_run_dir(base_output_dir=str(base))
+        assert run_dir.name.startswith("inference-")
+
+    def test_generate_run_dir_etl_prefix(self, tmp_path):
+        base = tmp_path / "output"
+        rm = RunManager(run_type="etl")
+        run_dir = rm.generate_run_dir(base_output_dir=str(base))
+        assert run_dir.name.startswith("etl-")
+
+    def test_generate_run_dir_training_prefix_uses_config_name(self, tmp_path):
+        base = tmp_path / "output"
+        rm = RunManager(config_paths=["config/train.yaml"], run_type="training")
+        run_dir = rm.generate_run_dir(base_output_dir=str(base))
+        assert run_dir.name.startswith("train-")
+
+
+class TestWriteMetadataTypeAware:
+    """_write_run_metadata is type-aware (ADR-0001)."""
+
+    def test_training_metadata_includes_model_metrics(self, tmp_path):
+        rm = RunManager(config_paths=["config/train.yaml"], run_type="training")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={"val_auc": 0.9, "val_f1": 0.7})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert meta["run_type"] == "training"
+        assert meta["val_auc"] == 0.9
+        assert meta["val_f1"] == 0.7
+        assert "model_types" in meta
+        assert "feature_count" in meta
+
+    def test_non_training_metadata_omits_model_metrics(self, tmp_path):
+        rm = RunManager(config_paths=["config/eda.yaml"], run_type="eda")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert meta["run_type"] == "eda"
+        for k in ("val_auc", "val_f1", "model_types", "feature_count"):
+            assert k not in meta, f"{k} must be omitted for non-training runs"
+
+    def test_metadata_includes_derived_from_when_set(self, tmp_path):
+        rm = RunManager(config_paths=["config/train.yaml"], run_type="training")
+        rm.set_derived_from("train-source")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert meta.get("derived_from") == "train-source"
+
+    def test_metadata_omits_derified_from_when_none(self, tmp_path):
+        rm = RunManager(config_paths=["config/train.yaml"], run_type="training")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert "derived_from" not in meta
+
+    def test_eda_metadata_populates_output_paths(self, tmp_path):
+        report = str(tmp_path / "eda_report.html")
+        rm = RunManager(config_paths=["config/eda.yaml"], run_type="eda")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={"eda_report_path": report})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert meta["output_paths"].get("eda_report") == report
+
+    def test_inference_metadata_populates_output_paths(self, tmp_path):
+        pred = str(tmp_path / "predictions.csv")
+        rm = RunManager(config_paths=["config/infer.yaml"], run_type="inference")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={"inference_output_path": pred})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert meta["output_paths"].get("inference_predictions") == pred
+
+    def test_etl_metadata_populates_output_paths(self, tmp_path):
+        rm = RunManager(config_paths=["config/etl.yaml"], run_type="etl")
+        rm._run_dir = tmp_path
+        rm.finalize_run(context={"etl_output_paths": {"sample": "data/processed/sample.parquet"}})
+        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        assert meta["output_paths"].get("etl_sample") == "data/processed/sample.parquet"
+
+
+class TestDirectorRunType:
+    """PipelineDirector computes run_type + opens the run-dir gate for all types."""
+
+    @pytest.fixture(autouse=True)
+    def _bypass_validation(self, monkeypatch):
+        """Schema validation is irrelevant to run-type math; bypass it."""
+        # validate_config returns [] (no errors) so the director constructs cleanly.
+        monkeypatch.setattr(
+            "energizados.core.schemas.config_validator.ConfigValidator.validate_config",
+            lambda self, cfg, name: [],
+        )
+
+    def _director(self, config, tmp_path, monkeypatch):
+        from energizados.core.builders.director import PipelineDirector
+
+        monkeypatch.chdir(tmp_path)
+        return PipelineDirector(config=config)
+
+    def test_compute_run_type_pure_eda(self, tmp_path, monkeypatch):
+        d = self._director({"eda": {"enabled": True}}, tmp_path, monkeypatch)
+        assert d._compute_run_type() == "eda"
+
+    def test_compute_run_type_pure_inference(self, tmp_path, monkeypatch):
+        d = self._director(
+            {"infer": {"enabled": True, "model_path": "m.pkl", "input_path": "in.parquet"}},
+            tmp_path,
+            monkeypatch,
+        )
+        assert d._compute_run_type() == "inference"
+
+    def test_compute_run_type_pure_etl(self, tmp_path, monkeypatch):
+        d = self._director(
+            {
+                "etl": {
+                    "sample": {
+                        "enabled": True,
+                        "output": "o.parquet",
+                        "custom_class": "energizados.etl.pipeline.SourceETL",
+                    }
+                }
+            },
+            tmp_path,
+            monkeypatch,
+        )
+        assert d._compute_run_type() == "etl"
+
+    def test_compute_run_type_training_wins_over_etl(self, tmp_path, monkeypatch):
+        """A merged etl+train config stays 'training' (priority preserves today's behavior)."""
+        d = self._director(
+            {"etl": {"sample": {"enabled": True}}, "train": {"enabled": True}},
+            tmp_path,
+            monkeypatch,
+        )
+        assert d._compute_run_type() == "training"
+
+    def test_compute_run_type_priority_training_over_inference(self, tmp_path, monkeypatch):
+        d = self._director(
+            {"infer": {"enabled": True}, "train": {"enabled": True}}, tmp_path, monkeypatch
+        )
+        assert d._compute_run_type() == "training"
+
+    def test_compute_run_type_priority_inference_over_eda(self, tmp_path, monkeypatch):
+        d = self._director(
+            {"eda": {"enabled": True}, "infer": {"enabled": True}}, tmp_path, monkeypatch
+        )
+        assert d._compute_run_type() == "inference"
+
+    def test_compute_run_type_priority_eda_over_etl(self, tmp_path, monkeypatch):
+        d = self._director(
+            {"etl": {"x": {"enabled": True}}, "eda": {"enabled": True}}, tmp_path, monkeypatch
+        )
+        assert d._compute_run_type() == "eda"
+
+    def test_build_pure_eda_creates_eda_run_dir(self, tmp_path, monkeypatch):
+        d = self._director({"eda": {"enabled": True}}, tmp_path, monkeypatch)
+        d.build()
+        assert d.run_manager._run_type == "eda"
+        assert d.run_manager.run_dir is not None
+        assert d.run_manager.run_dir.name.startswith("eda-")
+
+    def test_build_pure_inference_creates_inference_run_dir(self, tmp_path, monkeypatch):
+        d = self._director(
+            {"infer": {"enabled": True, "model_path": "m.pkl", "input_path": "in.parquet"}},
+            tmp_path,
+            monkeypatch,
+        )
+        d.build()
+        assert d.run_manager._run_type == "inference"
+        assert d.run_manager.run_dir.name.startswith("inference-")
+
+    def test_build_no_enabled_section_no_run_dir(self, tmp_path, monkeypatch):
+        d = self._director({}, tmp_path, monkeypatch)
+        d.build()
+        assert d.run_manager.run_dir is None
+
+    def test_build_threads_derived_from_to_run_manager(self, tmp_path, monkeypatch):
+        from energizados.core.builders.director import PipelineDirector
+
+        monkeypatch.chdir(tmp_path)
+        d = PipelineDirector(config={"train": {"enabled": True}}, derived_from="train-src")
+        assert d.run_manager._derived_from == "train-src"
+
+    def test_resolve_base_output_dir_defaults_to_output(self, tmp_path, monkeypatch):
+        d = self._director({"eda": {"enabled": True}}, tmp_path, monkeypatch)
+        assert d._resolve_base_output_dir() == "output"
+
+    def test_resolve_base_output_dir_from_infer(self, tmp_path, monkeypatch):
+        d = self._director(
+            {"infer": {"enabled": True, "output_base_dir": "runs"}}, tmp_path, monkeypatch
+        )
+        assert d._resolve_base_output_dir() == "runs"

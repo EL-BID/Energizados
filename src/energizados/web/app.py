@@ -1736,10 +1736,10 @@ async def register_project_route(request: Request):
 
 
 # Canonical Run-type buckets shown on the project hero page. The console groups
-# Jobs and Runs by Run type (CONTEXT.md, Web Console). Run type is derived from the
-# producing Job's ``config_type``: run dirs themselves are not type-specific
-# (RunManager prefixes every auto-named run with "train-" — see ADR-0001), so
-# the Job→Run join via ``run_id`` is the authoritative type signal.
+# Jobs and Runs by Run type (CONTEXT.md, Web Console). Since ADR-0001 Phase 2,
+# RunMetadata carries a ``run_type`` discriminator and run dirs are typed
+# (train-/etl-/eda-/inference-); the Job→Run ``config_type`` join remains as a
+# fallback for legacy/CLI runs whose run_metadata.json predates run_type.
 _RUN_TYPE_BUCKETS = ("etl", "eda", "inference", "training")
 
 
@@ -1747,8 +1747,8 @@ def _config_type_to_run_type(config_type: Optional[str]) -> str:
     """Map a Job ``config_type`` to a canonical Run-type bucket.
 
     ``config_type`` is a validation label (etl / train / eda / infer). Unknown
-    values default to ``training`` — the dominant run type in practice, and the
-    prefix RunManager falls back to for auto-named run dirs.
+    values default to ``training`` — the dominant run type in practice and the
+    from_dict default for RunMetadata.run_type.
     """
     mapping = {"etl": "etl", "eda": "eda", "infer": "inference", "train": "training"}
     ct = (config_type or "").strip().lower()
@@ -1771,12 +1771,18 @@ async def project_detail(request: Request, project_id: str):
     manager = _run_manager_for(project_id, ps)
     runs = manager.list_runs(limit=100)
 
-    # Authoritative run-type signal: the producing Job's config_type, joined via
-    # run_id. Falls back to "training" for runs with no matching job row (e.g.
-    # CLI-created runs) since auto-named run dirs default to the "train-" prefix.
+    # Authoritative run-type signal (ADR-0001): prefer the type recorded in the
+    # Run's own metadata; fall back to the producing Job's config_type joined via
+    # run_id (for old/CLI runs whose run_metadata.json predates run_type). Old
+    # training files load as run_type=="training" via RunMetadata.from_dict.
     run_type_by_run_id = {j.run_id: j.config_type for j in jobs if j.run_id}
 
     def _run_type(run) -> str:
+        # RunMetadata.run_type is the canonical signal once a run is finalized
+        # with the typed schema. "training" is the from_dict default, so legacy
+        # runs without the key land in the training bucket (preserving old UI).
+        if getattr(run, "run_type", None):
+            return run.run_type
         return _config_type_to_run_type(run_type_by_run_id.get(run.run_id))
 
     job_groups = {bucket: [] for bucket in _RUN_TYPE_BUCKETS}

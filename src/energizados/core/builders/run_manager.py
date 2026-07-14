@@ -55,7 +55,15 @@ def _validate_run_name(base: Path, run_name: Optional[str]) -> None:
 
 @dataclass
 class RunMetadata:
-    """Metadata for a single run (stored in run_metadata.json)."""
+    """Metadata for a single run (stored in run_metadata.json).
+
+    ADR-0001 — Runs are generalized and typed. ``run_type`` discriminates the
+    kind of Run (``training``/``etl``/``eda``/``inference``) and controls which
+    fields serialize: training-specific metrics (``val_auc``/``val_f1``/
+    ``model_types``/``feature_count``) are omitted from ``to_dict`` for
+    non-training runs. ``derived_from`` optionally records the source run_id of
+    a retrain (ADR-0003 lineage).
+    """
 
     run_id: str
     timestamp: str
@@ -70,6 +78,12 @@ class RunMetadata:
     feature_count: Optional[int] = None
     config_files: List[str] = field(default_factory=list)
     output_paths: Dict[str, str] = field(default_factory=dict)
+    # ADR-0001: type discriminator (training/etl/eda/inference). Old metadata
+    # without this key loads as "training" (see from_dict).
+    run_type: str = "training"
+    # ADR-0003: run_id this Run was derived from (retrain lineage). None for
+    # non-derived runs; omitted from serialization when None.
+    derived_from: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "RunMetadata":
@@ -106,11 +120,24 @@ class RunMetadata:
             feature_count=data.get("feature_count"),
             config_files=data.get("config_files", []),
             output_paths=data.get("output_paths", {}),  # Empty for old runs
+            run_type=data.get("run_type", "training"),  # ADR-0001
+            derived_from=data.get("derived_from"),  # ADR-0003
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        """JSON-serializable dict representation."""
-        return asdict(self)
+        """JSON-serializable dict representation.
+
+        Type-aware (ADR-0001): training-specific metrics are dropped for
+        non-training runs so AUC/F1 no longer appear on every Run. ``derived_from``
+        is omitted entirely when None to keep the payload clean.
+        """
+        data = asdict(self)
+        if self.run_type != "training":
+            for key in ("val_auc", "val_f1", "model_types", "feature_count"):
+                data.pop(key, None)
+        if self.derived_from is None:
+            data.pop("derived_from", None)
+        return data
 
 
 class RunManager:
@@ -132,6 +159,8 @@ class RunManager:
         run_name: Optional[str] = None,
         overwrite: bool = False,
         output_dir: Optional[str] = None,
+        run_type: str = "training",
+        derived_from: Optional[str] = None,
     ):
         """
         Initialize run manager.
@@ -141,6 +170,10 @@ class RunManager:
             run_name: Optional custom run directory name
             overwrite: If True, overwrite existing run directory
             output_dir: Optional output directory path for query API (default: "output")
+            run_type: ADR-0001 run-type discriminator (training/etl/eda/inference).
+                Controls the run-dir prefix and which metadata fields serialize.
+            derived_from: ADR-0003 source run_id for retrain lineage (None unless
+                this Run was derived from another).
         """
         self.config_paths: List[str] = config_paths or []
         self._run_dir: Optional[Path] = None
@@ -148,6 +181,17 @@ class RunManager:
         self._overwrite: bool = overwrite
         self._start_time = time.time()
         self._output_dir: Optional[Path] = Path(output_dir) if output_dir else None
+        # ADR-0001 / ADR-0003
+        self._run_type: str = run_type
+        self._derived_from: Optional[str] = derived_from
+
+    def set_derived_from(self, value: Optional[str]) -> None:
+        """Set the derived_from lineage link (ADR-0003).
+
+        Allows the director (or retrain flow) to set the source run_id after
+        construction but before metadata finalization.
+        """
+        self._derived_from = value
 
     @property
     def run_dir(self) -> Optional[Path]:
@@ -191,9 +235,15 @@ class RunManager:
                 shutil.rmtree(run_dir)
             run_dir.mkdir(parents=True, exist_ok=True)
         else:
-            # Use timestamp with collision handling
+            # Use timestamp with collision handling.
+            # ADR-0001: prefix by run_type — training keeps the config-derived
+            # name (e.g. "train") for backward compat; other types use the
+            # fixed run_type prefix so list_runs (*-*) auto-discovers them.
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            prefix = self._get_train_config_name() or "train"
+            if self._run_type == "training":
+                prefix = self._get_train_config_name() or "train"
+            else:
+                prefix = self._run_type
             auto_run_name = f"{prefix}-{timestamp}"
             run_dir = base / auto_run_name
 
@@ -222,11 +272,17 @@ class RunManager:
                         break
                     suffix += 1
 
-        (run_dir / "models").mkdir(parents=True, exist_ok=True)
-        (run_dir / "reports" / "evaluation").mkdir(parents=True, exist_ok=True)
+        # ADR-0001: training runs use models/ + reports/evaluation/ subdirs.
+        # EDA/inference/ETL write their artifacts at the run-dir root, so those
+        # subdirs are omitted (keeps failed-run cleanup honest — empty dirs no
+        # longer make a non-training run look like it produced partial output).
+        # config/ is always created so copy_configs_to_run_dir works for all types.
+        if self._run_type == "training":
+            (run_dir / "models").mkdir(parents=True, exist_ok=True)
+            (run_dir / "reports" / "evaluation").mkdir(parents=True, exist_ok=True)
         (run_dir / "config").mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Training run directory: {run_dir}")
+        logger.info(f"Run directory ({self._run_type}): {run_dir}")
         self._run_dir = run_dir
 
         # Auto-attach file handler when verbose logging is active (-v/-vv/-vvv)
@@ -287,6 +343,11 @@ class RunManager:
         """
         Write run metadata JSON file to run directory.
 
+        Type-aware (ADR-0001): training-specific fields (model_types, val_auc,
+        val_f1, feature_count) are only populated for ``run_type == "training"``.
+        Non-training runs populate ``output_paths`` from the relevant context
+        keys (EDA report, inference predictions, ETL dataset paths).
+
         Args:
             context: Context dict containing training results and configuration
         """
@@ -324,24 +385,6 @@ class RunManager:
         except Exception:
             git_commit = "unknown"
 
-        # Extract model types from context
-        model_types = []
-        if "model" in context and context["model"] is not None:
-            model_types.append(type(context["model"]).__name__)
-        elif "models" in context and context["models"] is not None:
-            model_types = [type(m).__name__ for m in context["models"].values()]
-
-        # Get validation metrics from context
-        val_auc = context.get("val_auc")
-        val_f1 = context.get("val_f1")
-
-        # Get feature count from context
-        feature_count = None
-        if "feature_engineering" in context and context["feature_engineering"] is not None:
-            fe = context["feature_engineering"]
-            if hasattr(fe, "selected_features_") and fe.selected_features_ is not None:
-                feature_count = len(fe.selected_features_)
-
         # Determine status (NEW for Phase 4)
         status = "success"
         if context.get("error"):
@@ -349,8 +392,8 @@ class RunManager:
         elif context.get("comparison_mode"):
             status = "partial"  # Or determine based on step results
 
-        # Build output_paths dict (NEW for Phase 4)
-        output_paths = {}
+        # --- Build output_paths (training artifacts + generic typed outputs) ---
+        output_paths: Dict[str, str] = {}
         if "model_path" in context and context["model_path"] is not None:
             output_paths["model"] = context["model_path"]
         if (
@@ -359,27 +402,61 @@ class RunManager:
         ):
             output_paths["feature_engineering"] = context["feature_engineering_path"]
 
-        # PR1 task 1.3: Add EDA report path if present (generic output_paths pattern)
+        # EDA report path (supported both as eda_results.report_path and the
+        # explicit eda_report_path context key — ADR-0001).
         eda_results = context.get("eda_results")
         if isinstance(eda_results, dict) and eda_results.get("report_path"):
             output_paths["eda_report"] = eda_results["report_path"]
+        if context.get("eda_report_path"):
+            output_paths["eda_report"] = context["eda_report_path"]
 
-        # Build metadata dict
-        metadata = {
+        # Inference predictions path (ADR-0001).
+        if context.get("inference_output_path"):
+            output_paths["inference_predictions"] = context["inference_output_path"]
+
+        # ETL dataset output paths (ADR-0001). Dataset stays at its configured
+        # path; metadata references it.
+        etl_output_paths = context.get("etl_output_paths")
+        if isinstance(etl_output_paths, dict):
+            for name, path in etl_output_paths.items():
+                output_paths[f"etl_{name}"] = str(path)
+
+        # Build metadata dict. Training-specific fields are only populated for
+        # training runs (ADR-0001).
+        metadata: Dict[str, Any] = {
             "run_id": run_id,
             "timestamp": timestamp,
             "duration_seconds": round(duration_seconds, 2),
             "energizados_version": energizados_version,
             "python_version": python_version,
             "git_commit": git_commit,
-            "model_types": model_types,
-            "val_auc": val_auc,
-            "val_f1": val_f1,
-            "feature_count": feature_count,
             "config_files": [Path(p).name for p in self.config_paths],
-            "status": status,  # NEW
-            "output_paths": output_paths,  # NEW
+            "status": status,
+            "output_paths": output_paths,
+            "run_type": self._run_type,
         }
+        if self._derived_from is not None:
+            metadata["derived_from"] = self._derived_from
+
+        if self._run_type == "training":
+            # Extract model types from context
+            model_types: List[str] = []
+            if "model" in context and context["model"] is not None:
+                model_types.append(type(context["model"]).__name__)
+            elif "models" in context and context["models"] is not None:
+                model_types = [type(m).__name__ for m in context["models"].values()]
+
+            # Get feature count from context
+            feature_count = None
+            if "feature_engineering" in context and context["feature_engineering"] is not None:
+                fe = context["feature_engineering"]
+                if hasattr(fe, "selected_features_") and fe.selected_features_ is not None:
+                    feature_count = len(fe.selected_features_)
+
+            metadata["model_types"] = model_types
+            metadata["val_auc"] = context.get("val_auc")
+            metadata["val_f1"] = context.get("val_f1")
+            metadata["feature_count"] = feature_count
 
         # Write to JSON file
         metadata_path = self._run_dir / "run_metadata.json"
