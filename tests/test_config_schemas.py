@@ -472,3 +472,154 @@ class TestConfigSchemas:
 
         errors = validator.validate_config(config)
         assert len(errors) == 0, f"Minimal segment_thresholds config should be valid, got: {errors}"
+
+    # T-SEG Tests: TRAINING_SCHEMA extension for evaluation.segmented_evaluation
+
+    def test_training_segmented_evaluation_valid(self):
+        """Verify that a well-formed segmented_evaluation config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "segmented_evaluation": {
+                        "enabled": True,
+                        "by": ["zona", "region", "zona+region"],
+                        "min_samples": 30,
+                        "threshold_mode": "youden",
+                        "recall_target": 0.8,
+                    },
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"segmented_evaluation config should be valid, got: {errors}"
+
+    def test_training_segmented_evaluation_invalid_enabled_type(self):
+        """Verify that segmented_evaluation.enabled as a non-boolean is rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "segmented_evaluation": {
+                        "enabled": "yes",  # not a boolean
+                        "by": ["zona"],
+                    },
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for non-boolean segmented_evaluation.enabled"
+        assert any("segmented_evaluation" in str(err).lower() for err in errors)
+
+    def test_training_segmented_evaluation_invalid_min_samples_type(self):
+        """Verify that segmented_evaluation.min_samples as a non-integer is rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "segmented_evaluation": {
+                        "enabled": True,
+                        "min_samples": "thirty",  # not an integer
+                    },
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for non-integer segmented_evaluation.min_samples"
+        assert any("segmented_evaluation" in str(err).lower() for err in errors)
+
+    # T-INF2 Tests: INFERENCE_SCHEMA extensions for columns_filter, output_columns, output_base_dir
+
+    def test_inference_columns_filter_valid(self):
+        """Verify that columns_filter config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "columns_filter": {
+                    "zona": ["NORTE", "SUL"],
+                    "consumo": {">": 100, "<=": 50000},
+                    "_expr": "(zona != 'A') & (consumo > 200)",
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"columns_filter config should be valid, got: {errors}"
+
+    def test_inference_output_columns_valid(self):
+        """Verify that output_columns config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "output_columns": ["prediction", "probability", "cliente_id"],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"output_columns config should be valid, got: {errors}"
+
+    def test_inference_output_columns_invalid_type_rejected(self):
+        """Verify that output_columns as a non-array is rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "output_columns": "prediction",  # should be an array
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for non-array output_columns"
+        assert any("output_columns" in str(err).lower() for err in errors)
+
+    def test_inference_output_base_dir_valid(self):
+        """Verify that output_base_dir config passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "output_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "output_base_dir": "output",
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"output_base_dir config should be valid, got: {errors}"

@@ -274,6 +274,37 @@ TRAINING_SCHEMA = {
                     "items": {"type": "string"},
                     "description": "Column names to compute per-segment evaluation metrics",
                 },
+                "segmented_evaluation": {
+                    "type": "object",
+                    "description": "Per-segment evaluation with column combos and configurable threshold modes",
+                    "properties": {
+                        "enabled": {"type": "boolean", "default": False},
+                        "by": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": [],
+                            "description": "Columns or combos (use '+' to combine, e.g. 'zona+region')",
+                        },
+                        "min_samples": {"type": "integer", "minimum": 0, "default": 30},
+                        "threshold_mode": {
+                            "type": "string",
+                            "enum": [
+                                "global",
+                                "youden",
+                                "f1_optimal",
+                                "recall_target",
+                                "segment",
+                            ],
+                            "default": "global",
+                        },
+                        "recall_target": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "default": 0.8,
+                        },
+                    },
+                },
                 "shap": {
                     "type": "object",
                     "properties": {
@@ -391,6 +422,16 @@ INFERENCE_SCHEMA = {
         "threshold": {"type": "number", "minimum": 0, "maximum": 1},
         "custom_class": {"type": "string"},
         "params": {"type": "object"},
+        "columns_filter": {
+            "type": "object",
+            "description": "Row-level filtering before feature engineering. Maps column -> scalar | list | {operator: value}, plus optional '_expr' pandas query string.",
+        },
+        "output_columns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Column names to include in the output file.",
+        },
+        "output_base_dir": {"type": "string"},
         "segment_thresholds": {
             "type": "object",
             "properties": {
