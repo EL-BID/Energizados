@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Energizados Web Console",
     description="Async job runner and web interface for Energizados ML framework",
-    version="0.3.0",
+    version="0.3.1",
 )
 
 # Create module-level Jinja2Templates instance

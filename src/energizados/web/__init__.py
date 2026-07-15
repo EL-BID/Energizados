@@ -10,4 +10,4 @@ Phase 1 (PR1) scope: JobStore + JobRunner + worker entrypoint only.
 Web UI and integration tests deferred to PR2/PR3.
 """
 
-__version__ = "0.3.0"  # Track with framework version
+__version__ = "0.3.1"  # Track with framework version

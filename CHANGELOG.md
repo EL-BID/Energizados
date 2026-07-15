@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No notable changes yet._
+
+## [0.3.1] - 2026-07-15
+
 ### Added
 
-- **Web: multi-project workspace foundation (v0.4 Phase 1)** — Project model with a registry bookmark (`data/web/projects.json`, re-validated against disk on every access); jobs and runs are now project-scoped (each belongs to exactly one project) and the worker `chdir`s into the project directory. The pre-multi-project Global scope is deprecated and surfaces read-only.
-- **Web: config templates + project-aware YAML editor (v0.4 Phase 2)** — Per-project config authoring with templates and an editor scoped to the active project.
-- **Web: retrain + inference UX (v0.4 Phase 3)** — Retrain-from-run and inference flows wired into the console.
-- **Web: per-project dashboard + projects home (v0.4 Phase 4)** — Per-project dashboard wiring, projects-home stats, and a root redirect to the projects home.
+- **Web: multi-project workspace foundation (Phase 1)** — Project model with a registry bookmark (`data/web/projects.json`, re-validated against disk on every access); jobs and runs are now project-scoped (each belongs to exactly one project) and the worker `chdir`s into the project directory. The pre-multi-project Global scope is deprecated and surfaces read-only.
+- **Web: config templates + project-aware YAML editor (Phase 2)** — Per-project config authoring with templates and an editor scoped to the active project.
+- **Web: retrain + inference UX (Phase 3)** — Retrain-from-run and inference flows wired into the console.
+- **Web: per-project dashboard + projects home (Phase 4)** — Per-project dashboard wiring, projects-home stats, and a root redirect to the projects home.
 - **Web: UI redesign — design system + app shell (Foundation)** — A token-driven design system (`--app-*` CSS custom properties; primary `#6366f1`; Inter + monospace) layered over Bootstrap 5.3, a persisted light/dark theme toggle with anti-flash, and an app shell with a Projects sidebar. Legacy Global routes are moved to a muted footer.
 - **Web: UI redesign — project_detail showcase (Hero)** — `project_detail` redesigned into an at-a-glance page: Jobs/Runs grouped by run type (etl / eda / inference / training), a latest-training metric summary, and a lineage placeholder.
 - **Web: UI redesign — system rollout + async states** — The design system applied across all remaining page templates (dark-safe, token-driven: `.app-card` panels, compact tables, status-badge consistency), plus async UX: HTMX-native loading indicators on action buttons, an out-of-band job-list refresh on job creation, and empty-state coverage.

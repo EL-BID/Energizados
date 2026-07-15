@@ -250,7 +250,7 @@ The **service layer API** (`energizados.api`) provides programmatic framework us
 
 **Migration Notes:**
 
-- **`result["model_metrics"]` deprecated**: Pipeline run results now use `result["metrics"]` as the canonical key for both single-model and ensemble runs. The legacy `result["model_metrics"]` key is still supported — it maps to `metrics` — but emits a `DeprecationWarning`. Removal is deferred; as of v0.3.0 the alias has not been removed yet. This deprecates the result-dict key, not a module.
+- **`result["model_metrics"]` deprecated**: Pipeline run results now use `result["metrics"]` as the canonical key for both single-model and ensemble runs. The legacy `result["model_metrics"]` key is still supported — it maps to `metrics` — but emits a `DeprecationWarning`. Removal is deferred; as of v0.3.1 the alias has not been removed yet. This deprecates the result-dict key, not a module.
 - **`ALLOWED_PREFIXES` narrowed**: The default allowlist now contains only `{"energizados.", "src."}` for security. Projects using custom prefixes (e.g., `data.`, `features.`) must call `register_allowed_prefix()` before framework usage.
 
 **Generated project structure (`energizados init`):**
