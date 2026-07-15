@@ -69,14 +69,12 @@ energizados run train -n mi-experimento
 # Install web dependencies
 pip install -e ".[web]"
 
-# Start web server (FastAPI + HTMX UI)
-uvicorn energizados.web.app:app --reload
+# Start BOTH server + worker with one command (recommended)
+energizados-web --host 127.0.0.1 --port 8000 --db-path data/web/jobs.db --log-level INFO
 
-# Start worker process (job execution engine)
-energizados-web-worker --db-path data/web/jobs.db --log-level INFO
-
-# Or run worker via Python module
-python -m energizados.web.worker --db-path data/web/jobs.db
+# Or run them separately:
+uvicorn energizados.web.app:app --reload          # Web server (FastAPI + HTMX UI)
+energizados-web-worker --db-path data/web/jobs.db --log-level INFO  # Worker (job execution engine)
 ```
 
 ### Run Scripts (generated projects)
@@ -98,6 +96,7 @@ These scripts use `ConfigPipelineBuilder` API directly.
 **Framework source (`src/energizados/`):**
 ```
 src/energizados/
+├── contracts.py      # **SINGLE HOME** for all 8 framework base classes (see Base Classes section)
 ├── preprocessing/      # Data cleaning and feature engineering transformers
 │   ├── isolation_forest_score.py  # IsolationForestScore — sklearn transformer for IF anomaly scoring
 ├── modeling/           # Model implementations (supervised and unsupervised)
@@ -121,8 +120,7 @@ src/energizados/
 │   ├── default.py     # DefaultInference implementation
 │   └── hierarchical.py # HierarchicalInference — routes rows to per-route models
 ├── core/              # Core framework components
-│   ├── base.py        # BaseModel, BaseInference, PipelineStep (base classes)
-│   ├── contracts.py   # **SINGLE HOME** for all 8 framework base classes (see below)
+│   ├── base.py        # BaseModel, BaseInference, PipelineStep (shim re-exports from energizados.contracts)
 │   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
 │   ├── builders/      # Step-specific builder implementations
 │   │   ├── etl_builder.py
@@ -165,24 +163,17 @@ src/energizados/
 │   ├── base.py        # BaseETL abstract class
 │   ├── pipeline.py    # SourceETL implementation
 │   └── orchestrator.py # ETLOrchestrator for dependency management
-└── web/               # Web console and async job runner
+└── web/               # Web console and async job runner (multi-project workspace)
     ├── app.py         # FastAPI web application with HTMX support
+    ├── launcher.py    # energizados-web — cross-platform launcher (spawns server + worker)
+    ├── projects.py    # Multi-project workspace management
     ├── store.py       # JobStore with SQLite persistence
     ├── runner.py      # JobRunner worker execution engine
     ├── worker.py      # Worker CLI entrypoint
     ├── models.py      # JobStatus enum and JobRow dataclass
-    ├── templates/     # Jinja2 templates for UI
-    │   ├── base.html         # Base layout with HTMX CDN
-    │   ├── index.html        # Main page with YAML editor
-    │   ├── job_list.html     # HTMX fragment for job list
-    │   ├── job_detail.html   # HTMX fragment for job details
-    │   ├── job_validation.html # HTMX fragment for validation errors
-    │   ├── job_created.html  # HTMX fragment for success messages
-    │   └── components/        # Reusable template components
-    │       ├── editor.html      # YAML textarea + file upload
-    │       ├── validation.html  # Validation error messages
-    │       └── status_badge.html # Color-coded status badge
-    └── static/       # Static assets (CSS, JS, etc.)
+    ├── docs/          # Web console documentation
+    ├── templates/     # Jinja2 templates (jobs, runs, dashboard, projects, compare_runs…)
+    └── static/        # Static assets (CSS, JS, etc.)
 ```
 
 ### Base Classes (Public API)
@@ -259,7 +250,7 @@ The **service layer API** (`energizados.api`) provides programmatic framework us
 
 **Migration Notes:**
 
-- **`result["model_metrics"]` deprecated**: Pipeline run results now use `result["metrics"]` as the canonical key for both single-model and ensemble runs. The legacy `result["model_metrics"]` key still works but emits a `DeprecationWarning` (removal planned for v0.3.0). This deprecates the result-dict key, not a module.
+- **`result["model_metrics"]` deprecated**: Pipeline run results now use `result["metrics"]` as the canonical key for both single-model and ensemble runs. The legacy `result["model_metrics"]` key is still supported — it maps to `metrics` — but emits a `DeprecationWarning`. Removal is deferred; as of v0.3.0 the alias has not been removed yet. This deprecates the result-dict key, not a module.
 - **`ALLOWED_PREFIXES` narrowed**: The default allowlist now contains only `{"energizados.", "src."}` for security. Projects using custom prefixes (e.g., `data.`, `features.`) must call `register_allowed_prefix()` before framework usage.
 
 **Generated project structure (`energizados init`):**

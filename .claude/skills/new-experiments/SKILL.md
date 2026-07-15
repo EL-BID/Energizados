@@ -75,6 +75,20 @@ metadata:
 
 **`geo_features` is NOT a global transformer** — it was moved to ETL.
 
+### Available Model Types
+
+The framework accepts these `type` values in a model config (per the model-type enum):
+
+| Model `type` | Description |
+|--------------|-------------|
+| `lightgbm` | LightGBM gradient boosting (`LGBMModelAdapter`) |
+| `catboost` | CatBoost gradient boosting (`CATModelAdapter`) |
+| `xgboost` | XGBoost gradient boosting (`XGBModelAdapter`) |
+| `neural_network` | Feedforward neural network / TensorFlow-Keras (`NNModelAdapter`) |
+| `lstm` | LSTM + Dense network for sequential consumption data (`LSTMNNModelAdapter`) |
+| `simple_trend` | Rule-based baseline — flags dramatic consumption drops (`SimpleTrendAdapter`) |
+| `simple_constant` | Rule-based baseline — flags constant/flat consumption patterns (`SimpleConstantAdapter`) |
+
 ### Class Imbalance per Model Type
 
 Each model handles class imbalance differently — **do NOT use `class_weight: "balanced"` for CatBoost**:

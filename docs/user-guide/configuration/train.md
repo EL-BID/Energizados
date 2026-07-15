@@ -976,7 +976,7 @@ evaluation:
   # Automatic threshold calibration (optional)
   calibration:
     enabled: false
-    method: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
+    strategy: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
     params:
       # For cost_benefit (minimizes total FP/FN cost):
       cost_fp: 1    # cost of inspecting a legitimate user

@@ -20,12 +20,13 @@ The framework provides:
 
 ```
 src/energizados/
+├── contracts.py                # SINGLE HOME of all 8 framework base classes (BaseModel, BasePipeline, BaseEvaluator, BaseInference, BaseETL, BaseFeatureEngineering, BaseFeatureSelector, BaseExplorer) — since v0.2.7
+├── api/                        # Service-layer API: programmatic framework usage with structured returns, no stdout coupling (validate_dict, Pipeline.from_dict, RunManager, doctor, ...)
 ├── preprocessing/              # Data cleaning and feature engineering transformers
 │   ├── preprocessing.py      # Core transformers (ToDummy, TeEncoder, etc.)
 │   ├── geo_features.py      # GeoFeatures transformer + _IBGEGeocoder
 │   ├── group_features.py    # GroupRelativeConsumption, SeasonalAnomaly (pre-encoding transformers)
-│   ├── isolation_forest_score.py  # IsolationForestScore anomaly scorer
-│   └── base.py             # BaseTransformer abstract class
+│   └── isolation_forest_score.py  # IsolationForestScore anomaly scorer
 │
 ├── modeling/                   # Model implementations
 │   ├── supervised_models.py  # LGBMModel, CATModel, NNModel, LSTMNNModel
@@ -103,10 +104,19 @@ src/energizados/
 │   ├── __init__.py
 │   └── shap_explainer.py      # ShapExplainer (TreeExplainer + KernelExplainer)
 │
-└── etl/                       # ETL framework components
-    ├── base.py             # BaseETL abstract class
-    ├── pipeline.py         # SourceETL implementation
-    └── orchestrator.py     # ETLOrchestrator for dependency management
+├── etl/                       # ETL framework components
+│   ├── base.py             # BaseETL abstract class
+│   ├── pipeline.py         # SourceETL implementation
+│   └── orchestrator.py     # ETLOrchestrator for dependency management
+│
+└── web/                       # Web console & async job runner (multi-project workspace)
+    ├── app.py             # FastAPI application (HTMX UI)
+    ├── launcher.py        # energizados-web launcher (server + worker)
+    ├── store.py           # JobStore (SQLite persistence)
+    ├── runner.py          # JobRunner worker execution engine
+    ├── worker.py          # Worker CLI entrypoint
+    ├── projects.py        # Multi-project workspace management
+    └── models.py          # JobStatus enum, JobRow dataclass
 ```
 
 ### Generated Project Structure
@@ -223,7 +233,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `feature_engineering/default.py` | Default implementation combining preprocessing + feature selection |
 | `feature_selection/base.py` | `BaseFeatureSelector` abstract class for custom selectors |
 | `feature_selection/methods.py` | Built-in selectors: BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector |
-| `preprocessing/preprocessing.py` | Core transformers: ToDummy, TeEncoder, CardinalityReducer, etc. |
+| `preprocessing/preprocessing.py` | Core transformers: ToDummy, TeEncoder, CardinalityReducer, etc. These subclass sklearn `BaseEstimator`/`TransformerMixin` directly — there is no framework preprocessing base class (`preprocessing/base.py` does not exist). |
 
 ### Modeling
 
@@ -423,16 +433,18 @@ EDA is a standalone module that can be run independently of training.
 
 ## Extension Points
 
-The framework provides several base classes for extending functionality:
+The framework provides several base classes for extending functionality. Since v0.2.7, **all eight base classes are defined in a single module — `src/energizados/contracts.py` — which is the single source of truth.** The per-package `base.py` modules (`energizados.core.base`, `energizados.etl.base`, `energizados.feature_engineering.base`, `energizados.feature_selection.base`, `energizados.eda.base`, `energizados.inference.base`) are backward-compatible **import shims** that re-export from `energizados.contracts`, so existing import paths keep working.
 
-| Base Class | Location | Purpose |
+| Base Class | Defined in | Purpose |
 |------------|----------|---------|
-| `BaseETL` | `src/energizados/etl/base.py` | Create custom ETLs |
-| `BaseFeatureEngineering` | `src/energizados/feature_engineering/base.py` | Custom feature engineering pipelines |
-| `BaseFeatureSelector` | `src/energizados/feature_selection/base.py` | Custom feature selection methods |
-| `BaseModel` | `src/energizados/core/base.py` | Custom model implementations |
-| `BaseInference` | `src/energizados/inference/base.py` | Custom inference logic |
-| `BaseExplorer` | `src/energizados/eda/base.py` | Custom EDA phases |
+| `BaseModel` | `energizados.contracts` | Custom model implementations (`fit`, `predict`, `predict_proba`, `get_raw_model`) |
+| `BasePipeline` | `energizados.contracts` | User-defined pipelines implementing `run(context)` |
+| `BaseEvaluator` | `energizados.contracts` | Custom model evaluation (`evaluate(X, y, model, threshold=0.5)`) |
+| `BaseInference` | `energizados.contracts` | Custom inference logic (`predict`, `predict_proba`, `load_model`, `save_predictions`) |
+| `BaseETL` | `energizados.contracts` | Create custom ETLs (`extract`, `transform`, `load`) |
+| `BaseFeatureEngineering` | `energizados.contracts` | Custom feature engineering pipelines (`fit`, `transform`) |
+| `BaseFeatureSelector` | `energizados.contracts` | Custom feature selection methods (`fit`, `transform`) |
+| `BaseExplorer` | `energizados.contracts` | Custom EDA phases (`explore`) |
 
 For detailed guides on extending the framework, see [Extending Framework](extending/).
 

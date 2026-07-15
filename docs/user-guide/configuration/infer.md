@@ -343,7 +343,7 @@ Route rows to different models based on column-value conditions. This enables pe
 |-----------|------|-------------|
 | `routes` | list | List of route definitions (see structure below) |
 | `default_model_path` | string | Path to fallback model for rows matching no route |
-| `feature_engineering_paths` | dict (optional) | Mapping of route name → FE `.pkl` path. If omitted, routes share the top-level FE. |
+| `feature_engineering_paths` | dict (optional) | Mapping of route name → FE `.pkl` path. If omitted, routes share the top-level FE. Use the reserved key `"__default__"` to provide the FE `.pkl` for the default model's rows (rows matching no route). |
 
 > **Note:** `routes`, `default_model_path`, and `feature_engineering_paths` are builder-level keys and not validated by the config schema; typos won't be caught by `energizados validate`.
 
@@ -390,7 +390,9 @@ infer:
   feature_engineering_paths:
     florianopolis: "models/regional/flor_fe.pkl"
     south_regions: "models/regional/south_fe.pkl"
-    # alta_tension and default share the top-level FE if omitted
+    # alta_tension shares the top-level FE if omitted.
+    # "__default__" provides the FE for the default model's rows (unrouted rows):
+    __default__: "models/global/global_fe.pkl"
 ```
 
 ### Routing Behavior

@@ -144,6 +144,29 @@ The default threshold is 0.5, but **this is rarely optimal for fraud detection**
    - Calculate expected value: `(TP × savings_per_fraudster) - (FP × cost_per_inspection)`
    - Choose threshold that maximizes expected profit
 
+### Automatic Threshold Calibration
+
+Instead of choosing a threshold by hand, the framework can **automatically find the optimal threshold on the validation set**. Enable it under `evaluation.calibration` in `train.yaml`, selecting one of three strategies via **`calibration.strategy`**:
+
+| Strategy | What it optimizes | Key parameters |
+|----------|-------------------|----------------|
+| `cost_benefit` | Minimizes total cost `(FP × cost_fp) + (FN × cost_fn)` (default) | `cost_fp` (default 1), `cost_fn` (default 10) |
+| `operational` | Sets the threshold so the number of alerts matches your inspection capacity | `capacity` (default 100 — max alerts per period) |
+| `precision_recall` | Picks the highest threshold that still maintains a minimum recall | `min_recall` (default 0.80) |
+
+```yaml
+evaluation:
+  threshold: 0.5            # ignored when calibration.enabled = true
+  calibration:
+    enabled: true
+    strategy: "cost_benefit"   # cost_benefit | operational | precision_recall
+    params:
+      cost_fp: 1
+      cost_fn: 10
+```
+
+> **Important:** The config key is **`calibration.strategy`**. Do not confuse it with **probability calibration** (`calibration.method`, values `isotonic`/`sigmoid`), which is a separate feature.
+
 !!! tip
     The evaluation report includes interactive threshold sliders that update all metrics in real-time. Use this to find the optimal threshold for your business context.
 

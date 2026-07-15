@@ -61,10 +61,10 @@ The project includes scripts in the `src/run/` directory to run each stage:
 
 ```bash
 # Run a specific stage
-python src/run/01_etl.py          # ETLs
+python src/run/00_etl.py          # ETLs
+python src/run/01_eda.py          # EDA
 python src/run/02_training.py     # Training
-python src/run/03_evaluation.py   # Evaluation
-python src/run/04_inference.py    # Inference
+python src/run/03_inference.py    # Inference
 ```
 
 ### Run the full pipeline

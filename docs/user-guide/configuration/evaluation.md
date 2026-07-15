@@ -21,7 +21,7 @@ evaluation:
   # Automatic threshold calibration (optional)
   calibration:
     enabled: false
-    method: "cost_benefit"
+    strategy: "cost_benefit"
     params:
       # Calibration method parameters
 
@@ -294,7 +294,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
+    strategy: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
     params:
       # Method-specific parameters
 ```
@@ -310,7 +310,7 @@ Minimizes total cost = (FP × cost_fp) + (FN × cost_fn).
 ```yaml
 calibration:
   enabled: true
-  method: "cost_benefit"
+  strategy: "cost_benefit"
   params:
     cost_fp: 1     # Cost of inspecting a legitimate user (relative units)
     cost_fn: 10    # Cost of missing a fraud (relative units)
@@ -334,7 +334,7 @@ Ensures the number of alerts matches your inspection capacity.
 ```yaml
 calibration:
   enabled: true
-  method: "operational"
+  strategy: "operational"
   params:
     capacity: 200   # Maximum alerts per period
 ```
@@ -356,7 +356,7 @@ Guarantees a minimum recall rate (fraud detection rate).
 ```yaml
 calibration:
   enabled: true
-  method: "precision_recall"
+  strategy: "precision_recall"
   params:
     min_recall: 0.80   # Ensure at least 80% of fraud is caught
 ```
@@ -392,7 +392,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "cost_benefit"
+    strategy: "cost_benefit"
     params:
       cost_fp: 1
       cost_fn: 10
@@ -458,7 +458,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "cost_benefit"
+    strategy: "cost_benefit"
     params:
       cost_fp: 1    # Inspecting a legitimate user costs $10
       cost_fn: 50   # Missing a fraud costs $500
@@ -476,7 +476,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "operational"
+    strategy: "operational"
     params:
       capacity: 200   # Can only inspect 200 customers per month
 ```
@@ -493,7 +493,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "precision_recall"
+    strategy: "precision_recall"
     params:
       min_recall: 0.80   # Must catch at least 80% of fraud
 ```

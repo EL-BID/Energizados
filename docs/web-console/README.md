@@ -104,6 +104,26 @@ The interface uses HTMX for dynamic updates without page refreshes:
 - **Auto-refresh**: Job lists update every 2 seconds
 - **Real-time Status**: See job progress as it happens
 - **Smooth UX**: No jarring page reloads
+- **Live progress via SSE**: per-job Server-Sent Events (`GET /jobs/{job_id}/progress` and the project-scoped equivalent) push step-by-step progress to the job detail page in real time
+
+### 5. Multi-Project Workspace
+
+The console is a multi-project workspace rather than a single-project runner:
+
+- **Projects home page** (`GET /projects`): list, create, and register projects. Each project owns its own jobs and runs.
+- **Project-scoped jobs**: create and manage jobs under `POST /projects/{project_id}/jobs`. Global job creation (`POST /jobs`) is deprecated and returns HTTP 400.
+- **Project detail page** (`GET /projects/{project_id}`): shows that project's runs, dashboards, and lineage.
+- **Project-scoped dashboards and comparisons**: `GET /projects/{project_id}/dashboard` and `GET /projects/{project_id}/runs/compare`.
+- **Global cross-project surfaces** still exist: `GET /dashboard` and `GET /runs`.
+
+### 6. Run Grouping & Lineage
+
+- **run_type grouping**: the runs list (`GET /runs`) and the project detail page bucket runs by type — `etl`, `eda`, `inference`, and `training` — so each pipeline stage is easy to find.
+- **Retrain lineage**: when a run is produced by retrying or retraining from a previous run, the source run id is tracked (`derived_from_run_id`) and surfaced on the project detail page, making it easy to follow how a model evolved.
+
+### 7. UI Style Guide
+
+- **`GET /ui`**: a living style-guide page documenting the console's reusable UI components. It auto-adapts to the active light/dark theme via the global topbar toggle.
 
 ## Architecture
 
@@ -130,22 +150,40 @@ The interface uses HTMX for dynamic updates without page refreshes:
 
 ### Jobs
 
-- `POST /jobs` - Submit a new job
-- `GET /jobs` - List all jobs
+- `POST /projects/{project_id}/jobs` - Submit a new job scoped to a project (canonical route)
+- `GET /projects/{project_id}/jobs` - List jobs for a project
+- `GET /projects/{project_id}/jobs/{job_id}` - Project-scoped job detail
+- `POST /projects/{project_id}/jobs/{job_id}/cancel` - Cancel a project job
+- `POST /projects/{project_id}/jobs/{job_id}/retry` - Retry a failed project job
+- `GET /projects/{project_id}/jobs/{job_id}/progress` - SSE stream of live progress for a project job
+- `POST /jobs` - **Deprecated**. Global job creation is no longer supported and always returns HTTP 400. Use `POST /projects/{project_id}/jobs` instead. (Existing global jobs remain readable via the legacy `GET /jobs` endpoints below.)
+- `GET /jobs` - List all jobs (legacy read-only surface across projects)
 - `GET /jobs/{job_id}` - Get job detail
+- `GET /jobs/{job_id}/progress` - SSE stream of live job progress events
 - `POST /jobs/{job_id}/cancel` - Cancel a running job
 - `POST /jobs/{job_id}/retry` - Retry a failed job
 
 ### Runs
 
-- `GET /runs` - List completed runs
+- `GET /runs` - List completed runs (grouped by run_type: etl / eda / inference / training)
+- `GET /runs/compare` - Side-by-side comparison page for multiple runs
 - `GET /runs/{run_id}` - Get run detail with metrics and artifacts
 - `GET /runs/{run_id}/artifacts/{path:path}` - Access run artifacts (plots, configs, logs)
+- `GET /projects/{project_id}/runs` - List runs for a project (project detail page)
+- `GET /projects/{project_id}/runs/compare` - Project-scoped run comparison page
+- `GET /projects/{project_id}/runs/{run_id}` - Project-scoped run detail
 
-### Utility
+### Projects & Navigation
 
 - `GET /health` - Health check endpoint
 - `GET /` - Main interface
+- `GET /projects` - Projects home page (multi-project workspace)
+- `GET /projects/{project_id}` - Project detail page (project-scoped runs, lineage, dashboard)
+- `POST /projects` - Create a new project under the workspace
+- `POST /projects/register` - Register an existing directory as a project
+- `GET /dashboard` - Global metrics dashboard (timeline of recent runs across projects)
+- `GET /projects/{project_id}/dashboard` - Project-scoped dashboard
+- `GET /ui` - Living style-guide page (UI component reference)
 - `GET /docs` - FastAPI auto-documentation
 
 ## Security Considerations
@@ -298,5 +336,6 @@ sqlite3 data/web/jobs.db "SELECT status, COUNT(*) FROM jobs GROUP BY status;"
 ## Version History
 
 - **Phase 1**: Async job runner with SQLite persistence
-- **Phase 2**: Runs browsing and artifact serving (current)
-- **Future**: Authentication, RBAC, metrics dashboard, real-time progress via SSE
+- **Phase 2**: Runs browsing and artifact serving
+- **Phase 3**: Multi-project workspace with project-scoped jobs, run_type grouping on `/runs`, retrain lineage (`derived_from_run_id`), global + project-scoped dashboards, run comparison pages, SSE live progress, and the `/ui` style guide (current)
+- **Future**: Authentication, RBAC
