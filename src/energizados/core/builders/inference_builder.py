@@ -131,7 +131,11 @@ class InferenceBuilder(StepBuilder):
                 # Hierarchical inference loads models internally
                 if hasattr(self.inference, "routes") and self.inference.routes:
                     return True
-                if self.config.get("model_path"):
+                # Mirror execute(): an auto-detected path is stored under
+                # ``_resolved_model_path`` and is just as valid as an explicit
+                # ``model_path``. Without this, standalone inference runs that
+                # rely on auto-detection are wrongly rejected before execution.
+                if self.config.get("_resolved_model_path") or self.config.get("model_path"):
                     return True
                 return "model" in context and context["model"] is not None
 
