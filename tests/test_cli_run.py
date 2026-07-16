@@ -29,6 +29,53 @@ class TestRunCommand:
         """Set up test environment."""
         self.runner = CliRunner()
 
+    def test_run_logs_validation_error_to_logging(self, caplog):
+        """StepValidationError must reach the logging system (and thus run.log).
+
+        The CLI renders the error as a Rich panel on the terminal, but that
+        bypasses ``logging`` — so the FileHandler feeding run.log never saw it.
+        The handler now also emits an ERROR record. ``_setup_logging`` is patched
+        so pytest's caplog handler survives (the real one clobbers root handlers).
+        """
+        from energizados.core.exceptions import StepValidationError
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "test_project"
+            project_path.mkdir()
+            (project_path / "config").mkdir()
+            (project_path / "config" / "etl.yaml").write_text(
+                "etl:\n  sample:\n    enabled: false\n"
+            )
+
+            import os
+
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.execute_pipeline") as mock_exec:
+                    mock_exec.side_effect = StepValidationError(
+                        "Validation failed in step InferenceStep",
+                        step="InferenceStep",
+                        missing_keys=["model"],
+                    )
+                    with patch("energizados.cli.main._setup_logging"):
+                        with caplog.at_level(logging.ERROR, logger="energizados.cli.main"):
+                            result = self.runner.invoke(cli, ["run", "etl", "-v"])
+            finally:
+                os.chdir(old_cwd)
+
+            # Aborted, panel rendered with the corrected title, and — crucially —
+            # the failure now flows through logging (the channel run.log reads).
+            assert result.exit_code != 0
+            output = strip_ansi(result.output)
+            assert "Validation failed" in output
+            assert "Dataset not found" not in output  # old hardcoded title is gone
+            assert any(
+                "Validation failed" in r.getMessage()
+                for r in caplog.records
+                if r.levelno >= logging.ERROR
+            )
+
     def test_run_single_config(self):
         """Verify that run works with a single config name."""
         with tempfile.TemporaryDirectory() as tmpdir:

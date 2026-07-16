@@ -13,6 +13,8 @@ import click
 from rich.panel import Panel
 from rich.tree import Tree
 
+logger = logging.getLogger(__name__)
+
 
 def _setup_logging(verbose: int = 0, log_file: str = None):
     """
@@ -480,9 +482,11 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
                 execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
 
     except ConfigResolutionError as e:
+        logger.error("Config resolution failed: %s", e)
         print_error(str(e))
         raise click.Abort()
     except FileNotFoundError as e:
+        logger.error("Required file not found: %s", e)
         print_error(str(e))
         raise click.Abort()
     except StepValidationError as e:
@@ -490,16 +494,21 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
 
         from energizados.cli.ui import console
 
+        # Surface the failure through the logging system so it reaches run.log
+        # (the FileHandler only sees logging records, not Rich console output).
+        logger.error("Validation failed in step %s: %s", getattr(e, "step", "unknown"), e)
         console.print(
             Panel(
                 str(e),
-                title="[bold red]✗  Dataset not found[/]",
+                title="[bold red]✗  Validation failed[/]",
                 border_style="red",
                 padding=(1, 2),
             )
         )
         raise click.Abort()
     except Exception as e:
+        # Log with traceback so unexpected failures are diagnosable from run.log.
+        logger.error("Pipeline execution failed: %s", e, exc_info=True)
         print_error(f"Error executing pipeline: {e}")
         if verbose:
             from energizados.cli.ui import console
