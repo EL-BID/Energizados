@@ -142,6 +142,9 @@ eda:
   # Output
   # ============================================
   output:
+    # NOTE: running `energizados run eda` always writes the report into the
+    # timestamped run dir (output/eda-<TIMESTAMP>/); this output_dir only
+    # applies to standalone/programmatic usage without a run dir.
     output_dir: "output/eda/"
     report_name: "eda_report.html"
     export_plots: true
