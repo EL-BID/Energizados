@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No notable changes yet._
+### Fixed
+
+- **Inference: standalone `run infer` with model auto-detection** — `InferenceStep.validate_input` now honors the auto-detected `_resolved_model_path`, so `energizados run infer` no longer aborts with `Missing keys: ['model']` when no `model_path` is set in `infer.yaml`. Validation and execution now resolve the model the same way.
+- **CLI: pipeline errors now reach `run.log`** — The `run` command's exception handlers (validation, missing files, unexpected errors) now emit `logger.error(...)` in addition to the terminal panel, so failures appear in the run's `run.log` and not only on screen. The misleading hardcoded panel title "Dataset not found" is replaced with "Validation failed".
+- **EDA: report relocation into the run dir** — For typed `energizados run eda` runs, the report and artifacts now reliably land inside the timestamped run directory, overriding `output.output_dir` from the YAML; the caller's config dict is no longer mutated.
+
+### Changed
+
+- **Templates: `infer.yaml` runnable end-to-end out of the box** — Generated `infer.yaml` now points `input_path` at the sample ETL output (`data/processed/sample_dataset.parquet`) and writes predictions inside the inference run directory by default (`output/inference-<TIMESTAMP>/predictions.csv`), so the `etl → train → infer` pipeline runs without manual edits.
 
 ## [0.3.1] - 2026-07-15
 
