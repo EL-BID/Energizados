@@ -40,8 +40,16 @@ infer:
   enabled: true
 
   # Input/output paths
-  input_path: "data/processed/dataset_infer.parquet"
-  output_path: "output/predictions.csv"
+  # Default points to the sample ETL output so the demo pipeline runs
+  # end-to-end (etl -> train -> infer) out of the box. NOTE: this is the same
+  # dataset used for training, so predictions here are a smoke test, not a real
+  # evaluation. For real inference, build a no-target dataset with the inference
+  # ETL above (uncomment the etl: section) or point this to a true holdout.
+  input_path: "data/processed/sample_dataset.parquet"
+  # By default, predictions are written INSIDE the inference run directory
+  # (output/inference-YYYYMMDD_HHMM/predictions.csv), alongside run.log and
+  # the .metadata.json sidecar. Uncomment to pin a fixed output location:
+  # output_path: "output/predictions.csv"
 
   # Point to the training run to use:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
