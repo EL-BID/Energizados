@@ -5045,6 +5045,19 @@ files = [
 dev = ["backports.zoneinfo ; python_version < \"3.9\"", "black", "build", "freezegun", "mdx_truly_sane_lists", "mike", "mkdocs", "mkdocs-awesome-pages-plugin", "mkdocs-gen-files", "mkdocs-literate-nav", "mkdocs-material (>=8.5)", "mkdocstrings[python]", "msgspec ; implementation_name != \"pypy\"", "mypy", "orjson ; implementation_name != \"pypy\"", "pylint", "pytest", "tzdata", "validate-pyproject[all]"]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.32"
+description = "A streaming multipart parser for Python"
+optional = true
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "extra == \"web\""
+files = [
+    {file = "python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23"},
+    {file = "python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e"},
+]
+
+[[package]]
 name = "pytokens"
 version = "0.4.1"
 description = "A Fast, spec compliant Python 3.14+ tokenizer that runs on older Pythons."
@@ -7350,10 +7363,10 @@ all = ["catboost", "tensorflow", "xgboost"]
 catboost = ["catboost"]
 dev = ["black", "ipykernel", "ipywidgets", "jupyterlab", "mkdocs-material", "mypy", "pre-commit", "pytest", "pytest-cov", "ruff", "setuptools", "twine"]
 tensorflow = ["tensorflow"]
-web = ["fastapi", "jinja2", "uvicorn"]
+web = ["fastapi", "jinja2", "python-multipart", "uvicorn"]
 xgboost = ["xgboost"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "0546dab0189413029b7c7a7ab0f1e6b57baa0d2d5dd7d3dda10f63dc5ac33399"
+content-hash = "8c73ea0a9edae320e2a3f459a248e9795ca7a76f7ffbd280b2d651ab19d4a1d4"
