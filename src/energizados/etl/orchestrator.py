@@ -396,7 +396,10 @@ class ETLOrchestrator:
                     if self.on_etl_complete:
                         self.on_etl_complete(etl_name, len(result))
                 except Exception as e:
-                    logger.exception(f"✗ {etl_name} failed")
+                    # Log a one-liner here. The full traceback is emitted once by the
+                    # CLI top-level handler (cli.main.run) so it reaches run.log a
+                    # single time and the console doesn't render the traceback twice.
+                    logger.error("✗ %s failed: %s", etl_name, e)
                     if self.on_etl_error:
                         self.on_etl_error(etl_name, e)
                     raise ETLError(f"Error executing ETL '{etl_name}': {e}") from e
