@@ -1683,20 +1683,23 @@ class GeoFeaturesETL(BaseETL):
         return df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Append geo_cluster and optional geographic feature columns."""
-        import numpy as np
+        """Append geo features by delegating to the GeoFeatures transformer.
+
+        ADR-0001: clustering + hierarchy both live in the GeoFeatures transformer now.
+        This ETL is a thin file-I/O wrapper: read a parquet, hand the in-memory frame
+        to one GeoFeatures instance, write the result back. The load-or-fit decision
+        (train fits + persists, infer loads + predicts) is driven by whether
+        ``geo_model_path`` exists on disk.
+        """
+        from energizados.preprocessing.geo_features import GeoFeatures
 
         df = df.copy()
 
         # R4: cast object columns to category to cut DataFrame-copy memory ~4x.
-        # The geo transform copies this frame internally (X.copy()), and each
-        # copy of object columns (actividad, tipo_tarifa, cliente, ...) costs
-        # ~1.4 GB; category costs ~0.4 GB. Safe: OrdinalEncoder / TeEncoder
-        # downstream handle category transparently.
         _obj_cols = df.select_dtypes(include="object").columns
         if len(_obj_cols):
             df[_obj_cols] = df[_obj_cols].astype("category")
-            logger.info("  • R4: cast %d object columns to category", len(_obj_cols))
+            logger.info("  \u2022 R4: cast %d object columns to category", len(_obj_cols))
 
         if self.lat_col not in df.columns or self.lon_col not in df.columns:
             raise ETLError(
@@ -1704,144 +1707,41 @@ class GeoFeaturesETL(BaseETL):
                 f"'{self.lon_col}' not found. Available: {list(df.columns)}"
             )
 
-        lats = pd.to_numeric(df[self.lat_col], errors="coerce").values
-        lons = pd.to_numeric(df[self.lon_col], errors="coerce").values
-        valid_mask = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
-
-        n_valid = int(valid_mask.sum())
-
-        # --- Geographic clustering ---
-        if self.include_cluster:
-            from sklearn.cluster import KMeans
-            from sklearn.preprocessing import StandardScaler
-
-            if n_valid < 10:
-                raise ETLError(
-                    f"GeoFeaturesETL '{self.name}': only {n_valid} valid coordinates found. "
-                    "Need at least 10 to fit clusters."
-                )
-
-            coords = np.column_stack([lats[valid_mask], lons[valid_mask]])
-
-            model = self._load_geo_model()
-            if model is not None:
-                # PREDICT mode (inference): use loaded scaler+kmeans, do NOT fit.
-                scaler = model["scaler"]
-                kmeans = model["kmeans"]
-                if kmeans.n_clusters != self.n_clusters:
-                    logger.warning(
-                        "  GeoFeaturesETL: loaded model has %d clusters but "
-                        "config says %d; using loaded model",
-                        kmeans.n_clusters,
-                        self.n_clusters,
-                    )
-                n_clusters = kmeans.n_clusters
-                logger.info(
-                    "  ✓ GeoFeaturesETL: predict mode (loaded model, %d clusters) "
-                    "on %d valid coordinates",
-                    n_clusters,
-                    n_valid,
-                )
-            else:
-                # FIT mode (train): fit scaler+kmeans, then persist if configured.
-                n_clusters = min(self.n_clusters, n_valid)
-                scaler = StandardScaler()
-                coords_scaled = scaler.fit_transform(coords)
-
-                kmeans = KMeans(
-                    n_clusters=n_clusters,
-                    random_state=self.random_state,
-                    n_init=10,
-                )
-                kmeans.fit(coords_scaled)
-                self._save_geo_model(scaler, kmeans, n_clusters)
-                logger.info(
-                    "  ✓ GeoFeaturesETL: %d clusters fitted on %d valid coordinates",
-                    n_clusters,
-                    n_valid,
-                )
-
-            coords_scaled = scaler.transform(coords)
-            labels = np.full(len(df), -1, dtype=int)
-            labels[valid_mask] = kmeans.predict(coords_scaled)
-            df["geo_cluster"] = labels
-
-            invalid_count = int((~valid_mask).sum())
-            logger.info(
-                "  ✓ GeoFeaturesETL: %d clusters on %d valid coordinates (%d → label -1)",
-                n_clusters,
-                n_valid,
-                invalid_count,
-            )
-            for cluster_id in sorted(set(labels[valid_mask])):
-                count = int((labels == cluster_id).sum())
-                logger.info(
-                    "    Cluster %d: %d records (%.1f%%)", cluster_id, count, count / len(df) * 100
-                )
-        else:
-            if n_valid < 1:
-                raise ETLError(
-                    f"GeoFeaturesETL '{self.name}': no valid coordinates found. "
-                    "Cannot proceed without coordinates for hierarchy/distances features."
-                )
-            logger.info("  ✓ GeoFeaturesETL: clustering skipped (include_cluster=false)")
-
-        # --- Geographic hierarchy and distances ---
-        if self.include_hierarchy or self.include_distances:
-            from energizados.preprocessing.geo_features import GeoFeatures
-
-            transformer = GeoFeatures(
-                lat_col=self.lat_col,
-                lon_col=self.lon_col,
-                include_hierarchy=self.include_hierarchy,
-                include_target_encoding=False,
-                include_distances=self.include_distances,
-                distance_cities=self.distance_cities,
-                include_coords=self.include_coords,
-                cache_dir=self.cache_dir,
-                region_cities=self.region_cities,
-                regions_file=self.regions_file,
-            )
-            df = transformer.fit_transform(df)
-            logger.info("  ✓ GeoFeaturesETL: geographic features added")
-
-        return df
-
-    def _load_geo_model(self):
-        """Load persisted {scaler, kmeans, n_clusters} if geo_model_path is set and exists.
-
-        Returns None when not configured or the file is missing (caller then
-        falls back to fit mode).
-        """
-        if not self.geo_model_path:
-            return None
-        from pathlib import Path
-
-        from energizados.core.utils.secure_pickle import secure_load
-
-        if not Path(self.geo_model_path).exists():
-            logger.info(
-                "  • geo_model_path '%s' not found — will fit a new model",
-                self.geo_model_path,
-            )
-            return None
-        logger.info("  • Loading geo model from '%s'", self.geo_model_path)
-        return secure_load(self.geo_model_path)
-
-    def _save_geo_model(self, scaler, kmeans, n_clusters):
-        """Persist {scaler, kmeans, n_clusters} with secure_dump if geo_model_path is set."""
-        if not self.geo_model_path:
-            return
-        from pathlib import Path
-
-        from energizados.core.utils.secure_pickle import secure_dump
-
-        Path(self.geo_model_path).parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(
-            {"scaler": scaler, "kmeans": kmeans, "n_clusters": n_clusters},
-            self.geo_model_path,
+        transformer = GeoFeatures(
+            lat_col=self.lat_col,
+            lon_col=self.lon_col,
+            include_cluster=self.include_cluster,
+            n_clusters=self.n_clusters,
+            random_state=self.random_state,
+            include_hierarchy=self.include_hierarchy,
+            include_target_encoding=False,
+            include_distances=self.include_distances,
+            distance_cities=self.distance_cities,
+            include_coords=self.include_coords,
+            cache_dir=self.cache_dir,
+            region_cities=self.region_cities,
+            regions_file=self.regions_file,
+            geo_model_path=self.geo_model_path,
         )
-        logger.info("  • Saved geo model to '%s'", self.geo_model_path)
+
+        # load-or-fit branch (ADR-0001): train fits + persists; infer loads + predicts.
+        # The transformer raises ValueError/TransformerError; the ETL owns the ETLError
+        # contract at its boundary (mirrors DatasetBuilderETL.run).
+        try:
+            if self.geo_model_path and Path(self.geo_model_path).exists():
+                transformer.load()
+                transformer.fit(df)
+            else:
+                transformer.fit(df)
+                if self.geo_model_path:
+                    transformer.save()
+            return transformer.transform(df)
+        except ETLError:
+            raise
+        except Exception as e:
+            raise ETLError(
+                f"GeoFeaturesETL '{self.name}': geo feature extraction failed: {e}"
+            ) from e
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """Save enriched dataset."""

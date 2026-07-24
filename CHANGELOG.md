@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GeoFeatures: transformer owns geographic clustering (ADR-0001)** — KMeans clustering (`geo_cluster`) and the train/infer `geo_model.pkl` hand-off move from `GeoFeaturesETL` (file-I/O layer) into the `GeoFeatures` transformer (`preprocessing/`), matching `CONTEXT.md`'s definition of a Transformer. `GeoFeatures` now exposes pure scikit-learn semantics (`fit`/`transform`/`save`/`load`) plus `include_cluster` (default `false`, preserving existing `global_transformers` usage). `GeoFeaturesETL` becomes a thin wrapper that delegates to the transformer while keeping its full param surface and `ETLError` contract. Decision recorded in `src/energizados/docs/adr/0001-geo-features-as-transformer.md` (first framework-core ADR).
+
 ## [0.3.2] - 2026-07-24
 
 ### Added

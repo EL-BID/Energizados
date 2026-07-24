@@ -491,7 +491,20 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         cache_dir: Optional[str] = None,
         region_cities: Optional[List[str]] = None,
         regions_file: Optional[str] = None,
+        include_cluster: bool = False,
+        n_clusters: int = 10,
+        random_state: int = 42,
+        geo_model_path: Optional[str] = None,
     ):
+        # ADR-0001: GeoFeatures owns geographic clustering. include_cluster defaults to
+        # False so existing global_transformers usage (hierarchy/distances only) is
+        # unchanged; GeoFeaturesETL and dataset builders pass True explicitly.
+        self.include_cluster = include_cluster
+        self.n_clusters = n_clusters
+        self.random_state = random_state
+        self.geo_model_path = geo_model_path
+        # Set True by load() so a later fit() skips refitting clustering.
+        self._cluster_loaded_ = False
         self.lat_col = lat_col
         self.lon_col = lon_col
         self.include_hierarchy = include_hierarchy
@@ -662,6 +675,36 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
             self.lon_mean_ = np.nanmean(lons)
             self.lon_std_ = np.nanstd(lons)
 
+        # --- Geographic clustering (KMeans) - ADR-0001: owned by the transformer ---
+        # fit() is pure (no disk). The load-or-fit decision is the caller's: if load()
+        # ran first, _cluster_loaded_ is True and we skip refitting so the trained model
+        # is preserved (only hierarchy refits from data).
+        if self.include_cluster and not self._cluster_loaded_:
+            from sklearn.cluster import KMeans
+            from sklearn.preprocessing import StandardScaler
+
+            cluster_valid = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
+            n_valid = int(cluster_valid.sum())
+            if n_valid < 10:
+                raise ValueError(
+                    f"GeoFeatures: only {n_valid} valid coordinates for clustering. "
+                    "Need at least 10."
+                )
+            coords = np.column_stack([lats[cluster_valid], lons[cluster_valid]])
+            n_clusters = min(self.n_clusters, n_valid)
+            scaler = StandardScaler()
+            coords_scaled = scaler.fit_transform(coords)
+            kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=10)
+            kmeans.fit(coords_scaled)
+            self.scaler_ = scaler
+            self.kmeans_ = kmeans
+            self.n_clusters_ = n_clusters
+            logger.info(
+                "  GeoFeatures: %d clusters fitted on %d valid coordinates",
+                n_clusters,
+                n_valid,
+            )
+
         return self
 
     def _fit_target_encoding(self, X: pd.DataFrame, y: pd.Series, valid_mask: np.ndarray):
@@ -716,6 +759,20 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
 
         # Handle nulls: fill with sentinel, will be handled after geocoding
         valid_mask = ~(np.isnan(lats) | np.isnan(lons))
+
+        # --- Geographic clustering (KMeans) - ADR-0001 ---
+        if self.include_cluster:
+            if not hasattr(self, "kmeans_"):
+                raise ValueError(
+                    "GeoFeatures: include_cluster=True but the transformer is not "
+                    "fitted (no kmeans_). Call fit(include_cluster=True) or load() first."
+                )
+            cluster_valid = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
+            labels = np.full(len(df), -1, dtype=int)
+            if cluster_valid.any():
+                coords = np.column_stack([lats[cluster_valid], lons[cluster_valid]])
+                labels[cluster_valid] = self.kmeans_.predict(self.scaler_.transform(coords))
+            df["geo_cluster"] = labels
 
         # 1. Geographic hierarchy + distances (both may need estado_arr)
         if self.hierarchy_levels_ or self.include_target_encoding or self.include_distances:
@@ -781,6 +838,51 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
             df = df.drop(columns=[self.lat_col, self.lon_col])
 
         return df
+
+    def save(self, path: Optional[str] = None) -> "GeoFeatures":
+        """Persist the fitted clustering model ({scaler, kmeans, n_clusters}).
+
+        ADR-0001: fit does NOT persist; persistence is explicit here, mirroring
+        BaseFeatureEngineering.save. Only the clustering model is carried across
+        train->infer - hierarchy is refit from data every run.
+        """
+        from energizados.core.utils.secure_pickle import secure_dump
+
+        target = path or self.geo_model_path
+        if not target:
+            raise ValueError("GeoFeatures.save: no path given and geo_model_path is unset")
+        if not hasattr(self, "kmeans_"):
+            raise ValueError(
+                "GeoFeatures.save: nothing to persist - fit(include_cluster=True) first"
+            )
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+        secure_dump(
+            {"scaler": self.scaler_, "kmeans": self.kmeans_, "n_clusters": self.n_clusters_},
+            target,
+        )
+        logger.info("  GeoFeatures: saved geo model to '%s'", target)
+        return self
+
+    def load(self, path: Optional[str] = None) -> "GeoFeatures":
+        """Load a persisted clustering model and mark clustering as pre-loaded.
+
+        After load, a subsequent fit SKIPS refitting clustering (it keeps the loaded
+        model) but still fits hierarchy from data. The load-or-fit decision (does the
+        file exist?) belongs to the caller.
+        """
+        from energizados.core.utils.secure_pickle import secure_load
+
+        target = path or self.geo_model_path
+        if not target:
+            raise ValueError("GeoFeatures.load: no path given and geo_model_path is unset")
+        model = secure_load(target)
+        self.scaler_ = model["scaler"]
+        self.kmeans_ = model["kmeans"]
+        self.n_clusters_ = model["n_clusters"]
+        self.include_cluster = True
+        self._cluster_loaded_ = True
+        logger.info("  GeoFeatures: loaded geo model from '%s'", target)
+        return self
 
     def _compute_capital_distances(
         self, lats: np.ndarray, lons: np.ndarray, estados: np.ndarray

@@ -258,6 +258,7 @@ split:
 | `random_state` | int | `42` | Random seed for reproducibility |
 
 **Strategies:**
+
 - `proportional`: Caps each stratum to the median count (reduces overrepresented regions proportionally)
 - `equal`: Reduces all strata to the minimum count (aggressive balancing)
 - `capped`: Caps each stratum to `max_per_stratum` (manual control)
@@ -488,6 +489,7 @@ Domain-specific fraud detection features derived from the consumption time serie
 | `date_column` | str | `null` | Inspection date column (required when `enable_seasonal_ratio=true`) |
 
 **Generated features (when enabled):**
+
 - `diff_X_Y`: Ratio of change between consecutive periods
 - `min_max_ratio_X`: Ratio of min/max consumption
 - `zscore_mean_X`: Z-score of mean consumption
@@ -553,13 +555,11 @@ For each consumption month, computes a z-score relative to the group's historica
 
 > **Anti-leakage note:** Group monthly statistics are learned from the training data passed to `fit()`. Ensure temporal ordering is respected.
 
-#### geo_features (moved to ETL)
+#### geo_features
 
-Geographic features (hierarchy, distances, clustering) are now configured as an ETL step
-using `GeoFeaturesETL` in `etl.yaml`. See [ETL configuration → GeoFeaturesETL](etl.md#geofeaturesletl).
+Geographic features — clustering (`geo_cluster`), IBGE hierarchy, and distances — are owned by the `GeoFeatures` transformer (`preprocessing/geo_features.py`). The convenient path is `GeoFeaturesETL` in `etl.yaml` (a thin wrapper that handles file I/O and the train/infer model hand-off via `geo_model_path`). See [ETL configuration → GeoFeaturesETL](etl.md#geofeaturesetl).
 
-To apply **target encoding** of geographic columns (e.g. `geo_estado_prob`), use
-`GeoFeatures` directly via `custom_class` in `global_transformers`.
+You can also use `GeoFeatures` directly via `custom_class` in `global_transformers`: it supports `include_cluster: true` (clustering), hierarchy, distances, and — for target encoding of geographic columns (e.g. `geo_estado_prob`) — `include_target_encoding: true`.
 
 #### if_score
 
@@ -590,6 +590,7 @@ Isolation Forest anomaly score — generates an `if_score` column where **higher
 | `periods_suffix` | str | `"_anterior"` | Suffix for auto-detecting consumption columns |
 
 **Tips:**
+
 - Set `contamination_from_target: true` to automatically use the fraud rate as the expected anomaly proportion
 - Run `clip_outliers` **before** `if_score` to avoid extreme values distorting anomaly detection
 - The score is inverted from sklearn's `score_samples()` so that higher = more anomalous (more intuitive for fraud detection)
@@ -846,6 +847,7 @@ models:
 ```
 
 **Neural Network Notes:**
+
 - Architecture: Dense(512) → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid)
 - Uses early stopping with patience=50 on validation PR-AUC
 - Automatically scales features using MinMaxScaler
@@ -861,6 +863,7 @@ models:
 ```
 
 **LSTM Notes:**
+
 - Architecture: LSTM(128) → Concatenate with features → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid)
 - Uses early stopping with patience=50 on validation PR-AUC
 - Requires consumption columns in format: `12_anterior`, `11_anterior`, ..., `1_anterior`
@@ -884,6 +887,7 @@ models:
 | `last_eval_value` | int | `3` | Number of recent periods for evaluation |
 
 **How it works:**
+
 - Computes: `trend_perc = 100 * mean(recent_periods) / mean(base_periods)`
 - Flags as fraud if: `100 - trend_perc > threshold`
 - Does NOT require preprocessing — uses raw consumption columns
@@ -903,6 +907,7 @@ models:
 | `min_count_constante` | int | `3` | Minimum consecutive identical values to flag as fraud |
 
 **How it works:**
+
 - Detects runs of consecutive identical consumption values
 - Flags as fraud if any run length >= min_count_constante
 - Does NOT require preprocessing — uses raw consumption columns
@@ -1068,6 +1073,7 @@ evaluation:
 ```
 
 **Threshold modes:**
+
 - `global`: uses the global threshold for all segments
 - `youden`: finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1)
 - `f1_optimal`: maximizes F1 score per segment

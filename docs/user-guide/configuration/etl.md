@@ -148,6 +148,7 @@ etl:
 | `write_mode` | string | `"append"` | How to handle existing partition files: `"append"` concatenates new records; `"replace"` overwrites with new data only. |
 
 **Output structure:**
+
 ```
 data/processed/consumos/
 ├── partition=2024-01/
@@ -491,6 +492,12 @@ Adds geographic features from latitude/longitude coordinates. Combines KMeans ge
 clustering, IBGE administrative hierarchy, and haversine distance features in a single ETL step.
 Run after the main dataset-building ETL and before training.
 
+> **Architecture (ADR-0001):** `GeoFeaturesETL` is a thin file-I/O wrapper over the
+> `GeoFeatures` transformer (`preprocessing/geo_features.py`), which owns the clustering
+> logic. The same transformer can be used directly via `custom_class` in `global_transformers`
+> with `include_cluster: true`. Set `geo_model_path` to persist the KMeans model on train and
+> reuse it on inference (consistent `geo_cluster` labels across runs).
+
 **Generated columns:**
 
 | Column | Type | Description |
@@ -548,6 +555,7 @@ geo_features:
 | `cache_dir` | string | `null` | Directory to persist IBGE shapefiles on disk |
 | `regions_file` | str | `null` | Path to a `REGION;CITY` CSV. Assigns `geo_regiao` by matching IBGE municipality names to `CITY` (accent- and case-insensitive). Takes priority over `region_cities`. Logs matched/unmatched municipalities; stores `matched_municipalities_`/`unmatched_municipalities_` on `fit()`. |
 | `region_cities` | list | `null` | List of `REFERENCE_CITIES` keys. When set and `regions_file` is not provided, `geo_regiao` is the nearest city by haversine distance instead of the IBGE macro-region. |
+| `geo_model_path` | string | `null` | Path to persist/load the KMeans+scaler model. On train: fits and saves. On inference: if the file exists, loads it instead of re-fitting (keeps `geo_cluster` labels consistent with training). Omit to fit fresh every run. |
 
 **Available cities for `distance_cities`:**
 
@@ -592,6 +600,7 @@ etl:
 Deletes files after the pipeline completes. Useful for removing intermediate outputs and freeing disk space. This ETL does not produce a dataset — it returns an empty DataFrame so the orchestrator can track it normally in the DAG.
 
 The files to delete are specified in the `input` field, which supports:
+
 - Direct paths: `"data/processed/consumos.parquet"`
 - References to other ETL outputs: `"@consumos"` (resolved by the orchestrator)
 - Glob patterns: `"data/processed/tmp_*.parquet"`

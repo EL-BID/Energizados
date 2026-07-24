@@ -13,12 +13,14 @@ The framework also includes an **ETL system** with support for multiple ETLs wit
 ## Development Commands
 
 ### Environment Setup
+
 ```bash
 pip install -e ".[dev]"
 jupyter lab
 ```
 
 ### Testing & Quality
+
 ```bash
 pytest tests/                    # Run all tests (slow tests deselected by default)
 pytest tests/ -m slow            # Run ONLY slow tests
@@ -31,11 +33,14 @@ pre-commit run --all-files       # Run all linters (isort, black, bandit, flake8
 **Slow tests convention:** Tests that take a long time (end-to-end pipeline runs, full model training, boruta with many estimators) must be marked `@pytest.mark.slow`. A plain `pytest` omits them by default (configured via `addopts` in `pyproject.toml`); run them explicitly with `pytest -m slow`. The `slow`, `integration`, and `unit` markers are registered under `[tool.pytest.ini_options]` with `--strict-markers`, so unregistered markers fail loudly.
 
 ### Running the Project
+
 The project is primarily run through Jupyter notebooks:
+
 - `notebooks/ejecucion_paso_paso.ipynb` - Local execution
 - `notebooks/colab_ejecucion_paso_paso.ipynb` - Google Colab execution
 
 ### Framework CLI
+
 ```bash
 # Initialize a new project
 energizados init mi_proyecto
@@ -78,6 +83,7 @@ energizados run etl,train -vv          # shows Δ + peak per step, then a Memory
 - **Programmatic**: `ETLOrchestrator(..., profile_memory=True)` and `Pipeline(..., profile_memory=True)` enable sampling; metrics land in `on_etl_complete(name, rows, metrics=...)` / `on_step_complete(name, i, total, metrics=...)` and in `.memory_metrics`. The reusable primitive is `energizados.core.utils.memory_sampler.MemorySampler` (context manager) plus `format_bytes`.
 
 ### Web Console (async job runner)
+
 ```bash
 # Install web dependencies
 pip install -e ".[web]"
@@ -91,13 +97,16 @@ energizados-web-worker --db-path data/web/jobs.db --log-level INFO  # Worker (jo
 ```
 
 ### Run Scripts (generated projects)
+
 New projects include Python scripts in `src/run/` for direct execution without CLI:
+
 ```bash
 python src/run/00_etl.py          # ETLs
 python src/run/01_eda.py           # EDA (Exploratory Data Analysis)
 python src/run/02_training.py      # Entrenamiento (incluye feature engineering y evaluación)
 python src/run/03_inference.py     # Inferencia
 ```
+
 These scripts use `ConfigPipelineBuilder` API directly.
 
 ## Code Architecture
@@ -107,6 +116,7 @@ These scripts use `ConfigPipelineBuilder` API directly.
 ### Directory Structure
 
 **Framework source (`src/energizados/`):**
+
 ```
 src/energizados/
 ├── contracts.py      # **SINGLE HOME** for all 8 framework base classes (see Base Classes section)
@@ -203,6 +213,7 @@ The **single home** for all framework base classes is `energizados.contracts` (a
 - **`BaseExplorer`** — Abstract base for exploratory data analysis. Requires `explore()`.
 
 **Backward-compatible import paths** (shim re-exports from `energizados.contracts`):
+
 - `energizados.core.base.BaseModel`
 - `energizados.core.base.BaseInference`
 - `energizados.etl.base.BaseETL`
@@ -267,6 +278,7 @@ The **service layer API** (`energizados.api`) provides programmatic framework us
 - **`ALLOWED_PREFIXES` narrowed**: The default allowlist now contains only `{"energizados.", "src."}` for security. Projects using custom prefixes (e.g., `data.`, `features.`) must call `register_allowed_prefix()` before framework usage.
 
 **Generated project structure (`energizados init`):**
+
 ```
 mi_proyecto/
 ├── config/                 # Configuration files
@@ -335,6 +347,7 @@ etl:
 `SourceETL` supports three processing modes via the `mode` parameter:
 
 1. **`concat`** (default): Concatenates multiple input files vertically
+
    ```yaml
    concatenar:
      enabled: true
@@ -348,6 +361,7 @@ etl:
    ```
 
 2. **`merge`**: Merges multiple input files horizontally using `merge_config`
+
    ```yaml
    merge_dataset:
      enabled: true
@@ -364,6 +378,7 @@ etl:
    ```
 
 3. **`incremental`**: Filters records by a key column — only rows newer than the last processed value are kept. Stores the high-water mark in a state file so each run continues from where the previous one left off. Processes files one-by-one for constant memory usage.
+
    ```yaml
    consumos_incremental:
      enabled: true
@@ -382,6 +397,7 @@ etl:
    ```
 
 **Important:**
+
 - When `mode="merge"`, `merge_config` is required. Accepts any `pd.merge()` parameter: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
 - When `mode="incremental"`, `incremental_key` is required. The column is parsed as datetime automatically if needed. On first run all records are processed (unless `last_processed` is set). After each run `max(incremental_key)` is persisted in `state_file`.
 - `incremental_format`: Optional strftime string for explicit date parsing. When set, `pd.to_datetime(col, format=incremental_format)` is used instead of auto-parsing. Useful for ambiguous date formats like `"15/01/2024"` (DD/MM/YYYY).
@@ -576,6 +592,7 @@ training:
 **Global Transformers:**
 
 Global transformers are listed under a single `global_transformers` key. The framework automatically splits them into two stages based on each transformer's `pipeline_stage` class attribute:
+
 - **pre** (`pipeline_stage = "pre"`): runs before column encoding — sees original categorical columns. Used by `group_relative_consumption` and `seasonal_anomaly`.
 - **post** (default): runs after column encoding. Used by all other built-in transformers.
 
@@ -656,28 +673,33 @@ preprocessing:
 ```
 
 **Custom class options in `feature_engineering`:**
+
 - Per-column: `custom_class` inside a column's transformer list
 - Full preprocessing replacement: `preprocessing.custom_class`
 - Full feature engineering replacement: `feature_engineering.custom_class`
 - Custom model: `model.custom_class`
 
 **Key Feature Engineering Classes (internal framework):**
+
 - `BaseFeatureEngineering`: Abstract base class for custom implementations (`feature_engineering/base.py`)
 - `DefaultFeatureEngineering`: Default implementation combining preprocessing + feature selection (`feature_engineering/default.py`)
 - Methods: `fit(X, y)`, `transform(X)`, `fit_transform(X, y)`, `save(path)`, `load(path)`
 
 **Key Inference Classes (internal framework):**
+
 - `BaseInference`: Abstract base class for inference (`inference/base.py`)
 - `DefaultInference`: Default single-model inference (`inference/default.py`)
-- `HierarchicalInference`: Routes rows to different models based on column-value conditions (`inference/hierarchical.py`). Configured in `infer.yaml` via `routes` (list of `{name, condition: {col: value | [values]}, model_path}`), `default_model_path`, and optional `feature_engineering_paths` (dict route name → FE `.pkl`). Use "__default__" as the key in `feature_engineering_paths` to provide FE for the default model's rows. It loads its own route models internally, so `model_path` is **not** required at the top level when routes are configured. Rows matching no route use the default model.
+- `HierarchicalInference`: Routes rows to different models based on column-value conditions (`inference/hierarchical.py`). Configured in `infer.yaml` via `routes` (list of `{name, condition: {col: value | [values]}, model_path}`), `default_model_path`, and optional `feature_engineering_paths` (dict route name → FE `.pkl`). Use "**default**" as the key in `feature_engineering_paths` to provide FE for the default model's rows. It loads its own route models internally, so `model_path` is **not** required at the top level when routes are configured. Rows matching no route use the default model.
 
 Additional ETL examples are provided (commented out) in the template:
+
 - `consumos`: Single source ETL for consumption data (mode='concat')
 - `clientes`: Single source ETL for customer data (mode='concat')
 - `concatenar_archivos`: Concatenates multiple CSV files (mode='concat')
 - `merge_dataset`: Merges consumos and clientes by id_cliente (mode='merge')
 
 **Reference Syntax**: Use `@etl_name` to reference another ETL's output:
+
 ```yaml
   merge_dataset:
     input:
@@ -686,10 +708,11 @@ Additional ETL examples are provided (commented out) in the template:
 ```
 
 **Key ETL Classes:**
+
 - `BaseETL`: Abstract base class for all ETL implementations
 - `SourceETL`: Reads from one or multiple source files with `mode` parameter (`concat`, `merge`, or `incremental`). Key incremental params: `incremental_key` (column used to filter new records), `last_processed` (initial cutoff), `incremental_format` (optional strftime for date parsing), `incremental_partition` (strftime for partition values, default `"%Y-%m"` → `partition=YYYY-MM/`), `state_file` (persists high-water mark across runs). `partition_by` is deprecated in incremental mode — use `incremental_partition` instead.
 - `ClipOutliersETL`: Clips extreme values in consumption columns (data reading errors). Use after the main dataset-building ETL, before training. `custom_class: "energizados.etl.pipeline.ClipOutliersETL"`.
-- `GeoFeaturesETL`: Adds geographic features from lat/lon coordinates. Appends `geo_cluster` (int, KMeans), IBGE hierarchy (`geo_estado`, `geo_municipio`, `geo_regiao`), and haversine distance columns. Run after the main dataset ETL and before training. Required if using `stratified_time` split. Points with invalid/zero coords get `geo_cluster=-1` and `"sin_dato"` for hierarchy. `custom_class: "energizados.etl.pipeline.GeoFeaturesETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`, `include_cluster` (bool, default: `True` — set to `False` to skip KMeans clustering and only keep hierarchy/distances features), `include_hierarchy` (bool or list of level names: `"estado"`, `"municipio"`, `"regiao"` — `true`=all, `false`=none, list=specific subset), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str), `regions_file` (str, path to a `REGION;CITY` CSV — when set, `geo_regiao` is assigned by matching IBGE municipality names to `CITY`, accent- and case-insensitive; takes priority over `region_cities`; on `fit()` logs matched/unmatched municipalities and stores `unmatched_municipalities_` and `matched_municipalities_` attributes for diagnostics), `region_cities` (list of city keys from `REFERENCE_CITIES` — when set and `regions_file` is not provided, `geo_regiao` is the nearest city by haversine distance instead of the IBGE macro-region).
+- `GeoFeaturesETL`: Adds geographic features from lat/lon coordinates. Appends `geo_cluster` (int, KMeans), IBGE hierarchy (`geo_estado`, `geo_municipio`, `geo_regiao`), and haversine distance columns. Run after the main dataset ETL and before training. Required if using `stratified_time` split. Points with invalid/zero coords get `geo_cluster=-1` and `"sin_dato"` for hierarchy. `custom_class: "energizados.etl.pipeline.GeoFeaturesETL"`. Params: `n_clusters` (default: 10), `lat_col`, `lon_col`, `random_state`, `include_cluster` (bool, default: `True` — set to `False` to skip KMeans clustering and only keep hierarchy/distances features), `include_hierarchy` (bool or list of level names: `"estado"`, `"municipio"`, `"regiao"` — `true`=all, `false`=none, list=specific subset), `include_distances` (bool), `distance_cities` (list), `include_coords` (bool), `cache_dir` (str), `regions_file` (str, path to a `REGION;CITY` CSV — when set, `geo_regiao` is assigned by matching IBGE municipality names to `CITY`, accent- and case-insensitive; takes priority over `region_cities`; on `fit()` logs matched/unmatched municipalities and stores `unmatched_municipalities_` and `matched_municipalities_` attributes for diagnostics), `region_cities` (list of city keys from `REFERENCE_CITIES` — when set and `regions_file` is not provided, `geo_regiao` is the nearest city by haversine distance instead of the IBGE macro-region), `geo_model_path` (str, path to persist/load the KMeans+scaler model — train fits+saves, infer loads if present for consistent clusters; omit to fit fresh). ADR-0001: clustering is owned by the `GeoFeatures` transformer; `GeoFeaturesETL` is a thin wrapper that delegates to it while preserving this param surface.
 - `CleanFilesETL`: Deletes files listed in the `input` field. Useful for removing intermediate outputs after the pipeline completes. Supports `@etl_name` references, glob patterns, and direct paths in `input`. Does not produce a dataset — returns an empty DataFrame so the orchestrator tracks it normally in the DAG. `custom_class: "energizados.etl.pipeline.CleanFilesETL"`. Params: `missing_ok` (bool, default: `True` — silently skips missing files). The `output` field is optional (no file is written).
 - `ETLOrchestrator`: Manages execution order based on dependencies
 - `SchemaValidator`: Defined in `etl/validators.py` but not integrated into the pipeline. Available for manual use in custom ETLs.
@@ -701,6 +724,7 @@ Additional ETL examples are provided (commented out) in the template:
 The EDA module generates an interactive HTML report from raw datasets. Configured via `config/eda.yaml`.
 
 **Phases:**
+
 - Phase 0: Loading validation (BOM, encoding, numeric-as-string)
 - Phase 1: Global stats (nulls, duplicates, constants)
 - Phase 2: Column analysis (numeric/categorical/temporal/consumption) with optional per-column detail charts
@@ -727,6 +751,7 @@ sections:
 ```
 
 **Key EDA Classes:**
+
 - `DatasetExplorer`: Main orchestrator that runs all phases and generates the HTML report
 - `RelatedColumnsAnalyzer`: Generic analyzer for hierarchical column relationships (replaces the removed `InspectionAnalyzer`)
 - `EDAInteractivePlots`: Generates interactive Plotly charts as HTML strings
@@ -735,6 +760,7 @@ sections:
 ### Key Modules
 
 **`src/energizados/preprocessing/preprocessing.py`** - Core preprocessing transformers:
+
 - `ToDummy`: Converts categorical variables to dummy variables
 - `TeEncoder`: Target encoding for categorical variables
 - `CardinalityReducer`: Reduces cardinality of categorical features
@@ -744,6 +770,7 @@ sections:
 - `MinMaxScalerRow`: Row-wise MinMax scaling transformer
 
 **`src/energizados/modeling/supervised_models.py`** - Supervised model classes:
+
 - `LGBMModel`: LightGBM with imbalanced-learn sampling (undersample/over)
 - `CATModel`: CatBoost with native categorical handling
 - `XGBModel`: XGBoost with imbalanced-learn sampling (optional dependency: `pip install energizados[xgboost]`)
@@ -751,11 +778,13 @@ sections:
 - `LSTMNNModel`: LSTM + Dense neural network for sequential consumption data
 
 **`src/energizados/modeling/adapters.py`** - Model adapters implementing BaseModel interface:
+
 - `LGBMModelAdapter`, `CATModelAdapter`, `XGBModelAdapter`: Wrap supervised models
 - `NNModelAdapter`, `LSTMNNModelAdapter`: Wrap neural network models
 - `SimpleTrendAdapter`, `SimpleConstantAdapter`: Rule-based baseline models
 
 **`src/energizados/modeling/ensemble.py`** - Ensemble model combining multiple base models:
+
 - `EnsembleModel`: Combines N base models via soft voting or stacking with meta-learner
   - `method`: `"soft_voting"` (weighted average) or `"stacking"` (meta-learner trained on base predictions)
   - `use_val_as_oof`: True=blending (fast, uses val set); False=proper K-fold OOF (slower, no leakage)
@@ -763,10 +792,12 @@ sections:
   - `ensemble_description` property: Human-readable format like `"Ensemble (lightgbm, catboost)"`
 
 **`src/energizados/modeling/simple_models.py`** - Rule-based baseline models:
+
 - `ChangeTrendPercentajeIdentifierWide`: Detects dramatic consumption drops
 - `ConstantConsumptionClassifierWide`: Identifies constant consumption patterns
 
 **`src/energizados/feature_selection/methods.py`** - Feature selection methods:
+
 - `feature_selection_by_correlation()`: Removes highly correlated features
 - `feature_selection_by_constant()`: Removes low-variance features
 - `feature_selection_by_boruta()`: Boruta algorithm for feature selection
@@ -776,6 +807,7 @@ sections:
 The project uses wide-format data with 12 monthly consumption columns (`12_anterior` through `1_anterior`) plus categorical user features:
 
 **Categorical features:**
+
 - `actividad`: Economic activity (high cardinality, ~284)
 - `tipo_tarifa`: Tariff type (~47)
 - `nivel_tension`: Voltage level (~18)
@@ -783,6 +815,7 @@ The project uses wide-format data with 12 monthly consumption columns (`12_anter
 - `zona`: Geographic zone (~38)
 
 **Target:**
+
 - Binary classification (fraudulent vs non-fraudulent users)
 
 ### Model Training Pipeline

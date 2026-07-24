@@ -3,6 +3,7 @@
 ## When to Use This vs Individual Custom Transformers
 
 Use a custom `BaseFeatureEngineering` implementation when you need to:
+
 - Replace the entire preprocessing + feature selection pipeline with a completely custom approach
 - Implement complex interactions between preprocessing and feature selection steps
 - Optimize performance by fusing multiple operations
@@ -168,6 +169,7 @@ class DomainSpecificFeatureEngineering(BaseFeatureEngineering):
 ```
 
 Wire it in `config/train.yaml`:
+
 ```yaml
 train:
   feature_engineering:
@@ -240,7 +242,7 @@ train:
 | `consumption_patterns` | Domain-specific fraud detection features (diff ratios, zero ratio, z-score, slope, consistency, drastic changes, autocorrelation, seasonal ratio) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior"), plus enable flags (see train.md) |
 | `if_score` | Isolation Forest anomaly score (inverted; higher = more anomalous) | `n_estimators` (int, default=100), `contamination` (float/str, default="auto"), `contamination_from_target` (bool, default=false), plus other params (see train.md) |
 | `temporal_features` | Calendar features from a date column with flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding. Cyclic encoding preserves calendar circularity (Dec & Jan are neighbors) | `date_column` (str, required), `features` (list, default=["month","quarter","week","dayofweek"]), `encoding` (str, default="both" — "flat"/"cyclic"/"both"), `drop_date_column` (bool, default=false) |
-| `geo_features` | **Moved to ETL** — use `GeoFeaturesETL` in `etl.yaml`. For target encoding of geographic columns only, use `GeoFeatures` via `custom_class`. | — |
+| `geo_features` | Not a built-in key. The `GeoFeatures` transformer provides clustering (`geo_cluster`), IBGE hierarchy, and distances — use it via `GeoFeaturesETL` in `etl.yaml` (recommended; handles file I/O), or directly via `custom_class` here with `include_cluster: true`. | `custom_class` path + `GeoFeatures` params (`include_cluster`, `n_clusters`, `regions_file`, `geo_model_path`, …) |
 
 ## Global Transformers
 
@@ -336,6 +338,7 @@ def test_custom_feature_engineering_fit_transform(synthetic_classification_data)
 ```
 
 Run tests:
+
 ```bash
 pytest tests/test_custom_feature_engineering.py -v
 ```
