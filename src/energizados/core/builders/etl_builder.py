@@ -80,9 +80,9 @@ class ETLBuilder(StepBuilder):
                         # For ETLs, phase is the ETL name and we pass total as metadata
                         phase_callback("ETLStep", name, 0, len(self.etl_names))
 
-                def on_etl_complete(name, rows):
+                def on_etl_complete(name, rows, metrics=None):
                     if phase_callback:
-                        phase_callback("ETLStep", name, 100, len(self.etl_names))
+                        phase_callback("ETLStep", name, 100, len(self.etl_names), metrics=metrics)
 
                 def on_etl_error(name, err):
                     if phase_callback:
@@ -93,6 +93,9 @@ class ETLBuilder(StepBuilder):
                 self.orchestrator.on_etl_error = on_etl_error
 
                 # Execute all ETLs in topological order
+                # Propagate the profiling flag so each ETL is sampled.
+                self.orchestrator.profile_memory = context.get("_profile_memory", False)
+
                 results = self.orchestrator.run()
 
                 # Pass the output of the last ETL to context

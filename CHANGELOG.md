@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CLI: memory profiling under `-vv`** — `energizados run ... -vv` now samples process RSS around every ETL and pipeline step and reports, live in the progress bar, `Δ<retained> peak <max>` per step (with a `⚠` marker when a step retains more than 1 GB), followed by a `Memory profile` table sorted by peak. Uses `psutil` RSS (correct for pandas/numpy C-level memory, which `tracemalloc` cannot see); zero overhead without `-vv`. Backward-compatible: `ETLOrchestrator`/`Pipeline` gained an opt-in `profile_memory` flag and the `on_etl_complete`/`on_step_complete` callbacks gained an optional `metrics=None` kwarg. New public helper `energizados.core.utils.memory_sampler.MemorySampler` (context manager) and `format_bytes`.
+- **GeoFeaturesETL: persist `scaler+kmeans` via `geo_model_path`** — New `geo_model_path` constructor parameter. On first fit, the ETL writes the fitted `StandardScaler` and `KMeans` (plus `n_clusters`) to that path using `secure_pickle`; on later runs (including inference) it reloads them and enters PREDICT mode, where the saved `n_clusters` takes precedence over the config. This keeps cluster IDs consistent between training and serving, so a row's `geo_cluster` means the same thing in both contexts. Loading is best-effort: a missing or unreadable file falls back to FIT mode with an INFO log.
+
 ### Fixed
 
 - **Inference: standalone `run infer` with model auto-detection** — `InferenceStep.validate_input` now honors the auto-detected `_resolved_model_path`, so `energizados run infer` no longer aborts with `Missing keys: ['model']` when no `model_path` is set in `infer.yaml`. Validation and execution now resolve the model the same way.
@@ -16,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Templates: `infer.yaml` runnable end-to-end out of the box** — Generated `infer.yaml` now points `input_path` at the sample ETL output (`data/processed/sample_dataset.parquet`) and writes predictions inside the inference run directory by default (`output/inference-<TIMESTAMP>/predictions.csv`), so the `etl → train → infer` pipeline runs without manual edits.
+- **GeoFeaturesETL: object→category cast** — Object columns (`actividad`, `tipo_tarifa`, `cliente`, ...) are cast to `category` before the internal `X.copy()` so the geo transform's DataFrame copy uses ~4x less memory (object ~1.4 GB → category ~0.4 GB on the sample dataset). Safe because `OrdinalEncoder` and `TeEncoder` handle `category` transparently.
+- **GeoFeatures: chunked geocoding** — `_IBGEGeocoder.geocode` now processes points in chunks of 500k (configurable via `chunk_size`) and concatenates the per-chunk spatial-join results. Output is identical to the unchunked version (same per-point dedup, same polygon-border handling), but peak memory is bounded — scales to 3.4M+ inference points without OOM.
 
 ## [0.3.1] - 2026-07-15
 

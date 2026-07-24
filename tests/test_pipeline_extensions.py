@@ -136,3 +136,71 @@ class TestPipelineBackwardCompatibility:
         pipeline.add_step(MockStep())
         result = pipeline.run()
         assert isinstance(result, dict)
+
+
+class TestPipelineProfiling:
+    """Tests for the ``profile_memory`` flag on Pipeline.
+
+    When profiling is on, ``on_step_complete`` receives a metrics dict and
+    ``pipeline.memory_metrics`` accumulates per-step stats; when off, the
+    callback is invoked with ``metrics=None`` (unchanged behavior).
+    """
+
+    @staticmethod
+    def _alloc_step(name="_AllocStep", alloc_mb=80):
+        """Build a PipelineStep subclass that allocates ``alloc_mb`` MB."""
+        from energizados.core.base import PipelineStep
+
+        class _AllocStep(PipelineStep):
+            def validate_input(self, context):
+                return True
+
+            def execute(self, context):
+                context["payload"] = bytearray(alloc_mb * 1024 * 1024)
+                return context
+
+            def get_required_keys(self):
+                return []
+
+            def get_output_keys(self):
+                return ["payload"]
+
+        _AllocStep.__name__ = name
+        return _AllocStep()
+
+    def test_profile_off_passes_none(self):
+        pipeline = Pipeline(config={})
+        pipeline.steps = [self._alloc_step()]
+        captured = []
+        pipeline.on_step_complete = lambda name, i, total, metrics=None: captured.append(
+            (name, metrics)
+        )
+        pipeline.run()
+        assert len(captured) == 1
+        assert captured[0][1] is None
+        assert pipeline.memory_metrics == {}
+
+    def test_profile_on_passes_metrics_dict(self):
+        pipeline = Pipeline(config={})
+        pipeline.profile_memory = True
+        pipeline.steps = [self._alloc_step()]
+        captured = []
+        pipeline.on_step_complete = lambda name, i, total, metrics=None: captured.append(
+            (name, metrics)
+        )
+        pipeline.run()
+        assert len(captured) == 1
+        name, metrics = captured[0]
+        assert name == "_AllocStep"
+        assert metrics is not None
+        assert set(metrics.keys()) == {"rss_start", "rss_end", "delta", "peak"}
+        assert metrics["peak"] >= metrics["rss_start"] > 0
+
+    def test_profile_on_accumulates_in_state(self):
+        pipeline = Pipeline(config={})
+        pipeline.profile_memory = True
+        pipeline.steps = [self._alloc_step(name="StepA"), self._alloc_step(name="StepB")]
+        pipeline.run()
+        assert set(pipeline.memory_metrics.keys()) == {"StepA", "StepB"}
+        for stats in pipeline.memory_metrics.values():
+            assert "peak" in stats

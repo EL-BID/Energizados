@@ -406,7 +406,9 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
 
             if not json:
                 print_info(f"Executing step '{step}' of the pipeline...")
-            result = execute_step(config_paths, step, run_name=name, overwrite=overwrite)
+            result = execute_step(
+                config_paths, step, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+            )
             if json:
                 # Wrap result in RunResult for JSON output
                 from energizados.api.run_state import RunResult
@@ -457,13 +459,22 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
             all_results = []
             if repeated_runs:
                 if shared:
-                    result = execute_pipeline(shared, run_name=name, overwrite=overwrite)
+                    result = execute_pipeline(
+                        shared, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+                    )
                     all_results.append(RunResult.from_context(result).to_dict())
                 for per_run_paths in repeated_runs:
-                    result = execute_pipeline(per_run_paths, run_name=name, overwrite=overwrite)
+                    result = execute_pipeline(
+                        per_run_paths,
+                        run_name=name,
+                        overwrite=overwrite,
+                        profile_memory=verbose >= 2,
+                    )
                     all_results.append(RunResult.from_context(result).to_dict())
             else:
-                result = execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
+                result = execute_pipeline(
+                    config_paths, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+                )
                 all_results.append(RunResult.from_context(result).to_dict())
 
             # Output results as JSON
@@ -475,11 +486,20 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
             # Normal human-readable output
             if repeated_runs:
                 if shared:
-                    execute_pipeline(shared, run_name=name, overwrite=overwrite)
+                    execute_pipeline(
+                        shared, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+                    )
                 for per_run_paths in repeated_runs:
-                    execute_pipeline(per_run_paths, run_name=name, overwrite=overwrite)
+                    execute_pipeline(
+                        per_run_paths,
+                        run_name=name,
+                        overwrite=overwrite,
+                        profile_memory=verbose >= 2,
+                    )
             else:
-                execute_pipeline(config_paths, run_name=name, overwrite=overwrite)
+                execute_pipeline(
+                    config_paths, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+                )
 
     except ConfigResolutionError as e:
         logger.error("Config resolution failed: %s", e)

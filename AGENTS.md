@@ -64,6 +64,19 @@ energizados run etl --dry-run
 energizados run train -n mi-experimento
 ```
 
+### Memory Profiling (`-vv`)
+
+Run any pipeline with `-vv` to sample process RSS around every ETL and step and surface a live per-step memory readout plus a final profiling table:
+
+```bash
+energizados run etl,train -vv          # shows Δ + peak per step, then a Memory profile table
+```
+
+- **Metric**: process RSS via `psutil` — the correct choice for pandas/numpy DataFrames, which live in C-level memory that `tracemalloc` cannot see.
+- **Overhead**: zero without `-vv`; the sampler daemon thread only starts under `verbose >= 2`.
+- **Output**: each completed step shows `Δ<retained> peak <max>` in the progress bar (a `⚠` appears when a step retains more than 1 GB), followed by a `Memory profile` table sorted by peak.
+- **Programmatic**: `ETLOrchestrator(..., profile_memory=True)` and `Pipeline(..., profile_memory=True)` enable sampling; metrics land in `on_etl_complete(name, rows, metrics=...)` / `on_step_complete(name, i, total, metrics=...)` and in `.memory_metrics`. The reusable primitive is `energizados.core.utils.memory_sampler.MemorySampler` (context manager) plus `format_bytes`.
+
 ### Web Console (async job runner)
 ```bash
 # Install web dependencies

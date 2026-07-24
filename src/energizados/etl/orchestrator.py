@@ -16,6 +16,7 @@ import pandas as pd
 
 from energizados.core.exceptions import ETLDependencyError, ETLError
 from energizados.core.utils import import_class
+from energizados.core.utils.memory_sampler import MemorySampler
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +64,16 @@ class ETLOrchestrator:
         on_etl_start=None,
         on_etl_complete=None,
         on_etl_error=None,
+        profile_memory: bool = False,
     ):
         """Initialize the orchestrator.
 
         Args:
             etl_configs: Dictionary with configuration for each ETL.
+            profile_memory: When True, sample RSS around each ETL ``run`` and
+                surface the stats via ``on_etl_complete(..., metrics=...)`` and
+                ``self.memory_metrics``. Off by default to keep zero overhead
+                in normal runs; the CLI enables it under ``-vv``.
         """
         from energizados._version import SCHEMA_VERSION_KEY
 
@@ -78,6 +84,8 @@ class ETLOrchestrator:
         self.on_etl_start = on_etl_start
         self.on_etl_complete = on_etl_complete
         self.on_etl_error = on_etl_error
+        self.profile_memory = profile_memory
+        self.memory_metrics: Dict[str, Dict[str, int]] = {}
 
     def validate_dependencies(self) -> None:
         """
@@ -390,11 +398,18 @@ class ETLOrchestrator:
                 if self.on_etl_start:
                     self.on_etl_start(etl_name, i, len(self.execution_order))
                 try:
-                    result = etl.run(output_path=etl_config.get("output"))
+                    metrics = None
+                    if self.profile_memory:
+                        with MemorySampler() as sampler:
+                            result = etl.run(output_path=etl_config.get("output"))
+                        metrics = sampler.stats
+                        self.memory_metrics[etl_name] = metrics
+                    else:
+                        result = etl.run(output_path=etl_config.get("output"))
                     self.results[etl_name] = result
                     logger.info(f"✓ {etl_name} completed ({len(result)} rows)")
                     if self.on_etl_complete:
-                        self.on_etl_complete(etl_name, len(result))
+                        self.on_etl_complete(etl_name, len(result), metrics=metrics)
                 except Exception as e:
                     # Log a one-liner here. The full traceback is emitted once by the
                     # CLI top-level handler (cli.main.run) so it reaches run.log a

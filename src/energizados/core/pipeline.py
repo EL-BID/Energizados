@@ -21,6 +21,7 @@ from energizados.core.exceptions import (
     PipelineError,
     StepValidationError,
 )
+from energizados.core.utils.memory_sampler import MemorySampler
 from energizados.core.utils.yaml_utils import load_yaml_config
 
 logger = logging.getLogger(__name__)
@@ -61,13 +62,21 @@ class Pipeline:
         >>> results = pipeline.run()
     """
 
-    def __init__(self, config_path: str = None, config: Dict = None):
+    def __init__(
+        self,
+        config_path: str = None,
+        config: Dict = None,
+        profile_memory: bool = False,
+    ):
         """
         Initialize the pipeline.
 
         Args:
             config_path: Path to the YAML configuration file
             config: Configuration dictionary (optional)
+            profile_memory: When True, sample RSS around each step's ``execute``
+                and surface the stats via ``on_step_complete(..., metrics=...)`` and
+                ``self.memory_metrics``. The CLI enables it under ``-vv``.
         """
         if config is not None:
             self.config = config
@@ -78,12 +87,14 @@ class Pipeline:
 
         self.context: Dict[str, Any] = {}
         self.steps: List[PipelineStep] = []
+        self.profile_memory = profile_memory
+        self.memory_metrics: Dict[str, Dict[str, int]] = {}
 
         # Optional callbacks for progress tracking
         self.on_step_start = None  # callable(name, index, total)
-        self.on_step_complete = None  # callable(name, index, total)
+        self.on_step_complete = None  # callable(name, index, total, metrics=None)
         self.on_step_error = None  # callable(name, error)
-        self.on_phase_update = None  # callable(step_name, phase_name, progress_pct, total_phases)
+        self.on_phase_update = None  # callable(step, phase, pct, total_phases, metrics=None)
 
     @classmethod
     def from_dict(
@@ -259,16 +270,34 @@ class Pipeline:
                     missing_keys=missing_keys,
                 )
 
+            # Propagate profiling flag to sub-runners (e.g. ETLStep ->
+            # ETLOrchestrator) so per-ETL sampling can be enabled.
+            self.context["_profile_memory"] = self.profile_memory
+
             # Execute step
             try:
                 if self.on_phase_update:
                     callback = self.on_phase_update
 
-                    def _phase_adapter(step, phase, pct, total_phases=None):
-                        callback(step, phase, pct, total_phases)
+                    def _phase_adapter(step, phase, pct, total_phases=None, metrics=None):
+                        # Only forward the metrics kwarg when present, so legacy
+                        # callbacks defined as (step, phase, pct, total_phases)
+                        # keep working unchanged.
+                        if metrics is not None:
+                            callback(step, phase, pct, total_phases, metrics=metrics)
+                        else:
+                            callback(step, phase, pct, total_phases)
 
                     self.context["_on_phase_update"] = _phase_adapter
-                self.context = step.execute(self.context)
+
+                step_metrics = None
+                if self.profile_memory:
+                    with MemorySampler() as sampler:
+                        self.context = step.execute(self.context)
+                    step_metrics = sampler.stats
+                    self.memory_metrics[step_name] = step_metrics
+                else:
+                    self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")
 
                 # Emit complete event
@@ -283,9 +312,12 @@ class Pipeline:
                     else None
                 )
 
-                # Notify step complete (legacy callback)
+                # Notify step complete (callback receives metrics when profiling)
                 if self.on_step_complete:
-                    self.on_step_complete(step_name, i, total_steps)
+                    if self.profile_memory:
+                        self.on_step_complete(step_name, i, total_steps, metrics=step_metrics)
+                    else:
+                        self.on_step_complete(step_name, i, total_steps)
             except Exception as e:
                 # Emit error event
                 safe_emit(

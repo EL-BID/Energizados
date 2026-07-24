@@ -673,7 +673,7 @@ class TestSequentialSameTypeExecution:
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None, overwrite=False):
+            def mock_execute(config_paths, run_name=None, overwrite=False, profile_memory=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -706,7 +706,7 @@ class TestSequentialSameTypeExecution:
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None, overwrite=False):
+            def mock_execute(config_paths, run_name=None, overwrite=False, profile_memory=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -740,7 +740,7 @@ class TestSequentialSameTypeExecution:
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None, overwrite=False):
+            def mock_execute(config_paths, run_name=None, overwrite=False, profile_memory=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -760,5 +760,106 @@ class TestSequentialSameTypeExecution:
                     # Second and third: one train each
                     assert call_args[1][0].endswith("train_01_baseline.yaml")
                     assert call_args[2][0].endswith("train_02_lgbm.yaml")
+            finally:
+                os.chdir(old_cwd)
+
+
+class TestMemoryProfiling:
+    """Tests for the -vv memory profiling feature: helpers and CLI wiring."""
+
+    def test_format_mem_inline_empty(self):
+        from energizados.cli.run import _format_mem_inline
+
+        assert _format_mem_inline(None) == ""
+        assert _format_mem_inline({}) == ""
+
+    def test_format_mem_inline_no_warning_below_1gb(self):
+        from energizados.cli.run import _format_mem_inline
+
+        out = _format_mem_inline({"delta": 100 * 1024**2, "peak": 200 * 1024**2})
+        assert "Δ100.0MB" in out
+        assert "peak 200.0MB" in out
+        assert "⚠" not in out
+
+    def test_format_mem_inline_warning_above_1gb(self):
+        from energizados.cli.run import _format_mem_inline
+
+        out = _format_mem_inline({"delta": 2 * 1024**3, "peak": 5 * 1024**3})
+        assert "Δ2.0GB" in out
+        assert "peak 5.0GB" in out
+        assert "⚠" in out
+
+    def test_print_profiling_table_renders_sorted_rows(self):
+        """The profiling table renders rows sorted by peak (desc)."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        from energizados.cli.run import _print_profiling_table
+
+        rows = [
+            (
+                "maestros",
+                {
+                    "rss_start": 500 * 1024**2,
+                    "rss_end": 600 * 1024**2,
+                    "delta": 100 * 1024**2,
+                    "peak": 700 * 1024**2,
+                },
+            ),
+            (
+                "consumos",
+                {
+                    "rss_start": 1 * 1024**3,
+                    "rss_end": 4 * 1024**3,
+                    "delta": 3 * 1024**3,
+                    "peak": 9 * 1024**3,
+                },
+            ),
+        ]
+        captured = []
+        with patch(
+            "energizados.cli.run.console.print", side_effect=lambda *a, **k: captured.append(a)
+        ):
+            _print_profiling_table(rows)
+
+        buf = StringIO()
+        probe = Console(file=buf, width=120)
+        for args in captured:
+            probe.print(*args)
+        text = buf.getvalue()
+
+        assert "Memory profile" in text
+        assert "consumos" in text
+        assert "maestros" in text
+        assert "9.0GB" in text  # peak of consumos
+        # consumos (9GB peak) must appear before maestros (700MB peak)
+        assert text.index("consumos") < text.index("maestros")
+
+    def test_execute_pipeline_propagates_profile_memory_flag(self):
+        """execute_pipeline(profile_memory=True) sets pipeline.profile_memory=True."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n")
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.ConfigPipelineBuilder") as mock_builder:
+                    mock_pipeline = mock_builder.return_value.build.return_value
+                    mock_pipeline.steps = []
+                    mock_pipeline.run.return_value = {}
+                    mock_builder.return_value._director.run_manager._run_dir = None
+                    with patch("energizados.cli.run.console.print"):
+                        from energizados.cli.run import execute_pipeline
+
+                        execute_pipeline([str(config_dir / "train.yaml")], profile_memory=True)
+                    assert mock_pipeline.profile_memory is True
             finally:
                 os.chdir(old_cwd)

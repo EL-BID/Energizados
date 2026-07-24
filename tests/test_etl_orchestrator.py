@@ -658,3 +658,63 @@ class TestManifestAwareResolution:
             assert len(paths) == 2
             assert f"{upstream_output}/partition=2024-01/data.parquet" in paths
             assert f"{upstream_output}/partition=2024-02/data.parquet" in paths
+
+
+class TestETLOrchestratorProfiling:
+    """Tests for the ``profile_memory`` flag and per-ETL memory metrics.
+
+    Covers the contract used by the ``-vv`` CLI profiling feature: when
+    profiling is on, ``on_etl_complete`` receives a metrics dict; when off,
+    behavior is unchanged (``metrics=None``).
+    """
+
+    @pytest.fixture
+    def mock_configs(self, tmp_path):
+        """Single-ETL config that resolves to the module-level MockETL.
+
+        Uses a real on-disk CSV because ``resolve_input_paths`` validates
+        existence of literal (non-``@``) input paths.
+        """
+        input_file = tmp_path / "input1.csv"
+        input_file.write_text("data\n1\n2\n3\n")
+        return {
+            "etl1": {
+                "enabled": True,
+                "input": str(input_file),
+                "output": str(tmp_path / "output1.parquet"),
+                "custom_class": "tests.test_etl_orchestrator.MockETL",
+                "depends_on": [],
+            },
+        }
+
+    def test_default_profiling_off_passes_none(self, mock_configs):
+        """Without profile_memory, on_etl_complete receives metrics=None."""
+        orch = ETLOrchestrator(mock_configs)
+        captured = []
+        orch.on_etl_complete = lambda name, rows, metrics=None: captured.append(metrics)
+        orch.run()
+        assert captured == [None]
+        assert orch.memory_metrics == {}
+
+    def test_profile_memory_passes_metrics_dict(self, mock_configs):
+        """With profile_memory=True, on_etl_complete receives a metrics dict."""
+        orch = ETLOrchestrator(mock_configs, profile_memory=True)
+        captured = []
+        orch.on_etl_complete = lambda name, rows, metrics=None: captured.append(metrics)
+        orch.run()
+        assert len(captured) == 1
+        metrics = captured[0]
+        assert set(metrics.keys()) == {"rss_start", "rss_end", "delta", "peak"}
+        assert metrics["peak"] >= metrics["rss_start"] > 0
+
+    def test_profile_memory_accumulates_in_state(self, mock_configs):
+        """The orchestrator stores per-ETL metrics in ``memory_metrics``."""
+        orch = ETLOrchestrator(mock_configs, profile_memory=True)
+        orch.run()
+        assert "etl1" in orch.memory_metrics
+        assert set(orch.memory_metrics["etl1"].keys()) == {
+            "rss_start",
+            "rss_end",
+            "delta",
+            "peak",
+        }

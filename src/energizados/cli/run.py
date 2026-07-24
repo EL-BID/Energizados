@@ -16,6 +16,7 @@ from rich.text import Text
 from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError, PipelineError
 from energizados.core.pipeline import ConfigPipelineBuilder
+from energizados.core.utils.memory_sampler import format_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +257,7 @@ def execute_pipeline(
     config_paths: List[str],
     run_name: Optional[str] = None,
     overwrite: bool = False,
+    profile_memory: bool = False,
 ) -> Dict[str, Any]:
     """
     Executes the complete pipeline from YAML configuration(s).
@@ -356,6 +358,7 @@ def execute_pipeline(
     step_task_ids: dict = {}
     step_phases: dict = {}
     etl_sub_tasks: dict = {}
+    profile_rows: list = []  # (name, metrics) tuples for the -vv memory table
 
     def _ensure_section(section: str) -> Progress:
         if section != current_section[0]:
@@ -385,7 +388,7 @@ def execute_pipeline(
             )
             step_task_ids[name] = task_id
 
-    def on_phase_update(step_name, phase, pct, total_phases):
+    def on_phase_update(step_name, phase, pct, total_phases, metrics=None):
         progress = active_progress[0]
         if progress is None:
             return
@@ -397,10 +400,13 @@ def execute_pipeline(
                 elif pct == 100:
                     task_id = etl_sub_tasks.get(phase)
                     if task_id is not None:
+                        mem = _format_mem_inline(metrics)
                         progress.update(
-                            task_id, completed=1, description=f"[green]✓ {_pad(phase)}[/]"
+                            task_id, completed=1, description=f"[green]✓ {_pad(phase)}[/]{mem}"
                         )
                         progress.stop_task(task_id)
+                        if metrics:
+                            profile_rows.append((phase, metrics))
             else:
                 phases = step_phases.get(step_name, [])
                 phase_idx = phases.index(phase) if phase in phases else -1
@@ -415,7 +421,7 @@ def execute_pipeline(
         except Exception:  # nosec
             pass
 
-    def on_step_complete(name, i, total):
+    def on_step_complete(name, i, total, metrics=None):
         progress = active_progress[0]
         if progress is None:
             return
@@ -439,6 +445,9 @@ def execute_pipeline(
                 except Exception:  # nosec
                     pass
 
+        if metrics:
+            profile_rows.append((STEP_NAMES.get(name, name), metrics))
+
     def on_step_error(name, err):
         progress = active_progress[0]
         if progress is not None:
@@ -448,6 +457,7 @@ def execute_pipeline(
                     task_id, description=f"[red]✗ {_pad(STEP_NAMES.get(name, name))}[/]"
                 )
 
+    pipeline.profile_memory = profile_memory
     pipeline.on_step_start = on_step_start
     pipeline.on_step_complete = on_step_complete
     pipeline.on_step_error = on_step_error
@@ -480,8 +490,58 @@ def execute_pipeline(
             console.print(f"\n[dim]Index updated → {index_path}[/]")
 
     _print_metrics_summary(result)
+    if profile_rows:
+        _print_profiling_table(profile_rows)
 
     return result
+
+
+def _format_mem_inline(metrics: Optional[Dict[str, int]]) -> str:
+    """Compact Rich-formatted memory suffix for the progress bar.
+
+    Renders as `` Δ+2.7GB peak 9.2GB ⚠`` (dim, red warning when the retained
+    delta exceeds 1 GB). Empty string when ``metrics`` is falsy, so normal
+    (non ``-vv``) runs are unaffected.
+    """
+    if not metrics:
+        return ""
+    delta = metrics.get("delta", 0)
+    peak = metrics.get("peak", 0)
+    warn = " [red]⚠[/]" if delta > 1024**3 else ""
+    return f" [dim]Δ{format_bytes(delta)} peak {format_bytes(peak)}[/]{warn}"
+
+
+def _print_profiling_table(rows: List[tuple]) -> None:
+    """Print a Rich table of per-step / per-ETL memory usage, sorted by peak.
+
+    Rendered after a ``-vv`` run once all steps complete. ``rows`` is a list of
+    ``(label, metrics_dict)`` tuples accumulated by the progress callbacks.
+    """
+    from rich import box as rich_box
+    from rich.table import Table
+
+    table = Table(
+        title="Memory profile (-vv)",
+        box=rich_box.SIMPLE,
+        padding=(0, 2),
+        show_edge=False,
+        title_style="bold cyan",
+    )
+    table.add_column("step / etl", style="dim", no_wrap=True)
+    table.add_column("RSS start", justify="right")
+    table.add_column("RSS end", justify="right")
+    table.add_column("\u0394 retained", justify="right", style="cyan")
+    table.add_column("peak", justify="right", style="yellow")
+    for label, metrics in sorted(rows, key=lambda r: r[1].get("peak", 0), reverse=True):
+        table.add_row(
+            label,
+            format_bytes(metrics.get("rss_start")),
+            format_bytes(metrics.get("rss_end")),
+            format_bytes(metrics.get("delta")),
+            format_bytes(metrics.get("peak")),
+        )
+    console.print()
+    console.print(table)
 
 
 def _print_confusion_matrix(cm: Dict) -> None:

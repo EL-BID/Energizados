@@ -154,7 +154,7 @@ def _resolve_hierarchy_levels(
         data_key = _HIERARCHY_ALIASES.get(lvl, lvl)
         if data_key not in _VALID_HIERARCHY_LEVELS:
             valid_display = sorted(_VALID_HIERARCHY_LEVELS) + sorted(_HIERARCHY_ALIASES)
-            raise ValueError(f"Invalid hierarchy level: '{lvl}'. " f"Valid levels: {valid_display}")
+            raise ValueError(f"Invalid hierarchy level: '{lvl}'. Valid levels: {valid_display}")
         if data_key in seen_keys:
             continue  # deduplicate
         seen_keys.add(data_key)
@@ -329,45 +329,71 @@ class _IBGEGeocoder:
 
     @classmethod
     def geocode_points(
-        cls, lats: np.ndarray, lons: np.ndarray, cache_dir: Optional[str] = None
+        cls,
+        lats: np.ndarray,
+        lons: np.ndarray,
+        cache_dir: Optional[str] = None,
+        chunk_size: int = 500_000,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Geocode arrays of lat/lon points to municipal, state, and region info.
+
+        Processes in chunks of *chunk_size* to cap peak memory on large arrays
+        (e.g. 3.4M inference points). The result is identical to the unchunked
+        version: same spatial join and same per-point dedup, just applied block
+        by block so the full points GeoDataFrame is never materialized at once.
 
         Args:
             lats: Array of latitudes.
             lons: Array of longitudes.
+            cache_dir: Optional IBGE cache directory.
+            chunk_size: Number of points per spatial-join batch (default 500k).
 
         Returns:
             Tuple of (municipio_names, uf_codes, regiao_names) arrays.
             Unmatched points get "sin_dato".
         """
+        gdf = cls._load_municipios(cache_dir)
+        n = len(lats)
+        if n <= chunk_size:
+            municipio, uf = cls._geocode_chunk(lats, lons, gdf)
+        else:
+            mun_parts, uf_parts = [], []
+            for start in range(0, n, chunk_size):
+                end = start + chunk_size
+                m, u = cls._geocode_chunk(lats[start:end], lons[start:end], gdf)
+                mun_parts.append(m)
+                uf_parts.append(u)
+            municipio = np.concatenate(mun_parts)
+            uf = np.concatenate(uf_parts)
+        regiao = np.array([UF_TO_REGIAO.get(u, "sin_dato") for u in uf])
+        return municipio, uf, regiao
+
+    @classmethod
+    def _geocode_chunk(
+        cls, lats: np.ndarray, lons: np.ndarray, gdf
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Spatial-join one chunk of points against the municipios gdf.
+
+        Returns (municipio, uf) arrays. Points on polygon borders can match
+        multiple polygons — keep the first match by index (local dedup).
+        """
         import geopandas as gpd
         from shapely.geometry import Point
 
-        gdf = cls._load_municipios(cache_dir)
-
-        # Create GeoDataFrame of points
         points = [Point(lon, lat) for lat, lon in zip(lats, lons)]
-        gdf_points = pd.DataFrame({"lat": lats, "lon": lons})
-        gdf_points["geometry"] = points
-        gdf_points = gpd.GeoDataFrame(gdf_points, geometry="geometry", crs="EPSG:4326")
-
-        # Spatial join
+        gdf_points = gpd.GeoDataFrame(
+            {"lat": lats, "lon": lons, "geometry": points}, crs="EPSG:4326"
+        )
         joined = gpd.sjoin(
             gdf_points,
             gdf[["name_muni", "abbrev_state", "geometry"]],
             how="left",
             predicate="within",
         )
-
-        # Points on polygon borders can match multiple municipalities — keep first match only.
         joined = joined[~joined.index.duplicated(keep="first")]
-
         municipio = joined["name_muni"].fillna("sin_dato").values
         uf = joined["abbrev_state"].fillna("XX").values
-        regiao = np.array([UF_TO_REGIAO.get(u, "sin_dato") for u in uf])
-
-        return municipio, uf, regiao
+        return municipio, uf
 
 
 class GeoFeatures(BaseEstimator, TransformerMixin):
@@ -523,7 +549,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
             n_unmatched = len(unmatched)
 
             logger.info(
-                "regions_file match: %d/%d municipalities resolved " "(%d matched, %d unmatched)",
+                "regions_file match: %d/%d municipalities resolved (%d matched, %d unmatched)",
                 n_matched,
                 total,
                 n_matched,
