@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-24
+
 ### Added
 
 - **CLI: memory profiling under `-vv`** — `energizados run ... -vv` now samples process RSS around every ETL and pipeline step and reports, live in the progress bar, `Δ<retained> peak <max>` per step (with a `⚠` marker when a step retains more than 1 GB), followed by a `Memory profile` table sorted by peak. Uses `psutil` RSS (correct for pandas/numpy C-level memory, which `tracemalloc` cannot see); zero overhead without `-vv`. Backward-compatible: `ETLOrchestrator`/`Pipeline` gained an opt-in `profile_memory` flag and the `on_etl_complete`/`on_step_complete` callbacks gained an optional `metrics=None` kwarg. New public helper `energizados.core.utils.memory_sampler.MemorySampler` (context manager) and `format_bytes`.
