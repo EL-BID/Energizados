@@ -526,3 +526,4 @@ train:
     #   min_samples: 30        # minimum samples per segment to compute metrics
     #   threshold_mode: "global"  # global | youden | f1_optimal | recall_target
     #   recall_target: 0.80    # used only when threshold_mode = "recall_target"
+    #   thresholds_output_dir: "data/exports/segment_thresholds"  # optional override; default = same dir as the trained model

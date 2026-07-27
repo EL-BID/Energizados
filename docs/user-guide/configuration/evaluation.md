@@ -82,6 +82,7 @@ This generates a segment comparison table and interactive chart in the HTML repo
 ## Segmented Evaluation (Extended)
 
 The `segmented_evaluation` section provides advanced per-segment analysis with support for:
+
 - **Column combinations**: evaluate by `"zona+region"` to see metrics for each zone×region pair
 - **Configurable threshold modes**: global, per-segment optimized, or target-based
 - **Detailed logging**: each segment's metrics are logged with n_samples, n_positives, AUC, threshold
@@ -121,6 +122,7 @@ evaluation:
 When enabled, segmented evaluation generates:
 
 1. **Logs**: Detailed INFO logging per segment:
+
    ```
    SEGMENTED METRICS — zona
    zona=Norte  n=150  pos=25  AUC=0.82  thresh=0.50 (global)
@@ -128,6 +130,7 @@ When enabled, segmented evaluation generates:
    ```
 
 2. **JSON report**: Under `segmented_metrics` key:
+
    ```json
    {
      "zona": {
@@ -157,7 +160,29 @@ When enabled, segmented evaluation generates:
 
 When `segmented_evaluation.by` is set, evaluation exports `segment_thresholds_{column}.json` per segment column (one file per column in the `by` list). These JSON files include `threshold_mode`, `default_threshold`, and per-segment `threshold`, `auc`, and `n_samples` values. The files are consumed by inference `segment_thresholds` to apply per-row thresholds during prediction. See the [Inference configuration](infer.md) for usage.
 
+> **Deployment artifact, not a report.** The JSON describes the operating
+> point per segment, which the inference step reads at predict time to apply
+> per-row thresholds — the same way it reads the model. By default it is
+> therefore exported to the trained model's directory
+> (`output/train-YYYYMMDD_HHMM/models/segment_thresholds_{column}.json`)
+> so a deployment can ship `models/` as a single bundle. The legacy
+> `output/train-.../reports/evaluation/` location is no longer used.
+
+If you need a different destination, set `segmented_evaluation.thresholds_output_dir`:
+
+```yaml
+evaluation:
+  segmented_evaluation:
+    enabled: true
+    by: ["zona"]
+    thresholds_output_dir: "data/exports/segment_thresholds"
+```
+
+The directory is created on demand (`mkdir(parents=True, exist_ok=True)`).
+Set it to a shared path to share thresholds across multiple training runs.
+
 Example structure:
+
 ```json
 {
   "segment_column": "zona",
@@ -250,6 +275,7 @@ A machine-readable JSON file containing all metrics and metadata:
 ```
 
 Use this for:
+
 - Programmatic access to metrics
 - Integration with CI/CD pipelines
 - Custom dashboard visualizations
@@ -425,6 +451,7 @@ It helps answer "which features drove this prediction?" — critical for regulat
 ### Output
 
 SHAP generates two plots in the evaluation report:
+
 - **Summary Plot (beeswarm)**: Shows feature impact on predictions, colored by feature value
 - **Bar Plot**: Mean absolute SHAP value per feature (feature importance)
 

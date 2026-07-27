@@ -589,6 +589,70 @@ class TestConfigSchemas:
         assert len(errors) > 0, "Expected errors for non-integer segmented_evaluation.min_samples"
         assert any("segmented_evaluation" in str(err).lower() for err in errors)
 
+    def test_training_segmented_evaluation_thresholds_output_dir_optional(self):
+        """Verify that thresholds_output_dir is an optional string in
+        segmented_evaluation. The key has no ``default`` because absent
+        signals the model-dir default in code; an explicit string overrides
+        the destination.
+        """
+        validator = ConfigValidator()
+
+        # Case 1: key absent → valid
+        config_absent = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "segmented_evaluation": {"enabled": True, "by": ["zona"]},
+                },
+            }
+        }
+        errors = validator.validate_config(config_absent)
+        assert len(errors) == 0, f"absent thresholds_output_dir should be valid, got: {errors}"
+
+        # Case 2: key present with a string → valid
+        config_string = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "segmented_evaluation": {
+                        "enabled": True,
+                        "by": ["zona"],
+                        "thresholds_output_dir": "data/exports/segment_thresholds",
+                    },
+                },
+            }
+        }
+        errors = validator.validate_config(config_string)
+        assert len(errors) == 0, f"string thresholds_output_dir should be valid, got: {errors}"
+
+        # Case 3: key present with a non-string → rejected
+        config_int = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "segmented_evaluation": {
+                        "enabled": True,
+                        "by": ["zona"],
+                        "thresholds_output_dir": 42,  # not a string
+                    },
+                },
+            }
+        }
+        errors = validator.validate_config(config_int)
+        assert len(errors) > 0, "non-string thresholds_output_dir should be rejected"
+
     # T-INF2 Tests: INFERENCE_SCHEMA extensions for columns_filter, output_columns, output_base_dir
 
     def test_inference_columns_filter_valid(self):

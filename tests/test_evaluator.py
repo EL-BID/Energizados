@@ -225,6 +225,11 @@ class TestExportSegmentThresholdsIntegration:
 
         output_dir = tmp_path / "eval_output"
         output_dir.mkdir()
+        # The default export location follows the trained model (deployment
+        # artifact rationale). Set an explicit model_path so the test
+        # controls where the JSON lands.
+        models_dir = tmp_path / "models"
+        model_path = models_dir / "model.pkl"
 
         # Create enough samples per segment (min_samples default is 30)
         np.random.seed(42)
@@ -242,6 +247,7 @@ class TestExportSegmentThresholdsIntegration:
         evaluator = DefaultEvaluator(
             input_path=str(test_path),
             output_dir=str(output_dir),
+            model_path=str(model_path),
             segmented_evaluation={
                 "enabled": True,
                 "by": ["zona"],
@@ -265,13 +271,19 @@ class TestExportSegmentThresholdsIntegration:
                 context = {}
                 _ = evaluator.execute(context)
 
-        # Assert - Check that segment threshold files were created
+        # Assert - Check that segment threshold files were created in the
+        # model directory (the new default; the JSON is a deployment
+        # artifact, not a report).
         assert (
-            output_dir / "segment_thresholds_zona.json"
-        ).exists(), "Segment threshold JSON file should be created"
+            models_dir / "segment_thresholds_zona.json"
+        ).exists(), "Segment threshold JSON file should be created in the model dir"
+        assert not (output_dir / "segment_thresholds_zona.json").exists(), (
+            "Segment threshold JSON should NOT land in output_dir (the legacy "
+            "reports dir) when a model_path is available"
+        )
 
         # Verify the JSON content
-        with open(output_dir / "segment_thresholds_zona.json") as f:
+        with open(models_dir / "segment_thresholds_zona.json") as f:
             data = json.load(f)
         assert "segment_column" in data
         assert data["segment_column"] == "zona"
@@ -622,3 +634,249 @@ class TestEvaluatorNoHoldout:
         result = ev.execute({})  # no test_path in context
         assert result.get("skipped") is True
         assert result.get("metrics") == {}
+
+
+class TestResolveThresholdsOutputDir:
+    """Tests for ``_resolve_thresholds_output_dir``.
+
+    The segment_thresholds_*.json export is a deployment artifact, not a
+    report. Its default location must follow the trained model so the
+    inference step can pair it with the model file. The resolver picks the
+    effective directory in this order:
+
+    1. ``self.thresholds_output_dir`` (explicit override) — used as-is,
+       created if missing.
+    2. ``Path(model_path).parent`` (model directory) — used when the
+       evaluator has a resolved model_path.
+    3. ``self.output_dir`` (legacy reports dir) — fallback when the
+       evaluator was called without a model.
+    """
+
+    def test_returns_override_when_set(self, tmp_path):
+        """Override path is used verbatim and created if missing."""
+        custom_dir = tmp_path / "exports" / "thresholds"
+        # NOT created yet
+        evaluator = DefaultEvaluator(
+            output_dir=str(tmp_path / "reports"),
+            thresholds_output_dir=str(custom_dir),
+        )
+
+        result = evaluator._resolve_thresholds_output_dir(
+            model_path=str(tmp_path / "models" / "model.pkl"),
+        )
+
+        assert result == custom_dir
+        assert result.is_dir()
+
+    def test_returns_model_parent_when_no_override(self, tmp_path):
+        """No override + model_path → ``Path(model_path).parent``."""
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        model_path = models_dir / "model.pkl"
+        evaluator = DefaultEvaluator(
+            output_dir=str(tmp_path / "reports"),
+            thresholds_output_dir=None,
+        )
+
+        result = evaluator._resolve_thresholds_output_dir(model_path=str(model_path))
+
+        assert result == models_dir
+        assert result.is_dir()
+
+    def test_returns_output_dir_fallback(self, tmp_path):
+        """No override + no model_path → ``self.output_dir`` (legacy behavior)."""
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        evaluator = DefaultEvaluator(
+            output_dir=str(reports_dir),
+            thresholds_output_dir=None,
+        )
+
+        result = evaluator._resolve_thresholds_output_dir(model_path=None)
+
+        assert result == reports_dir
+        assert result.is_dir()
+
+    def test_creates_missing_override_dir_with_parents(self, tmp_path):
+        """An override path several levels deep is created via mkdir(parents=True)."""
+        custom_dir = tmp_path / "deep" / "nested" / "export"
+        # not created
+        evaluator = DefaultEvaluator(
+            output_dir=str(tmp_path / "reports"),
+            thresholds_output_dir=str(custom_dir),
+        )
+
+        result = evaluator._resolve_thresholds_output_dir(model_path=None)
+
+        assert result == custom_dir
+        assert result.is_dir()
+        # parents were created all the way down
+        assert (tmp_path / "deep" / "nested").is_dir()
+
+    def test_model_parent_dir_is_created_if_missing(self, tmp_path):
+        """If the model directory does not exist yet, mkdir it so the export
+        succeeds. This is the default behavior when run resolves
+        ``model_path`` from context before the model file itself is
+        actually written."""
+        models_dir = tmp_path / "models"
+        model_path = models_dir / "model.pkl"
+        # models_dir NOT created
+        evaluator = DefaultEvaluator(
+            output_dir=str(tmp_path / "reports"),
+            thresholds_output_dir=None,
+        )
+
+        result = evaluator._resolve_thresholds_output_dir(model_path=str(model_path))
+
+        assert result == models_dir
+        assert result.is_dir()
+
+    def test_override_takes_precedence_over_model_path(self, tmp_path):
+        """When both are present, override wins over the model directory."""
+        custom_dir = tmp_path / "exports"
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        evaluator = DefaultEvaluator(
+            output_dir=str(tmp_path / "reports"),
+            thresholds_output_dir=str(custom_dir),
+        )
+
+        result = evaluator._resolve_thresholds_output_dir(
+            model_path=str(models_dir / "model.pkl"),
+        )
+
+        assert result == custom_dir
+
+
+class TestExecuteUsesResolvedThresholdsDir:
+    """Integration tests: ``execute()`` writes segment_thresholds_*.json to
+    the directory resolved by ``_resolve_thresholds_output_dir``."""
+
+    @staticmethod
+    def _build_dataset(tmp_path, n_per_segment=50, seed=42):
+        rng = np.random.RandomState(seed)
+        test_data = pd.DataFrame(
+            {
+                "target": rng.randint(0, 2, n_per_segment * 2),
+                "feature1": rng.random(n_per_segment * 2),
+                "zona": ["Norte"] * n_per_segment + ["Sul"] * n_per_segment,
+            }
+        )
+        test_path = tmp_path / "test.parquet"
+        test_data.to_parquet(test_path)
+        return test_path
+
+    def test_default_exports_to_model_dir_when_model_path_set(self, tmp_path):
+        """When model_path is set, the JSON lands in the model directory."""
+        output_dir = tmp_path / "reports"
+        models_dir = tmp_path / "models"
+        model_path = models_dir / "model.pkl"
+        test_path = self._build_dataset(tmp_path)
+
+        evaluator = DefaultEvaluator(
+            input_path=str(test_path),
+            output_dir=str(output_dir),
+            model_path=str(model_path),
+            segmented_evaluation={
+                "enabled": True,
+                "by": ["zona"],
+                "threshold_mode": "youden",
+                "min_samples": 10,
+            },
+            generate_plots=False,
+            generate_html_report=False,
+            generate_json_report=False,
+        )
+
+        class MockModel:
+            def predict_proba(self, X):
+                return np.random.RandomState(7).random(len(X))
+
+        with patch.object(evaluator, "_load_model", return_value=MockModel()):
+            with patch.object(evaluator, "_load_feature_engineering", return_value=None):
+                evaluator.execute({})
+
+        # JSON should land in the model dir, NOT the reports dir
+        assert (
+            models_dir / "segment_thresholds_zona.json"
+        ).exists(), "Expected segment_thresholds_*.json in the model directory by default"
+        assert not (output_dir / "segment_thresholds_zona.json").exists(), (
+            "segment_thresholds_*.json should NOT be written to output_dir when "
+            "model_path is available"
+        )
+
+    def test_explicit_override_dir_takes_precedence(self, tmp_path):
+        """``thresholds_output_dir`` overrides the model dir default."""
+        output_dir = tmp_path / "reports"
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        custom_dir = tmp_path / "data" / "exports"
+        test_path = self._build_dataset(tmp_path)
+
+        evaluator = DefaultEvaluator(
+            input_path=str(test_path),
+            output_dir=str(output_dir),
+            model_path=str(models_dir / "model.pkl"),
+            thresholds_output_dir=str(custom_dir),
+            segmented_evaluation={
+                "enabled": True,
+                "by": ["zona"],
+                "threshold_mode": "youden",
+                "min_samples": 10,
+            },
+            generate_plots=False,
+            generate_html_report=False,
+            generate_json_report=False,
+        )
+
+        class MockModel:
+            def predict_proba(self, X):
+                return np.random.RandomState(7).random(len(X))
+
+        with patch.object(evaluator, "_load_model", return_value=MockModel()):
+            with patch.object(evaluator, "_load_feature_engineering", return_value=None):
+                evaluator.execute({})
+
+        assert (custom_dir / "segment_thresholds_zona.json").exists()
+        # Neither the model dir nor the reports dir should receive the file
+        assert not (models_dir / "segment_thresholds_zona.json").exists()
+        assert not (output_dir / "segment_thresholds_zona.json").exists()
+
+    def test_fallback_to_output_dir_when_no_model_path(self, tmp_path):
+        """Without a resolved model_path, the JSON falls back to output_dir.
+
+        The DefaultEvaluator constructor's default model_path is
+        ``"output/models/model.pkl"``; passing ``model_path=None`` is the
+        way to opt out of the model-dir default and exercise the
+        standalone-evaluator code path that keeps the legacy reports-dir
+        destination.
+        """
+        output_dir = tmp_path / "reports"
+        test_path = self._build_dataset(tmp_path)
+
+        evaluator = DefaultEvaluator(
+            input_path=str(test_path),
+            output_dir=str(output_dir),
+            model_path=None,  # opt out of the default models/ fallback
+            segmented_evaluation={
+                "enabled": True,
+                "by": ["zona"],
+                "threshold_mode": "youden",
+                "min_samples": 10,
+            },
+            generate_plots=False,
+            generate_html_report=False,
+            generate_json_report=False,
+        )
+
+        class MockModel:
+            def predict_proba(self, X):
+                return np.random.RandomState(7).random(len(X))
+
+        with patch.object(evaluator, "_load_model", return_value=MockModel()):
+            with patch.object(evaluator, "_load_feature_engineering", return_value=None):
+                evaluator.execute({})
+
+        # Standalone-evaluator case: no model_path resolved → output_dir is the
+        # only sensible destination.
+        assert (output_dir / "segment_thresholds_zona.json").exists()

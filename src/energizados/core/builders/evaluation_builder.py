@@ -81,6 +81,9 @@ class EvaluationBuilder(StepBuilder):
             segment_columns=eval_config.get("segment_columns"),
             experiment_description=self.experiment_description,
             segmented_evaluation=eval_config.get("segmented_evaluation"),
+            thresholds_output_dir=(
+                (eval_config.get("segmented_evaluation") or {}).get("thresholds_output_dir")
+            ),
         )
 
     def is_enabled(self) -> bool:

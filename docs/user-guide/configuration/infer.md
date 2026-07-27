@@ -350,6 +350,7 @@ Route rows to different models based on column-value conditions. This enables pe
 ### Route Structure
 
 Each entry in `routes` is a dict with:
+
 - `name` (str): descriptive route name
 - `condition` (dict): `{column: value_or_list}` matching logic. Conditions are combined with AND. Use a list for OR semantics (e.g., `geo_region: ["FLORIANOPOLIS", "SAO_PAULO"]`).
 - `model_path` (str): path to the model `.pkl` file for this route
@@ -420,6 +421,15 @@ Apply per-segment optimal thresholds instead of a single global threshold. This 
 
 Segment thresholds are exported by the evaluation step when `evaluation.segment_columns` is configured in `train.yaml`. The JSON file maps each unique segment value to its optimal threshold.
 
+> **Default location change:** as of v0.4.0 the JSON is exported to the
+> trained model's directory (`output/train-YYYYMMDD_HHMM/models/`) by
+> default, because it is a deployment artifact consumed at predict time,
+> not a report. Update existing `infer.yaml` `segment_thresholds.path`
+> entries from `.../reports/evaluation/...` to `.../models/...`, or set
+> `segmented_evaluation.thresholds_output_dir` in `train.yaml` to
+> preserve the old location. See [Configuration: Evaluation](evaluation.md)
+> for the override syntax.
+
 ### Example Configuration
 
 ```yaml
@@ -431,7 +441,7 @@ infer:
 
   segment_thresholds:
     enabled: true
-    path: "output/train-20260317_1430/reports/evaluation/segment_thresholds_geo_region.json"
+    path: "output/train-20260317_1430/models/segment_thresholds_geo_region.json"
     fallback_threshold: 0.5  # Optional: overrides global threshold for unknown segments
 ```
 
@@ -488,6 +498,7 @@ Apply rule-based overlays to predictions AFTER segment thresholds. Rules evaluat
 ### Rule Structure
 
 Each entry in `rules` is a dict with:
+
 - `name` (str): descriptive rule name (used for output column names)
 - `condition` (str): pandas `eval` expression. Must return a boolean Series. Use backticks for column names starting with digits (e.g., `` `3_anterior` ``). Use `"False"` for stub rules that never trigger.
 - `action` (str): `"flag"`, `"override"`, or `"score_boost"`
@@ -508,7 +519,7 @@ infer:
 
   segment_thresholds:
     enabled: true
-    path: "output/train-20260317_1430/reports/evaluation/segment_thresholds_geo_region.json"
+    path: "output/train-20260317_1430/models/segment_thresholds_geo_region.json"
     fallback_threshold: 0.5
 
   business_rules:
@@ -544,6 +555,7 @@ infer:
 ### Output Columns
 
 When `add_rule_columns: true`, the output CSV includes:
+
 - `rule_<name>` (bool): `true` if the rule triggered
 - `rule_<name>_value` (float): the `value` parameter from the rule (for audit/analysis)
 
@@ -670,12 +682,14 @@ Track inference results over time to detect model drift:
 **Issue:** Model loading fails
 
 **Solution:** Verify the `model_path` points to the correct file:
+
 - Single model: `models/model.pkl`
 - Ensemble: `models/ensemble.pkl`
 
 **Issue:** All predictions are the same
 
 **Solution:** Check that:
+
 - Input data is not empty
 - Feature engineering is applying correctly
 - Threshold is not set to 0.0 or 1.0
@@ -683,6 +697,7 @@ Track inference results over time to detect model drift:
 **Issue:** Out of memory error
 
 **Solution:** Process data in smaller batches:
+
 ```python
 # In custom_inference.py
 for chunk in pd.read_csv(input_path, chunksize=10000):

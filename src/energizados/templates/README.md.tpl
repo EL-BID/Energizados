@@ -193,7 +193,7 @@ infer:
   # Optional: apply per-segment thresholds from evaluation
   # segment_thresholds:
   #   enabled: true
-  #   path: "output/train-YYYYMMDD_HHMM/reports/evaluation/segment_thresholds_zona.json"
+  #   path: "output/train-YYYYMMDD_HHMM/models/segment_thresholds_zona.json"
   #   fallback_threshold: 0.5
 ```
 

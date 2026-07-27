@@ -313,6 +313,15 @@ TRAINING_SCHEMA = {
                             "maximum": 1,
                             "default": 0.8,
                         },
+                        "thresholds_output_dir": {
+                            "type": "string",
+                            "description": (
+                                "Directory where segment_thresholds_*.json "
+                                "files are written. Defaults to the trained "
+                                "model's directory (models/). Set an explicit "
+                                "path to override."
+                            ),
+                        },
                     },
                 },
                 "shap": {

@@ -53,7 +53,7 @@ class DefaultEvaluator(BaseEvaluator):
     def __init__(
         self,
         input_path: Optional[str] = None,
-        model_path: str = "output/models/model.pkl",
+        model_path: Optional[str] = "output/models/model.pkl",
         feature_engineering_path: Optional[str] = None,
         output_dir: str = "output/reports/evaluation/",
         target_column: str = "target",
@@ -68,6 +68,7 @@ class DefaultEvaluator(BaseEvaluator):
         shap_config: Optional[Dict] = None,
         experiment_description: Optional[str] = None,
         segmented_evaluation: Optional[Dict] = None,
+        thresholds_output_dir: Optional[str] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -94,6 +95,11 @@ class DefaultEvaluator(BaseEvaluator):
         self._shap_config = shap_config
         self.experiment_description = experiment_description
         self.segmented_evaluation = segmented_evaluation or {}
+        # Export target for segment_thresholds_*.json. None ⇒ default to
+        # the trained model's directory at execute() time. The JSON is a
+        # deployment artifact consumed by inference, so it belongs next
+        # to the model, not next to the reports.
+        self.thresholds_output_dir = thresholds_output_dir
 
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
@@ -347,9 +353,14 @@ class DefaultEvaluator(BaseEvaluator):
         if self.segmented_evaluation.get("enabled", False) and segmented_metrics:
             seg_config = self.segmented_evaluation
             threshold_mode = seg_config.get("threshold_mode", "global")
+            # The export is a deployment artifact, not a report. Resolve
+            # the target dir at the call site (default = model dir) so
+            # _export_segment_thresholds can keep its existing signature
+            # and the legacy direct-call tests keep working unchanged.
+            thresholds_dir = self._resolve_thresholds_output_dir(model_path)
             self._export_segment_thresholds(
                 segmented_metrics=segmented_metrics,
-                output_dir=self.output_dir,
+                output_dir=thresholds_dir,
                 global_threshold=threshold,
                 threshold_mode=threshold_mode,
             )
@@ -683,6 +694,32 @@ class DefaultEvaluator(BaseEvaluator):
             logger.info(f"Loading feature engineering from: {path}")
             return secure_load(path)
         return None
+
+    def _resolve_thresholds_output_dir(self, model_path: Optional[str]) -> Path:
+        """Resolve where ``segment_thresholds_*.json`` should be written.
+
+        The JSON is a deployment artifact consumed by inference, so its
+        default location follows the trained model (``Path(model_path).parent``).
+        Resolution order:
+
+        1. ``self.thresholds_output_dir`` (explicit override) — used as-is.
+        2. ``Path(model_path).parent`` (model directory) — used when the
+           evaluator has a resolved ``model_path``.
+        3. ``self.output_dir`` (legacy reports dir) — fallback for
+           standalone evaluator calls without a model.
+
+        The returned path is created on disk (``mkdir(parents=True,
+        exist_ok=True)``) so callers can hand it straight to
+        ``_export_segment_thresholds`` without further setup.
+        """
+        if self.thresholds_output_dir:
+            resolved = Path(self.thresholds_output_dir)
+        elif model_path:
+            resolved = Path(model_path).parent
+        else:
+            resolved = self.output_dir
+        resolved.mkdir(parents=True, exist_ok=True)
+        return resolved
 
     def _execute_comparison_mode(
         self,

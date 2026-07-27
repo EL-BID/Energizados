@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Evaluation: configurable `segment_thresholds_*.json` output dir** — `segmented_evaluation.thresholds_output_dir` overrides the export destination. The default changed from `output/train-.../reports/evaluation/` to the trained model's directory (`output/train-.../models/`) because the JSON is a deployment artifact consumed by inference (it is read at predict time, the same way the model is), not a report. The override is forwarded by `EvaluationBuilder` and the schema accepts it as an optional string. Resolution order: explicit `thresholds_output_dir` → `Path(model_path).parent` (model directory) → `self.output_dir` (legacy fallback for standalone-evaluator calls without a model). The destination is created with `mkdir(parents=True, exist_ok=True)`. `_export_segment_thresholds` signature and existing direct-call tests are unchanged.
+
+### Notes
+
+- **Migration: `segment_thresholds_*.json` default path changed** — existing `infer.yaml` `segment_thresholds.path` entries pointing at `output/train-.../reports/evaluation/segment_thresholds_*.json` must be updated to `output/train-.../models/segment_thresholds_*.json`, OR set `segmented_evaluation.thresholds_output_dir` in `train.yaml` to the previous location to keep the file where existing deploy scripts expect it. The training run and the inference run must agree on the same `models/` directory (they already do — `train.yaml` and `infer.yaml` both point at `output/train-YYYYMMDD_HHMM/models/`).
+
 ## [0.3.3] - 2026-07-27
 
 ### Added
