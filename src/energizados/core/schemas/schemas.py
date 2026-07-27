@@ -39,7 +39,14 @@ SPLIT_SCHEMA = {
         "splits_dir": {"type": "string"},
         "method": {
             "type": "string",
-            "enum": ["stratified", "random", "time_series", "group_based", "stratified_time"],
+            "enum": [
+                "stratified",
+                "random",
+                "time_series",
+                "group_based",
+                "stratified_time",
+                "none",
+            ],
         },
         "group_column": {"type": "string"},
         "date_column": {"type": "string"},

@@ -226,9 +226,9 @@ class TestConfigSchemas:
             }
 
             errors = validator.validate_config(config)
-            assert (
-                len(errors) == 0
-            ), f"EDA outliers methods {methods} should be valid, got: {errors}"
+            assert len(errors) == 0, (
+                f"EDA outliers methods {methods} should be valid, got: {errors}"
+            )
 
     def test_eda_outliers_invalid_method_rejected(self):
         """Verify that invalid outlier methods are rejected by EDA schema."""
@@ -383,9 +383,9 @@ class TestConfigSchemas:
             }
 
             errors = validator.validate_config(config)
-            assert (
-                len(errors) == 0
-            ), f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
+            assert len(errors) == 0, (
+                f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
+            )
 
     def test_split_geo_stratify_invalid_strategy_rejected(self):
         """Verify that invalid geo_stratify strategy is rejected."""
@@ -413,7 +413,47 @@ class TestConfigSchemas:
         assert len(errors) > 0, "Expected errors for invalid geo_stratify strategy"
         assert any("strategy" in str(err).lower() for err in errors)
 
-    # T-S2 Tests: INFERENCE_SCHEMA extension for segment_thresholds
+        # T-NH Tests: SPLIT_SCHEMA extension for no-holdout training (method "none")
+
+        def test_split_method_none_valid(self):
+            """Verify that split method 'none' passes validation (no-holdout training)."""
+            validator = ConfigValidator()
+
+            config = {
+                "train": {
+                    "enabled": True,
+                    "input_path": "data/test.parquet",
+                    "target_column": "target",
+                    "split": {
+                        "method": "none",
+                    },
+                    "models": [{"type": "lightgbm"}],
+                }
+            }
+
+            errors = validator.validate_config(config)
+            assert len(errors) == 0, f"split method 'none' should be valid, got: {errors}"
+
+        def test_split_method_none_no_extra_fields(self):
+            """Verify that method 'none' needs no group_column or date_column (unlike group_based)."""
+            validator = ConfigValidator()
+
+            config = {
+                "train": {
+                    "enabled": True,
+                    "input_path": "data/test.parquet",
+                    "target_column": "target",
+                    "split": {
+                        "method": "none",
+                    },
+                    "models": [{"type": "lightgbm"}],
+                }
+            }
+
+            errors = validator.validate_config(config)
+            assert len(errors) == 0, f"method 'none' should not require extra fields, got: {errors}"
+
+        # T-S2 Tests: INFERENCE_SCHEMA extension for segment_thresholds
 
     def test_inference_segment_thresholds_valid(self):
         """Verify that segment_thresholds config passes validation."""
@@ -450,9 +490,9 @@ class TestConfigSchemas:
         }
 
         errors = validator.validate_config(config)
-        assert (
-            len(errors) == 0
-        ), f"Inference without segment_thresholds should be valid, got: {errors}"
+        assert len(errors) == 0, (
+            f"Inference without segment_thresholds should be valid, got: {errors}"
+        )
 
     def test_inference_segment_thresholds_minimal(self):
         """Verify that segment_thresholds with just enabled field is valid."""

@@ -311,6 +311,13 @@ class SplitStep(PipelineStep):
             val_df = pd.concat(val_parts).reset_index(drop=True)
             test_df = pd.concat(test_parts).reset_index(drop=True)
 
+        # No-holdout split: all data to train, no val/test reserved
+        elif self.method == "none":
+            logger.info("Split method 'none': assigning all data to train (no holdout).")
+            train_df = df.copy()
+            val_df = pd.DataFrame()
+            test_df = pd.DataFrame()
+
         # Random/stratified split
         else:
             # Separate X and y
@@ -382,8 +389,9 @@ class SplitStep(PipelineStep):
 
         if self.save_splits:
             train_df.to_parquet(train_path, index=False)
-            val_df.to_parquet(val_path, index=False)
-            test_df.to_parquet(test_path, index=False)
+            if self.method != "none":
+                val_df.to_parquet(val_path, index=False)
+                test_df.to_parquet(test_path, index=False)
 
         # Save split metadata
         metadata = {
@@ -421,9 +429,15 @@ class SplitStep(PipelineStep):
             metadata["random_state"] = self.random_state
 
         metadata["target_distribution"] = {
-            "train": train_df[self.target_column].value_counts().to_dict(),
-            "val": val_df[self.target_column].value_counts().to_dict(),
-            "test": test_df[self.target_column].value_counts().to_dict(),
+            "train": train_df[self.target_column].value_counts().to_dict()
+            if self.target_column in train_df.columns
+            else {},
+            "val": val_df[self.target_column].value_counts().to_dict()
+            if self.target_column in val_df.columns
+            else {},
+            "test": test_df[self.target_column].value_counts().to_dict()
+            if self.target_column in test_df.columns
+            else {},
         }
 
         # Add unlabeled_negatives metadata if injection was performed
@@ -449,6 +463,9 @@ class SplitStep(PipelineStep):
         # Show target distribution
         logger.info("\nTarget distribution:")
         for split_name, split_df in [("Train", train_df), ("Val", val_df), ("Test", test_df)]:
+            if len(split_df) == 0 or self.target_column not in split_df.columns:
+                logger.info(f"{split_name}: (no data)")
+                continue
             dist = split_df[self.target_column].value_counts()
             total = len(split_df)
             logger.info(f"{split_name}:")
@@ -483,8 +500,8 @@ class SplitStep(PipelineStep):
         return {
             **context,
             "train_path": str(train_path),
-            "val_path": str(val_path),
-            "test_path": str(test_path),
+            "val_path": str(val_path) if self.method != "none" else None,
+            "test_path": str(test_path) if self.method != "none" else None,
             "splits_dir": str(self.splits_dir),
         }
 

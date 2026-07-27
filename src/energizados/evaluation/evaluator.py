@@ -134,7 +134,18 @@ class DefaultEvaluator(BaseEvaluator):
 
         # Validate inputs before loading (MEJORAS P1-4)
         if not input_path:
-            raise ValueError("No input_path provided and 'test_path' not found in context.")
+            logger.warning(
+                "No test_path available in context — skipping evaluation. "
+                "(This is expected in no-holdout training mode.)"
+            )
+            return {
+                **ctx,
+                "metrics": {},
+                "plots": {},
+                "reports": {},
+                "evaluation_dir": str(self.output_dir),
+                "skipped": True,
+            }
         if not Path(input_path).exists():
             raise FileNotFoundError(f"Test dataset not found: {input_path}")
 

@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from energizados.core.base import BaseModel
+from energizados.core.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,12 @@ class EnsembleModel(BaseModel):
         """Train the meta-learner on stacked predictions."""
         if self.use_val_as_oof:
             if X_val is None or y_val is None:
-                raise ValueError("use_val_as_oof=True requires X_val and y_val.")
+                raise ConfigurationError(
+                    "Ensemble blending (use_val_as_oof=True) requires a validation split, "
+                    "but X_val is None. Options: (a) provide X_val and y_val, "
+                    "(b) switch to use_val_as_oof=False (K-fold OOF stacking), or "
+                    "(c) use method='soft_voting'."
+                )
             logger.info("Stacking: using val set as blending data for meta-learner.")
             stack_X = self._stack_predictions(X_val)
             stack_y = y_val
