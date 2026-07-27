@@ -550,10 +550,11 @@ class TestTrainingStepValidation:
         assert step.get_required_keys() == []
 
     def test_required_keys_when_paths_not_provided(self, temp_dir):
+        # train-without-holdout: only train_path is required; val_path is optional.
         step = TrainingStep(models_configs=[], output_dir=str(temp_dir))
         keys = step.get_required_keys()
         assert "train_path" in keys
-        assert "val_path" in keys
+        assert "val_path" not in keys
 
     def test_output_keys(self, temp_dir):
         step = TrainingStep(models_configs=[], output_dir=str(temp_dir))
@@ -657,3 +658,76 @@ class TestPipelineConfigParsing:
         step = pipeline.steps[0]
         assert isinstance(step, TrainingStep)
         assert step.ensemble_config is None
+
+
+class TestNoHoldoutTraining:
+    """FR2/FR3/FR7: TrainingStep in no-holdout mode (val_path=None)."""
+
+    @staticmethod
+    def _fe_config():
+        return {
+            "enabled": True,
+            "preprocessing": {"enabled": True, "columns": {"f1": [{"cast_dtype": {"dtype": "float32"}}]}},
+            "feature_selection": {"enabled": False},
+        }
+
+    @staticmethod
+    def _model_config():
+        return [{
+            "type": "lightgbm",
+            "sampling": {"method": "none"},
+            "hyperparams": {"n_estimators": 20, "num_leaves": 7, "verbose": -1},
+        }]
+
+    @staticmethod
+    def _write_data(path, n=200):
+        df = pd.DataFrame({"f1": [float(i % 10) for i in range(n)], "target": [i % 2 for i in range(n)]})
+        df.to_parquet(path, index=False)
+        return path
+
+    def _build(self, train_path, val_path, output_dir):
+        return TrainingStep(
+            train_path=train_path,
+            val_path=val_path,
+            target_column="target",
+            feature_engineering_config=self._fe_config(),
+            models_configs=self._model_config(),
+            output_dir=output_dir,
+        )
+
+    def test_training_no_holdout_succeeds(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        step = self._build(train, None, str(tmp_path / "models"))
+        ctx = step.execute({})
+        assert ctx["model_path"]
+        assert Path(ctx["model_path"]).exists()
+
+    def test_training_no_holdout_metrics_none_and_holdout_mode(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        step = self._build(train, None, str(tmp_path / "models"))
+        ctx = step.execute({})
+        assert ctx["val_auc"] is None
+        assert ctx["val_f1"] is None
+        assert ctx["val_predictions_path"] is None
+        assert ctx["holdout_mode"] == "none"
+
+    def test_training_with_val_sets_holdout_mode_standard(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        val = self._write_data(str(tmp_path / "val.parquet"), n=40)
+        step = self._build(train, val, str(tmp_path / "models2"))
+        ctx = step.execute({})
+        assert ctx["holdout_mode"] == "standard"
+        assert ctx["val_auc"] is not None
+
+    def test_training_no_holdout_calibration_skipped(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        fe = self._fe_config()
+        mc = self._model_config()
+        mc[0]["calibration"] = {"enabled": True, "method": "sigmoid"}
+        step = TrainingStep(
+            train_path=train, val_path=None, target_column="target",
+            feature_engineering_config=fe, models_configs=mc, output_dir=str(tmp_path / "models3"),
+        )
+        ctx = step.execute({})  # must not raise; calibration skipped, model ships uncalibrated
+        assert ctx["model_path"]
+        assert Path(ctx["model_path"]).exists()

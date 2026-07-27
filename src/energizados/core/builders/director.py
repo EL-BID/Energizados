@@ -206,16 +206,24 @@ class PipelineDirector:
         if not eval_config:
             eval_config = self.config.get("evaluation", {})
         if eval_config.get("enabled", False):
-            eval_output_dir = (
-                str(self._run_dir / "reports" / "evaluation") if self._run_dir else None
-            )
-            experiment_description = self.config.get("train", {}).get("description")
-            eval_builder = EvaluationBuilder(
-                eval_config, eval_output_dir, experiment_description=experiment_description
-            )
-            eval_step = eval_builder.build()
-            if eval_step is not None:
-                pipeline.add_step(eval_step)
+            split_method = split_config.get("method", "stratified")
+            if split_method == "none":
+                logger.warning(
+                    "Evaluation is enabled but split.method is 'none' — no test set "
+                    "available. Skipping evaluation step automatically."
+                )
+            else:
+                eval_output_dir = (
+                    str(self._run_dir / "reports" / "evaluation") if self._run_dir else None
+                )
+                experiment_description = self.config.get("train", {}).get("description")
+                eval_builder = EvaluationBuilder(
+                    eval_config, eval_output_dir, experiment_description=experiment_description
+                )
+                eval_step = eval_builder.build()
+                if eval_step is not None:
+                    pipeline.add_step(eval_step)
+
 
         # Step 5: Inference (ADR-0001: predictions relocate into the run dir)
         if self.config.get("infer", {}).get("enabled", False):

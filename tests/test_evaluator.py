@@ -612,3 +612,13 @@ def recall_at(proba, y_true, threshold):
     tp = int(((y_pred == 1) & (y_true == 1)).sum())
     fn = int(((y_pred == 0) & (y_true == 1)).sum())
     return tp / (tp + fn) if (tp + fn) > 0 else 0.0
+
+
+class TestEvaluatorNoHoldout:
+    """FR5: evaluator skips gracefully when no test_path is available."""
+
+    def test_evaluator_no_test_path_skips_gracefully(self, tmp_path):
+        ev = DefaultEvaluator(output_dir=str(tmp_path / "eval"))
+        result = ev.execute({})  # no test_path in context
+        assert result.get("skipped") is True
+        assert result.get("metrics") == {}

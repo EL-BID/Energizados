@@ -251,7 +251,9 @@ class TestStackingBlending:
         assert np.all((proba >= 0) & (proba <= 1))
 
     def test_stacking_requires_val_when_blending(self, split_data):
-        """use_val_as_oof=True raises if X_val/y_val are not provided."""
+        """use_val_as_oof=True raises ConfigurationError if X_val/y_val are not provided."""
+        from energizados.core.exceptions import ConfigurationError
+
         X_train, y_train, _, _ = split_data
         ens = EnsembleModel(
             base_models=[_make_dummy_model(0.3), _make_dummy_model(0.6)],
@@ -261,7 +263,7 @@ class TestStackingBlending:
             use_val_as_oof=True,
             skip_base_fit=True,
         )
-        with pytest.raises(ValueError, match="X_val"):
+        with pytest.raises(ConfigurationError, match="X_val"):
             ens.fit(X_train, y_train)  # no X_val/y_val
 
     def test_stacking_meta_learner_default_is_logistic_regression(self, split_data):
