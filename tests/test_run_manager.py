@@ -812,3 +812,63 @@ class TestDirectorRunType:
             {"infer": {"enabled": True, "output_base_dir": "runs"}}, tmp_path, monkeypatch
         )
         assert d._resolve_base_output_dir() == "runs"
+
+
+# --- ETL output_base_dir (ADR: generalize run-dir base to etl section) ---------
+
+
+class TestDirectorResolveBaseOutputDirETL:
+    """PipelineDirector._resolve_base_output_dir must honor etl.output_base_dir
+    so a pure-ETL run can write its run-dir (log + config copy) outside ``output/``."""
+
+    @pytest.fixture(autouse=True)
+    def _bypass_validation(self, monkeypatch):
+        monkeypatch.setattr(
+            "energizados.core.schemas.config_validator.ConfigValidator.validate_config",
+            lambda self, cfg, name: [],
+        )
+
+    def _director(self, config, tmp_path, monkeypatch):
+        from energizados.core.builders.director import PipelineDirector
+
+        monkeypatch.chdir(tmp_path)
+        return PipelineDirector(config=config)
+
+    def test_resolve_base_output_dir_from_etl(self, tmp_path, monkeypatch):
+        d = self._director(
+            {
+                "etl": {
+                    "output_base_dir": "runs/etl",
+                    "sample": {
+                        "enabled": True,
+                        "input": "x",
+                        "output": "y",
+                        "custom_class": "energizados.etl.pipeline.SourceETL",
+                    },
+                }
+            },
+            tmp_path,
+            monkeypatch,
+        )
+        assert d._resolve_base_output_dir() == "runs/etl"
+
+    def test_resolve_base_output_dir_etl_loses_to_train(self, tmp_path, monkeypatch):
+        """train > infer > eda > etl priority: train wins when both set."""
+        d = self._director(
+            {
+                "train": {"enabled": True, "output_base_dir": "runs/train"},
+                "etl": {"output_base_dir": "runs/etl"},
+            },
+            tmp_path,
+            monkeypatch,
+        )
+        assert d._resolve_base_output_dir() == "runs/train"
+
+    def test_resolve_base_output_dir_etl_wins_over_default(self, tmp_path, monkeypatch):
+        """When only etl sets output_base_dir, it beats the 'output' default."""
+        d = self._director(
+            {"etl": {"output_base_dir": "out/celesc/v5"}},
+            tmp_path,
+            monkeypatch,
+        )
+        assert d._resolve_base_output_dir() == "out/celesc/v5"

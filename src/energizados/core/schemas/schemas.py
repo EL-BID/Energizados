@@ -9,6 +9,9 @@ ETL_SCHEMA = {
     "type": "object",
     "properties": {
         "schema_version": {"type": "integer"},
+        # ADR: top-level scalar keys under ``etl:`` are NOT ETL entries. They must be
+        # declared here so additionalProperties (which requires ``input``) skips them.
+        "output_base_dir": {"type": "string"},
     },
     "additionalProperties": {
         "type": "object",

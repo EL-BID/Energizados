@@ -77,7 +77,12 @@ class ETLOrchestrator:
         """
         from energizados._version import SCHEMA_VERSION_KEY
 
-        self.etl_configs = {k: v for k, v in etl_configs.items() if k != SCHEMA_VERSION_KEY}
+        # Filter top-level scalar keys that live under ``etl:`` but are NOT ETL
+        # entries. SCHEMA_VERSION_KEY and output_base_dir (ADR: generalized run-dir)
+        # would otherwise be treated as ETLs and fail validation (missing
+        # ``input``) or register as bogus DAG nodes.
+        _EXCLUDED_TOP_KEYS = {SCHEMA_VERSION_KEY, "output_base_dir"}
+        self.etl_configs = {k: v for k, v in etl_configs.items() if k not in _EXCLUDED_TOP_KEYS}
         self.etl_instances: Dict[str, object] = {}
         self.execution_order: List[str] = []
         self.results: Dict[str, pd.DataFrame] = {}

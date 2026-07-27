@@ -226,9 +226,9 @@ class TestConfigSchemas:
             }
 
             errors = validator.validate_config(config)
-            assert len(errors) == 0, (
-                f"EDA outliers methods {methods} should be valid, got: {errors}"
-            )
+            assert (
+                len(errors) == 0
+            ), f"EDA outliers methods {methods} should be valid, got: {errors}"
 
     def test_eda_outliers_invalid_method_rejected(self):
         """Verify that invalid outlier methods are rejected by EDA schema."""
@@ -383,9 +383,9 @@ class TestConfigSchemas:
             }
 
             errors = validator.validate_config(config)
-            assert len(errors) == 0, (
-                f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
-            )
+            assert (
+                len(errors) == 0
+            ), f"geo_stratify strategy '{strategy}' should be valid, got: {errors}"
 
     def test_split_geo_stratify_invalid_strategy_rejected(self):
         """Verify that invalid geo_stratify strategy is rejected."""
@@ -490,9 +490,9 @@ class TestConfigSchemas:
         }
 
         errors = validator.validate_config(config)
-        assert len(errors) == 0, (
-            f"Inference without segment_thresholds should be valid, got: {errors}"
-        )
+        assert (
+            len(errors) == 0
+        ), f"Inference without segment_thresholds should be valid, got: {errors}"
 
     def test_inference_segment_thresholds_minimal(self):
         """Verify that segment_thresholds with just enabled field is valid."""
@@ -663,3 +663,48 @@ class TestConfigSchemas:
 
         errors = validator.validate_config(config)
         assert len(errors) == 0, f"output_base_dir config should be valid, got: {errors}"
+
+
+# --- ETL section output_base_dir (ADR: generalize run-dir base to etl) ---------
+
+
+class TestETLOutputBaseDirSchema:
+    """The ETL section must accept ``output_base_dir`` as a top-level scalar key
+    (like ``schema_version``) so it is NOT validated as an ETL entry (which would
+    require ``input``)."""
+
+    def test_etl_output_base_dir_valid(self):
+        validator = ConfigValidator()
+
+        config = {
+            "etl": {
+                "schema_version": 1,
+                "output_base_dir": "runs/etl",
+                "sample": {
+                    "enabled": True,
+                    "input": "data/raw/x.csv",
+                    "output": "data/processed/x.parquet",
+                    "custom_class": "energizados.etl.pipeline.SourceETL",
+                    "depends_on": [],
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"output_base_dir in etl should be valid, got: {errors}"
+
+    def test_etl_output_base_dir_without_input_still_valid(self):
+        """A bare etl block with only schema_version + output_base_dir (no ETLs) is
+        structurally valid — output_base_dir must not be treated as an ETL needing
+        ``input``."""
+        validator = ConfigValidator()
+
+        config = {
+            "etl": {
+                "schema_version": 1,
+                "output_base_dir": "runs/etl",
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"bare output_base_dir in etl should be valid, got: {errors}"

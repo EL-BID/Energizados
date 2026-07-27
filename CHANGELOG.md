@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-07-27
+## [0.3.3] - 2026-07-27
 
 ### Added
 
+- **ETL: `output_base_dir` for pure-ETL run-dir placement** — The `etl:` config section now accepts a top-level `output_base_dir` scalar (like `schema_version`), so `energizados run etl` writes its run-dir (`run.log` + `config/` copy) under a custom base instead of the default `output/`, matching the existing `train`/`infer`/`eda` behavior. `PipelineDirector._resolve_base_output_dir` now checks `etl` after `train`/`infer`/`eda` (priority `train > infer > eda > etl`; default `output`). `ETL_SCHEMA` declares the key in `properties` so jsonschema does not treat it as an ETL entry requiring `input`, and `ETLOrchestrator` filters it (alongside `schema_version`) so it is not registered as a bogus DAG node. ETL parquet outputs are unaffected — they keep going to their literal `output:` paths; only run metadata relocates.
 - **Training: no-holdout mode (`split.method="none"`)** — Train on the full dataset without a validation/test split, intended for production model training after offline evaluation is complete. New `split.method="none"` option writes only `train.parquet`; `val_path`/`test_path` are `None`. `TrainingStep` makes `val_path` optional, keeps an internal 10% split for early stopping only, and reports honest `None` metrics (no fake numbers). `holdout_mode` is exposed in the context (`"none"` vs `"standard"`). Probability calibration is skipped with a warning (it needs val data). Ensemble blending (`use_val_as_oof=true`) raises `ConfigurationError` with three actionable alternatives (provide val / K-fold OOF / `soft_voting`). The director auto-skips the evaluation step with a `WARNING` when `split.method="none"`, and `DefaultEvaluator` defensively returns `skipped=True` instead of crashing on a missing `test_path`. Soft-voting ensembles and K-fold OOF stacking work without val data. Backward-compatible: every existing `split.method` (`stratified`, `random`, `time_series`, `group_based`, `stratified_time`) is byte-identical.
 
 ### Changed (internal)

@@ -718,3 +718,41 @@ class TestETLOrchestratorProfiling:
             "delta",
             "peak",
         }
+
+
+# --- ETL output_base_dir is NOT treated as an ETL entry in the DAG -------------
+
+
+class TestOrchestratorIgnoresOutputBaseDir:
+    """ETLOrchestrator must filter ``output_base_dir`` (like ``schema_version``) so it
+    is never mistaken for an ETL named 'output_base_dir' (which would fail validation
+    with 'missing required field input')."""
+
+    def test_output_base_dir_filtered_from_etl_configs(self):
+        configs = {
+            "output_base_dir": "runs/etl",
+            "etl1": {
+                "enabled": True,
+                "input": "data/input.csv",
+                "output": "data/output.parquet",
+                "depends_on": [],
+            },
+        }
+        orchestrator = ETLOrchestrator(configs)
+        assert "output_base_dir" not in orchestrator.etl_configs
+        assert set(orchestrator.etl_configs.keys()) == {"etl1"}
+
+    def test_output_base_dir_does_not_register_as_etl(self):
+
+        configs = {
+            "output_base_dir": "runs/etl",
+            "etl1": {
+                "enabled": True,
+                "input": "data/input.csv",
+                "output": "data/output.parquet",
+                "depends_on": [],
+            },
+        }
+        orchestrator = ETLOrchestrator(configs)
+        # Would raise 'unknown dependencies' if output_base_dir were treated as an ETL.
+        orchestrator.validate_dependencies()

@@ -115,11 +115,13 @@ class PipelineDirector:
     def _resolve_base_output_dir(self) -> str:
         """Resolve the base output directory (ADR-0001).
 
-        Checks ``train``/``infer``/``eda`` sections for ``output_base_dir`` in
-        that order; defaults to ``output``. The worker has already chdir'd into
-        the project, so relative paths resolve under the project root.
+        Checks ``train``/``infer``/``eda``/``etl`` sections for
+        ``output_base_dir`` in that priority order; defaults to ``output``. The
+        worker has already chdir'd into the project, so relative paths resolve
+        under the project root. Including ``etl`` lets a pure-ETL run place its
+        run-dir (log + config copy) outside the default ``output/``.
         """
-        for section in ("train", "infer", "eda"):
+        for section in ("train", "infer", "eda", "etl"):
             cfg = self.config.get(section, {})
             if isinstance(cfg, dict) and cfg.get("output_base_dir"):
                 return cfg["output_base_dir"]
@@ -223,7 +225,6 @@ class PipelineDirector:
                 eval_step = eval_builder.build()
                 if eval_step is not None:
                     pipeline.add_step(eval_step)
-
 
         # Step 5: Inference (ADR-0001: predictions relocate into the run dir)
         if self.config.get("infer", {}).get("enabled", False):
