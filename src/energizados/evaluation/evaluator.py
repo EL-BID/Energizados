@@ -1431,7 +1431,7 @@ class DefaultEvaluator(BaseEvaluator):
 
             # Write to JSON file
             json_path = output_dir / f"segment_thresholds_{segment_column}.json"
-            with open(json_path, "w") as f:
+            with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, indent=2)
 
             logger.info(f"Exported segment thresholds to: {json_path}")

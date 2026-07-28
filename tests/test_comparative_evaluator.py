@@ -184,7 +184,7 @@ class TestComparativeEvaluator:
         evaluator = ComparativeEvaluator(str(temp_dir))
         result = evaluator.compare(sample_metrics, sample_model_info)
 
-        html_content = Path(result["html"]).read_text()
+        html_content = Path(result["html"]).read_text(encoding="utf-8")
         # Best AUC (0.85) should have a star
         assert "★" in html_content
 

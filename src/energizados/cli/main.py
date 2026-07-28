@@ -183,8 +183,17 @@ def cli(ctx):
     is_flag=True,
     help="Force creation by removing the existing directory if necessary",
 )
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help=(
+        "Skip interactive prompts. On a directory conflict, recreation also requires "
+        "--force (e.g. `init x --yes --force`). Useful for CI/automation."
+    ),
+)
 @click.pass_context
-def init(ctx, project_name, template, path, copy_from, force):
+def init(ctx, project_name, template, path, copy_from, force, yes):
     """
     Initialize a new Energizados project.
 
@@ -197,11 +206,26 @@ def init(ctx, project_name, template, path, copy_from, force):
         energizados init my_project              # Create from template
         energizados init new --copy existing     # Copy from existing project
         energizados init my_project --force      # Replace if exists
+        energizados init my_project --yes --force # Non-interactive recreate (CI/automation)
     """
     from energizados.cli.init import create_project
     from energizados.cli.ui import print_error, print_info, print_success
 
     project_path = Path(path) / project_name
+
+    def _do_create(use_force: bool) -> None:
+        """Run the create_project + success messages sequence."""
+        if use_force:
+            print_info("Removing existing directory...")
+        create_project(
+            project_name=project_name,
+            project_path=project_path,
+            template=template,
+            copy_from=copy_from,
+            force=use_force,
+        )
+        print_success(f"Project created successfully at: {project_path}")
+        _print_next_steps(project_name)
 
     try:
         if copy_from:
@@ -213,30 +237,22 @@ def init(ctx, project_name, template, path, copy_from, force):
         else:
             print_info(f"Creating project '{project_name}'...")
 
-        create_project(
-            project_name=project_name,
-            project_path=project_path,
-            template=template,
-            copy_from=copy_from,
-            force=force,
-        )
-        print_success(f"Project created successfully at: {project_path}")
-        _print_next_steps(project_name)
+        _do_create(use_force=force)
     except FileExistsError as e:
-        # Ask if they want to delete and recreate
+        # When --force is set, create_project() at line above already removed and
+        # recreated the dir, so this branch is only reached with force=False.
+        if yes and not force:
+            # --yes without --force is ambiguous on a conflict; refuse rather
+            # than silently overwrite.
+            print_error(
+                f"{e}\n--yes was given without --force; refusing to overwrite "
+                "an existing directory. Re-run with --force to recreate."
+            )
+            raise click.Abort()
         if click.confirm(
             f"\n{e}\nDo you want to delete the existing directory and recreate it?", default=False
         ):
-            print_info("Removing existing directory...")
-            create_project(
-                project_name=project_name,
-                project_path=project_path,
-                template=template,
-                copy_from=copy_from,
-                force=True,
-            )
-            print_success(f"Project created successfully at: {project_path}")
-            _print_next_steps(project_name)
+            _do_create(use_force=True)
         else:
             print_error("Operation cancelled.")
             raise click.Abort()

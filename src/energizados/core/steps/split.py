@@ -429,15 +429,21 @@ class SplitStep(PipelineStep):
             metadata["random_state"] = self.random_state
 
         metadata["target_distribution"] = {
-            "train": train_df[self.target_column].value_counts().to_dict()
-            if self.target_column in train_df.columns
-            else {},
-            "val": val_df[self.target_column].value_counts().to_dict()
-            if self.target_column in val_df.columns
-            else {},
-            "test": test_df[self.target_column].value_counts().to_dict()
-            if self.target_column in test_df.columns
-            else {},
+            "train": (
+                train_df[self.target_column].value_counts().to_dict()
+                if self.target_column in train_df.columns
+                else {}
+            ),
+            "val": (
+                val_df[self.target_column].value_counts().to_dict()
+                if self.target_column in val_df.columns
+                else {}
+            ),
+            "test": (
+                test_df[self.target_column].value_counts().to_dict()
+                if self.target_column in test_df.columns
+                else {}
+            ),
         }
 
         # Add unlabeled_negatives metadata if injection was performed
@@ -449,7 +455,7 @@ class SplitStep(PipelineStep):
             metadata.update(geo_metadata)
 
         if self.save_splits:
-            with open(self.splits_dir / "split_metadata.json", "w") as f:
+            with open(self.splits_dir / "split_metadata.json", "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2, default=str)
 
         logger.info(f"\n{'=' * 50}")

@@ -80,7 +80,7 @@ def _load_template(template_name: str) -> str:
         The content of the template file as a string.
     """
     template_path = _get_template_path(template_name)
-    return template_path.read_text()
+    return template_path.read_text(encoding="utf-8")
 
 
 def create_project(
@@ -220,7 +220,10 @@ def _create_directory_structure(project_path: Path) -> None:
 
     for init_file, module_name in init_modules.items():
         if module_name is None:
-            init_file.write_text(f'''"""{init_file.parent.name} module of the project."""''')
+            init_file.write_text(
+                f'''"""{init_file.parent.name} module of the project."""''',
+                encoding="utf-8",
+            )
         else:
             pkg_name = f"{init_file.parent.parent.name}.{init_file.parent.name}"
             init_file.write_text(
@@ -242,7 +245,8 @@ for _importer, modname, _ispkg in pkgutil.iter_modules(__path__, prefix="{pkg_na
             if isinstance(attr, type):
                 globals()[attr_name] = attr
                 __all__.append(attr_name)
-'''
+''',
+                encoding="utf-8",
             )
 
 
@@ -268,15 +272,15 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
     readme_content = readme_template.replace("{{origin_note}}", origin_note)
 
     # Write files
-    (project_path / "README.md").write_text(readme_content)
-    (project_path / ".gitignore").write_text(gitignore_template)
+    (project_path / "README.md").write_text(readme_content, encoding="utf-8")
+    (project_path / ".gitignore").write_text(gitignore_template, encoding="utf-8")
 
     # .gitkeep files to keep empty directories in git
-    (project_path / "data" / "raw" / ".gitkeep").write_text("")
-    (project_path / "data" / "processed" / ".gitkeep").write_text("")
-    (project_path / "data" / "temp" / ".gitkeep").write_text("")
-    (project_path / "data" / "temp" / "splits" / ".gitkeep").write_text("")
-    (project_path / "output" / ".gitkeep").write_text("")
+    (project_path / "data" / "raw" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "data" / "processed" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "data" / "temp" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "data" / "temp" / "splits" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "output" / ".gitkeep").write_text("", encoding="utf-8")
 
     # Copy example dataset if it exists (only for new projects, not copies)
     if source_name is None:
@@ -318,14 +322,16 @@ def _create_code_templates(project_path: Path, project_name: str, only: str = No
         if only is None or only == module:
             template_content = _load_template(template_file)
             content = template_content.replace("{{project_name}}", project_name)
-            target_map[module].write_text(content)
+            target_map[module].write_text(content, encoding="utf-8")
 
     # Create example notebook from template
     notebook_template_path = _get_template_path("notebooks/example_notebook.ipynb.tpl")
     if notebook_template_path.exists():
-        notebook_content = notebook_template_path.read_text()
+        notebook_content = notebook_template_path.read_text(encoding="utf-8")
         notebook_content = notebook_content.replace("{{project_name}}", project_name)
-        (project_path / "notebooks" / "example_notebook.ipynb").write_text(notebook_content)
+        (project_path / "notebooks" / "example_notebook.ipynb").write_text(
+            notebook_content, encoding="utf-8"
+        )
 
 
 def _create_test_templates(project_path: Path, project_name: str):
@@ -348,7 +354,7 @@ def _create_test_templates(project_path: Path, project_name: str):
         if template_path.exists():
             template_content = _load_template(template_file)
             content = template_content.replace("{{project_name}}", project_name)
-            (project_path / "tests" / filename).write_text(content)
+            (project_path / "tests" / filename).write_text(content, encoding="utf-8")
         # If the template does not exist, it is silently omitted
         # Users can create their own tests
 
@@ -371,9 +377,9 @@ def _create_extra_templates(project_path: Path, project_name: str):
         content = template_content.replace("{{project_name}}", project_name)
 
         if filename == "helpers.py":
-            (project_path / "src" / "utils" / filename).write_text(content)
+            (project_path / "src" / "utils" / filename).write_text(content, encoding="utf-8")
         else:
-            (project_path / "docs" / filename).write_text(content)
+            (project_path / "docs" / filename).write_text(content, encoding="utf-8")
 
 
 def _create_requirements_file(project_path: Path):
@@ -387,7 +393,7 @@ def _create_requirements_file(project_path: Path):
 
     requirements_content = _load_template("requirements.txt.tpl")
     requirements_content = requirements_content.replace("{{energizados_version}}", get_version())
-    (project_path / "requirements.txt").write_text(requirements_content)
+    (project_path / "requirements.txt").write_text(requirements_content, encoding="utf-8")
 
 
 def _validate_source_project(source_path: Path, old_structure: bool = False) -> bool:
@@ -459,7 +465,7 @@ def _copy_custom_file(
     target_file = target_path / target_filename
 
     if source_file.exists():
-        content = source_file.read_text()
+        content = source_file.read_text(encoding="utf-8")
 
         # Add origin comment if specified
         if comment_origin:
@@ -476,7 +482,7 @@ def _copy_custom_file(
                 content = comment + "\n" + content
 
         target_file.parent.mkdir(parents=True, exist_ok=True)
-        target_file.write_text(content)
+        target_file.write_text(content, encoding="utf-8")
         return True
     return False
 
@@ -538,7 +544,7 @@ def _copy_and_adapt_pipeline_yaml(
         target_yaml = target_path / "config" / config_file
 
         if source_yaml.exists():
-            content = source_yaml.read_text()
+            content = source_yaml.read_text(encoding="utf-8")
 
             # Replace project name in configuration
             patterns = [
@@ -596,7 +602,7 @@ def _copy_and_adapt_pipeline_yaml(
             for pattern, replacement in patterns:
                 content = re.sub(pattern, replacement, content)
 
-            target_yaml.write_text(content)
+            target_yaml.write_text(content, encoding="utf-8")
         else:
             # If not found, create from template
             _create_config_files(target_path, new_name)
@@ -751,8 +757,10 @@ def _create_run_scripts(project_path: Path, project_name: str):
     for filename, template_path in scripts.items():
         template_content = _load_template(template_path)
         script_path = run_dir / filename
-        script_path.write_text(template_content)
-        script_path.chmod(0o755)  # Make executable
+        script_path.write_text(template_content, encoding="utf-8")
+        # No chmod: the documented usage is `python src/run/00_etl.py`, never
+        # direct execution. chmod is a no-op on Windows and a code smell on
+        # POSIX (the shebang alone is enough for the rare `chmod +x` workflow).
 
 
 def _create_config_files(project_path: Path, project_name: str):
@@ -782,4 +790,4 @@ def _create_config_files(project_path: Path, project_name: str):
         template_content = _load_template(template_path)
         config_content = template_content.replace("{{project_name}}", project_name)
         config_content = config_content.replace("{{package}}", package_name)
-        (project_path / "config" / filename).write_text(config_content)
+        (project_path / "config" / filename).write_text(config_content, encoding="utf-8")

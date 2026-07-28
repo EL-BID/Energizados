@@ -783,7 +783,7 @@ class TestInferenceTemplate:
 class TestColumnsFilterOperators:
     """Tests for columns_filter with operators (>, <, >=, <=, !=, like) and _expr."""
 
-    def test_filter_equality_simple_list(self):
+    def test_filter_equality_simple_list(self, tmp_path):
         """columns_filter with simple list: zona in ['A', 'B']."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -794,7 +794,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         temp_dir.mkdir(exist_ok=True)
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
@@ -816,7 +816,7 @@ class TestColumnsFilterOperators:
         predictions = result["predictions"]
         assert len(predictions) == 4, f"Expected 4 predictions, got {len(predictions)}"
 
-    def test_filter_operator_greater_than(self):
+    def test_filter_operator_greater_than(self, tmp_path):
         """columns_filter with > operator: consumo > 250."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -826,7 +826,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -844,7 +844,7 @@ class TestColumnsFilterOperators:
         # Should filter: 300, 400, 500 = 3 rows
         assert len(result["predictions"]) == 3
 
-    def test_filter_operator_less_than_equal(self):
+    def test_filter_operator_less_than_equal(self, tmp_path):
         """columns_filter with <= operator: consumo <= 200."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -854,7 +854,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -872,7 +872,7 @@ class TestColumnsFilterOperators:
         # Should filter: 100, 200 = 2 rows
         assert len(result["predictions"]) == 2
 
-    def test_filter_operator_not_equal(self):
+    def test_filter_operator_not_equal(self, tmp_path):
         """columns_filter with != operator: filter out nulls."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -882,7 +882,7 @@ class TestColumnsFilterOperators:
                 "zona": ["A", None, "B", None, "C"],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -904,7 +904,7 @@ class TestColumnsFilterOperators:
         predictions = result["predictions"]
         assert len(predictions) >= 3, f"Expected at least 3 predictions, got {len(predictions)}"
 
-    def test_filter_operator_like(self):
+    def test_filter_operator_like(self, tmp_path):
         """columns_filter with like operator: case-insensitive substring."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -914,7 +914,7 @@ class TestColumnsFilterOperators:
                 "actividad": ["INDUSTRIA_A", "COMERCIO", "INDUSTRIA_B", "SERVICIOS", "AGRICULTURA"],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -932,7 +932,7 @@ class TestColumnsFilterOperators:
         # Should filter: INDUSTRIA_A, INDUSTRIA_B = 2 rows
         assert len(result["predictions"]) == 2
 
-    def test_filter_pandas_expr(self):
+    def test_filter_pandas_expr(self, tmp_path):
         """columns_filter with _expr using pandas query syntax."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -943,7 +943,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -961,7 +961,7 @@ class TestColumnsFilterOperators:
         # Should filter: zona A & consumo >= 200 -> row index 2 (zona=A, consumo=300) = 1 row
         assert len(result["predictions"]) == 1
 
-    def test_filter_multiple_operators_chained(self):
+    def test_filter_multiple_operators_chained(self, tmp_path):
         """columns_filter with multiple operators on same column."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -971,7 +971,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -991,7 +991,7 @@ class TestColumnsFilterOperators:
         # The filter should reduce from 5 rows to fewer rows
         assert len(predictions) < 5, f"Filter should reduce rows, got {len(predictions)}"
 
-    def test_filter_expr_and_simple_combined(self):
+    def test_filter_expr_and_simple_combined(self, tmp_path):
         """columns_filter with both _expr and column filters."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -1002,7 +1002,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 

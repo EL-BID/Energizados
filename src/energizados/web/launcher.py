@@ -192,21 +192,31 @@ def main():
     _setup_signal_handlers()
 
     try:
+        # Cross-platform detach flags. On Windows, create a new process group
+        # so children survive parent console events and don't flash a console
+        # window. On POSIX, start_new_session is the modern equivalent.
+        popen_kwargs = dict(
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        if sys.platform == "win32":
+            popen_kwargs["creationflags"] = (
+                subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:
+            popen_kwargs["start_new_session"] = True
+
         # Start web server
         web_cmd = _web_argv(args.host, args.port)
         logger.info(f"Starting web server: {' '.join(web_cmd)}")
         # web_cmd is a fixed arg list (sys.executable -m uvicorn ...); no shell, no untrusted input.
-        _web_process = subprocess.Popen(
-            web_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )  # nosec B603
+        _web_process = subprocess.Popen(web_cmd, **popen_kwargs)  # nosec B603
 
         # Start worker
-        worker_cmd = _worker_argv(args.db_path, args.log_level, workspace_root=args.workspace_root)
+        worker_cmd = _worker_argv(args.db_path, args.log_level)
         logger.info(f"Starting worker: {' '.join(worker_cmd)}")
-        # worker_cmd is a fixed arg list (sys.executable -m energizados.web.worker); no shell.
-        _worker_process = subprocess.Popen(
-            worker_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )  # nosec B603
+        # worker_cmd is a fixed arg list; no shell, no untrusted input.
+        _worker_process = subprocess.Popen(worker_cmd, **popen_kwargs)  # nosec B603
 
         # Stream output from both processes with prefixes
         logger.info("Processes started. Press Ctrl-C to stop.")

@@ -82,7 +82,7 @@ class ReportGenerator:
 
         path = save_path or str(self.output_dir / "evaluation_report.html")
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         logger.info(f"HTML report saved to: {path}")
@@ -138,7 +138,7 @@ class ReportGenerator:
 
         path = save_path or str(self.output_dir / "evaluation_report.json")
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(report_data, f, indent=2, default=str)
 
         logger.info(f"JSON report saved to: {path}")

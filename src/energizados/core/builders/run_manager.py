@@ -460,7 +460,7 @@ class RunManager:
 
         # Write to JSON file
         metadata_path = self._run_dir / "run_metadata.json"
-        with open(metadata_path, "w") as f:
+        with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
         logger.info(f"Run metadata saved to: {metadata_path}")
@@ -595,7 +595,7 @@ class RunManager:
             return None
 
         try:
-            with open(metadata_file) as f:
+            with open(metadata_file, encoding="utf-8") as f:
                 data = json.load(f)
             return RunMetadata.from_dict(data)  # Tolerant loader
         except (json.JSONDecodeError, IOError) as e:

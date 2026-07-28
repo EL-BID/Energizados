@@ -124,7 +124,7 @@ class ProjectService:
         if not self.registry_path.is_file():
             return {}
         try:
-            return json.loads(self.registry_path.read_text())
+            return json.loads(self.registry_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Registry unreadable ({e}); starting empty")
             return {}
@@ -133,7 +133,7 @@ class ProjectService:
         """Atomically write the registry (temp file + os.rename)."""
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.registry_path.with_suffix(self.registry_path.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2, default=str))
+        tmp.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
         os.replace(tmp, self.registry_path)
 
     # ------------------------------------------------------------------

@@ -455,7 +455,8 @@ class TestTemplateResolution:
 
         path = _get_template_path("config/etl.yaml.tpl")
         assert path.exists(), f"Template not found at {path}"
-        assert "src/energizados/templates" in str(path) or "energizados/templates" in str(path)
+        path_str = path.as_posix()
+        assert "src/energizados/templates" in path_str or "energizados/templates" in path_str
 
     def test_all_expected_templates_exist(self):
         """Verify that all templates required by init are present in the package."""

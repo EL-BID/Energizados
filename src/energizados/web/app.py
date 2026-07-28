@@ -76,7 +76,13 @@ app.add_middleware(
 
 # Mount static files directory
 static_dir = Path(__file__).parent / "static"
-static_dir.mkdir(exist_ok=True)
+try:
+    static_dir.mkdir(exist_ok=True)
+except (PermissionError, OSError):
+    # Read-only install (PEP 668, system Python). The static dir must already
+    # exist; if not, FastAPI will raise a clear error on first request.
+    if not static_dir.is_dir():
+        raise
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
@@ -770,7 +776,7 @@ async def get_config_template(name: str) -> Response:
     if not target.is_file():
         raise HTTPException(status_code=404, detail="Template not found")
 
-    return Response(content=target.read_text(), media_type="text/yaml")
+    return Response(content=target.read_text(encoding="utf-8"), media_type="text/yaml")
 
 
 # ============================================================================
@@ -1084,7 +1090,7 @@ def _load_run_evaluation(
     # Try multi-model first
     if comparison_path.is_file():
         try:
-            data = json.loads(comparison_path.read_text())
+            data = json.loads(comparison_path.read_text(encoding="utf-8"))
             # Already in template-friendly format
             return {
                 "ranking": data.get("ranking", []),
@@ -1097,7 +1103,7 @@ def _load_run_evaluation(
     # Try single-model
     if report_path.is_file():
         try:
-            data = json.loads(report_path.read_text())
+            data = json.loads(report_path.read_text(encoding="utf-8"))
             return {
                 "metrics": data.get("metrics", {}),
                 "model_info": data.get("model_info", {}),
@@ -1175,7 +1181,7 @@ def _read_run_log(run, max_lines: int = 1000, manager: Optional[RunManager] = No
     try:
         # Tail efficiently: deque with maxlen discards earlier lines as it
         # reads, so we never hold the full file in memory (bounded read).
-        with open(log_path, "r") as f:
+        with open(log_path, "r", encoding="utf-8") as f:
             tail = deque(f, maxlen=max_lines)
         if len(tail) < max_lines:
             return "".join(tail)
@@ -1611,7 +1617,7 @@ def _load_threshold_data(
     # Check for multi-model first (ensemble detection)
     if comparison_path.is_file():
         try:
-            data = json.loads(comparison_path.read_text())
+            data = json.loads(comparison_path.read_text(encoding="utf-8"))
             # Extract available models from ranking
             ranking = data.get("ranking", [])
             available_models = [
@@ -1630,7 +1636,7 @@ def _load_threshold_data(
     # Single-model: read evaluation_report.json directly
     if report_path.is_file():
         try:
-            data = json.loads(report_path.read_text())
+            data = json.loads(report_path.read_text(encoding="utf-8"))
             metrics = data.get("metrics", {})
             return {
                 "threshold_metrics": data.get("threshold_metrics"),  # May be None for old runs
@@ -2596,7 +2602,7 @@ async def retrain_from_run(request: Request, project_id: str, run_id: str):
     configs: List[Dict[str, Any]] = []
     for name in config_names:
         try:
-            with open(config_dir / name) as f:
+            with open(config_dir / name, encoding="utf-8") as f:
                 parsed = yaml.safe_load(f)
         except (OSError, yaml.YAMLError) as e:
             logger.warning(f"[retrain run {run_id}] Failed to read config '{name}': {e}")
