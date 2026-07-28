@@ -58,7 +58,7 @@ def test_project_scoped_job_lands_under_project_output(tmp_path, monkeypatch):
     shutil.copy(_sample_dataset_src(), processed_dir / "sample_dataset.parquet")
 
     # Build a known-valid train config from the generated template, tweaked for speed.
-    cfg = yaml.safe_load((project.path / "config" / "train.yaml").read_text())
+    cfg = yaml.safe_load((project.path / "config" / "train.yaml").read_text(encoding="utf-8"))
     cfg["train"]["split"] = {
         "method": "random",
         "test_size": 0.2,

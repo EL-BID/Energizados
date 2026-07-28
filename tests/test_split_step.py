@@ -365,7 +365,7 @@ def test_group_based_metadata_contract(grouped_parquet, tmp_path):
     metadata_path = tmp_path / "splits" / "split_metadata.json"
     import json
 
-    with open(metadata_path) as f:
+    with open(metadata_path, encoding="utf-8") as f:
         metadata = json.load(f)
 
     # Assert group metadata keys exist

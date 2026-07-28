@@ -346,7 +346,7 @@ class TestReportCalibrationSection:
 
         path = reporter.generate_json(metrics, calibration_result=calibration_result)
 
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
         assert "calibration" in data
@@ -365,7 +365,7 @@ class TestReportCalibrationSection:
 
         path = reporter.generate_json(metrics)
 
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
         assert "calibration" not in data

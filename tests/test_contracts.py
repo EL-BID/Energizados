@@ -615,7 +615,7 @@ class TestCleanFilesETLCompliance:
             test_files = []
             for i in range(3):
                 file_path = Path(tmpdir) / f"test_{i}.txt"
-                file_path.write_text(f"test content {i}")
+                file_path.write_text(f"test content {i}", encoding="utf-8")
                 test_files.append(str(file_path))
 
             # Create CleanFilesETL instance
@@ -644,7 +644,7 @@ class TestCleanFilesETLCompliance:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test file
             test_file = Path(tmpdir) / "test.txt"
-            test_file.write_text("test content")
+            test_file.write_text("test content", encoding="utf-8")
 
             # Create CleanFilesETL instance
             etl = CleanFilesETL(name="clean", input_paths=[str(test_file)])

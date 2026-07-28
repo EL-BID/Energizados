@@ -82,7 +82,7 @@ class TestProjectServiceCreate:
 
         svc.create_project("demo")
 
-        data = json.loads(registry.read_text())
+        data = json.loads(registry.read_text(encoding="utf-8"))
         assert "demo" in data
         assert Path(data["demo"]["path"]).is_absolute()
 

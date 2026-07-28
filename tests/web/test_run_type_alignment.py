@@ -131,7 +131,7 @@ def _write_run_on_disk(output_dir, run_id, metadata_dict):
     """Write a run_metadata.json for run_id under output_dir (real on-disk run)."""
     run_dir = Path(output_dir) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "run_metadata.json").write_text(json.dumps(metadata_dict))
+    (run_dir / "run_metadata.json").write_text(json.dumps(metadata_dict), encoding="utf-8")
     return run_dir
 
 

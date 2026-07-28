@@ -48,10 +48,10 @@ train:
           - cardinality_reducer:
               threshold: 0.001
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         # Test via API
-        with open(config_file, "r") as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             import yaml
 
             config_dict = yaml.safe_load(f)
@@ -94,7 +94,7 @@ etl:
       mode: "concat"
     depends_on: []
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         runner = CliRunner()
         result = runner.invoke(cli, ["validate", str(config_file), "--json"])
@@ -173,13 +173,13 @@ etl:
       mode: "concat"
     depends_on: []
 """
-        etl_config.write_text(etl_content)
+        etl_config.write_text(etl_content, encoding="utf-8")
 
         # Create input file
         input_dir = tmp_path / "data" / "raw"
         input_dir.mkdir(parents=True)
         input_file = input_dir / "test.csv"
-        input_file.write_text("col1,col2\n1,2\n3,4\n")
+        input_file.write_text("col1,col2\n1,2\n3,4\n", encoding="utf-8")
 
         runner = CliRunner()
         result = runner.invoke(cli, ["run", "etl", "--json", "-c", str(tmp_path)])

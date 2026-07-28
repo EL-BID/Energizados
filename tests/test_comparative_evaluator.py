@@ -104,7 +104,7 @@ class TestComparativeEvaluator:
         result = evaluator.compare(sample_metrics, sample_model_info)
 
         json_path = Path(result["json"])
-        data = json.loads(json_path.read_text())
+        data = json.loads(json_path.read_text(encoding="utf-8"))
 
         assert "ranking" in data
         assert "models" in data
@@ -163,7 +163,7 @@ class TestComparativeEvaluator:
         evaluator = ComparativeEvaluator(str(temp_dir))
         result = evaluator.compare(sample_metrics, sample_model_info)
 
-        html_content = Path(result["html"]).read_text()
+        html_content = Path(result["html"]).read_text(encoding="utf-8")
         assert "lgbm" in html_content
         assert "cat" in html_content
 
@@ -172,7 +172,7 @@ class TestComparativeEvaluator:
         evaluator = ComparativeEvaluator(str(temp_dir))
         result = evaluator.compare(sample_metrics, sample_model_info)
 
-        html_content = Path(result["html"]).read_text()
+        html_content = Path(result["html"]).read_text(encoding="utf-8")
         assert "AUC" in html_content
         assert "F1" in html_content
         assert "Precision" in html_content
@@ -193,7 +193,7 @@ class TestComparativeEvaluator:
         evaluator = ComparativeEvaluator(str(temp_dir))
         result = evaluator.compare(sample_metrics, sample_model_info)
 
-        html_content = Path(result["html"]).read_text()
+        html_content = Path(result["html"]).read_text(encoding="utf-8")
         # Check for links to model-specific reports
         assert 'href="lgbm/evaluation.html"' in html_content
         assert 'href="cat/evaluation.html"' in html_content

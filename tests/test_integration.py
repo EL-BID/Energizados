@@ -71,7 +71,7 @@ etl:
     output: "data/output.parquet"
     custom_class: "energizados.etl.pipeline.SourceETL"
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         return config_file
 
@@ -125,7 +125,7 @@ train:
 evaluation:
   enabled: false
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
@@ -352,7 +352,7 @@ training:
 evaluation:
   enabled: false
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         # Should not raise exception
         validate_config([str(config_file)])
@@ -365,7 +365,7 @@ evaluation:
 
         config_file = tmp_path / "invalid.yaml"
         # Use truly invalid YAML that causes parsing error
-        config_file.write_text("invalid: [unclosed")
+        config_file.write_text("invalid: [unclosed", encoding="utf-8")
 
         with pytest.raises(ConfigurationError):
             validate_config([str(config_file)])
@@ -398,7 +398,8 @@ class TestTrainingConfigIntegration:
                     }
                 },
                 sort_keys=False,
-            )
+            ),
+            encoding="utf-8",
         )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
@@ -441,7 +442,8 @@ class TestTrainingConfigIntegration:
                     }
                 },
                 sort_keys=False,
-            )
+            ),
+            encoding="utf-8",
         )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
@@ -465,7 +467,8 @@ class TestTrainingConfigIntegration:
                     }
                 },
                 sort_keys=False,
-            )
+            ),
+            encoding="utf-8",
         )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
@@ -494,7 +497,8 @@ class TestTrainingConfigIntegration:
                     }
                 },
                 sort_keys=False,
-            )
+            ),
+            encoding="utf-8",
         )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()

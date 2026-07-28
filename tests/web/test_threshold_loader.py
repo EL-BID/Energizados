@@ -76,7 +76,8 @@ class TestThresholdDataLoader:
                         },
                     },
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Import and test the function
@@ -116,7 +117,8 @@ class TestThresholdDataLoader:
                     ],
                     "best_model": "lgbm",
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Import and test the function
@@ -155,7 +157,8 @@ class TestThresholdDataLoader:
                         # No threshold_metrics, no cumulative_gains
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Import and test the function
@@ -199,7 +202,8 @@ class TestThresholdDataLoader:
                         # No cumulative_gains
                     },
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Import and test the function

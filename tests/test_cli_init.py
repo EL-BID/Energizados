@@ -91,7 +91,7 @@ class TestInitCommand:
             assert (project_path / "tests" / "__init__.py").exists()
 
             # Verify correct imports (dynamic pkgutil pattern)
-            data_init = (project_path / "src" / "data" / "__init__.py").read_text()
+            data_init = (project_path / "src" / "data" / "__init__.py").read_text(encoding="utf-8")
             assert "pkgutil" in data_init
             assert "custom_etl" in data_init
 
@@ -117,7 +117,7 @@ class TestInitCommand:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            requirements = (project_path / "requirements.txt").read_text()
+            requirements = (project_path / "requirements.txt").read_text(encoding="utf-8")
             assert "energizados" in requirements
             assert "pytest" in requirements
             assert "pandas" in requirements
@@ -131,7 +131,7 @@ class TestInitCommand:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            docs = (project_path / "docs" / "project_docs.md").read_text()
+            docs = (project_path / "docs" / "project_docs.md").read_text(encoding="utf-8")
             assert "test_project" in docs
             assert "src/" in docs
             assert "pytest" in docs
@@ -167,8 +167,8 @@ class TestInitCommand:
             # Modify a custom file to verify it's copied
             base_path = Path(tmpdir) / "base_project"
             custom_etl = base_path / "src" / "data" / "custom_etl.py"
-            content = custom_etl.read_text()
-            custom_etl.write_text(content.replace("# TODO:", "# MODIFIED:"))
+            content = custom_etl.read_text(encoding="utf-8")
+            custom_etl.write_text(content.replace("# TODO:", "# MODIFIED:"), encoding="utf-8")
 
             # Copy the project
             copy_result = self.runner.invoke(
@@ -179,7 +179,7 @@ class TestInitCommand:
             # Verify that the file was copied
             copied_path = Path(tmpdir) / "copied_project"
             copied_etl = copied_path / "src" / "data" / "custom_etl.py"
-            copied_content = copied_etl.read_text()
+            copied_content = copied_etl.read_text(encoding="utf-8")
 
             assert "# MODIFIED:" in copied_content
 
@@ -196,7 +196,7 @@ class TestInitCommand:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify that the name was updated in YAML
-            etl_yaml = (new_path / "config" / "etl.yaml").read_text()
+            etl_yaml = (new_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             # The name appears in the header comment
             assert "new_project" in etl_yaml
             assert "base_project" not in etl_yaml
@@ -214,7 +214,7 @@ class TestInitCommand:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify origin note in README
-            readme_content = (new_path / "README.md").read_text()
+            readme_content = (new_path / "README.md").read_text(encoding="utf-8")
             assert "base_project" in readme_content
 
     def test_init_copy_from_old_structure_project(self):
@@ -230,17 +230,24 @@ class TestInitCommand:
             (old_path / "configs").mkdir()
 
             # Create required files
-            (old_path / "etl" / "custom_etl.py").write_text("# OLD ETL")
-            (old_path / "feature_selection" / "custom_selector.py").write_text("# OLD SELECTOR")
-            (old_path / "models" / "custom_model.py").write_text("# OLD MODEL")
-            (old_path / "inference" / "custom_inference.py").write_text("# OLD INFERENCE")
-            (old_path / "configs" / "etl.yaml").write_text("""
+            (old_path / "etl" / "custom_etl.py").write_text("# OLD ETL", encoding="utf-8")
+            (old_path / "feature_selection" / "custom_selector.py").write_text(
+                "# OLD SELECTOR", encoding="utf-8"
+            )
+            (old_path / "models" / "custom_model.py").write_text("# OLD MODEL", encoding="utf-8")
+            (old_path / "inference" / "custom_inference.py").write_text(
+                "# OLD INFERENCE", encoding="utf-8"
+            )
+            (old_path / "configs" / "etl.yaml").write_text(
+                """
 # ETLs Configuration for old_project
 etl:
   sample:
     enabled: true
     custom_class: "old_project.etl.custom_etl.CustomETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             # Copy from old structure
             result = self.runner.invoke(
@@ -262,10 +269,12 @@ etl:
             assert (new_path / "config" / "infer.yaml").exists()
 
             # Verify that custom files were copied
-            assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text()
+            assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text(
+                encoding="utf-8"
+            )
 
             # Verify that the name was updated in YAML (in comment)
-            yaml_content = (new_path / "config" / "etl.yaml").read_text()
+            yaml_content = (new_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             assert "new_project" in yaml_content
             assert "old_project" not in yaml_content
 
@@ -316,7 +325,7 @@ etl:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify __init__.py files (dynamic pkgutil pattern)
-            data_init = (new_path / "src" / "data" / "__init__.py").read_text()
+            data_init = (new_path / "src" / "data" / "__init__.py").read_text(encoding="utf-8")
             assert "pkgutil" in data_init
             assert "custom_etl" in data_init
 
@@ -328,11 +337,11 @@ etl:
             base_path = Path(tmpdir) / "base_project"
 
             # Create data files (that should not be copied)
-            (base_path / "data" / "raw" / "data.csv").write_text("test,data")
+            (base_path / "data" / "raw" / "data.csv").write_text("test,data", encoding="utf-8")
             # Simulate a training run in output/
             run_dir = base_path / "output" / "train-20260303_1430" / "models"
             run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "model.pkl").write_text("model")
+            (run_dir / "model.pkl").write_text("model", encoding="utf-8")
 
             # Copy project
             self.runner.invoke(
@@ -374,7 +383,7 @@ etl:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            gitignore = (project_path / ".gitignore").read_text()
+            gitignore = (project_path / ".gitignore").read_text(encoding="utf-8")
             assert ".pytest_cache/" in gitignore
             assert ".coverage" in gitignore
             assert "htmlcov/" in gitignore
@@ -417,7 +426,7 @@ etl:
             project_path = Path(tmpdir) / "_sample"
 
             # Verify that YAML uses correct import path (without package prefix)
-            etl_yaml = (project_path / "config" / "etl.yaml").read_text()
+            etl_yaml = (project_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             # YAML must use "data.custom_etl.CustomETL" (without package prefix)
             assert "data.custom_etl.CustomETL" in etl_yaml
             # Must not contain sanitized package prefix
@@ -437,7 +446,7 @@ etl:
             new_path = Path(tmpdir) / "_new"
 
             # Verify that YAML uses correct import path (without package prefix)
-            etl_yaml = (new_path / "config" / "etl.yaml").read_text()
+            etl_yaml = (new_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             # Imports must use paths without package prefix
             assert "data.custom_etl.CustomETL" in etl_yaml
             # Must not contain package prefixes
@@ -505,16 +514,16 @@ class TestPerSectionSchemaVersion:
             config_dir = Path(tmpdir) / "test_project" / "config"
 
             # Each config must declare the current schema_version for its section
-            etl_data = yaml.safe_load((config_dir / "etl.yaml").read_text())
+            etl_data = yaml.safe_load((config_dir / "etl.yaml").read_text(encoding="utf-8"))
             assert etl_data["etl"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["etl"]
 
-            train_data = yaml.safe_load((config_dir / "train.yaml").read_text())
+            train_data = yaml.safe_load((config_dir / "train.yaml").read_text(encoding="utf-8"))
             assert train_data["train"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["train"]
 
-            infer_data = yaml.safe_load((config_dir / "infer.yaml").read_text())
+            infer_data = yaml.safe_load((config_dir / "infer.yaml").read_text(encoding="utf-8"))
             assert infer_data["infer"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["infer"]
 
-            eda_data = yaml.safe_load((config_dir / "eda.yaml").read_text())
+            eda_data = yaml.safe_load((config_dir / "eda.yaml").read_text(encoding="utf-8"))
             assert eda_data["eda"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["eda"]
 
     def test_no_general_yaml_created(self):
@@ -530,7 +539,9 @@ class TestPerSectionSchemaVersion:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
             assert result.exit_code == 0
 
-            requirements = (Path(tmpdir) / "test_project" / "requirements.txt").read_text()
+            requirements = (Path(tmpdir) / "test_project" / "requirements.txt").read_text(
+                encoding="utf-8"
+            )
             assert "energizados~=" in requirements
             assert "energizados>=1.0.0" not in requirements
 

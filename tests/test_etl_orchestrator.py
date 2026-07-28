@@ -243,7 +243,7 @@ class TestETLOrchestrator:
         try:
             test_file = temp_dir / "data"
             test_file.mkdir(parents=True)
-            (test_file / "file.csv").write_text("data")
+            (test_file / "file.csv").write_text("data", encoding="utf-8")
 
             # Change to temp directory so relative paths work
             import os
@@ -267,8 +267,8 @@ class TestETLOrchestrator:
         try:
             file1 = temp_dir / "file1.csv"
             file2 = temp_dir / "file2.csv"
-            file1.write_text("data1")
-            file2.write_text("data2")
+            file1.write_text("data1", encoding="utf-8")
+            file2.write_text("data2", encoding="utf-8")
 
             # Change to temp directory
             import os
@@ -357,7 +357,7 @@ class TestManifestAwareResolution:
                 "processed_files": ["raw.parquet"],
             }
             state_file = state_dir / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             configs = {
@@ -442,7 +442,7 @@ class TestManifestAwareResolution:
                 "processed_files": ["raw.parquet"],
             }
             state_file = state_dir / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             configs = {
@@ -482,7 +482,7 @@ class TestManifestAwareResolution:
 
             # Direct file
             direct_file = tmpdir_path / "extra.csv"
-            direct_file.write_text("a,b\n1,2\n")
+            direct_file.write_text("a,b\n1,2\n", encoding="utf-8")
 
             # State file for upstream (with manifest fields)
             state_dir = tmpdir_path / "states"
@@ -495,7 +495,7 @@ class TestManifestAwareResolution:
                 "processed_files": ["raw.parquet"],
             }
             state_file = state_dir / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             configs = {
@@ -575,7 +575,7 @@ class TestManifestAwareResolution:
                 "new_partitions": ["2024-01"],
                 "processed_files": ["raw.parquet"],
             }
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             orchestrator = ETLOrchestrator({})
@@ -623,7 +623,7 @@ class TestManifestAwareResolution:
 
             # Verify state file was written with manifest fields
             assert upstream_state.exists()
-            with open(upstream_state) as f:
+            with open(upstream_state, encoding="utf-8") as f:
                 state = json.load(f)
             assert "new_partitions" in state
             assert set(state["new_partitions"]) == {"2024-01", "2024-02"}
@@ -676,7 +676,7 @@ class TestETLOrchestratorProfiling:
         existence of literal (non-``@``) input paths.
         """
         input_file = tmp_path / "input1.csv"
-        input_file.write_text("data\n1\n2\n3\n")
+        input_file.write_text("data\n1\n2\n3\n", encoding="utf-8")
         return {
             "etl1": {
                 "enabled": True,

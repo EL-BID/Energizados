@@ -53,13 +53,13 @@ def temp_run_dir(tmp_path):
         },
     }
 
-    with open(run_dir / "run_metadata.json", "w") as f:
+    with open(run_dir / "run_metadata.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f)
 
     # Create config directory with sample YAML
     config_dir = run_dir / "config"
     config_dir.mkdir(exist_ok=True)
-    with open(config_dir / "train.yaml", "w") as f:
+    with open(config_dir / "train.yaml", "w", encoding="utf-8") as f:
         f.write("train:\n  enabled: true\n")
 
     # Create reports/evaluation directory with artifacts
@@ -73,7 +73,7 @@ def temp_run_dir(tmp_path):
         "metrics": {"auc": 0.85, "f1": 0.78, "precision": 0.80, "recall": 0.75},
         "confusion_matrix": [[100, 20], [15, 80]],
     }
-    with open(eval_dir / "evaluation_report.json", "w") as f:
+    with open(eval_dir / "evaluation_report.json", "w", encoding="utf-8") as f:
         json.dump(eval_report, f)
 
     # Create a sample plot file
@@ -81,7 +81,7 @@ def temp_run_dir(tmp_path):
     plot_path.write_bytes(b"fake_png_data")
 
     # Create run.log
-    with open(run_dir / "run.log", "w") as f:
+    with open(run_dir / "run.log", "w", encoding="utf-8") as f:
         f.write("2024-01-01 12:00:00 INFO Starting pipeline\n")
         f.write("2024-01-01 12:05:00 INFO Pipeline completed successfully\n")
 

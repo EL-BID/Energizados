@@ -597,7 +597,8 @@ class TestPipelineConfigParsing:
                         "feature_engineering": {"enabled": False},
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         pipeline = ConfigPipelineBuilder(str(cfg_file)).build()
@@ -625,7 +626,8 @@ class TestPipelineConfigParsing:
                         "feature_engineering": {"enabled": False},
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         pipeline = ConfigPipelineBuilder(str(cfg_file)).build()
@@ -651,7 +653,8 @@ class TestPipelineConfigParsing:
                         "feature_engineering": {"enabled": False},
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         pipeline = ConfigPipelineBuilder(str(cfg_file)).build()
@@ -667,21 +670,28 @@ class TestNoHoldoutTraining:
     def _fe_config():
         return {
             "enabled": True,
-            "preprocessing": {"enabled": True, "columns": {"f1": [{"cast_dtype": {"dtype": "float32"}}]}},
+            "preprocessing": {
+                "enabled": True,
+                "columns": {"f1": [{"cast_dtype": {"dtype": "float32"}}]},
+            },
             "feature_selection": {"enabled": False},
         }
 
     @staticmethod
     def _model_config():
-        return [{
-            "type": "lightgbm",
-            "sampling": {"method": "none"},
-            "hyperparams": {"n_estimators": 20, "num_leaves": 7, "verbose": -1},
-        }]
+        return [
+            {
+                "type": "lightgbm",
+                "sampling": {"method": "none"},
+                "hyperparams": {"n_estimators": 20, "num_leaves": 7, "verbose": -1},
+            }
+        ]
 
     @staticmethod
     def _write_data(path, n=200):
-        df = pd.DataFrame({"f1": [float(i % 10) for i in range(n)], "target": [i % 2 for i in range(n)]})
+        df = pd.DataFrame(
+            {"f1": [float(i % 10) for i in range(n)], "target": [i % 2 for i in range(n)]}
+        )
         df.to_parquet(path, index=False)
         return path
 
@@ -725,8 +735,12 @@ class TestNoHoldoutTraining:
         mc = self._model_config()
         mc[0]["calibration"] = {"enabled": True, "method": "sigmoid"}
         step = TrainingStep(
-            train_path=train, val_path=None, target_column="target",
-            feature_engineering_config=fe, models_configs=mc, output_dir=str(tmp_path / "models3"),
+            train_path=train,
+            val_path=None,
+            target_column="target",
+            feature_engineering_config=fe,
+            models_configs=mc,
+            output_dir=str(tmp_path / "models3"),
         )
         ctx = step.execute({})  # must not raise; calibration skipped, model ships uncalibrated
         assert ctx["model_path"]

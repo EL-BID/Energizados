@@ -87,7 +87,7 @@ class TestProjectConfigRoute:
     def test_serves_existing_project_config(self, client, project_service):
         project = _make_project(project_service, "cfg-ok")
         cfg_file = project.path / "config" / "etl.yaml"
-        cfg_file.write_text("etl:\n  sample:\n    enabled: true\n")
+        cfg_file.write_text("etl:\n  sample:\n    enabled: true\n", encoding="utf-8")
 
         r = client.get(f"/projects/{project.project_id}/config/etl")
         assert r.status_code == 200

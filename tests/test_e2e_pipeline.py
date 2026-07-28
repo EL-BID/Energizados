@@ -154,7 +154,7 @@ class TestE2ESmokeTest:
         assert (run_dir / "run_metadata.json").exists()
 
         # Validate JSON report content
-        report = json.loads((report_dir / "evaluation_report.json").read_text())
+        report = json.loads((report_dir / "evaluation_report.json").read_text(encoding="utf-8"))
         auc = _extract_auc(report)
         assert auc is not None, "AUC should be present in report"
         assert 0.0 <= auc <= 1.0, f"AUC should be between 0 and 1, got {auc}"
@@ -278,7 +278,7 @@ class TestConfigurationMatrix:
 
         report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
         assert report_path.exists()
-        report = json.loads(report_path.read_text())
+        report = json.loads(report_path.read_text(encoding="utf-8"))
         auc = _extract_auc(report)
         assert auc is not None and 0.0 <= auc <= 1.0
 
@@ -329,6 +329,6 @@ class TestConfigurationMatrix:
 
         report_path = run_dir / "reports" / "evaluation" / "evaluation_report.json"
         assert report_path.exists()
-        report = json.loads(report_path.read_text())
+        report = json.loads(report_path.read_text(encoding="utf-8"))
         auc = _extract_auc(report)
         assert auc is not None and 0.0 <= auc <= 1.0

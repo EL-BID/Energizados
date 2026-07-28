@@ -194,7 +194,7 @@ class TestSaveOutlierResultsJson:
             json_path = generator._save_outlier_results_json(results, columns)
 
             assert Path(json_path).exists()
-            with open(json_path, "r") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             assert "timestamp" in data
@@ -235,7 +235,7 @@ class TestSaveOutlierResultsJson:
 
             json_path = generator._save_outlier_results_json(results, columns)
 
-            with open(json_path, "r") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             assert len(data["numeric_outliers"]) == 3
@@ -267,7 +267,7 @@ class TestSaveOutlierResultsJson:
 
             json_path = generator._save_outlier_results_json(results, columns)
 
-            with open(json_path, "r") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             assert data["numeric_outliers"][0]["has_alert"] is True
@@ -294,7 +294,7 @@ class TestSaveOutlierResultsJson:
 
             json_path = generator._save_outlier_results_json(results, columns)
 
-            with open(json_path, "r") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             assert len(data["numeric_outliers"]) == 1
@@ -464,7 +464,7 @@ class TestGenerateReportIntegration:
             # Check that outlier_analysis.json WAS created
             assert Path(tmpdir, "outlier_analysis.json").exists()
             # Verify HTML report includes outlier section
-            with open(report_path, "r") as f:
+            with open(report_path, "r", encoding="utf-8") as f:
                 html = f.read()
             assert "Outlier Analysis (Phase 2.5)" in html
             assert "Phase 2.5: Outlier Analysis" in html
@@ -504,7 +504,7 @@ class TestGenerateReportIntegration:
 
             report_path = generator.generate(results, alerts)
 
-            with open(report_path, "r") as f:
+            with open(report_path, "r", encoding="utf-8") as f:
                 html = f.read()
             assert 'href="#outliers"' in html
             assert "Phase 2.5: Outlier Analysis" in html

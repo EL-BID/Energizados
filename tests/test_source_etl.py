@@ -203,7 +203,7 @@ class TestSourceETLExtract:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             unsupported_file = tmpdir_path / "file.txt"
-            unsupported_file.write_text("data")
+            unsupported_file.write_text("data", encoding="utf-8")
 
             etl = SourceETL(
                 name="test",
@@ -900,7 +900,7 @@ class TestReadSingleFile:
         etl = self._make_etl()
         with tempfile.TemporaryDirectory() as tmpdir:
             bad_path = Path(tmpdir) / "data.json"
-            bad_path.write_text("{}")
+            bad_path.write_text("{}", encoding="utf-8")
             with pytest.raises(ETLError, match="Unsupported format"):
                 etl._read_single_file(str(bad_path))
 
@@ -1124,7 +1124,7 @@ class TestIncrementalEndToEnd:
             assert state_file.exists()
             import json
 
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
             assert "last_processed_value" in state
 
@@ -1179,7 +1179,7 @@ class TestIncrementalEndToEnd:
 
             # BAD file: .parquet extension but garbage content
             bad_file = tmpdir_path / "corrupted.parquet"
-            bad_file.write_text("THIS IS NOT A PARQUET FILE")
+            bad_file.write_text("THIS IS NOT A PARQUET FILE", encoding="utf-8")
 
             # Good file C: February data
             df_c = pd.DataFrame(
@@ -1250,7 +1250,7 @@ class TestIncrementalEndToEnd:
             # But the file IS marked as processed in state
             import json
 
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
             assert str(old_file) in state.get("processed_files", [])
 
@@ -1263,7 +1263,7 @@ class TestIncrementalEndToEnd:
             state_file = tmpdir_path / "state.json"
             import json
 
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump({"last_processed_value": "2024-06-30"}, f)
 
             # New data spans June, July, August
@@ -1319,7 +1319,7 @@ class TestIncrementalEndToEnd:
             assert aug_df["valor"].iloc[0] == 4
 
             # State updated to max date of new records
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
             assert "2024-08-05" in state["last_processed_value"]
 
@@ -1570,7 +1570,7 @@ class TestAutoInferredStateFile:
             # Pre-create state file
             import json
 
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump({"processed_files": ["a.csv"], "last_processed_value": "2024-01-01"}, f)
 
             etl = SourceETL(
@@ -1620,7 +1620,7 @@ class TestUnifiedState:
         with tempfile.TemporaryDirectory() as tmpdir:
             etl, output_dir, state_file = self._run_incremental_etl(tmpdir)
 
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
 
             assert "processed_files" in state
@@ -1740,7 +1740,7 @@ class TestManifestWrite:
             # Manifest fields are now inside the unified state file
             assert state_file.exists(), "state file must be written"
 
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
 
             assert "run_id" in state
@@ -1767,7 +1767,7 @@ class TestManifestWrite:
 
             # Pre-create state with last_processed far in the future
             state_file = tmpdir_path / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump({"last_processed_value": "2099-12-31"}, f)
 
             # All data is older than last_processed
@@ -1785,7 +1785,7 @@ class TestManifestWrite:
             etl.run(str(output_dir))
 
             # State file should not have been rewritten with manifest fields
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
             assert "run_id" not in state, "state must NOT contain manifest fields on empty run"
             assert "new_partitions" not in state
@@ -1817,7 +1817,7 @@ class TestManifestWrite:
             # Manifest fields are inside the unified state file
             assert state_file.exists(), "state file must be written"
 
-            with open(state_file) as f:
+            with open(state_file, encoding="utf-8") as f:
                 state = json.load(f)
 
             assert state["new_partitions"] == ["2024-05"]
