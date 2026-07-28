@@ -520,7 +520,7 @@ class TestTsfelVars:
         assert transformer.chunk_size == 500
         assert transformer.cache_dir is None
 
-    def test_tsfelvars_init_custom_params(self):
+    def test_tsfelvars_init_custom_params(self, tmp_path):
         """Test TsfelVars initialization with custom parameters."""
         transformer = TsfelVars(
             num_periodos=6,
@@ -528,14 +528,14 @@ class TestTsfelVars:
             periods_suffix="_prev",
             n_jobs=-1,
             chunk_size=200,
-            cache_dir="/tmp/cache",  # nosec B108
+            cache_dir=str(tmp_path / "cache"),
         )
         assert transformer.num_periodos == 6
         assert transformer.features_names_path == "/path/to/config.json"
         assert transformer.periods_suffix == "_prev"
         assert transformer.n_jobs == -1
         assert transformer.chunk_size == 200
-        assert transformer.cache_dir == "/tmp/cache"  # nosec B108
+        assert transformer.cache_dir == str(tmp_path / "cache")
 
     def test_tsfelvars_obtener_cols_anterior_default(self):
         """Test obtener_cols_anterior() with default suffix."""
@@ -695,9 +695,9 @@ class TestTsfelVars:
 
         assert cached_fn == transformer._compute
 
-    def test_tsfelvars_get_cached_transform_with_cache_dir(self):
+    def test_tsfelvars_get_cached_transform_with_cache_dir(self, tmp_path):
         """Test _get_cached_transform() returns cached version when cache_dir is set."""
-        transformer = TsfelVars(cache_dir="/tmp/test_cache")  # nosec B108
+        transformer = TsfelVars(cache_dir=str(tmp_path / "test_cache"))
         cached_fn = transformer._get_cached_transform()
 
         # Should return a different function (the cached version)

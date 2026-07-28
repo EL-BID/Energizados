@@ -587,77 +587,81 @@ class TestSourceETLRun:
 class TestIncrementalKeyFiltering:
     """Tests for _filter_by_incremental_key."""
 
-    def _make_etl(self, incremental_key="fecha", last_processed=None, incremental_format=None):
+    def _make_etl(
+        self, tmp_path, incremental_key="fecha", last_processed=None, incremental_format=None
+    ):
         return SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key=incremental_key,
             last_processed=last_processed,
             incremental_format=incremental_format,
         )
 
-    def test_no_prior_state_returns_all_records(self):
-        etl = self._make_etl()
+    def test_no_prior_state_returns_all_records(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame(
             {"fecha": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]), "v": [1, 2, 3]}
         )
         result = etl._filter_by_incremental_key(df)
         assert len(result) == 3
 
-    def test_filters_records_older_than_last_processed(self):
-        etl = self._make_etl(last_processed="2024-01-31")
+    def test_filters_records_older_than_last_processed(self, tmp_path):
+        etl = self._make_etl(tmp_path, last_processed="2024-01-31")
         df = pd.DataFrame(
             {"fecha": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]), "v": [1, 2, 3]}
         )
         result = etl._filter_by_incremental_key(df)
         assert list(result["v"]) == [2, 3]
 
-    def test_updates_state_with_max_value(self):
-        etl = self._make_etl(last_processed="2024-01-31")
+    def test_updates_state_with_max_value(self, tmp_path):
+        etl = self._make_etl(tmp_path, last_processed="2024-01-31")
         df = pd.DataFrame({"fecha": pd.to_datetime(["2024-02-01", "2024-03-15"]), "v": [1, 2]})
         etl._filter_by_incremental_key(df)
         assert "last_processed_value" in etl._state
         assert "2024-03-15" in etl._state["last_processed_value"]
 
-    def test_state_takes_priority_over_constructor_param(self):
-        etl = self._make_etl(last_processed="2024-01-01")
+    def test_state_takes_priority_over_constructor_param(self, tmp_path):
+        etl = self._make_etl(tmp_path, last_processed="2024-01-01")
         etl._state["last_processed_value"] = "2024-02-28"
         df = pd.DataFrame({"fecha": pd.to_datetime(["2024-02-01", "2024-03-01"]), "v": [1, 2]})
         result = etl._filter_by_incremental_key(df)
         # 2024-02-01 is NOT > 2024-02-28, so only March is kept
         assert list(result["v"]) == [2]
 
-    def test_raises_when_incremental_key_not_in_dataframe(self):
-        etl = self._make_etl(incremental_key="missing_col")
+    def test_raises_when_incremental_key_not_in_dataframe(self, tmp_path):
+        etl = self._make_etl(tmp_path, incremental_key="missing_col")
         df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-01"]), "v": [1]})
         with pytest.raises(ETLError, match="incremental_key 'missing_col' not found"):
             etl._filter_by_incremental_key(df)
 
-    def test_coerces_string_column_to_datetime(self):
-        etl = self._make_etl(last_processed="2024-01-31")
+    def test_coerces_string_column_to_datetime(self, tmp_path):
+        etl = self._make_etl(tmp_path, last_processed="2024-01-31")
         df = pd.DataFrame({"fecha": ["2024-01-01", "2024-02-01"], "v": [1, 2]})
         result = etl._filter_by_incremental_key(df)
         assert list(result["v"]) == [2]
 
-    def test_empty_df_after_filter_does_not_update_state(self):
-        etl = self._make_etl(last_processed="2025-01-01")
+    def test_empty_df_after_filter_does_not_update_state(self, tmp_path):
+        etl = self._make_etl(tmp_path, last_processed="2025-01-01")
         df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-01"]), "v": [1]})
         result = etl._filter_by_incremental_key(df)
         assert result.empty
         assert "last_processed_value" not in etl._state
 
-    def test_uses_incremental_format_for_parsing(self):
+    def test_uses_incremental_format_for_parsing(self, tmp_path):
         """When incremental_format is set, parsing uses that format explicitly."""
-        etl = self._make_etl(last_processed="2024-01-31", incremental_format="%d/%m/%Y")
+        etl = self._make_etl(tmp_path, last_processed="2024-01-31", incremental_format="%d/%m/%Y")
         df = pd.DataFrame({"fecha": ["15/01/2024", "28/02/2024"], "v": [1, 2]})
         result = etl._filter_by_incremental_key(df)
         assert list(result["v"]) == [2]
 
-    def test_incremental_format_auto_parse_fallback(self):
+    def test_incremental_format_auto_parse_fallback(self, tmp_path):
         """When incremental_format is None, auto-parse still works."""
-        etl = self._make_etl(last_processed="2024-01-31", incremental_format=None)
+        etl = self._make_etl(tmp_path, last_processed="2024-01-31", incremental_format=None)
         df = pd.DataFrame({"fecha": ["2024-01-01", "2024-02-01"], "v": [1, 2]})
         result = etl._filter_by_incremental_key(df)
         assert list(result["v"]) == [2]
@@ -666,64 +670,64 @@ class TestIncrementalKeyFiltering:
 class TestIncrementalInit:
     """Tests for incremental mode constructor changes (tasks 1.1-1.4)."""
 
-    def test_incremental_format_stored(self):
+    def test_incremental_format_stored(self, tmp_path):
         """incremental_format param is stored on the instance."""
         etl = SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_format="%d/%m/%Y",
         )
         assert etl.incremental_format == "%d/%m/%Y"
 
-    def test_incremental_format_default_is_none(self):
+    def test_incremental_format_default_is_none(self, tmp_path):
         """incremental_format defaults to None (auto-parse)."""
         etl = SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
         )
         assert etl.incremental_format is None
 
-    def test_incremental_partition_default(self):
+    def test_incremental_partition_default(self, tmp_path):
         """incremental_partition defaults to '%Y-%m'."""
         etl = SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
         )
         assert etl.incremental_partition == "%Y-%m"
 
-    def test_incremental_partition_custom(self):
+    def test_incremental_partition_custom(self, tmp_path):
         """incremental_partition can be overridden."""
         etl = SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_partition="%Y",
         )
         assert etl.incremental_partition == "%Y"
 
-    def test_no_auto_default_partition_by(self):
+    def test_no_auto_default_partition_by(self, tmp_path):
         """partition_by is NOT auto-set to ['year', 'month'] in incremental mode."""
         etl = SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
         )
         assert etl.partition_by is None
 
-    def test_partition_by_deprecation_warning_in_incremental(self, caplog):
+    def test_partition_by_deprecation_warning_in_incremental(self, tmp_path, caplog):
         """partition_by in incremental mode triggers deprecation WARNING and is ignored."""
         import logging
 
@@ -732,7 +736,7 @@ class TestIncrementalInit:
                 name="test",
                 mode="incremental",
                 input_paths=["dummy.csv"],
-                output_path="/tmp/out",  # nosec B108
+                output_path=str(tmp_path / "out"),
                 incremental_key="fecha",
                 partition_by=["year", "month"],
             )
@@ -752,18 +756,20 @@ class TestIncrementalInit:
 class TestAddPartitionColumn:
     """Tests for _add_partition_column method (task 2.2)."""
 
-    def _make_etl(self, incremental_partition="%Y-%m"):
+    def _make_etl(self, tmp_path, incremental_partition="%Y-%m"):
         return SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_partition=incremental_partition,
         )
 
-    def test_default_format_creates_partition_column(self):
-        etl = self._make_etl()
+    def test_default_format_creates_partition_column(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame(
             {"fecha": pd.to_datetime(["2024-01-15", "2024-02-10", "2024-12-01"]), "v": [1, 2, 3]}
         )
@@ -771,14 +777,16 @@ class TestAddPartitionColumn:
         assert "partition" in result.columns
         assert list(result["partition"]) == ["2024-01", "2024-02", "2024-12"]
 
-    def test_year_only_format(self):
-        etl = self._make_etl(incremental_partition="%Y")
+    def test_year_only_format(self, tmp_path):
+        etl = self._make_etl(tmp_path, incremental_partition="%Y")
         df = pd.DataFrame({"fecha": pd.to_datetime(["2023-06-15", "2024-01-01"]), "v": [1, 2]})
         result = etl._add_partition_column(df)
         assert list(result["partition"]) == ["2023", "2024"]
 
-    def test_does_not_modify_original_df(self):
-        etl = self._make_etl()
+    def test_does_not_modify_original_df(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame({"fecha": pd.to_datetime(["2024-01-15"]), "v": [1]})
         result = etl._add_partition_column(df)
         assert "partition" not in df.columns
@@ -788,19 +796,21 @@ class TestAddPartitionColumn:
 class TestLoadIncremental:
     """Tests for _load_incremental method (task 2.3)."""
 
-    def _make_etl(self, incremental_partition="%Y-%m"):
+    def _make_etl(self, tmp_path, incremental_partition="%Y-%m"):
         return SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_partition=incremental_partition,
         )
 
-    def test_writes_partition_directories(self):
+    def test_writes_partition_directories(self, tmp_path):
         """_load_incremental writes partition=<val>/data.parquet."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame(
             {
                 "fecha": pd.to_datetime(["2024-01-15", "2024-02-10"]),
@@ -815,9 +825,11 @@ class TestLoadIncremental:
             assert jan_file.exists()
             assert feb_file.exists()
 
-    def test_partition_column_dropped_from_saved_files(self):
+    def test_partition_column_dropped_from_saved_files(self, tmp_path):
         """The 'partition' column is NOT in the saved parquet files."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame(
             {
                 "fecha": pd.to_datetime(["2024-01-15"]),
@@ -832,9 +844,11 @@ class TestLoadIncremental:
             assert "partition" not in saved.columns
             assert list(saved["v"]) == [10]
 
-    def test_appends_to_existing_partition(self):
+    def test_appends_to_existing_partition(self, tmp_path):
         """Writing to an existing partition appends rows."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             # First write
             df1 = pd.DataFrame(
@@ -865,25 +879,29 @@ class TestLoadIncremental:
 class TestReadSingleFile:
     """Tests for _read_single_file helper (task 2.4)."""
 
-    def _make_etl(self):
+    def _make_etl(self, tmp_path):
         return SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
         )
 
-    def test_reads_csv(self):
-        etl = self._make_etl()
+    def test_reads_csv(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             csv_path = Path(tmpdir) / "data.csv"
             pd.DataFrame({"a": [1, 2]}).to_csv(csv_path, index=False)
             result = etl._read_single_file(str(csv_path))
             assert len(result) == 2
 
-    def test_reads_parquet(self):
-        etl = self._make_etl()
+    def test_reads_parquet(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             pq_path = Path(tmpdir) / "data.parquet"
             pd.DataFrame({"a": [3, 4]}).to_parquet(pq_path, index=False)
@@ -891,13 +909,17 @@ class TestReadSingleFile:
             assert len(result) == 2
             assert list(result["a"]) == [3, 4]
 
-    def test_raises_on_missing_file(self):
-        etl = self._make_etl()
+    def test_raises_on_missing_file(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         with pytest.raises(ETLError, match="Error reading"):
             etl._read_single_file("/nonexistent/file.csv")
 
-    def test_raises_on_unsupported_format(self):
-        etl = self._make_etl()
+    def test_raises_on_unsupported_format(self, tmp_path):
+        etl = self._make_etl(
+            tmp_path,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             bad_path = Path(tmpdir) / "data.json"
             bad_path.write_text("{}", encoding="utf-8")
@@ -1441,21 +1463,23 @@ class TestIncrementalEndToEnd:
 class TestWrittenPartitions:
     """Tests for _written_partitions tracking (task 4.2)."""
 
-    def _make_etl(self, **kwargs):
+    def _make_etl(self, tmp_path, **kwargs):
         defaults = dict(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_partition="%Y-%m",
         )
         defaults.update(kwargs)
         return SourceETL(**defaults)
 
-    def test_written_partitions_populated_after_load_incremental(self):
+    def test_written_partitions_populated_after_load_incremental(self, tmp_path):
         """_written_partitions is populated after _load_incremental()."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame(
             {
                 "fecha": pd.to_datetime(["2024-01-15"]),
@@ -1467,9 +1491,11 @@ class TestWrittenPartitions:
             etl._load_incremental(df, tmpdir)
             assert etl._written_partitions == ["2024-01"]
 
-    def test_multiple_partitions_from_single_file(self):
+    def test_multiple_partitions_from_single_file(self, tmp_path):
         """A single file that spans multiple partitions populates all of them."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         df = pd.DataFrame(
             {
                 "fecha": pd.to_datetime(["2024-01-15", "2024-02-10", "2024-03-05"]),
@@ -1481,7 +1507,7 @@ class TestWrittenPartitions:
             etl._load_incremental(df, tmpdir)
             assert etl._written_partitions == ["2024-01", "2024-02", "2024-03"]
 
-    def test_reset_at_start_of_run(self):
+    def test_reset_at_start_of_run(self, tmp_path):
         """_written_partitions is reset to [] at the start of run()."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
@@ -1493,6 +1519,7 @@ class TestWrittenPartitions:
             df.to_parquet(raw_file, index=False)
 
             etl = self._make_etl(
+                tmp_path,
                 input_paths=[str(raw_file)],
                 output_path=str(output_dir),
                 state_file=str(state_file),
@@ -1505,9 +1532,11 @@ class TestWrittenPartitions:
             assert "old-stale" not in etl._written_partitions
             assert etl._written_partitions == ["2024-03"]
 
-    def test_accumulates_across_multiple_load_calls(self):
+    def test_accumulates_across_multiple_load_calls(self, tmp_path):
         """_written_partitions accumulates across successive _load_incremental calls."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             df1 = pd.DataFrame(
                 {
@@ -1547,13 +1576,13 @@ class TestAutoInferredStateFile:
             )
             assert etl.state_file == str(output_dir / ".etl_state.json")
 
-    def test_explicit_state_file_preserved(self):
+    def test_explicit_state_file_preserved(self, tmp_path):
         """When state_file is explicitly provided, it is used unchanged."""
         etl = SourceETL(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             state_file=".cache/custom_state.json",
         )
@@ -1699,19 +1728,19 @@ class TestUnifiedState:
 class TestManifestWrite:
     """Tests for manifest fields in unified state file (task 4.1)."""
 
-    def _make_etl(self, **kwargs):
+    def _make_etl(self, tmp_path, **kwargs):
         defaults = dict(
             name="test",
             mode="incremental",
             input_paths=["dummy.csv"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_partition="%Y-%m",
         )
         defaults.update(kwargs)
         return SourceETL(**defaults)
 
-    def test_manifest_json_content_after_run(self):
+    def test_manifest_json_content_after_run(self, tmp_path):
         """Unified state file contains manifest fields after a successful run."""
         import json
 
@@ -1731,6 +1760,7 @@ class TestManifestWrite:
             state_file = tmpdir_path / "state.json"
 
             etl = self._make_etl(
+                tmp_path,
                 input_paths=[str(raw_file)],
                 output_path=str(output_dir),
                 state_file=str(state_file),
@@ -1758,7 +1788,7 @@ class TestManifestWrite:
 
             assert "processed_files" in state
 
-    def test_manifest_not_written_on_empty_run(self):
+    def test_manifest_not_written_on_empty_run(self, tmp_path):
         """Unified state file is NOT rewritten when no new data is processed (empty run)."""
         import json
 
@@ -1778,6 +1808,7 @@ class TestManifestWrite:
             output_dir = tmpdir_path / "processed"
 
             etl = self._make_etl(
+                tmp_path,
                 input_paths=[str(raw_file)],
                 output_path=str(output_dir),
                 state_file=str(state_file),
@@ -1790,7 +1821,7 @@ class TestManifestWrite:
             assert "run_id" not in state, "state must NOT contain manifest fields on empty run"
             assert "new_partitions" not in state
 
-    def test_manifest_path_derived_from_state_file_dir(self):
+    def test_manifest_path_derived_from_state_file_dir(self, tmp_path):
         """Manifest fields are in the unified state file (same path as state_file)."""
         import json
 
@@ -1808,6 +1839,7 @@ class TestManifestWrite:
             output_dir = tmpdir_path / "processed"
 
             etl = self._make_etl(
+                tmp_path,
                 input_paths=[str(raw_file)],
                 output_path=str(output_dir),
                 state_file=str(state_file),
@@ -1822,7 +1854,7 @@ class TestManifestWrite:
 
             assert state["new_partitions"] == ["2024-05"]
 
-    def test_manifest_atomic_write_no_tmp_left(self):
+    def test_manifest_atomic_write_no_tmp_left(self, tmp_path):
         """After successful write, no .tmp file is left behind."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
@@ -1835,6 +1867,7 @@ class TestManifestWrite:
             state_file = tmpdir_path / "state.json"
 
             etl = self._make_etl(
+                tmp_path,
                 input_paths=[str(raw_file)],
                 output_path=str(output_dir),
                 state_file=str(state_file),
@@ -1877,21 +1910,23 @@ class TestManifestWrite:
 class TestDirectoryInputIncremental:
     """Tests for directory input handling in incremental mode (task 4.3)."""
 
-    def _make_etl(self, **kwargs):
+    def _make_etl(self, tmp_path, **kwargs):
         defaults = dict(
             name="test",
             mode="incremental",
             input_paths=["dummy"],
-            output_path="/tmp/out",  # nosec B108
+            output_path=str(tmp_path / "out"),
             incremental_key="fecha",
             incremental_partition="%Y-%m",
         )
         defaults.update(kwargs)
         return SourceETL(**defaults)
 
-    def test_read_single_file_reads_parquet_directory(self):
+    def test_read_single_file_reads_parquet_directory(self, tmp_path):
         """_read_single_file() reads a Hive-style partitioned parquet directory."""
-        etl = self._make_etl()
+        etl = self._make_etl(
+            tmp_path,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir) / "partitioned"
             base.mkdir()
@@ -1913,7 +1948,7 @@ class TestDirectoryInputIncremental:
             assert len(result) == 2
             assert set(result["v"]) == {10, 20}
 
-    def test_extract_incremental_processes_directory_input(self):
+    def test_extract_incremental_processes_directory_input(self, tmp_path):
         """_extract_incremental() accepts a directory path (from @ref)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
@@ -1930,6 +1965,7 @@ class TestDirectoryInputIncremental:
             df.to_parquet(input_dir / "data.parquet", index=False)
 
             etl = self._make_etl(
+                tmp_path,
                 input_paths=[str(input_dir)],
                 output_path=str(tmpdir_path / "processed"),
             )

@@ -143,32 +143,32 @@ def parquet_splits(temp_dir):
 
 
 class TestResolveModelNames:
-    def _step(self):
-        return TrainingStep(models_configs=[], output_dir="/tmp/x")  # nosec B108
+    def _step(self, tmp_path):
+        return TrainingStep(models_configs=[], output_dir=str(tmp_path / "x"))
 
-    def test_explicit_names_used(self):
-        step = self._step()
+    def test_explicit_names_used(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"name": "lgbm", "type": "lightgbm"}, {"name": "cat", "type": "catboost"}]
         assert step._resolve_model_names(cfgs) == ["lgbm", "cat"]
 
-    def test_unique_types_use_type_string(self):
-        step = self._step()
+    def test_unique_types_use_type_string(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"type": "lightgbm"}, {"type": "catboost"}]
         assert step._resolve_model_names(cfgs) == ["lightgbm", "catboost"]
 
-    def test_duplicate_types_get_suffix(self):
-        step = self._step()
+    def test_duplicate_types_get_suffix(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"type": "lightgbm"}, {"type": "lightgbm"}]
         names = step._resolve_model_names(cfgs)
         assert names == ["lightgbm_0", "lightgbm_1"]
 
-    def test_three_duplicates(self):
-        step = self._step()
+    def test_three_duplicates(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"type": "lightgbm"}] * 3
         assert step._resolve_model_names(cfgs) == ["lightgbm_0", "lightgbm_1", "lightgbm_2"]
 
-    def test_mixed_explicit_and_auto(self):
-        step = self._step()
+    def test_mixed_explicit_and_auto(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [
             {"name": "my_lgbm", "type": "lightgbm"},
             {"type": "catboost"},
@@ -179,8 +179,8 @@ class TestResolveModelNames:
         assert names[1] == "catboost_0"
         assert names[2] == "catboost_1"
 
-    def test_single_model_uses_type(self):
-        step = self._step()
+    def test_single_model_uses_type(self, tmp_path):
+        step = self._step(tmp_path)
         assert step._resolve_model_names([{"type": "catboost"}]) == ["catboost"]
 
 
