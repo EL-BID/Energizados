@@ -27,15 +27,6 @@ jobs:
           cache: pip
       - name: Install
         run: pip install -e ".[dev,web]"
-      - name: Fetch base ref
-        # actions/checkout@v4 defaults to fetch-depth: 1, which does NOT
-        # include the PR's base ref. The Lint step needs origin/<base_ref>
-        # to compute the diff, so fetch it explicitly here. The refspec
-        # below stores the fetched commit under refs/remotes/origin/<base_ref>
-        # so the Lint step can use the standard `origin/<base_ref>` ref.
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: git fetch --depth=1 origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
       - name: Lint
         # Only lint files changed in this PR (vs the base branch). The
         # repo has pre-existing pre-commit issues in untouched files
@@ -49,11 +40,7 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          # Two-dot diff (not three-dot): three-dot needs a merge base, which
-          # the shallow fetch above doesn't provide. Two-dot gives the direct
-          # diff between the base ref's tip and HEAD's tip — which is exactly
-          # the PR's changes for a linear PR branch.
-          CHANGED=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}..HEAD)
+          CHANGED=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}...HEAD)
           if [ -n "$CHANGED" ]; then
             echo "Linting changed files:"
             echo "$CHANGED"
@@ -64,13 +51,6 @@ jobs:
       - name: Fast tests
         run: pytest -m "not slow" -q --no-cov -x
       - name: Doctor smoke
-        # Doctor may report missing optional packages in the CI runner (e.g.
-        # scikit-learn on a fresh `pip install -e .[dev,web]`). The doctor
-        # itself is not the test surface of this PR — it surfaces pre-existing
-        # environment quirks. Don't block the PR on doctor output; we only
-        # want to fail if the doctor command itself crashes (non-zero exit
-        # other than 1, which is the documented "missing packages" code).
-        continue-on-error: true
         run: energizados doctor
       - name: Init smoke (non-interactive)
         # bash required on Windows: mktemp/ls are not PowerShell built-ins.

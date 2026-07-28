@@ -890,6 +890,20 @@ The exception hierarchy in `src/energizados/core/exceptions.py` is a **stable pu
 - Check pre-commit rules and ensure controls pass.
 - Do NOT use `print` for logging. Use the Python `logging` module instead.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `EL-BID/Energizados` (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at the repo root + `docs/adr/` for ADRs. See `docs/agents/domain.md`.
+
 ## Release & Changelog Conventions
 
 This project follows [Keep a Changelog](https://keepachangelog.com/) and
