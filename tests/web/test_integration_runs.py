@@ -284,11 +284,23 @@ class TestRunsIntegration:
                 assert "/runs/train-20240101_120000" not in job_content
 
         finally:
-            # Clean up temp database
+            # Clean up temp database.
+            # JobStore opens a fresh SQLite connection per operation; on Windows
+            # these survive until GC and hold an exclusive lock, so os.unlink
+            # fails with WinError 32. Force GC to release handles and retry once.
+            import gc
             import os
+            import time
 
-            if os.path.exists(db_path):
-                os.unlink(db_path)
+            gc.collect()
+            try:
+                if os.path.exists(db_path):
+                    os.unlink(db_path)
+            except PermissionError:
+                time.sleep(0.1)
+                gc.collect()
+                if os.path.exists(db_path):
+                    os.unlink(db_path)
 
     def test_6_3_artifact_traversal_comprehensive(self, integration_client_with_runs):
         """
