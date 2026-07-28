@@ -38,10 +38,10 @@ infer:
 | `model_path` | string | auto-detected | Path to trained model file. If omitted, auto-detects from latest training run. |
 | `feature_engineering_path` | string | auto-detected | Path to feature engineering pipeline. If omitted, auto-detects from same run as model. |
 | `output_base_dir` | string | `"output"` | Base directory to search for latest training run |
-| `output_include_input` | bool | `false` | Include original input columns in output |
+| `output_include_input` | bool | `false` | **DEPRECATED.** Prepend ALL original input columns. Kept for backward compatibility — emits a `DeprecationWarning`; prefer `output_columns`. Ignored (with a warning) when `output_columns` is set. |
 | `output_format` | string | `"csv"` | Output format: `"csv"` or `"parquet"` |
 | `columns_filter` | dict | `null` | Filter rows by column values BEFORE FE. Supports equality, operators (>, <, >=, <=, !=, like), and pandas `_expr` |
-| `output_columns` | list | `null` | Select specific columns for output |
+| `output_columns` | list | `null` | **Self-sufficient** final column selection over `[input + prediction + probability + rule_*]`. Input columns named here are included automatically (no `output_include_input` needed); unlisted columns are dropped (omit `prediction` to exclude it). If absent, defaults to `[prediction, probability]` (+ `rule_*`). |
 
 ---
 
@@ -149,6 +149,8 @@ prediction,probability
 ```
 
 If your input data has an index column, the output will preserve that index. Otherwise, row numbers are used.
+
+> 💡 **Customize the output columns** with `output_columns` — it is self-sufficient (input columns named in it are included automatically, no `output_include_input` needed) and lets you drop `prediction` by simply omitting it. See [Inference with Custom Output Columns](#inference-with-custom-output-columns) below.
 
 ---
 
@@ -308,7 +310,7 @@ infer:
 
 ### Inference with Custom Output Columns
 
-Select specific columns for the output CSV:
+Select specific columns for the output CSV. `output_columns` is **self-sufficient** — input columns named in it are included automatically (no `output_include_input` needed), and omitting `prediction` drops it:
 
 ```yaml
 infer:
@@ -318,18 +320,18 @@ infer:
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  
-  # Include input columns in output
-  output_include_input: true
-  
-  # Select specific columns for output
+
+  # output_columns selects the FINAL output columns, in order. Input columns
+  # (cliente, actividad, zona) are included automatically; 'prediction' is
+  # omitted → not generated.
   output_columns:
     - cliente
     - actividad
     - zona
-    - prediction
     - probability
 ```
+
+> ⚠️ `output_include_input` is **deprecated**. If set together with `output_columns`, `output_columns` wins and `output_include_input` is ignored (with a `DeprecationWarning`). Use it only for the legacy “include ALL input columns” behavior (`output_include_input: true` without `output_columns`).
 
 ---
 

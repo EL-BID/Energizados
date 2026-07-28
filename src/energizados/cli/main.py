@@ -7,7 +7,7 @@ This module defines main command and available subcommands.
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import click
 from rich.panel import Panel
@@ -16,7 +16,7 @@ from rich.tree import Tree
 logger = logging.getLogger(__name__)
 
 
-def _setup_logging(verbose: int = 0, log_file: str = None):
+def _setup_logging(verbose: int = 0, log_file: Optional[str] = None):
     """
     Configures logging for the CLI.
 
@@ -440,40 +440,26 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
             return
 
         # Execute complete pipeline.
-        # When a step type appears more than once (e.g. train_01,train_02),
-        # merging would overwrite the first config with the second.
-        # Strategy:
-        #   - shared configs (one per step type) → single merged run
-        #   - repeated configs (same step type > 1) → one run each
+        # Group configs into ordered execution runs that preserve the order
+        # the user passed them. A step type appearing more than once (e.g.
+        # train_01,train_02) runs once per config; otherwise consecutive
+        # unique types coalesce into one merged pipeline.
         # Examples:
-        #   etl,train              → one merged run  (no repeated types)
-        #   train_01,train_02      → run train_01, then run train_02
-        #   etl,eda,train_01,train_02 → run etl+eda once, then train_01, then train_02
+        #   etl,train              → one merged run [etl,train]
+        #   train_01,train_02      → two runs [train_01],[train_02]
+        #   etl,train_01,train_02  → [etl],[train_01],[train_02]
+        #   etl*,train*,infer      → etls, then trains, then infer LAST
         from energizados.api.run_state import RunResult
-        from energizados.cli.run import split_configs_by_type
+        from energizados.cli.run import build_ordered_runs
 
-        shared, repeated_runs = split_configs_by_type(config_paths)
+        runs = build_ordered_runs(config_paths)
 
         if json:
-            # For JSON output, we need to collect all results
+            # For JSON output, collect all results in order
             all_results = []
-            if repeated_runs:
-                if shared:
-                    result = execute_pipeline(
-                        shared, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
-                    )
-                    all_results.append(RunResult.from_context(result).to_dict())
-                for per_run_paths in repeated_runs:
-                    result = execute_pipeline(
-                        per_run_paths,
-                        run_name=name,
-                        overwrite=overwrite,
-                        profile_memory=verbose >= 2,
-                    )
-                    all_results.append(RunResult.from_context(result).to_dict())
-            else:
+            for run_paths in runs:
                 result = execute_pipeline(
-                    config_paths, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+                    run_paths, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
                 )
                 all_results.append(RunResult.from_context(result).to_dict())
 
@@ -483,22 +469,10 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
             else:
                 _output_json({"runs": all_results})
         else:
-            # Normal human-readable output
-            if repeated_runs:
-                if shared:
-                    execute_pipeline(
-                        shared, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
-                    )
-                for per_run_paths in repeated_runs:
-                    execute_pipeline(
-                        per_run_paths,
-                        run_name=name,
-                        overwrite=overwrite,
-                        profile_memory=verbose >= 2,
-                    )
-            else:
+            # Normal human-readable output — execute each run in order
+            for run_paths in runs:
                 execute_pipeline(
-                    config_paths, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
+                    run_paths, run_name=name, overwrite=overwrite, profile_memory=verbose >= 2
                 )
 
     except ConfigResolutionError as e:

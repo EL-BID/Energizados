@@ -171,45 +171,77 @@ def all_same_step_type(config_paths: List[str]) -> bool:
     return len(set(types)) == 1 and types[0] is not None
 
 
-def split_configs_by_type(
-    config_paths: List[str],
-) -> tuple[List[str], List[List[str]]]:
+def build_ordered_runs(config_paths: List[str]) -> List[List[str]]:
     """
-    Split configs into shared (one per step type) and repeated (multiple per type) groups.
+    Group config paths into ordered execution runs, preserving the user's order.
 
-    Returns (shared, repeated_runs):
-    - shared: paths where the step type appears exactly once — run together once
-    - repeated_runs: one [path] per config for step types that appear more than once
+    Each returned run is a list of paths executed together in ONE merged pipeline.
+    Runs are returned in the exact order the user passed the configs, so
+    ``energizados run 'etl*','train*','infer'`` always runs all ETLs first, then
+    all trains, then inference — regardless of how many files each wildcard
+    expands to.
+
+    Grouping rules (applied left-to-right over ``config_paths``):
+    - A step type that appears MORE than once globally runs once per config,
+      each in its own single-path run, in user order.
+    - A step type that appears ONCE can be merged with adjacent unique types into
+      a single run (consecutive unique types coalesce into one merged pipeline).
+    - The relative order of every config is always preserved.
 
     Examples:
-        [etl, train]                   → shared=[etl, train],  repeated=[]
-        [train_01, train_02]           → shared=[],            repeated=[[train_01], [train_02]]
-        [etl, eda, train_01, train_02] → shared=[etl, eda],    repeated=[[train_01], [train_02]]
-        [etl, train_01, train_02]      → shared=[etl],         repeated=[[train_01], [train_02]]
-        [exp03, exp04]                 → shared=[],            repeated=[[exp03], [exp04]]
-        [etl, exp03, exp04]            → shared=[etl],         repeated=[[exp03], [exp04]]
+        [etl, train, infer]             → [[etl, train, infer]]
+        [train_01, train_02]            → [[train_01], [train_02]]
+        [etl, eda, train_01, train_02]  → [[etl, eda], [train_01], [train_02]]
+        [etl, train_01, train_02]       → [[etl], [train_01], [train_02]]
+        [etl, train_01, train_02, infer]→ [[etl], [train_01], [train_02], [infer]]
+        [etl_a, etl_b, train, infer]    → [[etl_a], [etl_b], [train, infer]]
+
+    Args:
+        config_paths: Resolved config file paths in user-specified order.
+
+    Returns:
+        Ordered list of runs; each run is a list of paths for one merged pipeline.
+        Always returns at least one run when ``config_paths`` is non-empty.
     """
-    groups: Dict[str, List[str]] = {}
+    from collections import Counter
+
+    # Count occurrences of each step type across ALL paths (global view)
+    type_counts: Counter = Counter()
     for path in config_paths:
-        step_type = _get_step_type(Path(path).stem)
-        # Unknown types use the stem as key so each gets its own group
-        groups.setdefault(step_type if step_type is not None else Path(path).stem, []).append(path)
+        key = _step_type_key(path)
+        type_counts[key] += 1
 
-    shared: List[str] = []
-    repeated_runs: List[List[str]] = []
+    runs: List[List[str]] = []
+    current_run: List[str] = []
+    current_types: set = set()
 
-    for step_type_key, paths in groups.items():
-        # Configs with unknown step type (not etl/eda/train/etc.) always run individually
-        is_unknown_type = (
-            _get_step_type(step_type_key) is None and step_type_key not in _CONFIG_TO_STEPS
-        )
-        if is_unknown_type or len(paths) > 1:
-            for path in paths:
-                repeated_runs.append([path])
+    for path in config_paths:
+        key = _step_type_key(path)
+        is_multi = type_counts[key] > 1
+
+        # A repeated type, or a type already accumulated in the current run,
+        # must flush the current run and start its own.
+        if is_multi or key in current_types:
+            if current_run:
+                runs.append(current_run)
+                current_run = []
+                current_types = set()
+            runs.append([path])
         else:
-            shared.extend(paths)
+            current_run.append(path)
+            current_types.add(key)
 
-    return shared, repeated_runs
+    if current_run:
+        runs.append(current_run)
+
+    return runs
+
+
+def _step_type_key(path: str) -> str:
+    """Return the dispatch key for a config path: its step type, or the stem if unknown."""
+    stem = Path(path).stem
+    step_type = _get_step_type(stem)
+    return step_type if step_type is not None else stem
 
 
 def _determine_execution_order(pipeline, config_names: List[str]) -> List[str]:
@@ -371,7 +403,7 @@ def execute_pipeline(
             current_section[0] = section
         return active_progress[0]
 
-    def on_step_start(name, i, total):
+    def on_step_start(name: str, i: int, total: int) -> None:
         section = STEP_SECTIONS.get(name, name)
         progress = _ensure_section(section)
 
@@ -388,7 +420,13 @@ def execute_pipeline(
             )
             step_task_ids[name] = task_id
 
-    def on_phase_update(step_name, phase, pct, total_phases, metrics=None):
+    def on_phase_update(
+        step_name: str,
+        phase: str,
+        pct: int,
+        total_phases: Optional[int],
+        metrics: Optional[Dict[str, int]] = None,
+    ) -> None:
         progress = active_progress[0]
         if progress is None:
             return
@@ -421,7 +459,9 @@ def execute_pipeline(
         except Exception:  # nosec
             pass
 
-    def on_step_complete(name, i, total, metrics=None):
+    def on_step_complete(
+        name: str, i: int, total: int, metrics: Optional[Dict[str, int]] = None
+    ) -> None:
         progress = active_progress[0]
         if progress is None:
             return
@@ -448,7 +488,7 @@ def execute_pipeline(
         if metrics:
             profile_rows.append((STEP_NAMES.get(name, name), metrics))
 
-    def on_step_error(name, err):
+    def on_step_error(name: str, err: BaseException) -> None:
         progress = active_progress[0]
         if progress is not None:
             task_id = step_task_ids.get(name)
@@ -609,22 +649,25 @@ def execute_step(
     step_name: str,
     run_name: Optional[str] = None,
     overwrite: bool = False,
+    profile_memory: bool = False,
 ) -> Dict[str, Any]:
     """
-    Executes a single step of the pipeline.
+        Executes a single step of the pipeline.
 
-    Args:
-        config_paths: List of paths to YAML configuration files
-        step_name: Name of the step to execute
-        run_name: Optional custom run directory name
-        overwrite: If True, overwrite existing run directory
+        Args:
+            config_paths: List of paths to YAML configuration files
+            step_name: Name of the step to execute
+            run_name: Optional custom run directory name
+            overwrite: If True, overwrite existing run directory
+            profile_memory: When True, sample RSS around the step's execution
+    (enabled by the CLI under ``-vv``).
 
-    Returns:
-        Dict: Updated context after the step
+        Returns:
+            Dict: Updated context after the step
 
-    Raises:
-        ConfigurationError: If there are configuration errors
-        PipelineError: If the step does not exist or there are errors during execution
+        Raises:
+            ConfigurationError: If there are configuration errors
+            PipelineError: If the step does not exist or there are errors during execution
     """
     # Step name mapping
     step_map = {
@@ -660,6 +703,9 @@ def execute_step(
     # Replace pipeline steps
     pipeline.steps = filtered_steps
 
+    # Enable memory profiling when requested (consistent with execute_pipeline)
+    pipeline.profile_memory = profile_memory
+
     # Execute only the selected step
     result = pipeline.run()
 
@@ -672,7 +718,7 @@ def execute_step(
 
 
 def execute_etl(
-    config_paths: List[str], etl_name: str = None, dry_run: bool = False
+    config_paths: List[str], etl_name: Optional[str] = None, dry_run: bool = False
 ) -> Dict[str, Any]:
     """
     Executes ETLs from configuration.
@@ -815,14 +861,17 @@ def _get_etl_with_dependencies(etl_configs: Dict[str, Dict], etl_name: str) -> D
     return result
 
 
-def show_etl_plan(config_paths: List[str]) -> str:
+def show_etl_plan(config_paths: List[str]) -> Dict[str, Any]:
     """Shows the ETL execution plan without executing them.
+
+    Prints the plan to the console and returns an empty dict (the dry-run
+    contract of :func:`execute_etl`).
 
     Args:
         config_paths: List of paths to YAML configuration files.
 
     Returns:
-        Formatted execution plan as a string.
+        Empty dict (the plan is emitted to the console as a side effect).
 
     Raises:
         ConfigurationError: If there are configuration errors.

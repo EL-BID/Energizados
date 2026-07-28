@@ -43,9 +43,9 @@ class PipelineDirector:
 
     def __init__(
         self,
-        config_path: str = None,
-        config: Dict = None,
-        config_paths: List[str] = None,
+        config_path: Optional[str] = None,
+        config: Optional[Dict] = None,
+        config_paths: Optional[List[str]] = None,
         run_name: Optional[str] = None,
         overwrite: bool = False,
         run_type: Optional[str] = None,

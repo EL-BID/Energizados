@@ -448,7 +448,15 @@ INFERENCE_SCHEMA = {
         "output_columns": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Column names to include in the output file.",
+            "description": (
+                "Authoritative, self-sufficient final column selection for the output "
+                "file, applied over the combined [input + prediction + probability + "
+                "rule_*] frame. Input columns named here are included automatically "
+                "(no output_include_input needed); unlisted columns are dropped (so "
+                "omitting 'prediction' excludes it). If absent, output defaults to "
+                "[prediction, probability] (+ rule_*); the deprecated "
+                "output_include_input: true still prepends all input columns."
+            ),
         },
         "output_base_dir": {"type": "string"},
         "segment_thresholds": {

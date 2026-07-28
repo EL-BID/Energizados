@@ -389,10 +389,47 @@ def _make_mock_model(proba_values=None):
 
     def _predict_proba(X):
         n = len(X)
-        return np.array(_proba[:n] if len(_proba) >= n else _proba * (n // len(_proba) + 1))
+        if n == 0 or not _proba:
+            return np.array([])
+        # Cycle through ``_proba`` to return EXACTLY n probabilities.
+        # The previous branch ``_proba * (n // len(_proba) + 1)`` over-returned
+        # when len(_proba) did not divide n (e.g. [0.5,0.5] * 3 == 6 for n=4),
+        # silently yielding more predictions than input rows and masking
+        # downstream concat/alignment bugs.
+        return np.array([_proba[i % len(_proba)] for i in range(n)])
 
     model.predict_proba = _predict_proba
     return model
+
+
+class TestMockModelHelper:
+    """Guards for the ``_make_mock_model`` predict_proba helper."""
+
+    def test_predict_proba_returns_exactly_n_rows(self):
+        """predict_proba must return exactly len(X) probabilities.
+
+        Regression: the helper previously over-returned when
+        ``len(proba_values)`` did not divide ``n`` (e.g. ``[0.5, 0.5]`` for
+        ``n=4`` yielded 6 values), masking downstream concat/alignment bugs
+        in the enriched InferenceStep output.
+        """
+        model = _make_mock_model([0.5, 0.5])
+        out = model.predict_proba(np.zeros((4, 2)))
+        assert len(out) == 4
+        assert set(np.unique(out).tolist()) == {0.5}
+
+    def test_predict_proba_cycles_values_when_proba_shorter_than_n(self):
+        """Distinct proba values cycle to fill exactly n rows."""
+        model = _make_mock_model([0.3, 0.7])
+        out = model.predict_proba(np.zeros((5, 2)))
+        assert len(out) == 5
+        assert out.tolist() == [0.3, 0.7, 0.3, 0.7, 0.3]
+
+    def test_predict_proba_empty_input(self):
+        """Empty input yields an empty probability array (no IndexError)."""
+        model = _make_mock_model([0.3, 0.7])
+        out = model.predict_proba(np.zeros((0, 2)))
+        assert len(out) == 0
 
 
 class TestInferenceStepStandalone:
@@ -987,3 +1024,51 @@ class TestColumnsFilterOperators:
         # After _expr (zona == 'B'): rows 1 and 3 (consumo 200 y 400)
         # After consumption filter (> 150): 200, 400 are both > 150 -> 2 rows
         assert len(result["predictions"]) == 2
+
+    def test_columns_filter_with_include_input_no_padding(self, temp_dir):
+        """columns_filter + output_include_input must not pad filtered-out rows.
+
+        Regression: ``original_data`` was captured BEFORE ``columns_filter``, so
+        ``include_input`` prepended the full (pre-filter) input and the outer
+        ``pd.concat`` padded prediction/probability with NaN for the filtered-out
+        rows. The enriched output must contain exactly the filtered rows.
+        """
+        from energizados.core.builders.inference_builder import InferenceBuilder
+
+        mock_model = _make_mock_model([0.5] * 5)
+        input_data = pd.DataFrame(
+            {
+                "zona": ["A", "B", "C", "A", "B"],
+                "consumo_1_anterior": [100, 200, 300, 400, 500],
+            }
+        )
+        input_path = temp_dir / "input.parquet"
+        input_data.to_parquet(input_path, index=False)
+        output_path = temp_dir / "predictions.csv"
+
+        config = {
+            "input_path": str(input_path),
+            "output_path": str(output_path),
+            "output_include_input": True,
+            "output_format": "csv",
+            "columns_filter": {"zona": ["A", "B"]},
+            "threshold": 0.5,
+        }
+        builder = InferenceBuilder(config)
+        step = builder.build()
+
+        context = {"model": mock_model}
+        step.execute(context)
+
+        assert output_path.exists()
+        df = pd.read_csv(output_path)
+        # Input had 5 rows; filter keeps A(2) + B(2) = 4. Output MUST be 4,
+        # not 5 with a NaN-padded prediction on the filtered-out 'C' row.
+        assert len(df) == 4, f"Expected 4 output rows, got {len(df)}"
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
+        # No NaN predictions/probabilities allowed.
+        assert df["prediction"].isna().sum() == 0
+        assert df["probability"].isna().sum() == 0
+        # Enriched rows must correspond to the kept segments only.
+        assert set(df["zona"]) == {"A", "B"}

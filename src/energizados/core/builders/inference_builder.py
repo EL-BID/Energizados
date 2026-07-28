@@ -6,6 +6,7 @@ This module constructs inference pipeline steps from configuration.
 
 import json
 import logging
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -162,6 +163,13 @@ class InferenceBuilder(StepBuilder):
                 """
                 from energizados.core.utils.secure_pickle import secure_load
 
+                # ``_model_path`` is reused by the metadata sidecar below.
+                # Hierarchical inference loads its own route models, so there is
+                # no single on-disk model path — default to None and let the
+                # non-hierarchical branch reassign it. Without this default the
+                # sidecar call raised NameError under hierarchical inference.
+                _model_path: Optional[str] = None
+
                 # --- Hierarchical inference: loads its own models ---
                 if hasattr(self.inference, "routes") and self.inference.routes:
                     model = self.inference.load_model()
@@ -206,16 +214,12 @@ class InferenceBuilder(StepBuilder):
                 )
                 if _input_path:
                     data = pd.read_parquet(_input_path)
-                    # Keep original input for enrichment
-                    original_data = data.copy()
                     logger.info(f"Loaded inference data: {len(data):,} records")
                 elif "inference_data" in context:
                     data = context["inference_data"]
-                    original_data = data.copy()
                     logger.info(f"Using inference_data from context: {len(data):,} records")
                 elif "X_test" in context:
                     data = context["X_test"]
-                    original_data = data.copy()
                     logger.info(f"Using X_test from context: {len(data):,} records")
                 else:
                     raise ValueError("No inference data found")
@@ -226,6 +230,11 @@ class InferenceBuilder(StepBuilder):
                     logger.info(
                         f"  • columns_filter: removed {filtered_count:,} rows, {len(data):,} remaining"
                     )
+
+                # Keep the POST-filter input for enriched output. Captured AFTER
+                # columns_filter so output_include_input aligns with the predicted rows;
+                # capturing it pre-filter padded filtered-out rows with NaN predictions.
+                original_data = data.copy()
 
                 # --- Capture RAW data BEFORE feature engineering for business_rules ---
                 # Business rules evaluate pandas expressions against original
@@ -323,6 +332,29 @@ class InferenceBuilder(StepBuilder):
                     _include_input = self.config.get("output_include_input", False)
                     _fmt = self.config.get("output_format", "csv")
 
+                    # output_columns is the self-sufficient, forward-looking
+                    # selector; output_include_input is deprecated. Warn so users
+                    # migrate, but keep the legacy behavior working.
+                    if _include_input:
+                        if self.output_columns:
+                            warnings.warn(
+                                "`infer.output_include_input` is ignored because "
+                                "`output_columns` is set; output_columns selects the "
+                                "output columns (input columns are included automatically "
+                                "when named in the list).",
+                                DeprecationWarning,
+                                stacklevel=2,
+                            )
+                        else:
+                            warnings.warn(
+                                "`infer.output_include_input` is deprecated; use "
+                                "`output_columns` to select output columns explicitly "
+                                "(input columns named there are included automatically). "
+                                "`output_include_input: true` still includes all input columns.",
+                                DeprecationWarning,
+                                stacklevel=2,
+                            )
+
                     self._save_output(
                         original_data,
                         predictions,
@@ -338,6 +370,7 @@ class InferenceBuilder(StepBuilder):
                         predictions,
                         _fmt,
                         _include_input,
+                        self.output_columns,
                     )
                     logger.info(f"Predictions saved to: {_output_path}")
                     # ADR-0001: surface predictions path for run-metadata output_paths.
@@ -394,17 +427,39 @@ class InferenceBuilder(StepBuilder):
                 if rules_df is not None and not rules_df.empty:
                     result = pd.concat([result, rules_df.reset_index(drop=True)], axis=1)
 
-                # Apply output_columns filter if specified
+                input_columns = set(original_data.columns)
+
                 if self.output_columns:
-                    available_cols = list(result.columns)
+                    # output_columns is SELF-SUFFICIENT: it is the authoritative
+                    # final selector over [input + prediction + probability +
+                    # rule_*]. Input columns named in it are included
+                    # automatically — no output_include_input needed. Make the
+                    # input frame available when any requested column is an input
+                    # column, then select exactly the listed columns in order.
+                    if any(c in input_columns for c in self.output_columns):
+                        result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
+
+                    available_cols = set(result.columns)
                     valid_cols = [c for c in self.output_columns if c in available_cols]
+                    missing = [c for c in self.output_columns if c not in available_cols]
+                    if missing:
+                        logger.warning(
+                            f"output_columns: {len(missing)} column(s) not found in "
+                            f"output and skipped: {missing}."
+                        )
                     if valid_cols:
                         result = result[valid_cols]
                         logger.info(
                             f"  • output_columns: selected {len(valid_cols)} columns: {valid_cols}"
                         )
-
-                if include_input:
+                    else:
+                        logger.warning(
+                            "output_columns: no requested column matched the output; "
+                            "writing all available columns."
+                        )
+                elif include_input:
+                    # Legacy path (deprecated): no output_columns, so prepend ALL
+                    # input columns when output_include_input is true.
                     result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
 
                 Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -421,6 +476,7 @@ class InferenceBuilder(StepBuilder):
                 predictions,
                 output_format: str,
                 include_input: bool,
+                output_columns: Optional[List[str]] = None,
             ) -> None:
                 """Write a .metadata.json sidecar next to the output file.
 
@@ -430,6 +486,9 @@ class InferenceBuilder(StepBuilder):
                     predictions: Predictions array (used for row count).
                     output_format: "csv" or "parquet".
                     include_input: Whether input columns were included.
+                    output_columns: Authoritative final column selection applied
+                        to the output (None = default columns kept). Recorded for
+                        auditability.
                 """
                 # Read model hash from .sig file if available
                 model_hash = None
@@ -445,6 +504,7 @@ class InferenceBuilder(StepBuilder):
                     "row_count": len(predictions),
                     "output_format": output_format,
                     "include_input": include_input,
+                    "output_columns": output_columns,
                 }
 
                 metadata_path = Path(str(output_path) + ".metadata.json")

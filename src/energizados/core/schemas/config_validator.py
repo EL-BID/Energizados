@@ -276,6 +276,16 @@ class ConfigValidator:
                     )
                 )
 
+        # Validate output_columns if present (must be a list of strings)
+        if "output_columns" in inf_config:
+            cols = inf_config["output_columns"]
+            if not isinstance(cols, list) or not all(isinstance(c, str) for c in cols):
+                errors.append(
+                    ValidationError(
+                        "infer.output_columns", "output_columns must be a list of strings"
+                    )
+                )
+
         return errors
 
     def _validate_eda(self, eda_config: Any) -> List[ValidationError]:

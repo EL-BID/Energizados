@@ -88,19 +88,24 @@ infer:
   # Output Options
   # ============================================================
 
-  # output_include_input: Append original input columns to output
-  # (default: false)
-  # output_include_input: true
-
-  # output_columns: Select specific columns for output CSV
-  # If not specified, outputs: prediction, probability
-  # Example:
+  # output_columns: AUTHORITATIVE, self-sufficient column selection for
+  # the output. Applied over the combined frame [input + prediction +
+  # probability + rule_*], so you can mix input and prediction-side columns
+  # in one list, in the order you want them written.
+  #   - Input columns named here are INCLUDED AUTOMATICALLY — no need for
+  #     output_include_input. Unlisted input columns are dropped.
+  #   - To DROP the 'prediction' column, simply omit it from the list.
+  #   - If absent, output defaults to [prediction, probability] (+ rule_*).
+  # Example (only cliente + probability, no prediction column):
   #   output_columns:
   #     - cliente
-  #     - actividad
-  #     - zona
-  #     - prediction
   #     - probability
+
+  # output_include_input: DEPRECATED. Prepend ALL original input columns
+  # to the output (default: false). Kept for backward compatibility —
+  # emits a DeprecationWarning; prefer output_columns above. Ignored (with
+  # a warning) when output_columns is also set.
+  # output_include_input: true
 
   # output_format: "csv" or "parquet" (default: csv)
   # output_format: "csv"

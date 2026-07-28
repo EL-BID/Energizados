@@ -10,7 +10,15 @@ import os
 import platform
 import shutil
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
+
+from energizados.api.config import CheckResult, DoctorReport
+
+# Re-exports for backwards compatibility — ``CheckResult`` and ``DoctorReport``
+# now live in ``energizados.api.config`` (the public service layer). They are
+# re-exported here so existing ``from energizados.cli.doctor import
+# DoctorReport`` imports keep working.
+__all__ = ["CheckResult", "DoctorReport", "format_report", "run_checks"]
 
 # Required packages from pyproject.toml
 REQUIRED_PACKAGES = {
@@ -50,46 +58,10 @@ MIN_PYTHON_VERSION = (3, 10)
 RECOMMENDED_PYTHON_VERSION = (3, 11)
 
 
-class CheckResult:
-    """Container for a single check result.
-
-    Attributes:
-        name: Name of the check.
-        status: 'ok', 'warning', or 'error'.
-        message: Descriptive message.
-        solution: How to fix if status is not 'ok'.
-    """
-
-    def __init__(self, name: str, status: str, message: str, solution: str = "") -> None:
-        self.name = name
-        self.status = status
-        self.message = message
-        self.solution = solution
-
-
-class DoctorReport:
-    """Container for doctor command results.
-
-    Attributes:
-        system_info: Dictionary with system information.
-        checks: List of CheckResult objects.
-    """
-
-    def __init__(self) -> None:
-        self.system_info: Dict[str, str] = {}
-        self.checks: List[CheckResult] = []
-
-    def add_check(self, result: CheckResult) -> None:
-        """Add a check result to the report."""
-        self.checks.append(result)
-
-    def is_healthy(self) -> bool:
-        """Check if all critical checks passed."""
-        return all(c.status != "error" for c in self.checks)
-
-    def has_warnings(self) -> bool:
-        """Check if there are any warnings."""
-        return any(c.status == "warning" for c in self.checks)
+# Note: ``CheckResult`` and ``DoctorReport`` are imported from
+# ``energizados.api.config`` at the top of this module (single source of
+# truth). The local duplicates were removed — the api versions are a strict
+# superset (adds ``to_dict()``) and are structurally identical otherwise.
 
 
 def get_system_info() -> Dict[str, str]:
@@ -112,7 +84,7 @@ def get_system_info() -> Dict[str, str]:
 
     # Try to get detailed system info using psutil
     try:
-        import psutil
+        import psutil  # type: ignore[import-not-found]
 
         # CPU info
         cpu_count_physical = psutil.cpu_count(logical=False)
@@ -190,7 +162,7 @@ def _get_gpu_info() -> str:
         String with GPU info or "Not available".
     """
     try:
-        import GPUtil
+        import GPUtil  # type: ignore[import-not-found]
 
         gpus = GPUtil.getGPUs()
         if gpus:
@@ -404,8 +376,8 @@ def format_report(report: DoctorReport, verbose: bool = False) -> list:
     Returns:
         List of Rich renderables (Table, Panel) to be printed directly.
     """
-    from rich.panel import Panel
-    from rich.table import Table
+    from rich.panel import Panel  # type: ignore[import-not-found]
+    from rich.table import Table  # type: ignore[import-not-found]
 
     renderables = []
 

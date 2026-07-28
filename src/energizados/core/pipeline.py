@@ -12,7 +12,7 @@ this file holds the core Pipeline class plus that entry-point builder.
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
 from energizados.core.exceptions import (
@@ -64,8 +64,8 @@ class Pipeline:
 
     def __init__(
         self,
-        config_path: str = None,
-        config: Dict = None,
+        config_path: Optional[str] = None,
+        config: Optional[Dict] = None,
         profile_memory: bool = False,
     ):
         """
@@ -90,11 +90,16 @@ class Pipeline:
         self.profile_memory = profile_memory
         self.memory_metrics: Dict[str, Dict[str, int]] = {}
 
-        # Optional callbacks for progress tracking
-        self.on_step_start = None  # callable(name, index, total)
-        self.on_step_complete = None  # callable(name, index, total, metrics=None)
-        self.on_step_error = None  # callable(name, error)
-        self.on_phase_update = None  # callable(step, phase, pct, total_phases, metrics=None)
+        # Optional callbacks for progress tracking. Typed as Optional[Callable]
+        # so callers (e.g. cli/run.py) can assign concrete closures without
+        # tripping the type checker (a bare ``= None`` infers type ``None``).
+        # Callable[..., None] keeps the legacy contract: callbacks may be
+        # defined with or without a trailing ``metrics`` kwarg (see the
+        # _phase_adapter below).
+        self.on_step_start: Optional[Callable[..., None]] = None
+        self.on_step_complete: Optional[Callable[..., None]] = None
+        self.on_step_error: Optional[Callable[..., None]] = None
+        self.on_phase_update: Optional[Callable[..., None]] = None
 
     @classmethod
     def from_dict(
@@ -144,7 +149,7 @@ class Pipeline:
                 # Explicitly validate dependencies (includes cycle detection)
                 orchestrator.validate_dependencies()
                 # Get execution order
-                execution_order = orchestrator.get_execution_order()
+                execution_order = orchestrator.build_execution_order()
 
                 # Build dependencies dict from config
                 dependencies = {
@@ -380,9 +385,9 @@ class ConfigPipelineBuilder:
 
     def __init__(
         self,
-        config_path: str = None,
-        config: Dict = None,
-        config_paths: List[str] = None,
+        config_path: Optional[str] = None,
+        config: Optional[Dict] = None,
+        config_paths: Optional[List[str]] = None,
         run_name: Optional[str] = None,
         overwrite: bool = False,
         derived_from: Optional[str] = None,
