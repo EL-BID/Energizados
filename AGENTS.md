@@ -442,6 +442,7 @@ training:
   target_column: "target"
   periods_suffix: &period_suffix "_anterior"
   # output_base_dir: "output"  # override opcional; cada run genera output/train-YYYYMMDD_HHMM/
+  # output_name: "mi-experimento"  # override opcional del NOMBRE del run-dir (igual que CLI -n); default: train-<timestamp>
 
   split:
     method: "time_series"  # Opciones: stratified, random, time_series, group_based, stratified_time

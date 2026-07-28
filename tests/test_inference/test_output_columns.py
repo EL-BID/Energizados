@@ -83,6 +83,10 @@ class TestOutputColumnsUnified:
                 "output_path": out,
                 "output_include_input": False,
                 "output_format": "csv",
+                # Isolate column-selection behavior from row-ordering: the
+                # global default now sorts by probability desc, which would
+                # reorder these rows. Sort is covered in test_inference_sort.py.
+                "sort_by_probability": False,
             },
             tmp_path,
             mock_model,

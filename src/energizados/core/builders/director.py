@@ -127,6 +127,20 @@ class PipelineDirector:
                 return cfg["output_base_dir"]
         return "output"
 
+    def _resolve_output_name(self) -> Optional[str]:
+        """Resolve the run-directory NAME from config (ADR: mirror output_base_dir).
+
+        Checks ``train``/``infer``/``eda``/``etl`` sections for ``output_name`` in
+        that priority order; defaults to ``None`` (timestamped run dir). This is
+        the config-driven equivalent of the CLI ``-n`` flag. The CLI value
+        (``self._run_name``) takes precedence over this — see ``build()``.
+        """
+        for section in ("train", "infer", "eda", "etl"):
+            cfg = self.config.get(section, {})
+            if isinstance(cfg, dict) and cfg.get("output_name"):
+                return cfg["output_name"]
+        return None
+
     def _has_enabled_section(self) -> bool:
         """True if any pipeline section is enabled (ADR-0001 run-dir gate)."""
         train_config = self.config.get("train", {})
@@ -174,9 +188,9 @@ class PipelineDirector:
             run_type = self._explicit_run_type or self._compute_run_type()
             self.run_manager._run_type = run_type
             base_output_dir = self._resolve_base_output_dir()
-            self._run_dir = self.run_manager.generate_run_dir(
-                base_output_dir, run_name=self._run_name
-            )
+            # CLI -n (self._run_name) takes precedence over config output_name.
+            run_name = self._run_name or self._resolve_output_name()
+            self._run_dir = self.run_manager.generate_run_dir(base_output_dir, run_name=run_name)
 
         # Build and add each step
         # Step 1: ETL

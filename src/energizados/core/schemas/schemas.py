@@ -12,6 +12,7 @@ ETL_SCHEMA = {
         # ADR: top-level scalar keys under ``etl:`` are NOT ETL entries. They must be
         # declared here so additionalProperties (which requires ``input``) skips them.
         "output_base_dir": {"type": "string"},
+        "output_name": {"type": "string"},
     },
     "additionalProperties": {
         "type": "object",
@@ -250,6 +251,7 @@ TRAINING_SCHEMA = {
         "target_column": {"type": "string"},
         "output_dir": {"type": "string"},
         "output_base_dir": {"type": "string"},
+        "output_name": {"type": "string"},
         "split": SPLIT_SCHEMA,
         "feature_engineering": FEATURE_ENGINEERING_SCHEMA,
         "feature_selection": FEATURE_SELECTION_SCHEMA,
@@ -459,6 +461,8 @@ INFERENCE_SCHEMA = {
             ),
         },
         "output_base_dir": {"type": "string"},
+        "output_name": {"type": "string"},
+        "sort_by_probability": {"type": "boolean", "default": True},
         "segment_thresholds": {
             "type": "object",
             "properties": {

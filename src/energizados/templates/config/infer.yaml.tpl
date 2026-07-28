@@ -57,6 +57,7 @@ infer:
 
   # Base directory to search for latest training run (default: "output")
   # output_base_dir: "output"
+  # output_name: "inference-run"  # optional run-dir NAME (same as CLI -n); default: inference-<timestamp>
 
   # ============================================================
   # Filtering Options (applied BEFORE feature engineering)
@@ -109,6 +110,10 @@ infer:
 
   # output_format: "csv" or "parquet" (default: csv)
   # output_format: "csv"
+
+  # sort_by_probability: sort output rows by probability DESCENDING
+  # (default: true — most suspicious first). Set false to keep input order.
+  # sort_by_probability: true
 
   # Threshold for binary predictions
   threshold: 0.5

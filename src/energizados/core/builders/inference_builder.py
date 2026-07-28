@@ -462,6 +462,16 @@ class InferenceBuilder(StepBuilder):
                     # input columns when output_include_input is true.
                     result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
 
+                # Sort by probability descending (default: on). Applied AFTER
+                # output_columns selection on the final frame, so input columns
+                # reorder with their probability. Set sort_by_probability: false
+                # to preserve input order.
+                _sort_by_proba = self.config.get("sort_by_probability", True)
+                if _sort_by_proba and "probability" in result.columns:
+                    result = result.sort_values("probability", ascending=False).reset_index(
+                        drop=True
+                    )
+
                 Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
                 if output_format == "parquet":

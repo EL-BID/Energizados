@@ -21,6 +21,7 @@ train:
   # Output: each run generates output/train-YYYYMMDD_HHMM/
   # with subdirectories models/, reports/evaluation/ and config/.
   # output_base_dir: "output"  # optional override
+  # output_name: "my-experiment"  # optional run-dir NAME (same as CLI -n); default: train-<timestamp>
 
   # ============================================
   # Split Configuration
