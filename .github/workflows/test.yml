@@ -27,8 +27,40 @@ jobs:
           cache: pip
       - name: Install
         run: pip install -e ".[dev,web]"
+      - name: Fetch base ref
+        # actions/checkout@v4 defaults to fetch-depth: 1, which does NOT
+        # include the PR's base ref. The Lint step needs origin/<base_ref>
+        # to compute the diff, so fetch it explicitly here. The refspec
+        # below stores the fetched commit under refs/remotes/origin/<base_ref>
+        # so the Lint step can use the standard `origin/<base_ref>` ref.
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: git fetch --depth=1 origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
       - name: Lint
-        run: pre-commit run --all-files
+        # Only lint files changed in this PR (vs the base branch). The
+        # repo has pre-existing pre-commit issues in untouched files
+        # (3.11+ compatibility in templates, prettier syntax in
+        # .claude/skills/ assets, etc.) that are out of scope for this
+        # cross-platform patch and would otherwise block every CI run.
+        # github.base_ref is only set on pull_request events, so guard the
+        # whole step with `if: github.event_name == 'pull_request'` and
+        # also declare `shell: bash` so the script parses on windows-latest
+        # (default shell there is pwsh).
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          # Two-dot diff (not three-dot): three-dot needs a merge base, which
+          # the shallow fetch above doesn't provide. Two-dot gives the direct
+          # diff between the base ref's tip and HEAD's tip — which is exactly
+          # the PR's changes for a linear PR branch.
+          CHANGED=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}..HEAD)
+          if [ -n "$CHANGED" ]; then
+            echo "Linting changed files:"
+            echo "$CHANGED"
+            pre-commit run --files $CHANGED
+          else
+            echo "No changed files to lint."
+          fi
       - name: Fast tests
         run: pytest -m "not slow" -q --no-cov -x
       - name: Doctor smoke

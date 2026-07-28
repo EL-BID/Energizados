@@ -1,5 +1,8 @@
 default_language_version:
-  python: python3.10
+  # Use the Python version the CI matrix installs (currently 3.10-3.12);
+  # previously `python3.10` failed in 3.11/3.12 jobs with
+  # "failed to find interpreter for Builtin discover of python_spec='python3.10'".
+  python: python3
 
 repos:
   - repo: https://github.com/pycqa/isort
