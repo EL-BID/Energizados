@@ -242,7 +242,9 @@ def _list_available_configs(config_dir: Path) -> List[str]:
     for pattern in ("**/*.yaml", "**/*.yml"):
         for path in config_dir.glob(pattern):
             rel = path.relative_to(config_dir)
-            # Show as "subdir/name" for subdirectories, "name" for root
-            configs.append(str(rel.with_suffix("")))
+            # Show as "subdir/name" for subdirectories, "name" for root.
+            # Use as_posix() so the separator is always "/" (Windows
+            # Path.relative_to would otherwise return backslashes).
+            configs.append(rel.with_suffix("").as_posix())
 
     return sorted(configs)
