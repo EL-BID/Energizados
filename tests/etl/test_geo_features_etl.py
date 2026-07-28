@@ -8,6 +8,8 @@ import pytest
 from energizados.core.exceptions import ETLError
 from energizados.etl.pipeline import GeoFeaturesETL
 
+geobr = pytest.importorskip("geobr")
+
 
 def _make_df(n=20, valid=True):
     """DataFrame with lat/lon columns and a few extra columns."""
