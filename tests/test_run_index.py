@@ -39,8 +39,8 @@ class TestRunIndexGenerator:
             "metrics": metrics or {"auc": 0.85, "f1": 0.72, "precision": 0.80, "recall": 0.65},
             "model_info": {"model_class": model_type},
         }
-        (eval_dir / "evaluation_report.json").write_text(json.dumps(report))
-        (eval_dir / "evaluation_report.html").write_text("<html>report</html>")
+        (eval_dir / "evaluation_report.json").write_text(json.dumps(report), encoding="utf-8")
+        (eval_dir / "evaluation_report.html").write_text("<html>report</html>", encoding="utf-8")
         return run_dir
 
     def test_scan_runs_finds_directories(self):
@@ -103,7 +103,7 @@ class TestRunIndexGenerator:
             bad_run = output_dir / "train-20260302_0900"
             eval_dir = bad_run / "reports" / "evaluation"
             eval_dir.mkdir(parents=True)
-            (eval_dir / "evaluation_report.json").write_text("{invalid json")
+            (eval_dir / "evaluation_report.json").write_text("{invalid json", encoding="utf-8")
 
             generator = RunIndexGenerator()
             runs = generator.scan_runs(output_dir)
@@ -152,7 +152,7 @@ class TestRunIndexGenerator:
             generator = RunIndexGenerator()
             generator.generate_index_html(output_dir)
 
-            html = (output_dir / "index.html").read_text()
+            html = (output_dir / "index.html").read_text(encoding="utf-8")
             assert "train-20260303_1430" in html
             assert "train-20260302_0900" in html
 
@@ -167,7 +167,7 @@ class TestRunIndexGenerator:
             generator = RunIndexGenerator()
             generator.generate_index_html(output_dir)
 
-            html = (output_dir / "index.html").read_text()
+            html = (output_dir / "index.html").read_text(encoding="utf-8")
             assert "evaluation_report.html" in html
             assert "View Report" in html
 
@@ -181,7 +181,7 @@ class TestRunIndexGenerator:
             index_path = generator.generate_index_html(output_dir)
 
             assert index_path is not None
-            html = index_path.read_text()
+            html = index_path.read_text(encoding="utf-8")
             assert "No training runs found" in html
 
     def test_generate_index_html_nonexistent_dir(self):

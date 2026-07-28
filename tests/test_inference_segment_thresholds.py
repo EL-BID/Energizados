@@ -127,7 +127,7 @@ class TestInferenceBuilderSegmentThresholds:
             "segments": segments_data,
         }
         json_path = tmp_path / f"segment_thresholds_{column}.json"
-        with open(json_path, "w") as f:
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
         return json_path
 
@@ -162,7 +162,7 @@ class TestInferenceBuilderSegmentThresholds:
         """Test that _load_segment_thresholds raises error if segment_column missing."""
         # Arrange - JSON without segment_column
         json_path = tmp_path / "invalid.json"
-        with open(json_path, "w") as f:
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump({"threshold_mode": "youden", "segments": {}}, f)
 
         builder = InferenceBuilder({"threshold": 0.5})
@@ -364,7 +364,7 @@ class TestInferenceStepExecuteWithSegmentThresholds:
             "segments": segments_data,
         }
         json_path = tmp_path / f"segment_thresholds_{column}.json"
-        with open(json_path, "w") as f:
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
         return json_path
 

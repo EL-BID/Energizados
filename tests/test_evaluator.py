@@ -70,7 +70,7 @@ class TestExportSegmentThresholds:
 
         # Assert
         json_file = output_dir / "segment_thresholds_Sul.json"
-        with open(json_file) as f:
+        with open(json_file, encoding="utf-8") as f:
             data = json.load(f)
 
         # Verify schema
@@ -151,7 +151,7 @@ class TestExportSegmentThresholds:
 
         # Assert
         json_file = output_dir / "segment_thresholds_zona.json"
-        with open(json_file) as f:
+        with open(json_file, encoding="utf-8") as f:
             data = json.load(f)
 
         assert "segments" in data
@@ -189,7 +189,7 @@ class TestExportSegmentThresholds:
 
         # Assert
         json_file = output_dir / "segment_thresholds_test_col.json"
-        content = json_file.read_text()
+        content = json_file.read_text(encoding="utf-8")
 
         # Check for indentation by looking for newlines and spaces
         assert "\n" in content, "JSON should be indented (contain newlines)"
@@ -283,7 +283,7 @@ class TestExportSegmentThresholdsIntegration:
         )
 
         # Verify the JSON content
-        with open(models_dir / "segment_thresholds_zona.json") as f:
+        with open(models_dir / "segment_thresholds_zona.json", encoding="utf-8") as f:
             data = json.load(f)
         assert "segment_column" in data
         assert data["segment_column"] == "zona"

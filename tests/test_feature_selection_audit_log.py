@@ -145,7 +145,7 @@ class TestSaveAuditLog:
         pipeline.save_audit_log(audit_path)
 
         assert audit_path.exists()
-        with open(audit_path) as f:
+        with open(audit_path, encoding="utf-8") as f:
             data = json.load(f)
 
         assert "steps" in data
@@ -170,7 +170,7 @@ class TestSaveAuditLog:
         audit_path = tmp_path / "audit.json"
         pipeline.save_audit_log(audit_path)
 
-        with open(audit_path) as f:
+        with open(audit_path, encoding="utf-8") as f:
             data = json.load(f)
 
         step = data["steps"][0]
@@ -194,7 +194,7 @@ class TestSaveAuditLog:
         audit_path = tmp_path / "audit.json"
         pipeline.save_audit_log(audit_path)
 
-        with open(audit_path) as f:
+        with open(audit_path, encoding="utf-8") as f:
             data = json.load(f)
 
         step = data["steps"][0]

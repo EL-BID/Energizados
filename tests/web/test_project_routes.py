@@ -165,7 +165,7 @@ class TestProjectScopedRunRoutes:
         run_id = "train-20240101_120000"
         run_dir = project.path / "output" / run_id
         run_dir.mkdir(parents=True)
-        (run_dir / "run_metadata.json").write_text(json.dumps({"run_id": run_id}))
+        (run_dir / "run_metadata.json").write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
 
         # Traversal attempt
         r = client.get(f"/projects/{project.project_id}/runs/{run_id}/artifacts/../../etc/passwd")
@@ -229,7 +229,7 @@ class TestResolveRunDirBugFix:
             "config_files": [],
             "output_paths": {},
         }
-        (run_dir / "run_metadata.json").write_text(json.dumps(metadata))
+        (run_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
 
         # Global route (uses RunManager() with cwd-relative output) — since the
         # project output is not at ./output, this returns 404, NOT 500.
@@ -312,7 +312,7 @@ def _write_run_metadata(
         "config_files": [],
         "output_paths": {},
     }
-    (run_dir / "run_metadata.json").write_text(json.dumps(metadata))
+    (run_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     return run_dir
 
 
@@ -343,7 +343,7 @@ def _write_run_metadata_derived(
     }
     if derived_from is not None:
         metadata["derived_from"] = derived_from
-    (run_dir / "run_metadata.json").write_text(json.dumps(metadata))
+    (run_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     return run_dir
 
 

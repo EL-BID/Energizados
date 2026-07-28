@@ -30,7 +30,7 @@ class TestPipelineNoHoldout:
 
     def test_pipeline_no_holdout_eval_skipped(self, tmp_path, caplog):
         cfg_path = tmp_path / "config.yaml"
-        cfg_path.write_text(_NO_HOLDOUT_CONFIG)
+        cfg_path.write_text(_NO_HOLDOUT_CONFIG, encoding="utf-8")
         director = PipelineDirector(str(cfg_path))
         pipeline = director.build()
         steps = getattr(pipeline, "steps", [])
@@ -60,7 +60,8 @@ class TestPipelinePlan:
 
         cfg = tmp_path / "config.yaml"
         cfg.write_text(
-            "etl:\n  a:\n    enabled: true\n    depends_on: [b]\n  b:\n    enabled: true\n"
+            "etl:\n  a:\n    enabled: true\n    depends_on: [b]\n  b:\n    enabled: true\n",
+            encoding="utf-8",
         )
         pipeline = Pipeline(config_path=str(cfg))
         plan = pipeline.plan()

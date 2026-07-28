@@ -70,7 +70,7 @@ def fake_run_dir(tmp_path):
     }
 
     metadata_file = run_dir / "run_metadata.json"
-    metadata_file.write_text(json.dumps(run_metadata))
+    metadata_file.write_text(json.dumps(run_metadata), encoding="utf-8")
 
     # Create reports directory
     reports_dir = run_dir / "reports" / "evaluation"

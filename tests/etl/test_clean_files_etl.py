@@ -28,7 +28,7 @@ def _make_files(tmp_path, names):
     paths = []
     for name in names:
         p = tmp_path / name
-        p.write_text("")
+        p.write_text("", encoding="utf-8")
         paths.append(str(p))
     return paths
 
@@ -238,7 +238,7 @@ class TestOrchestratorIntegration:
     def test_glob_resolves_to_matched_files(self, tmp_path):
         """Glob patterns in input must expand to matching file paths."""
         for name in ["tmp_a.parquet", "tmp_b.parquet", "keep.parquet"]:
-            (tmp_path / name).write_text("")
+            (tmp_path / name).write_text("", encoding="utf-8")
 
         original = os.getcwd()
         os.chdir(tmp_path)

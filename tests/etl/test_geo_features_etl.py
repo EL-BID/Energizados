@@ -321,7 +321,10 @@ def test_load_regions_mapping_basic(tmp_path):
     from energizados.preprocessing.geo_features import _load_regions_mapping
 
     csv = tmp_path / "regioes.csv"
-    csv.write_text('"REGION";"CITY"\n"Florianopolis";"FLORIANOPOLIS"\n"Blumenau";"BLUMENAU"\n')
+    csv.write_text(
+        '"REGION";"CITY"\n"Florianopolis";"FLORIANOPOLIS"\n"Blumenau";"BLUMENAU"\n',
+        encoding="utf-8",
+    )
     mapping = _load_regions_mapping(str(csv))
     assert mapping["FLORIANOPOLIS"] == "Florianopolis"
     assert mapping["BLUMENAU"] == "Blumenau"
@@ -331,7 +334,7 @@ def test_load_regions_mapping_normalizes_accented_city(tmp_path):
     from energizados.preprocessing.geo_features import _load_regions_mapping
 
     csv = tmp_path / "regioes.csv"
-    csv.write_text('"REGION";"CITY"\n"Florianopolis";"Florianópolis"\n')
+    csv.write_text('"REGION";"CITY"\n"Florianopolis";"Florianópolis"\n', encoding="utf-8")
     mapping = _load_regions_mapping(str(csv))
     assert "FLORIANOPOLIS" in mapping
 
@@ -408,7 +411,7 @@ _MOCK_GEOCODE = "energizados.preprocessing.geo_features._IBGEGeocoder.geocode_po
 def _make_etl_with_regions_file(tmp_path, csv_content, region_cities=None):
     """Build a GeoFeaturesETL with a temp regions CSV and mocked IBGE."""
     csv_path = tmp_path / "regioes.csv"
-    csv_path.write_text(csv_content)
+    csv_path.write_text(csv_content, encoding="utf-8")
 
     n = 20
     rng = np.random.default_rng(0)
@@ -546,7 +549,7 @@ def test_fit_populates_unmatched_municipalities(tmp_path):
 
     # Create a small regions CSV
     csv_path = tmp_path / "regioes.csv"
-    csv_path.write_text('"REGION";"CITY"\n"Regiao1";"FLORIANOPOLIS"\n')
+    csv_path.write_text('"REGION";"CITY"\n"Regiao1";"FLORIANOPOLIS"\n', encoding="utf-8")
 
     df = pd.DataFrame({"lat": [-27.59, -26.92, -27.82], "lon": [-48.55, -49.07, -50.33]})
 

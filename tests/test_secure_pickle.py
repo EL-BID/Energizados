@@ -32,7 +32,7 @@ class TestSecureDump:
         path = tmp_path / "obj.pkl"
         secure_dump([1, 2, 3], str(path))
 
-        sig = (tmp_path / "obj.pkl.sig").read_text().strip()
+        sig = (tmp_path / "obj.pkl.sig").read_text(encoding="utf-8").strip()
         assert len(sig) == 64
         assert all(c in "0123456789abcdef" for c in sig)
 
@@ -61,7 +61,7 @@ class TestSecureLoad:
         sig_path = tmp_path / "model.pkl.sig"
 
         # Corrupt the sig
-        sig_path.write_text("0" * 64)
+        sig_path.write_text("0" * 64, encoding="utf-8")
 
         with pytest.raises(ValueError, match="Integrity check failed"):
             secure_load(str(path))

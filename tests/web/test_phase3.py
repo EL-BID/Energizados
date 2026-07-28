@@ -15,6 +15,7 @@ These are enqueue-level tests (no real pipeline execution). Fixtures mirror
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -78,7 +79,7 @@ def _write_run_metadata(run_dir, run_id, *, model=False, model_types=None):
         "config_files": [],
         "output_paths": output_paths,
     }
-    (run_dir / "run_metadata.json").write_text(json.dumps(metadata))
+    (run_dir / "run_metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
 
 
 # Valid config fragments written to run_dir/config/.
@@ -109,8 +110,8 @@ class TestRetrain:
         run_dir = project.path / "output" / run_id
         _write_run_metadata(run_dir, run_id)
         (run_dir / "config").mkdir(parents=True, exist_ok=True)
-        (run_dir / "config" / "etl.yaml").write_text(_ETL_YAML)
-        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML)
+        (run_dir / "config" / "etl.yaml").write_text(_ETL_YAML, encoding="utf-8")
+        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML, encoding="utf-8")
 
         r = client.post(
             f"/projects/{project.project_id}/runs/{run_id}/retrain",
@@ -137,7 +138,7 @@ class TestRetrain:
         run_dir = project.path / "output" / run_id
         _write_run_metadata(run_dir, run_id)
         (run_dir / "config").mkdir(parents=True, exist_ok=True)
-        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML)
+        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML, encoding="utf-8")
 
         r = client.post(
             f"/projects/{project.project_id}/runs/{run_id}/retrain",
@@ -194,8 +195,8 @@ class TestRetrain:
             '    output: "data/processed/x.parquet"\n'
             '    custom_class: "evil.module.Evil"\n'
         )
-        (run_dir / "config" / "etl.yaml").write_text(evil_etl)
-        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML)
+        (run_dir / "config" / "etl.yaml").write_text(evil_etl, encoding="utf-8")
+        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML, encoding="utf-8")
 
         # HTMX request → validation fragment.
         r = client.post(
@@ -233,8 +234,8 @@ class TestRetrain:
             '    output: "data/processed/x.parquet"\n'
             '    custom_class: "src.etl.MyETL"\n'
         )
-        (run_dir / "config" / "etl.yaml").write_text(src_etl)
-        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML)
+        (run_dir / "config" / "etl.yaml").write_text(src_etl, encoding="utf-8")
+        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML, encoding="utf-8")
 
         r = client.post(
             f"/projects/{project.project_id}/runs/{run_id}/retrain",
@@ -260,7 +261,7 @@ class TestRetrain:
         run_dir = project.path / "output" / run_id
         _write_run_metadata(run_dir, run_id)
         (run_dir / "config").mkdir(parents=True, exist_ok=True)
-        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML)
+        (run_dir / "config" / "train.yaml").write_text(_TRAIN_YAML, encoding="utf-8")
 
         r = client.post(
             f"/projects/{project.project_id}/runs/{run_id}/retrain",
@@ -374,7 +375,7 @@ class TestInferenceEnqueue:
         assert job.config_type == "infer"
         assert job.project_path == str(project.path)
         infer = job.config["infer"]
-        assert infer["model_path"] == f"output/{run_id}/models/model.pkl"
+        assert Path(infer["model_path"]).as_posix() == f"output/{run_id}/models/model.pkl"
         assert infer["input_path"] == "data/processed/foo.parquet"
         assert infer["threshold"] == 0.5
         assert infer["enabled"] is True

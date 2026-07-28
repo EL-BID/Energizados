@@ -133,7 +133,7 @@ def test_list_runs_tolerates_corrupt_metadata():
         valid_run = base / "train-20240101_120000"
         valid_run.mkdir()
         metadata_file = valid_run / "run_metadata.json"
-        with open(metadata_file, "w") as f:
+        with open(metadata_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "run_id": "train-20240101_120000",
@@ -152,7 +152,7 @@ def test_list_runs_tolerates_corrupt_metadata():
         corrupt_run = base / "train-20240101_130000"
         corrupt_run.mkdir()
         corrupt_metadata = corrupt_run / "run_metadata.json"
-        with open(corrupt_metadata, "w") as f:
+        with open(corrupt_metadata, "w", encoding="utf-8") as f:
             f.write("This is not valid JSON {")
 
         # list_runs should skip corrupt dir and return valid ones

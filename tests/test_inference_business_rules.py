@@ -466,7 +466,8 @@ class TestInferenceBuilderBusinessRules:
                         "JOACABA": {"threshold": 0.5},
                     },
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         data = pd.DataFrame(

@@ -36,7 +36,7 @@ def test_core_has_no_module_level_imports_to_concrete_packages():
     violations = []
 
     for py_file in core_root.rglob("*.py"):
-        source = py_file.read_text()
+        source = py_file.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
         for node in ast.walk(tree):
@@ -61,7 +61,7 @@ def test_core_has_no_module_level_imports_to_concrete_packages():
     # Module-level imports are at indentation level 0 (no leading whitespace)
     actual_violations = []
     for file_path, module_name, lineno in violations:
-        source = file_path.read_text()
+        source = file_path.read_text(encoding="utf-8")
         lines = source.split("\n")
         if lineno <= len(lines):
             line = lines[lineno - 1]
@@ -88,7 +88,7 @@ def test_eda_import_remains_unchanged():
     This edge is intentionally NOT a cycle (eda does not import core).
     """
     eda_builder = Path("src/energizados/core/builders/eda_builder.py")
-    source = eda_builder.read_text()
+    source = eda_builder.read_text(encoding="utf-8")
 
     assert (
         "from energizados.eda.dataset_explorer import DatasetExplorer" in source

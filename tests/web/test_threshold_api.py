@@ -85,7 +85,8 @@ class TestThresholdApi:
                         },
                     },
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
@@ -128,7 +129,8 @@ class TestThresholdApi:
                     ],
                     "best_model": "lgbm",
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
@@ -159,7 +161,7 @@ class TestThresholdApi:
         eval_report = eval_dir / "evaluation_report.json"
         import json
 
-        eval_report.write_text(json.dumps({"metrics": {"auc": 0.85, "f1": 0.78}}))
+        eval_report.write_text(json.dumps({"metrics": {"auc": 0.85, "f1": 0.78}}), encoding="utf-8")
 
         with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):
             response = client.get("/api/runs/old-run/thresholds")
@@ -215,7 +217,8 @@ class TestThresholdApi:
                         },
                     },
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         with patch("energizados.web.app._resolve_run_dir", return_value=tmp_path):

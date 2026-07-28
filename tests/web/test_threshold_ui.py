@@ -76,7 +76,8 @@ class TestThresholdUi:
                         },
                     },
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Mock the helper functions
@@ -145,7 +146,8 @@ class TestThresholdUi:
                         "recall": 0.75,
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Mock the helper functions
@@ -219,7 +221,8 @@ class TestThresholdUi:
                     ],
                     "best_model": "lgbm",
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Mock the helper functions
@@ -292,7 +295,8 @@ class TestThresholdUi:
                         "recall": 0.75,
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         # Mock the helper functions

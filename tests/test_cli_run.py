@@ -49,7 +49,7 @@ class TestRunCommand:
             project_path.mkdir()
             (project_path / "config").mkdir()
             (project_path / "config" / "etl.yaml").write_text(
-                "etl:\n  sample:\n    enabled: false\n"
+                "etl:\n  sample:\n    enabled: false\n", encoding="utf-8"
             )
 
             import os
@@ -90,12 +90,15 @@ class TestRunCommand:
             config_dir = project_path / "config"
             config_dir.mkdir()
             etl_yaml = config_dir / "etl.yaml"
-            etl_yaml.write_text("""
+            etl_yaml.write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -116,16 +119,22 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
-            (config_dir / "train.yaml").write_text("""
+""",
+                encoding="utf-8",
+            )
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -144,12 +153,15 @@ train:
             # Create custom config directory
             custom_config = Path(tmpdir) / "custom_config"
             custom_config.mkdir()
-            (custom_config / "etl.yaml").write_text("""
+            (custom_config / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -168,12 +180,15 @@ etl:
         """Verify that run works with absolute config path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "custom.yaml"
-            config_file.write_text("""
+            config_file.write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -236,10 +251,13 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train.yaml").write_text("""
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -261,13 +279,16 @@ train:
             config_dir = project_path / "config"
             config_dir.mkdir()
             # Fix YAML indentation and add required fields
-            (config_dir / "etl.yaml").write_text("""etl:
+            (config_dir / "etl.yaml").write_text(
+                """etl:
   sample:
     enabled: false
     input: data/input.csv
     output: data/output.csv
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -296,12 +317,15 @@ class TestValidateCommand:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -322,16 +346,22 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
-            (config_dir / "train.yaml").write_text("""
+""",
+                encoding="utf-8",
+            )
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -350,12 +380,15 @@ train:
             # Create custom config directory
             custom_config = Path(tmpdir) / "custom_config"
             custom_config.mkdir()
-            (custom_config / "etl.yaml").write_text("""
+            (custom_config / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -399,12 +432,15 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -528,10 +564,13 @@ class TestRichLoggingIntegration:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train.yaml").write_text("""
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -718,8 +757,12 @@ class TestSequentialSameTypeExecution:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train_01_baseline.yaml").write_text("training:\n  enabled: false\n")
-            (config_dir / "train_02_lgbm.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "train_01_baseline.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
+            (config_dir / "train_02_lgbm.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
 
             old_cwd = os.getcwd()
             call_args = []
@@ -750,9 +793,12 @@ class TestSequentialSameTypeExecution:
             config_dir = project_path / "config"
             config_dir.mkdir()
             (config_dir / "etl.yaml").write_text(
-                "etl:\n  sample:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n"
+                "etl:\n  sample:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n",
+                encoding="utf-8",
             )
-            (config_dir / "train.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "train.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
 
             old_cwd = os.getcwd()
             call_args = []
@@ -782,11 +828,16 @@ class TestSequentialSameTypeExecution:
             config_dir = project_path / "config"
             config_dir.mkdir()
             (config_dir / "etl.yaml").write_text(
-                "etl:\n  s:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n"
+                "etl:\n  s:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n",
+                encoding="utf-8",
             )
-            (config_dir / "eda.yaml").write_text("eda:\n  enabled: false\n")
-            (config_dir / "train_01_baseline.yaml").write_text("training:\n  enabled: false\n")
-            (config_dir / "train_02_lgbm.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "eda.yaml").write_text("eda:\n  enabled: false\n", encoding="utf-8")
+            (config_dir / "train_01_baseline.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
+            (config_dir / "train_02_lgbm.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
 
             old_cwd = os.getcwd()
             call_args = []
@@ -898,7 +949,7 @@ class TestMemoryProfiling:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n")
+            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n", encoding="utf-8")
             old_cwd = os.getcwd()
             try:
                 os.chdir(project_path)
@@ -932,7 +983,7 @@ class TestExecuteStepProfileMemory:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n")
+            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n", encoding="utf-8")
             old_cwd = os.getcwd()
             try:
                 os.chdir(project_path)

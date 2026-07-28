@@ -41,7 +41,7 @@ class TestRunMetadata:
 
         rm.finalize_run(context={"val_auc": 0.85, "val_f1": 0.72})
 
-        with open(tmp_path / "run_metadata.json") as f:
+        with open(tmp_path / "run_metadata.json", encoding="utf-8") as f:
             metadata = json.load(f)
 
         assert "energizados_version" in metadata
@@ -56,7 +56,7 @@ class TestRunMetadata:
 
         rm.finalize_run(context={"val_auc": 0.85, "val_f1": 0.72})
 
-        with open(tmp_path / "run_metadata.json") as f:
+        with open(tmp_path / "run_metadata.json", encoding="utf-8") as f:
             metadata = json.load(f)
 
         assert "duration_seconds" in metadata
@@ -70,7 +70,7 @@ class TestRunMetadata:
 
         rm.finalize_run(context={"val_auc": 0.85, "val_f1": 0.72})
 
-        with open(tmp_path / "run_metadata.json") as f:
+        with open(tmp_path / "run_metadata.json", encoding="utf-8") as f:
             metadata = json.load(f)
 
         assert "run_id" in metadata
@@ -83,7 +83,7 @@ class TestRunMetadata:
 
         rm.finalize_run(context={"val_auc": 0.85, "val_f1": 0.72})
 
-        with open(tmp_path / "run_metadata.json") as f:
+        with open(tmp_path / "run_metadata.json", encoding="utf-8") as f:
             metadata = json.load(f)
 
         assert "config_files" in metadata
@@ -99,7 +99,7 @@ class TestRunMetadata:
         ):
             rm.finalize_run(context={"val_auc": 0.85, "val_f1": 0.72})
 
-        with open(tmp_path / "run_metadata.json") as f:
+        with open(tmp_path / "run_metadata.json", encoding="utf-8") as f:
             metadata = json.load(f)
 
         assert metadata.get("git_commit") == "unknown"
@@ -219,7 +219,7 @@ class TestEDAOutputPaths:
         metadata_path = tmp_path / "run_metadata.json"
         assert metadata_path.exists()
 
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
         # Check that output_paths contains eda_report
@@ -245,7 +245,7 @@ class TestEDAOutputPaths:
         metadata_path = tmp_path / "run_metadata.json"
         assert metadata_path.exists()
 
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
         # Check that output_paths does NOT contain eda_report
@@ -271,7 +271,7 @@ class TestEDAOutputPaths:
         metadata_path = tmp_path / "run_metadata.json"
         assert metadata_path.exists()
 
-        with open(metadata_path) as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
         # Check that output_paths does NOT contain eda_report
@@ -320,7 +320,7 @@ class TestRunManagerQueryAPI:
                 "output_paths": {"model": f"{run_id}/model.pkl"},
             }
 
-            with open(run_dir / "run_metadata.json", "w") as f:
+            with open(run_dir / "run_metadata.json", "w", encoding="utf-8") as f:
                 json.dump(metadata, f)
 
         # Create a directory that doesn't look like a run (no metadata)
@@ -585,9 +585,9 @@ class TestRunMetadataRunType:
             "config_files": ["train.yaml"],
         }
         f = tmp_path / "run_metadata.json"
-        f.write_text(json.dumps(old))
+        f.write_text(json.dumps(old), encoding="utf-8")
 
-        m = RunMetadata.from_dict(json.loads(f.read_text()))
+        m = RunMetadata.from_dict(json.loads(f.read_text(encoding="utf-8")))
         assert m.run_type == "training"
         assert m.val_auc == 0.85
         assert m.derived_from is None
@@ -646,7 +646,7 @@ class TestWriteMetadataTypeAware:
         rm = RunManager(config_paths=["config/train.yaml"], run_type="training")
         rm._run_dir = tmp_path
         rm.finalize_run(context={"val_auc": 0.9, "val_f1": 0.7})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert meta["run_type"] == "training"
         assert meta["val_auc"] == 0.9
         assert meta["val_f1"] == 0.7
@@ -657,7 +657,7 @@ class TestWriteMetadataTypeAware:
         rm = RunManager(config_paths=["config/eda.yaml"], run_type="eda")
         rm._run_dir = tmp_path
         rm.finalize_run(context={})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert meta["run_type"] == "eda"
         for k in ("val_auc", "val_f1", "model_types", "feature_count"):
             assert k not in meta, f"{k} must be omitted for non-training runs"
@@ -667,14 +667,14 @@ class TestWriteMetadataTypeAware:
         rm.set_derived_from("train-source")
         rm._run_dir = tmp_path
         rm.finalize_run(context={})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert meta.get("derived_from") == "train-source"
 
     def test_metadata_omits_derified_from_when_none(self, tmp_path):
         rm = RunManager(config_paths=["config/train.yaml"], run_type="training")
         rm._run_dir = tmp_path
         rm.finalize_run(context={})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert "derived_from" not in meta
 
     def test_eda_metadata_populates_output_paths(self, tmp_path):
@@ -682,7 +682,7 @@ class TestWriteMetadataTypeAware:
         rm = RunManager(config_paths=["config/eda.yaml"], run_type="eda")
         rm._run_dir = tmp_path
         rm.finalize_run(context={"eda_report_path": report})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert meta["output_paths"].get("eda_report") == report
 
     def test_inference_metadata_populates_output_paths(self, tmp_path):
@@ -690,14 +690,14 @@ class TestWriteMetadataTypeAware:
         rm = RunManager(config_paths=["config/infer.yaml"], run_type="inference")
         rm._run_dir = tmp_path
         rm.finalize_run(context={"inference_output_path": pred})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert meta["output_paths"].get("inference_predictions") == pred
 
     def test_etl_metadata_populates_output_paths(self, tmp_path):
         rm = RunManager(config_paths=["config/etl.yaml"], run_type="etl")
         rm._run_dir = tmp_path
         rm.finalize_run(context={"etl_output_paths": {"sample": "data/processed/sample.parquet"}})
-        meta = json.loads((tmp_path / "run_metadata.json").read_text())
+        meta = json.loads((tmp_path / "run_metadata.json").read_text(encoding="utf-8"))
         assert meta["output_paths"].get("etl_sample") == "data/processed/sample.parquet"
 
 

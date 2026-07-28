@@ -673,7 +673,7 @@ class TestInferenceStepEnrichedOutput:
         model_path = temp_dir / "model.pkl"
         model_path.write_bytes(b"fake")
         sig_path = str(model_path) + ".sig"
-        with open(sig_path, "w") as f:
+        with open(sig_path, "w", encoding="utf-8") as f:
             f.write("abc123fake_hash")
 
         config = {
@@ -693,7 +693,7 @@ class TestInferenceStepEnrichedOutput:
         metadata_path = Path(str(output_path) + ".metadata.json")
         assert metadata_path.exists()
 
-        meta = json.loads(metadata_path.read_text())
+        meta = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert "model_hash" in meta
         assert meta["model_hash"] == "abc123fake_hash"
         assert "timestamp" in meta
@@ -733,7 +733,7 @@ class TestInferenceStepEnrichedOutput:
 
         metadata_path = Path(str(output_path) + ".metadata.json")
         assert metadata_path.exists()
-        meta = json.loads(metadata_path.read_text())
+        meta = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert meta["model_hash"] is None
 
 
@@ -756,7 +756,7 @@ class TestInferenceTemplate:
             / "run"
             / "03_inference.py.tpl"
         )
-        content = tpl_path.read_text()
+        content = tpl_path.read_text(encoding="utf-8")
         assert "secure_load" in content
         assert "pickle.load" not in content
 
@@ -771,7 +771,7 @@ class TestInferenceTemplate:
             / "run"
             / "03_inference.py.tpl"
         )
-        content = tpl_path.read_text()
+        content = tpl_path.read_text(encoding="utf-8")
         assert "import pickle" not in content
 
 

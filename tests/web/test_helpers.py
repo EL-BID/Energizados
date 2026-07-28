@@ -49,8 +49,8 @@ def temp_run_dir(tmp_path):
     config_dir.mkdir(parents=True, exist_ok=True)
 
     # Create sample config files
-    (config_dir / "train.yaml").write_text("train: config")
-    (config_dir / "etl.yaml").write_text("etl: config")
+    (config_dir / "train.yaml").write_text("train: config", encoding="utf-8")
+    (config_dir / "etl.yaml").write_text("etl: config", encoding="utf-8")
 
     return run_dir
 
@@ -69,7 +69,7 @@ class TestLoadRunEvaluation:
         }
 
         report_path = temp_run_dir / "reports" / "evaluation" / "evaluation_report.json"
-        report_path.write_text(json.dumps(single_model_data))
+        report_path.write_text(json.dumps(single_model_data), encoding="utf-8")
 
         with (
             patch("energizados.web.app.RunManager") as mock_rm_class,

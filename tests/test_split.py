@@ -1,4 +1,5 @@
 """Tests for SplitStep no-holdout method (split.method='none')."""
+
 import json
 
 import pandas as pd
@@ -54,7 +55,7 @@ class TestSplitMethodNone:
             method="none",
         )
         step.execute({})
-        meta = json.loads((tmp_path / "splits" / "split_metadata.json").read_text())
+        meta = json.loads((tmp_path / "splits" / "split_metadata.json").read_text(encoding="utf-8"))
         assert meta["n_val"] == 0
         assert meta["n_test"] == 0
 
