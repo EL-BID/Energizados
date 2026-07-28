@@ -15,6 +15,7 @@ These are enqueue-level tests (no real pipeline execution). Fixtures mirror
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -374,7 +375,7 @@ class TestInferenceEnqueue:
         assert job.config_type == "infer"
         assert job.project_path == str(project.path)
         infer = job.config["infer"]
-        assert infer["model_path"] == f"output/{run_id}/models/model.pkl"
+        assert Path(infer["model_path"]).as_posix() == f"output/{run_id}/models/model.pkl"
         assert infer["input_path"] == "data/processed/foo.parquet"
         assert infer["threshold"] == 0.5
         assert infer["enabled"] is True
