@@ -15,6 +15,17 @@ from energizados.web.runner import JobRunner
 from energizados.web.store import JobStore
 
 
+def _chdir_child(target):
+    """Change cwd to ``target`` in a child process.
+
+    Module-level so ``multiprocessing.spawn`` (Windows default) can pickle it.
+    Local closures cannot be pickled.
+    """
+    import os
+
+    os.chdir(target)
+
+
 class TestJobRunnerInit:
     """Test JobRunner initialization."""
 
@@ -464,17 +475,13 @@ class TestJobRunnerProjectPath:
 
     def test_os_chdir_isolation_child_does_not_affect_parent(self, tmp_path):
         """A child process chdir does not change the parent process cwd."""
-        import os
         from multiprocessing import Process
 
         parent_cwd_before = Path.cwd()
         child_target = tmp_path / "child_cwd"
         child_target.mkdir()
 
-        def chdir_child():
-            os.chdir(child_target)
-
-        p = Process(target=chdir_child)
+        p = Process(target=_chdir_child, args=(child_target,))
         p.start()
         p.join(timeout=10)
 
