@@ -2510,7 +2510,7 @@ def _list_processed_input_files(project_path: Path) -> List[str]:
             rel = entry.resolve().relative_to(proj_resolved)
         except (ValueError, OSError):
             continue
-        files.append(str(rel))
+        files.append(rel.as_posix())
     return files
 
 
