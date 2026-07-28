@@ -21,6 +21,10 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history needed so the Lint step can compute
+          # `git diff origin/<base_ref>...HEAD` (shallow clone has no base ref).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
