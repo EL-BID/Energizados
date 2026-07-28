@@ -505,7 +505,7 @@ class InferenceBuilder(StepBuilder):
                 if model_path:
                     sig_path = Path(str(model_path) + ".sig")
                     if sig_path.exists():
-                        model_hash = sig_path.read_text().strip()
+                        model_hash = sig_path.read_text(encoding="utf-8").strip()
 
                 metadata = {
                     "model_hash": model_hash,
@@ -518,7 +518,7 @@ class InferenceBuilder(StepBuilder):
                 }
 
                 metadata_path = Path(str(output_path) + ".metadata.json")
-                metadata_path.write_text(json.dumps(metadata, indent=2))
+                metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
             def _load_segment_thresholds(self, path: str) -> Dict:
                 """Load and validate segment thresholds from JSON file.
@@ -532,7 +532,7 @@ class InferenceBuilder(StepBuilder):
                 Raises:
                     ValueError: If the JSON file is missing required fields.
                 """
-                with open(path, "r") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     config = json.load(f)
 
                 if "segment_column" not in config:

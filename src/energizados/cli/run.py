@@ -76,7 +76,7 @@ def merge_configs(config_paths: List[str]) -> Dict[str, Any]:
             raise ConfigurationError(f"Configuration file not found: {config_path}", config_path)
 
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
                 if config is None:
                     config = {}

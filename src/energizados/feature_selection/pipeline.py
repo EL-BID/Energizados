@@ -298,7 +298,7 @@ class FeatureSelectionPipeline(BaseFeatureSelector):
         # Ensure parent directory exists
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(audit_log, f, indent=2)
 
         logger.info(f"Feature selection audit log saved to: {path}")

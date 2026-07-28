@@ -64,7 +64,7 @@ class RunIndexGenerator:
                 continue
 
             try:
-                with open(json_path) as f:
+                with open(json_path, encoding="utf-8") as f:
                     report_data = json.load(f)
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"Could not read report from {run_dir.name}: {e}")
@@ -107,7 +107,7 @@ class RunIndexGenerator:
         Reads the best model (ranking[0]) metrics and links to comparison.html.
         """
         try:
-            with open(comparison_json) as f:
+            with open(comparison_json, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Could not read comparison report from {run_dir.name}: {e}")
@@ -171,7 +171,7 @@ class RunIndexGenerator:
         html_content = self._build_html(runs, output_dir)
 
         index_path = output_dir / "index.html"
-        with open(index_path, "w") as f:
+        with open(index_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         logger.info(f"Training index generated: {index_path} ({len(runs)} runs)")

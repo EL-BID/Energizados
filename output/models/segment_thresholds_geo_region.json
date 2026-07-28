@@ -1,0 +1,29 @@
+{
+  "segment_column": "geo_region",
+  "threshold_mode": "youden",
+  "default_threshold": 0.5,
+  "segments": {
+    "high_prev": {
+      "n_samples": 60,
+      "n_positives": 30,
+      "positive_rate": 0.5,
+      "auc": 0.9988888888888889,
+      "precision": 1.0,
+      "recall": 0.9666666666666667,
+      "f1": 0.9830508474576272,
+      "threshold": 0.6526927096535022,
+      "threshold_mode": "youden"
+    },
+    "low_prev": {
+      "n_samples": 60,
+      "n_positives": 5,
+      "positive_rate": 0.08333333333333333,
+      "auc": 0.9709090909090908,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.6666666666666666,
+      "threshold": 0.23681158163837812,
+      "threshold_mode": "youden"
+    }
+  }
+}

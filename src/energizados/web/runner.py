@@ -289,7 +289,17 @@ class JobRunner:
             logger.info(f"Received signal {signum} - shutting down after current job")
             self._shutdown = True
 
-        signal.signal(signal.SIGTERM, signal_handler)
+        # Register graceful-shutdown signal handlers where available. On Linux
+        # both SIGTERM (kill) and SIGINT (Ctrl-C) reach the process. On Windows
+        # only SIGINT is reliably delivered; SIGTERM only fires from os.kill,
+        # not from taskkill /F, but we register it anyway since CPython exposes
+        # it. signal.SIGBREAK (Windows CTRL_BREAK_EVENT) is intentionally not
+        # handled here — the launcher sets CREATE_NEW_PROCESS_GROUP and would
+        # need to send it explicitly via subprocess.Popen.send_signal().
+        if hasattr(signal, "SIGTERM"):
+            signal.signal(signal.SIGTERM, signal_handler)
+        if hasattr(signal, "SIGINT"):
+            signal.signal(signal.SIGINT, signal_handler)
 
         # Main poll loop
         while not self._shutdown:

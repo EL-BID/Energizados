@@ -223,7 +223,7 @@ class ETLOrchestrator:
             return None
 
         try:
-            with open(state_path, "r") as f:
+            with open(state_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logger.debug(f"  • Could not read state file at {state_path}: {e}")

@@ -6,6 +6,7 @@ and validate the environment (Python version, required libraries).
 """
 
 import importlib.metadata
+import logging
 import os
 import platform
 import shutil
@@ -13,6 +14,8 @@ import sys
 from typing import Dict, Tuple
 
 from energizados.api.config import CheckResult, DoctorReport
+
+logger = logging.getLogger(__name__)
 
 # Re-exports for backwards compatibility — ``CheckResult`` and ``DoctorReport``
 # now live in ``energizados.api.config`` (the public service layer). They are
@@ -116,11 +119,18 @@ def get_system_info() -> Dict[str, str]:
         )
 
         # Disk info
-        disk = psutil.disk_usage("/")
-        disk_total_gb = disk.total / (1024**3)
-        disk_used_gb = disk.used / (1024**3)
-        disk_free_gb = disk.free / (1024**3)
-        disk_percent = disk.percent
+        # psutil.disk_usage("/") raises OSError (WinError 3) on Windows because
+        # "/" is not a valid mount point. Use a portable root instead.
+        root_path = os.path.abspath(os.sep)  # "/" on POSIX, "C:\\" on Windows
+        try:
+            disk = psutil.disk_usage(root_path)
+            disk_total_gb = disk.total / (1024**3)
+            disk_used_gb = disk.used / (1024**3)
+            disk_free_gb = disk.free / (1024**3)
+            disk_percent = disk.percent
+        except OSError as e:
+            logger.warning(f"Could not read disk usage for '{root_path}': {e}")
+            disk_total_gb = disk_used_gb = disk_free_gb = disk_percent = 0.0
 
         info.update(
             {
@@ -131,7 +141,7 @@ def get_system_info() -> Dict[str, str]:
             }
         )
 
-    except ImportError:
+    except (ImportError, OSError):
         # Fallback to os module for basic info
         info.update(
             {

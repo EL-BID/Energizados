@@ -887,7 +887,7 @@ class SourceETL(BaseETL):
 
         def _is_stale(path: Path) -> bool:
             try:
-                data = json.loads(path.read_text())
+                data = json.loads(path.read_text(encoding="utf-8"))
                 pid = data.get("pid")
                 if pid is None:
                     # Old-style empty lock file — treat as stale
@@ -960,7 +960,7 @@ class SourceETL(BaseETL):
 
         if state_path.exists():
             try:
-                with open(state_path, "r") as f:
+                with open(state_path, "r", encoding="utf-8") as f:
                     self._state = json.load(f)
                 processed_count = len(self._state.get("processed_files", []))
                 last_val = self._state.get("last_processed_value")
@@ -1030,7 +1030,7 @@ class SourceETL(BaseETL):
             # Atomic write: write to .tmp then rename
             tmp_path = state_path.with_suffix(".json.tmp")
             try:
-                with open(tmp_path, "w") as f:
+                with open(tmp_path, "w", encoding="utf-8") as f:
                     json.dump(state_data, f, indent=2)
                 os.replace(tmp_path, state_path)
                 logger.debug(f"  • State saved to '{self.state_file}'")
@@ -1276,12 +1276,12 @@ class SourceETL(BaseETL):
             else:
                 partition_parts = [f"{self.partition_by[0]}={partition_values}"]
 
-            partition_path = "/".join([base_path.rstrip("/")] + partition_parts)
-            partition_dir = Path(partition_path)
+            # Use pathlib for cross-platform path joining (handles Windows backslashes)
+            partition_dir = Path(base_path).joinpath(*partition_parts)
             partition_dir.mkdir(parents=True, exist_ok=True)
 
             # Determine output file within partition
-            output_file = Path(partition_path) / "data.parquet"
+            output_file = partition_dir / "data.parquet"
             group_df.drop(columns=self.partition_by, inplace=True)
 
             # Handle existing partition file based on write_mode setting

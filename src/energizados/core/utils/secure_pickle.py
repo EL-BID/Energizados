@@ -39,7 +39,7 @@ def secure_dump(obj, path: str) -> None:
     joblib.dump(obj, pkl_path)
 
     sig_path = Path(str(pkl_path) + ".sig")
-    sig_path.write_text(_hash_file(pkl_path))
+    sig_path.write_text(_hash_file(pkl_path), encoding="utf-8")
     logger.debug(f"Integrity hash written to: {sig_path}")
 
 
@@ -75,7 +75,7 @@ def secure_load(path: str):
             f"Expected '{sig_path}'. Use secure_dump() to generate it."
         )
 
-    expected = sig_path.read_text().strip()
+    expected = sig_path.read_text(encoding="utf-8").strip()
     actual = _hash_file(pkl_path)
     if actual != expected:
         raise ValueError(

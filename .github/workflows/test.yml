@@ -1,0 +1,58 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master, "release/*"]
+  pull_request:
+  workflow_dispatch:
+
+# Test-only workflow: least-privilege GITHUB_TOKEN scope.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev,web]"
+      - name: Lint
+        run: pre-commit run --all-files
+      - name: Fast tests
+        run: pytest -m "not slow" -q --no-cov -x
+      - name: Doctor smoke
+        run: energizados doctor
+      - name: Init smoke (non-interactive)
+        # bash required on Windows: mktemp/ls are not PowerShell built-ins.
+        # GitHub-hosted windows-latest runners ship with Git Bash on PATH.
+        shell: bash
+        run: |
+          set -e
+          WORK=$(mktemp -d)
+          cd "$WORK"
+          # Clean create (exercises the happy path).
+          energizados init smoke --yes --force
+          # Conflict create WITHOUT --force: exercises the FileExistsError handler
+          # and the --yes-without-force refusal branch (cli/main.py). The refusal
+          # path aborts with a non-zero exit; the assertion in the next line
+          # proves it actually refused instead of silently overwriting.
+          set +e
+          energizados init smoke --yes
+          RC=$?
+          set -e
+          if [ "$RC" -eq 0 ]; then
+            echo "ERROR: --yes without --force should have refused, but exit was 0" >&2
+            exit 1
+          fi
+          ls smoke/src/run/

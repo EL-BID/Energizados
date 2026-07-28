@@ -75,7 +75,7 @@ class ConfigValidator:
             raise ConfigurationError(f"Configuration file not found: {path}", path)
 
         try:
-            with open(path, "r") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise ConfigurationError(f"Error parsing YAML: {e}", path) from e
