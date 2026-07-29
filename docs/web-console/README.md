@@ -276,6 +276,8 @@ bandit -r src/energizados/web/
 ```
 src/energizados/web/
 ├── app.py              # FastAPI application with all routes
+├── launcher.py         # energizados-web cross-platform launcher (spawns server + worker)
+├── projects.py         # Multi-project workspace management
 ├── store.py            # JobStore for SQLite persistence
 ├── runner.py           # JobRunner worker execution engine
 ├── worker.py           # Worker CLI entrypoint

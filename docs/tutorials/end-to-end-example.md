@@ -449,5 +449,5 @@ In this tutorial, you:
 
 - [Model Selection Guide](model-selection-guide.md) - Choose the right model for your use case
 - [Ensemble Models](ensemble-models.md) - Combine multiple models for better performance
-- [Advanced Configuration](../user-guide/configuration/) - Deep dive into configuration options
+- [Advanced Configuration](../user-guide/configuration/etl.md) - Deep dive into configuration options
 - [Understanding Results](../user-guide/understanding-results.md) - Master result interpretation

@@ -77,10 +77,11 @@ class BaseFeatureEngineering(ABC):
             path: Path where to save the pipeline (.pkl extension).
 
         Raises:
-            ValueError: If fit() was not called previously.
+            ModelNotFittedError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("You must call fit() before saving pipeline")
+            from energizados.core.exceptions import ModelNotFittedError
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
 
         from energizados.core.utils.secure_pickle import secure_dump
         path_obj = Path(path)
@@ -107,10 +108,11 @@ class BaseFeatureEngineering(ABC):
             list: List of output feature names.
 
         Raises:
-            ValueError: If fit() was not called previously.
+            ModelNotFittedError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("You must call fit() first")
+            from energizados.core.exceptions import ModelNotFittedError
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
         return self._get_feature_names_out()
 
     def _get_feature_names_out(self) -> list:
@@ -174,7 +176,7 @@ Wire it in `config/train.yaml`:
 train:
   feature_engineering:
     enabled: true
-    custom_class: "features.domain_feature_engineering.DomainSpecificFeatureEngineering"
+    custom_class: "src.features.domain_feature_engineering.DomainSpecificFeatureEngineering"
     params:
       # Any parameters for your custom pipeline
 ```
@@ -191,7 +193,7 @@ train:
     preprocessing:
       columns:
         actividad:
-          - custom_class: "preprocessing.CustomCardinalityReducer"
+          - custom_class: "src.preprocessing.CustomCardinalityReducer"
             params:
               threshold: 0.001
           - to_dummy: {}
@@ -203,7 +205,7 @@ train:
 train:
   feature_engineering:
     preprocessing:
-      custom_class: "preprocessing.CustomPreprocessing"
+      custom_class: "src.preprocessing.CustomPreprocessing"
       params:
         custom_param: value
 ```
@@ -217,7 +219,7 @@ train:
       enabled: true
       steps:
         - name: custom_selector
-          custom_class: "features.CustomFeatureSelector"
+          custom_class: "src.features.CustomFeatureSelector"
           params:
             param1: value1
 ```
@@ -292,7 +294,7 @@ train:
             periods_suffix: "_anterior"
 
         # Custom global transformer
-        - custom_class: "preprocessing.CustomGlobalTransformer"
+        - custom_class: "src.preprocessing.CustomGlobalTransformer"
           params:
             custom_param: value
 ```
@@ -306,7 +308,7 @@ See [Custom Preprocessing](custom-preprocessing.md) for more details on global t
 import pytest
 import pandas as pd
 
-from features.domain_feature_engineering import DomainSpecificFeatureEngineering
+from src.features.domain_feature_engineering import DomainSpecificFeatureEngineering
 
 
 def test_custom_feature_engineering_fit_transform(synthetic_classification_data):
@@ -347,7 +349,7 @@ pytest tests/test_custom_feature_engineering.py -v
 
 - [Custom Preprocessing](custom-preprocessing.md) - Custom column and global transformers
 - [Custom Models](custom-model.md) - Model implementations
-- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering) - Available transformations and usage
+- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering-configuration) - Available transformations and usage
 
 ---
 

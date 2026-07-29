@@ -112,7 +112,7 @@ etl:
     description: "Removes rows with null values"
     input: "data/raw/data.csv"
     output: "data/processed/clean.parquet"
-    custom_class: "data.custom_etl.SimpleFilterETL"
+    custom_class: "src.data.custom_etl.SimpleFilterETL"
     params:
       input_path: "data/raw/data.csv"
       output_path: "data/processed/clean.parquet"
@@ -493,7 +493,7 @@ import pytest
 import pandas as pd
 from pathlib import Path
 
-from data.custom_etl import SimpleFilterETL
+from src.data.custom_etl import SimpleFilterETL
 
 
 @pytest.fixture
@@ -542,4 +542,4 @@ pytest tests/test_custom_etl.py -v
 
 ---
 
-← [Extending Framework](../extending/) | [Custom Models](custom-model.md) →
+← [Extending Framework](../architecture.md) | [Custom Models](custom-model.md) →

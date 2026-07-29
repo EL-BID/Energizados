@@ -108,7 +108,7 @@ Analyzes each column based on its type (numeric, categorical, temporal, or consu
 
 When `detailed_charts: true` is set under `sections.numeric` or `sections.categorical`, each column generates a collapsible `<details>` block with:
 
-- **Numeric**: Histogram, boxplot, Q-Q plot, target rate by bin
+- **Numeric**: Histogram, boxplot
 - **Categorical**: Bar chart, treemap, target rate by category
 
 ```yaml
@@ -124,7 +124,7 @@ sections:
 !!! warning
     Enabling `detailed_charts` with many columns (100+) will significantly increase report generation time. Use it selectively during deep-dive analysis.
 
-### Phase 2.5: Outlier Detection
+### Outlier Detection (within Phase 2)
 
 Performs multi-method outlier detection on **all numeric columns** (including consumption period columns with `_anterior` suffix) and generates domain-specific consumption pattern analysis:
 
@@ -237,7 +237,7 @@ Analyzes the target column behavior:
 
 Performs spatial analysis when latitude/longitude columns are provided:
 
-- **Clustering**: Groups customers into geographic clusters (k-means or DBSCAN)
+- **Clustering**: Groups customers into geographic clusters (k-means)
 - **Hotspot identification**: Identifies areas with high fraud rates
 - **Spatial distribution**: Scatter plot colored by target
 
@@ -246,7 +246,6 @@ sections:
   geospatial:
     enabled: true
     clustering:
-      method: "kmeans"      # kmeans | dbscan
       n_clusters: 10
     country_bounds: [[-34.8, -74], [5.3, -28]]  # Brazil
 ```
@@ -346,8 +345,7 @@ thresholds:
 The EDA module generates:
 
 1. **HTML Report**: `output/eda/eda_report.html` - Self-contained interactive report with inline SVG charts
-2. **CSV Exports**: Summary tables exported as CSV files in `output/eda/csv/`
-3. **JSON Artifact**: `output/eda/outlier_analysis.json` with full outlier detection results
+2. **JSON Artifact**: `output/eda/outlier_analysis.json` with full outlier detection results
 
 ## Complete Example Configuration
 
@@ -381,12 +379,8 @@ eda:
       enabled: true
     missing_values:
       enabled: true
-      correlation_analysis: true
-      funnel_generation: true
     duplicates:
       enabled: true
-      check_by_id: true
-      check_by_id_date: true
     target_analysis:
       enabled: true
     categorical:
@@ -439,21 +433,10 @@ eda:
     feature_importance:
       enabled: true
       methods: ["iv", "ks_chi2", "cramers_v", "correlation"]
-      lgbm_quick:
-        enabled: false          # Enable for LightGBM-based feature importance
-        n_estimators: 50
-        max_depth: 5
     segmentation:
       enabled: true
       segment_cols: ["zona", "actividad", "tipo_tarifa"]
       min_segment_size: 100
-
-  visualization:
-    plotly_template: "plotly_white"
-    seaborn_palette: "muted"
-    figsize_standard: [12, 6]
-    figsize_large: [14, 8]
-    max_categories_plot: 30
 
   thresholds:
     missing_threshold: 0.5
@@ -469,13 +452,10 @@ eda:
   output:
     output_dir: "output/eda/"
     report_name: "eda_report.html"
-    export_plots: true
-    export_csv: true
-    sample_size: null
 ```
 
 ## Next Steps
 
 - [Understanding Results](understanding-results.md) - Learn how to interpret training results
-- [Configuration Guide](configuration/) - Detailed configuration options
+- [Configuration Guide](configuration/etl.md) - Detailed configuration options
 - [Advanced EDA](../advanced/extending/custom-etl.md) - Creating custom EDA analyzers

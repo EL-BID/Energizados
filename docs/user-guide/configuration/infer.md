@@ -6,6 +6,19 @@ Complete reference for `infer.yaml` configuration.
 
 Inference configuration defines how to apply a trained model to new data. It specifies the input data, model paths, output location, and prediction threshold.
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [Configuration Structure](#configuration-structure) | minimal `infer.yaml` template |
+| [Required & Optional Fields](#required-fields) | all parameters with defaults |
+| [How Inference Works](#how-inference-works) | pipeline, column handling, output selection |
+| [Hierarchical / Route-Based](#hierarchical-route-based-inference) | per-route models with fallback |
+| [Segment Thresholds](#segment-thresholds) | per-segment decision thresholds |
+| [Business Rules Overlay](#business-rules-overlay) | post-prediction rule flags |
+| [Custom Inference](#custom-inference) | subclassing `BaseInference` |
+| [Best Practices & Troubleshooting](#best-practices) | common pitfalls |
+
 ## Configuration Structure
 
 ```yaml
@@ -426,7 +439,7 @@ Apply per-segment optimal thresholds instead of a single global threshold. This 
 
 Segment thresholds are exported by the evaluation step when `evaluation.segment_columns` is configured in `train.yaml`. The JSON file maps each unique segment value to its optimal threshold.
 
-> **Default location change:** as of v0.4.0 the JSON is exported to the
+> **Default location change:** as of v0.3.4 the JSON is exported to the
 > trained model's directory (`output/train-YYYYMMDD_HHMM/models/`) by
 > default, because it is a deployment artifact consumed at predict time,
 > not a report. Update existing `infer.yaml` `segment_thresholds.path`
@@ -616,7 +629,7 @@ infer:
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  custom_class: "inference.custom_inference.CustomInference"
+  custom_class: "src.inference.custom_inference.CustomInference"
 ```
 
 ---

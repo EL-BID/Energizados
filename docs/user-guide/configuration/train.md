@@ -12,6 +12,17 @@ The training configuration file controls the entire training pipeline with five 
 - **`ensemble`**: Ensemble configuration (optional, required when multiple models)
 - **`evaluation`**: Metrics, reports, and threshold settings
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [Split Configuration](#split-configuration) | train/val/test splits, `none` no-holdout, time-series, group-based, geo-stratify |
+| [Feature Engineering](#feature-engineering-configuration) | preprocessing, global transformers, feature selection |
+| [Model Configuration](#model-configuration) | single model, sampling, hyperparams, hyperparam search |
+| [Ensemble Configuration](#ensemble-configuration) | soft voting, stacking, blending vs OOF |
+| [Evaluation Configuration](#evaluation-configuration) | metrics, threshold calibration, segmented evaluation |
+| [Complete Example](#complete-example) | full annotated `train.yaml` |
+
 ## File Structure
 
 ```yaml
@@ -191,6 +202,37 @@ split:
 | `val_size` | float | `0.15` | Proportion of data for validation set |
 
 **Important:** Requires `GeoFeaturesETL` to be executed before training to generate the `cluster_column` (e.g., `geo_cluster`). Each cluster is split independently using time-based logic, then the splits are combined.
+
+#### No-Holdout Training (`none`)
+
+Trains on the **full dataset** without reserving a validation or test split. Use this for production model training once offline evaluation is complete and you want to maximize the signal from all available data.
+
+```yaml
+split:
+  method: "none"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `method` | string | - | Must be `"none"` |
+
+**What changes under the hood:**
+
+- `SplitStep` writes only `train.parquet`; `val_path` and `test_path` remain `None`.
+- `TrainingStep` accepts `val_path=None` and internally reserves 10% of the data for early stopping only.
+- Metrics that require holdout data (`val_auc`, `val_f1`) return `None` honestly instead of fabricated numbers.
+- A new `holdout_mode` field is exposed in the run context: `"none"` or `"standard"`.
+- The evaluation step is auto-skipped by the director with a `WARNING`; `DefaultEvaluator` returns `skipped=True` defensively.
+
+**Interactions to be aware of:**
+
+- **Probability calibration** is skipped with a `WARNING` (it needs validation data).
+- **Ensemble blending** (`use_val_as_oof: true`) raises a `ConfigurationError`. Three alternatives: (1) provide a `split.method` with a holdout, (2) switch to `use_val_as_oof: false` (K-fold OOF stacking), or (3) use `method: "soft_voting"`.
+- **Soft-voting ensembles** and **K-fold OOF stacking** work without validation data.
+
+> **Available since v0.3.3.** Every other `split.method` (`stratified`, `random`, `time_series`, `group_based`, `stratified_time`) remains byte-identical.
 
 #### Unlabeled Negatives (Optional)
 
@@ -598,7 +640,7 @@ Isolation Forest anomaly score — generates an `if_score` column where **higher
 #### Custom Global Transformer
 
 ```yaml
-- custom_class: "preprocessing.CustomGlobalTransformer"
+- custom_class: "src.preprocessing.CustomGlobalTransformer"
   params:
     custom_param: value
 ```

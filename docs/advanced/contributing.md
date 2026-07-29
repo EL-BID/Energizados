@@ -469,10 +469,10 @@ git push origin v0.2.0
 ## Additional Resources
 
 - **[Development Setup](development-setup.md)** — Setting up your dev environment
-- **[Extending Framework](extending/)** — Creating custom components
-- **[User Guide](../user-guide/)** — End-user documentation
+- **[Extending Framework](extending/custom-etl.md)** — Creating custom components
+- **[User Guide](../user-guide/project-structure.md)** — End-user documentation
 - **`AGENTS.md`** — Rules for AI agents
 
 ---
 
-← [Development Setup](development-setup.md) | [Advanced Topics](../advanced/) →
+← [Development Setup](development-setup.md) | [Advanced Topics](architecture.md) →

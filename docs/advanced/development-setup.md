@@ -161,9 +161,9 @@ Documentation source files live in `docs/`. The site configuration is in `mkdocs
 ## See Also
 
 - [Contributing Guide](contributing.md) - Code quality standards and testing
-- [Extending Framework](extending/) - Customizing the framework
-- [User Guide](../user-guide/) - End-user documentation
+- [Extending Framework](extending/custom-etl.md) - Customizing the framework
+- [User Guide](../user-guide/project-structure.md) - End-user documentation
 
 ---
 
-← [Advanced Topics](../advanced/) | [Contributing](contributing.md) →
+← [Advanced Topics](architecture.md) | [Contributing](contributing.md) →

@@ -44,7 +44,7 @@ train:
     preprocessing:
       columns:
         column_name:
-          - custom_class: "preprocessing.CustomColumnTransformer"
+          - custom_class: "src.preprocessing.CustomColumnTransformer"
             params:
               param1: value1
               param2: value2
@@ -130,7 +130,7 @@ train:
         # ... column-level preprocessing
 
       global_transformers:
-        - custom_class: "preprocessing.interaction_transformer.CustomInteractionTransformer"
+        - custom_class: "src.preprocessing.interaction_transformer.CustomInteractionTransformer"
           params:
             interactions:
               - ["consumption_mean", "consumption_std", "*"]
@@ -230,7 +230,7 @@ ConfigurationError: Class 'malicious.package.Attacker' is not in the allowed mod
 import pytest
 import pandas as pd
 
-from preprocessing.interaction_transformer import CustomInteractionTransformer
+from src.preprocessing.interaction_transformer import CustomInteractionTransformer
 
 
 @pytest.fixture
@@ -269,7 +269,7 @@ pytest tests/test_custom_transformers.py -v
 
 - [Custom Feature Engineering](custom-feature-engineering.md) - Full pipeline customization
 - [Custom ETLs](custom-etl.md) - ETL implementations
-- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering) - Available transformations
+- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering-configuration) - Available transformations
 
 ---
 

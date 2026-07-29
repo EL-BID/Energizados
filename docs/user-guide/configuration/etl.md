@@ -6,6 +6,19 @@ Complete reference for `etl.yaml` configuration.
 
 The ETL configuration file defines data extraction, transformation, and loading processes. Each ETL can depend on other ETLs, creating a Directed Acyclic Graph (DAG) that executes in topological order.
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [File Structure](#file-structure) | minimal `etl.yaml` template + schema versioning |
+| [SourceETL](#sourceetl) | `concat`, `merge`, `incremental` modes |
+| [ETL Dependencies](#etl-dependencies) | DAG, `@etl_name` references, `depends_on` |
+| [Dependency Patterns](#dependency-patterns) | common dependency recipes |
+| [GeoFeaturesETL](#geofeaturesetl) | geographic features from lat/lon |
+| [ClipOutliersETL](#clipoutliersetl) | clip extreme consumption values |
+| [CleanFilesETL](#cleanfilesetl) | delete intermediate files |
+| [Custom ETL Classes](#custom-etl-classes) | subclassing `BaseETL` |
+
 ## File Structure
 
 ```yaml
@@ -46,7 +59,7 @@ etl:
 
 `SourceETL` is the built-in ETL implementation. It reads CSV, Parquet (`.parquet`/`.pq`), and Excel (`.xlsx`/`.xls`) files and supports two processing modes.
 
-> **Note:** New projects created with `energizados init` use `custom_class: "data.custom_etl.CustomETL"` for the sample ETL — this is the generated `CustomETL` class in `src/data/custom_etl.py`, which extends `BaseETL`. Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly without a custom class.
+> **Note:** New projects created with `energizados init` use `custom_class: "src.data.custom_etl.CustomETL"` for the sample ETL — this is the generated `CustomETL` class in `src/data/custom_etl.py`, which extends `BaseETL`. Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly without a custom class.
 
 ### Mode: Concat (Vertical Concatenation)
 
