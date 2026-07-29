@@ -155,3 +155,8 @@ notebooks/data_check.ipynb
 
 # Web console runtime state (JobStore SQLite + worker artifacts)
 data/web/
+
+# Framework run artifacts (training/inference/EDA run dirs + ETL processed/temp)
+output/
+data/processed/
+data/temp/
