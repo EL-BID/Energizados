@@ -349,7 +349,7 @@ Before reaching for a custom `BaseInference` subclass, check whether the native 
 
 - **Business rules overlay**: Use `business_rules` in `infer.yaml` to apply rule-based modifications to predictions after segment thresholds. Rules evaluate pandas expressions against raw pre-FE data and can `flag`, `override`, or boost scores. See [Inference Guide](../../user-guide/configuration/infer.md#business-rules-overlay).
 
-- **Hierarchical routing**: Use `routes` in `infer.yaml` to route rows to different models based on column-value conditions (e.g., per-region models). `HierarchicalInference` loads route models automatically — no custom code needed. See [Inference Guide](../../user-guide/configuration/infer.md#hierarchical--route-based-inference).
+- **Hierarchical routing**: Use `routes` in `infer.yaml` to route rows to different models based on column-value conditions (e.g., per-region models). `HierarchicalInference` loads route models automatically — no custom code needed. See [Inference Guide](../../user-guide/configuration/infer.md#hierarchical-route-based-inference).
 
 All three features are configured in `infer.yaml` and require no custom Python code. They also preserve the inference pipeline order: model → segment thresholds → business rules → final predictions.
 
@@ -363,4 +363,4 @@ When these native features are insufficient (e.g., you need custom external API 
 
 ---
 
-← [Custom Preprocessing](custom-preprocessing.md) | [Extending Framework](../extending/) →
+← [Custom Preprocessing](custom-preprocessing.md) | [Extending Framework](custom-etl.md) →

@@ -457,5 +457,5 @@ eda:
 ## Next Steps
 
 - [Understanding Results](understanding-results.md) - Learn how to interpret training results
-- [Configuration Guide](configuration/) - Detailed configuration options
+- [Configuration Guide](configuration/etl.md) - Detailed configuration options
 - [Advanced EDA](../advanced/extending/custom-etl.md) - Creating custom EDA analyzers

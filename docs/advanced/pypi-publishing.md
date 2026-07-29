@@ -423,4 +423,4 @@ After first publication:
 
 ---
 
-← [Advanced Topics](../advanced/) | [Contributing](contributing.md) →
+← [Advanced Topics](architecture.md) | [Contributing](contributing.md) →

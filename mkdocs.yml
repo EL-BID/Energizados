@@ -4,6 +4,12 @@ repo_url: https://github.com/EL-BID/Energizados
 repo_name: EL-BID/Energizados
 edit_uri: edit/master/docs/
 
+# Pages built but intentionally excluded from the nav (drafts / internal docs).
+not_in_nav: |
+  pilot_design_guide.md
+  agents/*.md
+  web-console/PRD.md
+
 theme:
   name: material
   language: en

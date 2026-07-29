@@ -480,7 +480,7 @@ The framework provides several base classes for extending functionality. Since v
 | `BaseFeatureSelector` | `energizados.contracts` | Custom feature selection methods (`fit`, `transform`) |
 | `BaseExplorer` | `energizados.contracts` | Custom EDA phases (`explore`) |
 
-For detailed guides on extending the framework, see [Extending Framework](extending/).
+For detailed guides on extending the framework, see [Extending Framework](extending/custom-etl.md).
 
 ## Data Format
 
@@ -594,10 +594,10 @@ infer:
 
 ## See Also
 
-- [Extending Framework](extending/) - Customizing the framework
-- [User Guide](../user-guide/) - End-user documentation
+- [Extending Framework](extending/custom-etl.md) - Customizing the framework
+- [User Guide](../user-guide/project-structure.md) - End-user documentation
 - [Contributing](contributing.md) - Development guidelines
 
 ---
 
-← [Advanced Topics](../advanced/) | [Extending Framework](extending/) →
+← [Advanced Topics](architecture.md) | [Extending Framework](extending/custom-etl.md) →

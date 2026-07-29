@@ -542,4 +542,4 @@ pytest tests/test_custom_etl.py -v
 
 ---
 
-← [Extending Framework](../extending/) | [Custom Models](custom-model.md) →
+← [Extending Framework](../architecture.md) | [Custom Models](custom-model.md) →

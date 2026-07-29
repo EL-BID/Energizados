@@ -525,5 +525,5 @@ Use different models for different customer segments (e.g., residential vs comme
 
 - [Model Selection Guide](model-selection-guide.md) - Choosing the right base models
 - [End-to-End Example](end-to-end-example.md) - Hands-on tutorial
-- [Configuration Guide](../user-guide/configuration/) - Detailed ensemble configuration options
+- [Configuration Guide](../user-guide/configuration/etl.md) - Detailed ensemble configuration options
 - [Understanding Results](../user-guide/understanding-results.md) - Interpreting ensemble performance

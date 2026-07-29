@@ -339,7 +339,7 @@ The framework includes several built-in model adapters:
 - [Custom ETLs](custom-etl.md) - Learn about ETL extensions
 - [Custom Feature Engineering](custom-feature-engineering.md) - Feature pipeline customization
 - [Custom Inference](custom-inference.md) - Inference implementations
-- [Ensemble Models](../../user-guide/configuration/train.md#ensemble) - Using multiple models
+- [Ensemble Models](../../user-guide/configuration/train.md#ensemble-configuration) - Using multiple models
 
 ---
 
