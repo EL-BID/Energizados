@@ -188,13 +188,13 @@ Edit `config/infer.yaml`:
 infer:
   enabled: true
   input_path: "data/processed/dataset_infer.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   threshold: 0.5
   # Optional: apply per-segment thresholds from evaluation
   # segment_thresholds:
   #   enabled: true
   #   path: "output/train-YYYYMMDD_HHMM/models/segment_thresholds_zona.json"
-  #   fallback_threshold: 0.5
+  # Unknown segment values fall back to the global `threshold` above.
 ```
 
 ### 4. Customize ETL

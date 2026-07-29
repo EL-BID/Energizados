@@ -206,7 +206,7 @@ energizados run infer
 
 Make sure `config/infer.yaml` is configured with:
 - `input_path`: Path to your new data
-- `output_path`: Where to save predictions
+- `output_predictions_path`: Where to save predictions
 - `model_path`: Path to the trained model
 - `feature_engineering_path`: Path to the feature engineering pipeline
 

@@ -12,7 +12,7 @@ Inference configuration defines how to apply a trained model to new data. It spe
 infer:
   enabled: false          # Set to true to run inference
   input_path: "data/processed/sample_dataset.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   # Uncomment and set to point to a specific training run:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
   # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
@@ -28,7 +28,7 @@ infer:
 |-----------|------|-------------|
 | `enabled` | boolean | Whether to execute inference |
 | `input_path` | string | Path to input data (parquet or CSV) |
-| `output_path` | string | Path where predictions will be saved |
+| `output_predictions_path` | string | Path where predictions will be saved (`output_path` is a deprecated alias) |
 
 ## Optional Fields
 
@@ -56,7 +56,7 @@ The inference process follows these steps:
 5. **Apply Per-Row Thresholds**: (Optional) Applies per-segment thresholds if `segment_thresholds` is enabled
 6. **Apply Business Rules**: (Optional) Evaluates rule-based overlays against raw pre-FE data if `business_rules` is enabled
 7. **Finalize Predictions**: Converts probability scores to binary predictions (fraud/non-fraud)
-8. **Save Results**: Writes predictions and probabilities to `output_path`
+8. **Save Results**: Writes predictions and probabilities to `output_predictions_path`
 
 > **Note:** The template ships with `enabled: false`. You must set `enabled: true` to run inference. Model paths are auto-detected from the latest training run if not specified.
 
@@ -68,7 +68,7 @@ If you omit `model_path` and `feature_engineering_path`, the system will automat
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   # model_path and feature_engineering_path are auto-detected
   # from output/train-YYYYMMDD_HHMM/
   threshold: 0.5
@@ -91,7 +91,7 @@ Configuration:
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -118,7 +118,7 @@ Configuration:
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/ensemble.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -178,7 +178,7 @@ python src/run/03_inference.py --run-dir output/train-YYYYMMDD_HHMM
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -192,7 +192,7 @@ Use a higher threshold to reduce false positives (fewer unnecessary inspections)
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.7  # Higher threshold = fewer false positives
@@ -204,7 +204,7 @@ Use a lower threshold to reduce false negatives (catch more fraud):
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.3  # Lower threshold = catch more fraud
@@ -218,7 +218,7 @@ If you used threshold calibration during training, use the calibrated threshold:
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.42  # Calibrated threshold from evaluation report
@@ -234,7 +234,7 @@ Process multiple files by updating the configuration:
 infer:
   enabled: true
   input_path: "data/batch/january_2024.parquet"
-  output_path: "predictions/january_2024.csv"
+  output_predictions_path: "predictions/january_2024.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -250,7 +250,7 @@ Filter records BEFORE feature engineering to avoid expensive operations like tsf
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -268,7 +268,7 @@ Filter by comparison operators (`>`, `<`, `>=`, `<=`, `!=`, `like`):
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -300,7 +300,7 @@ Use pandas query syntax for complex filters:
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   threshold: 0.5
   
@@ -316,7 +316,7 @@ Select specific columns for the output CSV. `output_columns` is **self-sufficien
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -367,7 +367,7 @@ When `routes` are configured, `HierarchicalInference` loads its own route models
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   threshold: 0.5
 
   # No top-level model_path needed when routes are configured
@@ -417,7 +417,10 @@ Apply per-segment optimal thresholds instead of a single global threshold. This 
 |-----------|------|---------|-------------|
 | `segment_thresholds.enabled` | boolean | `false` | Enable per-segment thresholds |
 | `segment_thresholds.path` | string | `null` | Path to the JSON file exported by evaluation (e.g., `segment_thresholds_geo_region.json`) |
-| `segment_thresholds.fallback_threshold` | float | `null` | Threshold for rows with unknown/missing segment values. If `null`, uses the global `threshold` |
+
+> Unknown segment values fall back to the global `threshold` key. The legacy
+> `segment_thresholds.fallback_threshold` key is deprecated and ignored — set
+> the top-level `threshold` to control the fallback.
 
 ### Exporting Segment Thresholds
 
@@ -438,13 +441,13 @@ Segment thresholds are exported by the evaluation step when `evaluation.segment_
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   threshold: 0.5  # Global fallback (used for unknown segments)
 
   segment_thresholds:
     enabled: true
     path: "output/train-20260317_1430/models/segment_thresholds_geo_region.json"
-    fallback_threshold: 0.5  # Optional: overrides global threshold for unknown segments
+    # Unknown segment values fall back to the global `threshold` above.
 ```
 
 ### JSON Format (from evaluation)
@@ -466,7 +469,7 @@ infer:
 ### Error Handling
 
 - If the segment column is missing from the inference data, a `ValueError` is raised
-- Unknown segment values use `fallback_threshold` (or the global `threshold` if not set)
+- Unknown segment values use the global `threshold`
 - The JSON file is validated at load time
 
 ### Cross-Reference
@@ -516,13 +519,13 @@ Business rules are evaluated **after** segment thresholds (or global threshold) 
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   threshold: 0.5
 
   segment_thresholds:
     enabled: true
     path: "output/train-20260317_1430/models/segment_thresholds_geo_region.json"
-    fallback_threshold: 0.5
+    # Unknown segment values fall back to the global `threshold` above.
 
   business_rules:
     enabled: true
@@ -609,7 +612,7 @@ Update `infer.yaml` to use your custom class:
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions.csv"
+  output_predictions_path: "predictions.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
@@ -628,7 +631,7 @@ Keep track of which model was used for infer:
 infer:
   enabled: true
   input_path: "data/new_data.parquet"
-  output_path: "predictions_model_v1.csv"
+  output_predictions_path: "predictions_model_v1.csv"
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5

@@ -208,9 +208,12 @@ class InferenceBuilder(StepBuilder):
                 # --- Load inference data ---
                 _input_path = self.config.get("input_path")
                 # ADR-0001: prefer the resolved output path (run-dir relocation)
-                # over a raw config value.
-                _output_path = self.config.get("_resolved_output_path") or self.config.get(
-                    "output_path"
+                # over a raw config value. `output_predictions_path` is the
+                # current key; `output_path` is a deprecated alias.
+                _output_path = (
+                    self.config.get("_resolved_output_path")
+                    or self.config.get("output_predictions_path")
+                    or self.config.get("output_path")
                 )
                 if _input_path:
                     data = pd.read_parquet(_input_path)
@@ -565,7 +568,8 @@ class InferenceBuilder(StepBuilder):
                 Args:
                     probas: Array of predicted probabilities.
                     data: DataFrame containing the segment column.
-                    segment_config: Configuration with 'path' and 'fallback_threshold'.
+                    segment_config: Configuration with 'path'. Unknown segment
+                        values fall back to the global inference ``threshold``.
 
                 Returns:
                     np.ndarray: Binary predictions using per-row thresholds.
@@ -595,10 +599,19 @@ class InferenceBuilder(StepBuilder):
                     for segment_value, segment_info in segments.items()
                 }
 
-                # Determine fallback threshold
-                fallback = segment_config.get("fallback_threshold")
-                if fallback is None:
-                    fallback = self.inference.threshold  # Use global threshold
+                # Determine fallback threshold.
+                # The fallback for unknown segments is the global inference
+                # ``threshold``. The legacy ``fallback_threshold`` config key is
+                # deprecated and ignored — warn so users migrate to ``threshold``.
+                if "fallback_threshold" in segment_config:
+                    logger.warning(
+                        "`segment_thresholds.fallback_threshold` is deprecated and "
+                        "ignored; using the global `threshold` (%s) as the fallback "
+                        "for unknown segments. Remove `fallback_threshold` from your "
+                        "config and set `threshold` instead.",
+                        self.inference.threshold,
+                    )
+                fallback = self.inference.threshold
 
                 # Get segment values for each row
                 segment_values = data[segment_column]
@@ -647,9 +660,35 @@ class InferenceBuilder(StepBuilder):
         inference_config_filtered["_resolved_feature_engineering_path"] = feature_engineering_path
 
         # ADR-0001: relocate predictions into the run dir when no explicit
-        # output_path is configured. The models still live in training runs
+        # output path is configured. The models still live in training runs
         # (auto-detection globs train-*), only the PREDICTIONS output relocates.
-        resolved_output_path = inference_config.get("output_path")
+        #
+        # Prefer `output_predictions_path`; `output_path` is a deprecated alias
+        # (warn when used). If both are set, the new key wins and the old one is
+        # ignored with a warning.
+        new_path = inference_config.get("output_predictions_path")
+        old_path = inference_config.get("output_path")
+        if new_path and old_path:
+            warnings.warn(
+                "Both `output_predictions_path` and `output_path` are set in the "
+                "inference config; using `output_predictions_path` and ignoring "
+                "`output_path`. Remove `output_path` (it is deprecated).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            resolved_output_path = new_path
+        elif new_path:
+            resolved_output_path = new_path
+        elif old_path:
+            warnings.warn(
+                "`infer.output_path` is deprecated; use `output_predictions_path`. "
+                "The value is still used.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            resolved_output_path = old_path
+        else:
+            resolved_output_path = None
         if not resolved_output_path and self._run_dir is not None:
             _fmt = inference_config.get("output_format", "csv")
             resolved_output_path = str(Path(self._run_dir) / f"predictions.{_fmt}")

@@ -551,7 +551,7 @@ train:
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   model_path: "output/train-XXX/models/model.pkl"
   feature_engineering_path: "output/train-XXX/models/feature_engineering.pkl"
   custom_class: "energizados.inference.default.DefaultInference"  # or custom

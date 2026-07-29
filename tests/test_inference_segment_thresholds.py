@@ -196,7 +196,6 @@ class TestInferenceBuilderSegmentThresholds:
         config = {
             "enabled": True,
             "path": str(json_path),
-            "fallback_threshold": 0.5,
         }
 
         builder = InferenceBuilder({"threshold": 0.5})
@@ -232,7 +231,6 @@ class TestInferenceBuilderSegmentThresholds:
         config = {
             "enabled": True,
             "path": str(json_path),
-            "fallback_threshold": 0.5,
         }
 
         builder = InferenceBuilder({"threshold": 0.5})
@@ -246,8 +244,8 @@ class TestInferenceBuilderSegmentThresholds:
         expected = np.array([1, 1, 0])
         np.testing.assert_array_equal(predictions, expected)
 
-    def test_apply_segment_thresholds_null_fallback_uses_global(self, tmp_path):
-        """Test that null fallback_threshold uses global threshold."""
+    def test_apply_segment_thresholds_unknown_uses_global_threshold(self, tmp_path):
+        """Test that unknown segment values use the global threshold."""
         # Arrange
         json_path = self.create_segment_thresholds_json(
             tmp_path,
@@ -269,7 +267,6 @@ class TestInferenceBuilderSegmentThresholds:
         config = {
             "enabled": True,
             "path": str(json_path),
-            "fallback_threshold": None,  # null fallback
         }
 
         builder = InferenceBuilder({"threshold": 0.6})  # global threshold
@@ -282,6 +279,41 @@ class TestInferenceBuilderSegmentThresholds:
         # Assert: Norte(0.4>=0.3)->1, Unknown(0.55<0.6)->0
         expected = np.array([1, 0])
         np.testing.assert_array_equal(predictions, expected)
+
+    def test_apply_segment_thresholds_fallback_key_deprecated_warns_and_ignored(
+        self, tmp_path, caplog
+    ):
+        """The legacy fallback_threshold key is ignored; the global threshold wins."""
+        import logging
+
+        json_path = self.create_segment_thresholds_json(
+            tmp_path,
+            "zona",
+            {"Norte": {"threshold": 0.3}},
+        )
+
+        data = pd.DataFrame({"zona": ["Norte", "Unknown"], "feature": [1, 2]})
+        # Unknown (0.55) must use the global threshold 0.6, NOT the ignored
+        # legacy fallback_threshold 0.2 -> 0.55 >= 0.6 is False -> 0.
+        probas = np.array([0.4, 0.55])
+
+        config = {
+            "enabled": True,
+            "path": str(json_path),
+            "fallback_threshold": 0.2,  # deprecated — must be ignored
+        }
+
+        builder = InferenceBuilder({"threshold": 0.6})
+        step = builder.build()
+        assert step is not None
+
+        with caplog.at_level(logging.WARNING):
+            predictions = step._apply_segment_thresholds(probas, data, config)
+
+        # The global threshold (0.6) is used, not the legacy 0.2.
+        expected = np.array([1, 0])
+        np.testing.assert_array_equal(predictions, expected)
+        assert any("fallback_threshold" in r.getMessage() for r in caplog.records)
 
     def test_apply_segment_thresholds_missing_column_raises(self, tmp_path):
         """Test that missing segment column in data raises ValueError."""
@@ -302,7 +334,6 @@ class TestInferenceBuilderSegmentThresholds:
         config = {
             "enabled": True,
             "path": str(json_path),
-            "fallback_threshold": 0.5,
         }
 
         builder = InferenceBuilder({"threshold": 0.5})
@@ -337,7 +368,6 @@ class TestInferenceBuilderSegmentThresholds:
         config = {
             "enabled": True,
             "path": str(json_path),
-            "fallback_threshold": 0.5,
         }
 
         builder = InferenceBuilder({"threshold": 0.5})

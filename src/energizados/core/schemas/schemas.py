@@ -435,7 +435,11 @@ INFERENCE_SCHEMA = {
     "properties": {
         "enabled": {"type": "boolean"},
         "input_path": {"type": "string"},
-        "output_path": {"type": "string"},
+        "output_predictions_path": {"type": "string"},
+        "output_path": {
+            "type": "string",
+            "description": "DEPRECATED alias for output_predictions_path.",
+        },
         "model_path": {"type": "string"},
         "feature_engineering_path": {"type": "string"},
         "output_include_input": {"type": "boolean"},
@@ -465,10 +469,14 @@ INFERENCE_SCHEMA = {
         "sort_by_probability": {"type": "boolean", "default": True},
         "segment_thresholds": {
             "type": "object",
+            "description": (
+                "Per-segment thresholds. Unknown segment values fall back to the "
+                "global `threshold`. The legacy `fallback_threshold` key is "
+                "deprecated and ignored (use the top-level `threshold` instead)."
+            ),
             "properties": {
                 "enabled": {"type": "boolean", "default": False},
                 "path": {"type": ["string", "null"]},
-                "fallback_threshold": {"type": ["number", "null"]},
             },
         },
         "business_rules": {

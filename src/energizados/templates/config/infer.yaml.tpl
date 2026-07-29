@@ -49,7 +49,8 @@ infer:
   # By default, predictions are written INSIDE the inference run directory
   # (output/inference-YYYYMMDD_HHMM/predictions.csv), alongside run.log and
   # the .metadata.json sidecar. Uncomment to pin a fixed output location:
-  # output_path: "output/predictions.csv"
+  # output_predictions_path: "output/predictions.csv"
+  # NOTE: `output_path` is a deprecated alias for `output_predictions_path`.
 
   # Point to the training run to use:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
@@ -129,7 +130,9 @@ infer:
   # segment_thresholds:
   #   enabled: true
   #   path: "output/train-YYYYMMDD_HHMM/models/segment_thresholds_zona.json"
-  #   fallback_threshold: 0.5         # threshold for unknown segments (null = use global)
+  # Unknown segment values fall back to the global `threshold` above.
+  # (The legacy `fallback_threshold` key is deprecated and ignored; set the
+  # top-level `threshold` to control the fallback.)
 
   # -----------------------------------------------------------
   # OPTIONAL: Business Rules (NEW in v4)

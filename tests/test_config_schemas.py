@@ -463,6 +463,26 @@ class TestConfigSchemas:
             "infer": {
                 "enabled": True,
                 "input_path": "data/test.parquet",
+                "output_predictions_path": "data/output.parquet",
+                "model_path": "models/model.pkl",
+                "segment_thresholds": {
+                    "enabled": True,
+                    "path": "config/thresholds.yaml",
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"segment_thresholds config should be valid, got: {errors}"
+
+    def test_inference_segment_thresholds_legacy_keys_still_valid(self):
+        """Deprecated keys (output_path alias, fallback_threshold) don't break validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "infer": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
                 "output_path": "data/output.parquet",
                 "model_path": "models/model.pkl",
                 "segment_thresholds": {
@@ -474,7 +494,7 @@ class TestConfigSchemas:
         }
 
         errors = validator.validate_config(config)
-        assert len(errors) == 0, f"segment_thresholds config should be valid, got: {errors}"
+        assert len(errors) == 0, f"legacy keys should still be schema-valid, got: {errors}"
 
     def test_inference_segment_thresholds_backward_compat(self):
         """Verify that infer WITHOUT segment_thresholds still passes (backward compatible)."""

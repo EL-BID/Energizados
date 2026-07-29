@@ -327,7 +327,7 @@ infer:
   model_path: "output/train-20240315_1430/models/model.pkl"
   feature_engineering_path: "output/train-20240315_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  output_path: "output/inference_predictions.parquet"
+  output_predictions_path: "output/inference_predictions.parquet"
 ```
 
 !!! note

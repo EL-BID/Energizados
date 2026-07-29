@@ -238,7 +238,7 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
 
     Checks for required fields when inference is enabled:
     - input_path: Path to input data
-    - output_path: Path for output results
+    - output_predictions_path: Path for output results (output_path is a deprecated alias)
     - custom_class: Optional custom inference class
 
     Args:
@@ -258,8 +258,12 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
         if "input_path" not in inf:
             result.add_warning("inference.input_path not defined")
 
-        if "output_path" not in inf:
-            result.add_warning("inference.output_path not defined")
+        has_new = "output_predictions_path" in inf
+        has_old = "output_path" in inf
+        if not has_new and not has_old:
+            result.add_warning("inference.output_predictions_path not defined")
+        elif has_old and not has_new:
+            result.add_warning("inference.output_path is deprecated; use output_predictions_path")
 
         if "custom_class" in inf:
             _validate_class_reference(inf["custom_class"], result)

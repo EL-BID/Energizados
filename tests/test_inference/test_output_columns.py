@@ -311,3 +311,86 @@ class TestOutputColumnsUnified:
         )
         assert list(df.columns) == ["cliente", "probability"]
         assert "rule_consumo_cero" not in df.columns
+
+
+class TestOutputPredictionsPathKey:
+    """Tests for the ``output_predictions_path`` config key.
+
+    ``output_predictions_path`` is the canonical key for the predictions output
+    file. The legacy ``output_path`` is a deprecated alias: still used (with a
+    DeprecationWarning) when it is the only one set, and ignored (with a
+    warning) when both are set — ``output_predictions_path`` wins.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        model = MagicMock()
+        model.predict_proba.return_value = np.array([0.2, 0.6])
+        return model
+
+    def _write_data(self, tmp_path: Path) -> Path:
+        data = pd.DataFrame({"cliente": ["c1", "c2"], "x": [1.0, 2.0]})
+        path = tmp_path / "infer_data.parquet"
+        data.to_parquet(path, index=False)
+        return path
+
+    def _build_and_run(self, config: dict):
+        builder = InferenceBuilder(config)
+        step = builder.build()
+        assert step is not None
+        step.config["_resolved_model_path"] = None
+        step.config["_resolved_feature_engineering_path"] = None
+        return step
+
+    def test_output_predictions_path_is_used(self, tmp_path, mock_model):
+        """The canonical output_predictions_path key writes predictions there."""
+        data_path = self._write_data(tmp_path)
+        out = str(tmp_path / "preds_new_key.csv")
+        step = self._build_and_run(
+            {
+                "threshold": 0.5,
+                "input_path": str(data_path),
+                "output_predictions_path": out,
+                "output_format": "csv",
+                "sort_by_probability": False,
+            }
+        )
+        step.execute({"model": mock_model})
+        assert Path(out).exists()
+        df = pd.read_csv(out)
+        assert "prediction" in df.columns
+
+    def test_legacy_output_path_warns_but_works(self, tmp_path, mock_model):
+        """output_path alone still works but emits a DeprecationWarning at build()."""
+        data_path = self._write_data(tmp_path)
+        out = str(tmp_path / "preds_old_key.csv")
+        config = {
+            "threshold": 0.5,
+            "input_path": str(data_path),
+            "output_path": out,
+            "output_format": "csv",
+            "sort_by_probability": False,
+        }
+        with pytest.warns(DeprecationWarning, match="output_path"):
+            step = self._build_and_run(config)
+        step.execute({"model": mock_model})
+        assert Path(out).exists()
+
+    def test_both_keys_new_wins(self, tmp_path, mock_model):
+        """When both keys are set, output_predictions_path wins; output_path ignored."""
+        data_path = self._write_data(tmp_path)
+        out_new = str(tmp_path / "preds_new.csv")
+        out_old = str(tmp_path / "preds_old.csv")
+        config = {
+            "threshold": 0.5,
+            "input_path": str(data_path),
+            "output_predictions_path": out_new,
+            "output_path": out_old,
+            "output_format": "csv",
+            "sort_by_probability": False,
+        }
+        with pytest.warns(DeprecationWarning, match="ignoring"):
+            step = self._build_and_run(config)
+        step.execute({"model": mock_model})
+        assert Path(out_new).exists()
+        assert not Path(out_old).exists()
