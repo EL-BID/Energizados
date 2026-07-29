@@ -77,10 +77,11 @@ class BaseFeatureEngineering(ABC):
             path: Path where to save the pipeline (.pkl extension).
 
         Raises:
-            ValueError: If fit() was not called previously.
+            ModelNotFittedError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("You must call fit() before saving pipeline")
+            from energizados.core.exceptions import ModelNotFittedError
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
 
         from energizados.core.utils.secure_pickle import secure_dump
         path_obj = Path(path)
@@ -107,10 +108,11 @@ class BaseFeatureEngineering(ABC):
             list: List of output feature names.
 
         Raises:
-            ValueError: If fit() was not called previously.
+            ModelNotFittedError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("You must call fit() first")
+            from energizados.core.exceptions import ModelNotFittedError
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
         return self._get_feature_names_out()
 
     def _get_feature_names_out(self) -> list:

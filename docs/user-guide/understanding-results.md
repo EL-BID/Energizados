@@ -241,6 +241,29 @@ The report generates:
 !!! warning "Low sample segments"
     If a segment has very few samples, its metrics may be unreliable. The report highlights segments with low counts.
 
+### Segmented Evaluation (advanced)
+
+Beyond the simple `segment_columns` list above, `evaluation.segmented_evaluation` gives finer control — including **column combinations** (joined with `+`, e.g. `"zona+nivel_tension"`) and a per-segment **threshold mode**. This is the recommended path for production reports (it is what bumped the `train` schema to v2).
+
+!!! example "segmented_evaluation"
+    ```yaml
+    evaluation:
+      segmented_evaluation:
+        by: ["zona", "tipo_tarifa", "zona+nivel_tension"]  # columns and combos via "+"
+        min_samples: 30            # skip segments smaller than this
+        threshold_mode: "youden"   # global | youden | f1_optimal | recall_target
+        recall_target: 0.80        # only used when threshold_mode=recall_target
+    ```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `by` | `[]` | Columns or combinations (joined with `+`) to segment by |
+| `min_samples` | `30` | Minimum samples per segment; smaller segments are skipped |
+| `threshold_mode` | `"global"` | How the per-segment threshold is chosen: `global`, `youden`, `f1_optimal`, `recall_target` |
+| `recall_target` | `0.80` | Target recall, only used when `threshold_mode=recall_target` |
+
+> Per-segment thresholds are exported as `segment_thresholds_*.json` next to the trained model (a deployment artifact consumed at predict time). Override the export location with `segmented_evaluation.thresholds_output_dir`.
+
 ## Comparing Runs
 
 ### Using the Run Index

@@ -5,9 +5,9 @@ This guide covers deployment options for the Energizados web console, which cons
 1. **Web Server** (FastAPI + HTMX) - Serves HTTP requests and UI
 2. **Worker Process** - Executes async jobs via ConfigPipelineBuilder
 
-## What's New in Phase 2
+## Phase 2 — Runs Browsing
 
-Phase 2 introduces **runs browsing and artifact serving** capabilities with **zero infrastructure changes** required:
+Phase 2 **added** runs browsing and artifact serving capabilities with **zero infrastructure changes** required (a later phase added the multi-project workspace and dashboards; see the web console README's Version History):
 
 - **New Routes**: `GET /runs`, `GET /runs/{run_id}`, `GET /runs/{run_id}/artifacts/{path:path}`
 - **No New Dependencies**: All new functionality uses existing FastAPI + Jinja2 + HTMX stack
@@ -311,7 +311,7 @@ This provides a quick security layer for Phase 1 deployments.
 
 #### Future Enhancement
 
-Authentication and RBAC are planned for Phase 2+. See the design documentation for details.
+Authentication and RBAC are planned for a future phase. See the design documentation for details.
 
 ### Database Security
 
