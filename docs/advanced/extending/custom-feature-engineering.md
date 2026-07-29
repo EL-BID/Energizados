@@ -174,7 +174,7 @@ Wire it in `config/train.yaml`:
 train:
   feature_engineering:
     enabled: true
-    custom_class: "features.domain_feature_engineering.DomainSpecificFeatureEngineering"
+    custom_class: "src.features.domain_feature_engineering.DomainSpecificFeatureEngineering"
     params:
       # Any parameters for your custom pipeline
 ```
@@ -191,7 +191,7 @@ train:
     preprocessing:
       columns:
         actividad:
-          - custom_class: "preprocessing.CustomCardinalityReducer"
+          - custom_class: "src.preprocessing.CustomCardinalityReducer"
             params:
               threshold: 0.001
           - to_dummy: {}
@@ -203,7 +203,7 @@ train:
 train:
   feature_engineering:
     preprocessing:
-      custom_class: "preprocessing.CustomPreprocessing"
+      custom_class: "src.preprocessing.CustomPreprocessing"
       params:
         custom_param: value
 ```
@@ -217,7 +217,7 @@ train:
       enabled: true
       steps:
         - name: custom_selector
-          custom_class: "features.CustomFeatureSelector"
+          custom_class: "src.features.CustomFeatureSelector"
           params:
             param1: value1
 ```
@@ -292,7 +292,7 @@ train:
             periods_suffix: "_anterior"
 
         # Custom global transformer
-        - custom_class: "preprocessing.CustomGlobalTransformer"
+        - custom_class: "src.preprocessing.CustomGlobalTransformer"
           params:
             custom_param: value
 ```
@@ -306,7 +306,7 @@ See [Custom Preprocessing](custom-preprocessing.md) for more details on global t
 import pytest
 import pandas as pd
 
-from features.domain_feature_engineering import DomainSpecificFeatureEngineering
+from src.features.domain_feature_engineering import DomainSpecificFeatureEngineering
 
 
 def test_custom_feature_engineering_fit_transform(synthetic_classification_data):

@@ -640,7 +640,7 @@ Isolation Forest anomaly score — generates an `if_score` column where **higher
 #### Custom Global Transformer
 
 ```yaml
-- custom_class: "preprocessing.CustomGlobalTransformer"
+- custom_class: "src.preprocessing.CustomGlobalTransformer"
   params:
     custom_param: value
 ```

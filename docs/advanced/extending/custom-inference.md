@@ -47,6 +47,30 @@ class BaseInference(ABC):
             np.ndarray: Probabilities of the positive class
         """
         pass
+
+    @abstractmethod
+    def load_model(self, model_path: str):
+        """
+        Load a trained model from disk.
+
+        Args:
+            model_path: Path to the model file
+
+        Returns:
+            The loaded model (must satisfy predict/predict_proba)
+        """
+        pass
+
+    @abstractmethod
+    def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
+        """
+        Save predictions to file.
+
+        Args:
+            predictions: Predictions to save
+            output_path: Output path
+        """
+        pass
 ```
 
 ## Minimal Example: DefaultInference Wrapper
@@ -136,8 +160,8 @@ class ThresholdedInference(BaseInference):
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
-  custom_class: "inference.thresholded_inference.ThresholdedInference"
+  output_predictions_path: "output/predictions.csv"
+  custom_class: "src.inference.thresholded_inference.ThresholdedInference"
   params:
     threshold: 0.7
     min_consumption: 10.0
@@ -215,7 +239,7 @@ class BatchInference(BaseInference):
 
 ```python
 # src/run/batch_inference_script.py
-from inference.batch_inference import BatchInference
+from src.inference.batch_inference import BatchInference
 import pandas as pd
 
 # Initialize custom inference
@@ -243,7 +267,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from inference.thresholded_inference import ThresholdedInference
+from src.inference.thresholded_inference import ThresholdedInference
 from energizados.modeling.adapters import LGBMModelAdapter
 
 

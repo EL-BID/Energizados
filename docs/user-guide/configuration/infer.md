@@ -629,7 +629,7 @@ infer:
   model_path: "output/train-20260317_1430/models/model.pkl"
   feature_engineering_path: "output/train-20260317_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  custom_class: "inference.custom_inference.CustomInference"
+  custom_class: "src.inference.custom_inference.CustomInference"
 ```
 
 ---

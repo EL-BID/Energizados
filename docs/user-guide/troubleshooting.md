@@ -290,7 +290,7 @@ evaluation:
 ```yaml
 calibration:
   enabled: true
-  method: "cost_benefit"  # Must be: cost_benefit, operational, precision_recall
+  strategy: "cost_benefit"  # Must be: cost_benefit, operational, precision_recall
   params:
     cost_fp: 1  # Required for cost_benefit
     cost_fn: 10
@@ -404,8 +404,8 @@ energizados run etl --dry-run
 If you're still experiencing issues:
 
 1. **Check the documentation:** https://energizados.readthedocs.io
-2. **Search existing issues:** https://github.com/energizados/energizados/issues
-3. **Report a new issue:** https://github.com/energizados/energizados/issues/new
+2. **Search existing issues:** https://github.com/EL-BID/Energizados/issues
+3. **Report a new issue:** https://github.com/EL-BID/Energizados/issues/new
 
 When reporting an issue, include:
 
