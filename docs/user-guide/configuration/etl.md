@@ -6,6 +6,19 @@ Complete reference for `etl.yaml` configuration.
 
 The ETL configuration file defines data extraction, transformation, and loading processes. Each ETL can depend on other ETLs, creating a Directed Acyclic Graph (DAG) that executes in topological order.
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [File Structure](#file-structure) | minimal `etl.yaml` template + schema versioning |
+| [SourceETL](#sourceetl) | `concat`, `merge`, `incremental` modes |
+| [ETL Dependencies](#etl-dependencies) | DAG, `@etl_name` references, `depends_on` |
+| [Dependency Patterns](#dependency-patterns) | common dependency recipes |
+| [GeoFeaturesETL](#geofeaturesetl) | geographic features from lat/lon |
+| [ClipOutliersETL](#clipoutliersetl) | clip extreme consumption values |
+| [CleanFilesETL](#cleanfilesetl) | delete intermediate files |
+| [Custom ETL Classes](#custom-etl-classes) | subclassing `BaseETL` |
+
 ## File Structure
 
 ```yaml

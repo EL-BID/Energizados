@@ -12,6 +12,17 @@ The training configuration file controls the entire training pipeline with five 
 - **`ensemble`**: Ensemble configuration (optional, required when multiple models)
 - **`evaluation`**: Metrics, reports, and threshold settings
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [Split Configuration](#split-configuration) | train/val/test splits, `none` no-holdout, time-series, group-based, geo-stratify |
+| [Feature Engineering](#feature-engineering-configuration) | preprocessing, global transformers, feature selection |
+| [Model Configuration](#model-configuration) | single model, sampling, hyperparams, hyperparam search |
+| [Ensemble Configuration](#ensemble-configuration) | soft voting, stacking, blending vs OOF |
+| [Evaluation Configuration](#evaluation-configuration) | metrics, threshold calibration, segmented evaluation |
+| [Complete Example](#complete-example) | full annotated `train.yaml` |
+
 ## File Structure
 
 ```yaml

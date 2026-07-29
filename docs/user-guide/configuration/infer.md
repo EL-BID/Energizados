@@ -6,6 +6,19 @@ Complete reference for `infer.yaml` configuration.
 
 Inference configuration defines how to apply a trained model to new data. It specifies the input data, model paths, output location, and prediction threshold.
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [Configuration Structure](#configuration-structure) | minimal `infer.yaml` template |
+| [Required & Optional Fields](#required-fields) | all parameters with defaults |
+| [How Inference Works](#how-inference-works) | pipeline, column handling, output selection |
+| [Hierarchical / Route-Based](#hierarchical-route-based-inference) | per-route models with fallback |
+| [Segment Thresholds](#segment-thresholds) | per-segment decision thresholds |
+| [Business Rules Overlay](#business-rules-overlay) | post-prediction rule flags |
+| [Custom Inference](#custom-inference) | subclassing `BaseInference` |
+| [Best Practices & Troubleshooting](#best-practices) | common pitfalls |
+
 ## Configuration Structure
 
 ```yaml
