@@ -54,7 +54,7 @@ energizados validate etl,train
 # Run specific step
 energizados run etl --step etl
 energizados run train --step split
-energizados run train --step training
+energizados run train --step train
 
 # Run specific ETL
 energizados run etl --etl sample
@@ -146,11 +146,15 @@ src/energizados/
 │   ├── base.py        # BaseModel, BaseInference, PipelineStep (shim re-exports from energizados.contracts)
 │   ├── pipeline.py    # Pipeline orchestrator (ConfigPipelineBuilder)
 │   ├── builders/      # Step-specific builder implementations
+│   │   ├── base.py          # StepBuilder: abstract base class
+│   │   ├── director.py      # PipelineDirector: orchestrates pipeline construction
+│   │   ├── run_manager.py   # RunManager: run dirs + index.html
 │   │   ├── etl_builder.py
+│   │   ├── split_builder.py
 │   │   ├── training_builder.py
 │   │   ├── evaluation_builder.py
 │   │   ├── inference_builder.py
-│   │   └── run_manager.py
+│   │   └── eda_builder.py
 │   ├── schemas/       # Pydantic config schemas & validator
 │   │   ├── schemas.py
 │   │   └── config_validator.py
@@ -528,7 +532,7 @@ training:
   models:
     - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm
       sampling:
-        method: "undersample"  # oversample, undersample, none
+        method: "undersample"  # oversample, undersample, smotetomek, none
         threshold: 0.5
       hyperparams:
         num_leaves: 31

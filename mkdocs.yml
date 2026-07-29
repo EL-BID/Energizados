@@ -1,9 +1,8 @@
 site_name: Energizados
 site_description: Machine learning framework for detecting non-technical losses in energy distribution
-site_url: https://bid-code4dev.github.io/energizados/
-repo_url: https://github.com/bid-code4dev/energizados
-repo_name: bid-code4dev/energizados
-edit_uri: edit/main/docs/
+repo_url: https://github.com/EL-BID/Energizados
+repo_name: EL-BID/Energizados
+edit_uri: edit/master/docs/
 
 theme:
   name: material
@@ -84,6 +83,7 @@ extra:
 nav:
   - Home: index.md
   - Getting Started:
+      - Overview: getting-started/overview.md
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
       - Your First Project: getting-started/first-project.md
@@ -91,10 +91,10 @@ nav:
       - Project Structure: user-guide/project-structure.md
       - CLI Reference: user-guide/cli-reference.md
       - Configuration:
-          - ETLs: user-guide/configuration/etls.md
-          - Training: user-guide/configuration/training.md
+          - ETLs: user-guide/configuration/etl.md
+          - Training: user-guide/configuration/train.md
           - Evaluation: user-guide/configuration/evaluation.md
-          - Inference: user-guide/configuration/inference.md
+          - Inference: user-guide/configuration/infer.md
       - EDA Module: user-guide/eda.md
       - Understanding Results: user-guide/understanding-results.md
       - Troubleshooting: user-guide/troubleshooting.md
@@ -102,6 +102,9 @@ nav:
       - End-to-End Example: tutorials/end-to-end-example.md
       - Model Selection Guide: tutorials/model-selection-guide.md
       - Ensemble Models: tutorials/ensemble-models.md
+  - Web Console:
+      - Overview: web-console/README.md
+      - Deployment: web-console/DEPLOYMENT.md
   - Advanced:
       - Architecture: advanced/architecture.md
       - Development Setup: advanced/development-setup.md
@@ -113,3 +116,5 @@ nav:
           - Custom Inference: advanced/extending/custom-inference.md
       - Contributing: advanced/contributing.md
       - PyPI Publishing: advanced/pypi-publishing.md
+  - Releases:
+      - v0.3.3: releases/v0.3.3.md

@@ -21,7 +21,13 @@ The framework provides:
 ```
 src/energizados/
 ├── contracts.py                # SINGLE HOME of all 8 framework base classes (BaseModel, BasePipeline, BaseEvaluator, BaseInference, BaseETL, BaseFeatureEngineering, BaseFeatureSelector, BaseExplorer) — since v0.2.7
-├── api/                        # Service-layer API: programmatic framework usage with structured returns, no stdout coupling (validate_dict, Pipeline.from_dict, RunManager, doctor, ...)
+├── api/                        # Service-layer API: programmatic framework usage with structured returns, no stdout coupling
+│   ├── validate.py          # validate_dict(config, config_type) → ValidationResult
+│   ├── config.py            # doctor(), merge_configs(); DoctorReport, CheckResult
+│   ├── run_state.py         # RunManager, RunResult, RunMetadata (query run dirs)
+│   ├── progress.py          # ProgressEvent, console_progress() (streaming observability)
+│   ├── pipeline.py          # Pipeline re-export (from_dict, plan)
+│   └── exceptions.py        # format_error() standardized error envelopes
 ├── preprocessing/              # Data cleaning and feature engineering transformers
 │   ├── preprocessing.py      # Core transformers (ToDummy, TeEncoder, etc.)
 │   ├── geo_features.py      # GeoFeatures transformer + _IBGEGeocoder
@@ -29,9 +35,10 @@ src/energizados/
 │   └── isolation_forest_score.py  # IsolationForestScore anomaly scorer
 │
 ├── modeling/                   # Model implementations
-│   ├── supervised_models.py  # LGBMModel, CATModel, NNModel, LSTMNNModel
-│   ├── adapters.py          # LGBMModelAdapter, CATModelAdapter, NNModelAdapter, LSTMNNModelAdapter
+│   ├── supervised_models.py  # LGBMModel, CATModel, XGBModel, NNModel, LSTMNNModel
+│   ├── adapters.py          # Model adapters (LGBM/CAT/XGB/NN/LSTMNN + SimpleTrend/SimpleConstant)
 │   ├── ensemble.py          # EnsembleModel (soft voting and stacking)
+│   ├── registry.py          # ModelRegistry: maps model type names → adapter classes
 │   └── simple_models.py     # Rule-based baseline models
 │
 ├── feature_engineering/       # Combined preprocessing + feature selection
@@ -40,18 +47,25 @@ src/energizados/
 │
 ├── feature_selection/         # Feature selection methods
 │   ├── base.py             # BaseFeatureSelector abstract class
-│   └── methods.py          # BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector
+│   ├── methods.py          # BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector
+│   ├── column_resolver.py  # ColumnResolver: resolves column selectors → concrete column lists
+│   └── pipeline.py         # FeatureSelectionPipeline + SelectionStep: chains selectors in order
 │
 ├── evaluation/               # Model evaluation and reporting
 │   ├── evaluator.py        # DefaultEvaluator: runs full evaluation
 │   ├── metrics.py          # Metrics calculation (AUC, F1, etc.)
 │   ├── plots.py            # PlotGenerator: ROC, precision-recall, etc.
+│   ├── plots_interactive.py # EvalInteractivePlots: interactive Plotly charts (HTML strings)
+│   ├── calibration.py      # ThresholdCalibrator: optimal threshold search (youden/f1_optimal/recall_target)
+│   ├── comparative.py      # ComparativeEvaluator: cross-run metric comparison
 │   ├── report.py           # ReportGenerator: HTML + JSON
-│   └── index.py            # index.html: summary table of all runs
+│   ├── index.py            # index.html: summary table of all runs
+│   └── _html_templates.py  # Shared HTML/CSS/JS templates for reports and index
 │
 ├── inference/                # Inference implementations
 │   ├── base.py             # BaseInference abstract class
-│   └── default.py          # DefaultInference implementation
+│   ├── default.py          # DefaultInference implementation
+│   └── hierarchical.py     # HierarchicalInference: routes rows to per-route models by column-value conditions
 │
 ├── core/                     # Core framework components
 │   ├── base.py             # Base classes: Pipeline, Model, Inference
@@ -196,7 +210,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `StepBuilder` | `base.py` | Abstract base class that defines the interface for all pipeline step builders. Subclasses implement `build()` to construct specific pipeline steps. |
 | `RunManager` | `run_manager.py` | Handles run directory management: creates timestamped run directories, copies config files to the run directory, and regenerates the global `index.html` summary. |
 | `ETLBuilder` | `etl_builder.py` | Constructs ETL pipeline steps using `ETLOrchestrator` to execute ETLs with dependencies. |
-| `SplitBuilder` | `split_builder.py` | Constructs data splitting steps (stratified, random, or time-series split) from configuration. |
+| `SplitBuilder` | `split_builder.py` | Constructs data splitting steps (stratified, random, time-series, group-based, stratified-time, or no-holdout) from configuration. |
 | `TrainingBuilder` | `training_builder.py` | Constructs training steps that perform feature engineering and model training. Supports single models or ensembles. |
 | `EvaluationBuilder` | `evaluation_builder.py` | Constructs evaluation steps using `DefaultEvaluator` to generate metrics, plots, and reports. |
 | `InferenceBuilder` | `inference_builder.py` | Constructs inference steps for making predictions with trained models. |
@@ -233,6 +247,8 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `feature_engineering/default.py` | Default implementation combining preprocessing + feature selection |
 | `feature_selection/base.py` | `BaseFeatureSelector` abstract class for custom selectors |
 | `feature_selection/methods.py` | Built-in selectors: BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector |
+| `feature_selection/column_resolver.py` | `ColumnResolver`: resolves column selectors (names/patterns/exclusions) to concrete column lists |
+| `feature_selection/pipeline.py` | `FeatureSelectionPipeline` + `SelectionStep`: chains multiple selectors in configured order |
 | `preprocessing/preprocessing.py` | Core transformers: ToDummy, TeEncoder, CardinalityReducer, etc. These subclass sklearn `BaseEstimator`/`TransformerMixin` directly — there is no framework preprocessing base class (`preprocessing/base.py` does not exist). |
 
 ### Modeling
@@ -242,6 +258,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `modeling/supervised_models.py` | LGBMModel, CATModel, XGBModel, NNModel, LSTMNNModel implementations |
 | `modeling/adapters.py` | Model adapters for framework integration: LGBMModelAdapter, CATModelAdapter, XGBModelAdapter, NNModelAdapter, LSTMNNModelAdapter |
 | `modeling/ensemble.py` | EnsembleModel: soft voting or stacking with meta-learner |
+| `modeling/registry.py` | `ModelRegistry`: maps model type names (e.g. `lightgbm`, `catboost`) to their adapter classes; default models auto-registered at import |
 | `modeling/simple_models.py` | Rule-based baseline models |
 
 ### Evaluation
@@ -253,6 +270,10 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `evaluation/plots.py` | `PlotGenerator` - ROC, precision-recall, cumulative gains |
 | `evaluation/report.py` | `ReportGenerator` - HTML + JSON reports |
 | `evaluation/index.py` | Generates index.html summary of all training runs |
+| `evaluation/plots_interactive.py` | `EvalInteractivePlots` - interactive Plotly charts (HTML strings) |
+| `evaluation/calibration.py` | `ThresholdCalibrator` - optimal threshold search (youden, f1_optimal, recall_target) |
+| `evaluation/comparative.py` | `ComparativeEvaluator` - cross-run metric comparison |
+| `evaluation/_html_templates.py` | Shared HTML/CSS/JS templates for reports and index |
 
 ### Inference
 
@@ -283,6 +304,19 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | Module | Responsibility |
 |---------|---------------|
 | `explainability/shap_explainer.py` | `ShapExplainer`: SHAP-based model explainability with TreeExplainer and KernelExplainer support |
+
+### Service Layer API
+
+| Module | Responsibility |
+|---------|---------------|
+| `api/validate.py` | `validate_dict(config, config_type)` → `ValidationResult` (no file I/O); the programmatic counterpart of the `validate` CLI command |
+| `api/config.py` | `doctor()` system health checks, `merge_configs()` deep merge; `DoctorReport`, `CheckResult` |
+| `api/run_state.py` | `RunManager` (query run directories), `RunResult`, `RunMetadata` |
+| `api/progress.py` | `ProgressEvent` + `console_progress()` for streaming progress to CLI/observability |
+| `api/pipeline.py` | `Pipeline` re-export (`Pipeline.from_dict`, `Pipeline.plan`) |
+| `api/exceptions.py` | `format_error()` standardized error envelopes with error codes |
+
+> The CLI delegates to this layer; every CLI command is a thin wrapper over `energizados.api`. Use `api` directly for programmatic/web/embedded usage — it returns structured objects and never couples to stdout.
 
 ### CLI
 
@@ -494,7 +528,7 @@ train:
   target_column: "target"
 
   split:
-    method: "time_series"  # or "stratified", "random"
+    method: "time_series"  # stratified | random | time_series | group_based | stratified_time | none
     date_column: "fecha"
     train_period: ["2020-01-01", "2022-12-31"]
     val_period: ["2023-01-01", "2023-06-30"]

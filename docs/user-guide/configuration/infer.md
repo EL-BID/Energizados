@@ -426,7 +426,7 @@ Apply per-segment optimal thresholds instead of a single global threshold. This 
 
 Segment thresholds are exported by the evaluation step when `evaluation.segment_columns` is configured in `train.yaml`. The JSON file maps each unique segment value to its optimal threshold.
 
-> **Default location change:** as of v0.4.0 the JSON is exported to the
+> **Default location change:** as of v0.3.4 the JSON is exported to the
 > trained model's directory (`output/train-YYYYMMDD_HHMM/models/`) by
 > default, because it is a deployment artifact consumed at predict time,
 > not a report. Update existing `infer.yaml` `segment_thresholds.path`

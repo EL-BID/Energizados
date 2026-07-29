@@ -192,6 +192,37 @@ split:
 
 **Important:** Requires `GeoFeaturesETL` to be executed before training to generate the `cluster_column` (e.g., `geo_cluster`). Each cluster is split independently using time-based logic, then the splits are combined.
 
+#### No-Holdout Training (`none`)
+
+Trains on the **full dataset** without reserving a validation or test split. Use this for production model training once offline evaluation is complete and you want to maximize the signal from all available data.
+
+```yaml
+split:
+  method: "none"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `method` | string | - | Must be `"none"` |
+
+**What changes under the hood:**
+
+- `SplitStep` writes only `train.parquet`; `val_path` and `test_path` remain `None`.
+- `TrainingStep` accepts `val_path=None` and internally reserves 10% of the data for early stopping only.
+- Metrics that require holdout data (`val_auc`, `val_f1`) return `None` honestly instead of fabricated numbers.
+- A new `holdout_mode` field is exposed in the run context: `"none"` or `"standard"`.
+- The evaluation step is auto-skipped by the director with a `WARNING`; `DefaultEvaluator` returns `skipped=True` defensively.
+
+**Interactions to be aware of:**
+
+- **Probability calibration** is skipped with a `WARNING` (it needs validation data).
+- **Ensemble blending** (`use_val_as_oof: true`) raises a `ConfigurationError`. Three alternatives: (1) provide a `split.method` with a holdout, (2) switch to `use_val_as_oof: false` (K-fold OOF stacking), or (3) use `method: "soft_voting"`.
+- **Soft-voting ensembles** and **K-fold OOF stacking** work without validation data.
+
+> **Available since v0.3.3.** Every other `split.method` (`stratified`, `random`, `time_series`, `group_based`, `stratified_time`) remains byte-identical.
+
 #### Unlabeled Negatives (Optional)
 
 Injects unlabeled contracts as `target=0` samples into the train split to reduce selection bias. Useful when the labeled dataset is biased toward inspected contracts (e.g., only high-risk or region-specific inspections).
