@@ -54,6 +54,12 @@ class TestOutputColumnsUnified:
 
     def _build_and_execute(self, config: dict, tmp_path: Path, mock_model) -> pd.DataFrame:
         """Build the inference step, execute against the mock model, return output frame."""
+        # Normalize the deprecated output_path alias to the canonical
+        # output_predictions_path key so these column-selection tests don't
+        # emit DeprecationWarning noise (output-key behavior is covered
+        # separately in TestOutputPredictionsPathKey).
+        if "output_path" in config and "output_predictions_path" not in config:
+            config["output_predictions_path"] = config.pop("output_path")
         builder = InferenceBuilder(config)
         step = builder.build()
         assert step is not None, "build() should not return None with valid config"
@@ -62,7 +68,7 @@ class TestOutputColumnsUnified:
         step.config["_resolved_model_path"] = None
         step.config["_resolved_feature_engineering_path"] = None
 
-        output_path = config["output_path"]
+        output_path = config["output_predictions_path"]
         step.execute({"model": mock_model})
         assert Path(output_path).exists(), "output file should be written"
         fmt = config.get("output_format", "csv")

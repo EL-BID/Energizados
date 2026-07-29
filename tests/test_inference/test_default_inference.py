@@ -314,7 +314,7 @@ class TestInferenceValidation:
             "infer": {
                 "enabled": True,
                 "input_path": "data/processed/test.parquet",
-                "output_path": "output/predictions.csv",
+                "output_predictions_path": "output/predictions.csv",
                 "model_path": "output/train-20260101_1200/models/model.pkl",
                 "feature_engineering_path": "output/train-20260101_1200/models/fe.pkl",
                 "output_include_input": True,
@@ -368,7 +368,7 @@ class TestInferenceValidation:
             "infer": {
                 "enabled": True,
                 "input_path": "data/processed/test.parquet",
-                "output_path": "output/predictions.csv",
+                "output_predictions_path": "output/predictions.csv",
                 "threshold": 0.5,
             }
         }
@@ -591,7 +591,7 @@ class TestInferenceStepEnrichedOutput:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "csv",
             "threshold": 0.5,
@@ -620,7 +620,7 @@ class TestInferenceStepEnrichedOutput:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "parquet",
             "threshold": 0.5,
@@ -647,7 +647,7 @@ class TestInferenceStepEnrichedOutput:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": False,
             "output_format": "csv",
             "threshold": 0.5,
@@ -683,7 +683,7 @@ class TestInferenceStepEnrichedOutput:
         config = {
             "model_path": str(model_path),
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "csv",
             "threshold": 0.5,
@@ -725,7 +725,7 @@ class TestInferenceStepEnrichedOutput:
         config = {
             "model_path": str(model_path),
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_format": "csv",
             "threshold": 0.5,
         }
@@ -1052,7 +1052,7 @@ class TestColumnsFilterOperators:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "csv",
             "columns_filter": {"zona": ["A", "B"]},
