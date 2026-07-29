@@ -327,10 +327,24 @@ class RunManager:
                 shutil.copy(src, config_target / src.name)
                 logger.info(f"Config copied to run dir: {src.name}")
 
-    def generate_index_html(self):
-        """Regenerates output/index.html with all training runs."""
+    def generate_index_html(self) -> Optional[Path]:
+        """Regenerates output/index.html with all training runs.
+
+        The index lists TRAINING runs by their evaluation reports, so it is only
+        regenerated for ``run_type == "training"``. Inference / EDA / ETL runs
+        produce no evaluation reports and are skipped (returning None).
+
+        Returns:
+            Path to the generated index.html, or None when skipped / not generated.
+        """
         if self._run_dir is None:
-            return
+            return None
+        if self._run_type != "training":
+            logger.debug(
+                f"Skipping index.html regeneration (run_type={self._run_type}); "
+                "only training runs produce evaluation reports."
+            )
+            return None
         from energizados.evaluation.index import RunIndexGenerator
 
         output_dir = self._run_dir.parent
@@ -338,6 +352,7 @@ class RunManager:
         index_path = generator.generate_index_html(output_dir)
         if index_path:
             logger.info(f"Index HTML updated: {index_path}")
+        return index_path
 
     def _write_run_metadata(self, context: Dict[str, Any]) -> None:
         """

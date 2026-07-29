@@ -333,8 +333,9 @@ class InferenceBuilder(StepBuilder):
                     _fmt = self.config.get("output_format", "csv")
 
                     # output_columns is the self-sufficient, forward-looking
-                    # selector; output_include_input is deprecated. Warn so users
-                    # migrate, but keep the legacy behavior working.
+                    # selector. When it is absent, ALL input columns are now
+                    # included by default, so output_include_input is fully
+                    # redundant — warn so users migrate, but keep it harmless.
                     if _include_input:
                         if self.output_columns:
                             warnings.warn(
@@ -347,10 +348,10 @@ class InferenceBuilder(StepBuilder):
                             )
                         else:
                             warnings.warn(
-                                "`infer.output_include_input` is deprecated; use "
-                                "`output_columns` to select output columns explicitly "
-                                "(input columns named there are included automatically). "
-                                "`output_include_input: true` still includes all input columns.",
+                                "`infer.output_include_input` is now a no-op: when "
+                                "`output_columns` is not set, ALL input columns are "
+                                "included by default. You can remove this key; use "
+                                "`output_columns` to select a subset explicitly.",
                                 DeprecationWarning,
                                 stacklevel=2,
                             )
@@ -457,9 +458,12 @@ class InferenceBuilder(StepBuilder):
                             "output_columns: no requested column matched the output; "
                             "writing all available columns."
                         )
-                elif include_input:
-                    # Legacy path (deprecated): no output_columns, so prepend ALL
-                    # input columns when output_include_input is true.
+                else:
+                    # No output_columns specified → return ALL columns (input +
+                    # prediction + probability + rule_*). The legacy
+                    # output_include_input flag is now a redundant no-op kept
+                    # for backwards compatibility (a DeprecationWarning is
+                    # emitted upstream when it is explicitly set).
                     result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
 
                 # Sort by probability descending (default: on). Applied AFTER
@@ -478,6 +482,11 @@ class InferenceBuilder(StepBuilder):
                     result.to_parquet(output_path, index=False)
                 else:
                     result.to_csv(output_path, index=False)
+
+                logger.info(
+                    f"  • Predictions output columns ({len(result.columns)}): "
+                    f"{list(result.columns)}"
+                )
 
             def _write_metadata_sidecar(
                 self,

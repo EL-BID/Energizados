@@ -455,9 +455,9 @@ INFERENCE_SCHEMA = {
                 "file, applied over the combined [input + prediction + probability + "
                 "rule_*] frame. Input columns named here are included automatically "
                 "(no output_include_input needed); unlisted columns are dropped (so "
-                "omitting 'prediction' excludes it). If absent, output defaults to "
-                "[prediction, probability] (+ rule_*); the deprecated "
-                "output_include_input: true still prepends all input columns."
+                "omitting 'prediction' excludes it). If absent, ALL columns are "
+                "written (input + prediction + probability + rule_*); the deprecated "
+                "output_include_input flag is now a redundant no-op."
             ),
         },
         "output_base_dir": {"type": "string"},

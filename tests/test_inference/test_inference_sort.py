@@ -94,7 +94,7 @@ class TestSortByProbability:
         assert list(df["cliente"].values) == ["c1", "c2", "c3"]
 
     def test_sort_works_without_output_columns(self, tmp_path, mock_model):
-        """Default sort applies even with the minimal [prediction, probability] output."""
+        """Default sort applies to the all-columns default output too."""
         data_path = self._write_data(tmp_path)
         out = str(tmp_path / "preds.csv")
         df = self._run(
@@ -107,5 +107,8 @@ class TestSortByProbability:
             tmp_path,
             mock_model,
         )
-        assert list(df.columns) == ["prediction", "probability"]
+        # No output_columns → ALL columns (input + prediction + probability).
+        assert "cliente" in df.columns
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
         np.testing.assert_array_almost_equal(df["probability"].values, np.array([0.9, 0.6, 0.2]))

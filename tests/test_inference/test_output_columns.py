@@ -11,10 +11,9 @@ automatically — no ``output_include_input`` needed.
 - If ``output_columns`` is set, only the listed columns are written, in order.
 - Omitting ``prediction`` from the list drops it from the output.
 - Naming an input column includes it even when ``output_include_input`` is false.
-- If ``output_columns`` is absent:
-  - ``output_include_input: true`` → all input + prediction + probability
-    (DEPRECATED; emits DeprecationWarning — use ``output_columns`` instead).
-  - otherwise → ``prediction`` + ``probability`` (+ any ``rule_*``), the default.
+- If ``output_columns`` is ABSENT, ALL columns are written (input + prediction +
+  probability + any ``rule_*``). The deprecated ``output_include_input`` flag is
+  now a redundant no-op (still emits a DeprecationWarning when set).
 - If both ``output_columns`` and ``output_include_input`` are set, ``output_columns``
   wins and ``output_include_input`` is ignored (DeprecationWarning).
 """
@@ -72,8 +71,8 @@ class TestOutputColumnsUnified:
 
     # -- Backward compatibility (no output_columns) ---------------------------
 
-    def test_no_output_columns_without_include_input_defaults(self, tmp_path, mock_model):
-        """No output_columns + output_include_input=false → [prediction, probability]."""
+    def test_no_output_columns_returns_all_columns(self, tmp_path, mock_model):
+        """No output_columns → ALL columns (input + prediction + probability)."""
         data_path = self._write_data(tmp_path)
         out = str(tmp_path / "preds.csv")
         df = self._build_and_execute(
@@ -91,9 +90,32 @@ class TestOutputColumnsUnified:
             tmp_path,
             mock_model,
         )
-        assert list(df.columns) == ["prediction", "probability"]
+        # All input columns prepended, then prediction + probability.
+        assert list(df.columns[:4]) == ["cliente", "actividad", "zona", "consumo_1_anterior"]
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
         # probas [0.2, 0.6, 0.9] @ 0.5 → [0, 1, 1]
         np.testing.assert_array_equal(df["prediction"].values, np.array([0, 1, 1]))
+
+    def test_no_output_columns_no_include_input_key_returns_all(self, tmp_path, mock_model):
+        """No output_columns and no output_include_input key → ALL columns."""
+        data_path = self._write_data(tmp_path)
+        out = str(tmp_path / "preds.csv")
+        df = self._build_and_execute(
+            {
+                "threshold": 0.5,
+                "input_path": str(data_path),
+                "output_path": out,
+                "output_format": "csv",
+                "sort_by_probability": False,
+            },
+            tmp_path,
+            mock_model,
+        )
+        # Default behavior includes all input columns.
+        assert list(df.columns[:4]) == ["cliente", "actividad", "zona", "consumo_1_anterior"]
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
 
     def test_no_output_columns_with_include_input_keeps_all(self, tmp_path, mock_model):
         """No output_columns + output_include_input=true → all input + prediction + probability."""

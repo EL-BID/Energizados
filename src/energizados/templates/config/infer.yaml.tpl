@@ -96,16 +96,18 @@ infer:
   #   - Input columns named here are INCLUDED AUTOMATICALLY — no need for
   #     output_include_input. Unlisted input columns are dropped.
   #   - To DROP the 'prediction' column, simply omit it from the list.
-  #   - If absent, output defaults to [prediction, probability] (+ rule_*).
+  #   - If ABSENT, ALL columns are written (input + prediction + probability
+  #     + rule_*).
   # Example (only cliente + probability, no prediction column):
   #   output_columns:
   #     - cliente
   #     - probability
 
-  # output_include_input: DEPRECATED. Prepend ALL original input columns
-  # to the output (default: false). Kept for backward compatibility —
-  # emits a DeprecationWarning; prefer output_columns above. Ignored (with
-  # a warning) when output_columns is also set.
+  # output_include_input: DEPRECATED and now a NO-OP. When output_columns is
+  # not set, ALL input columns are included by default, so this flag does
+  # nothing. Kept for backward compatibility — emits a DeprecationWarning.
+  # Ignored (with a warning) when output_columns is also set. Use
+  # output_columns above to select a subset explicitly.
   # output_include_input: true
 
   # output_format: "csv" or "parquet" (default: csv)

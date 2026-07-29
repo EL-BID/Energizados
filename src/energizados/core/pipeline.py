@@ -434,8 +434,12 @@ class ConfigPipelineBuilder:
         self._director.run_manager.copy_configs_to_run_dir()
 
     def generate_index_html(self):
-        """Generate index HTML."""
-        self._director.run_manager.generate_index_html()
+        """Generate index HTML.
+
+        Returns the Path to the generated index.html, or None when it was not
+        generated (e.g. non-training run types that have no evaluation reports).
+        """
+        return self._director.run_manager.generate_index_html()
 
     def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """

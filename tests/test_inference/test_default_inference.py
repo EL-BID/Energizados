@@ -638,7 +638,7 @@ class TestInferenceStepEnrichedOutput:
         assert "probability" in df.columns
 
     def test_output_without_include_input(self, temp_dir):
-        """output_include_input=false → only prediction + probability columns."""
+        """output_include_input=false is a no-op: ALL columns are returned by default."""
         mock_model = _make_mock_model([0.3, 0.7])
         input_data = pd.DataFrame({"f1": [1.0, 2.0], "f2": ["a", "b"]})
         input_path = temp_dir / "input.parquet"
@@ -659,7 +659,11 @@ class TestInferenceStepEnrichedOutput:
         step.execute(context)
 
         df = pd.read_csv(output_path)
-        assert set(df.columns) == {"prediction", "probability"}
+        # Default behavior now includes all input columns + prediction + probability.
+        assert "f1" in df.columns
+        assert "f2" in df.columns
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
 
     def test_metadata_sidecar_content(self, temp_dir):
         """Metadata sidecar has model_hash, timestamp, threshold, row_count."""

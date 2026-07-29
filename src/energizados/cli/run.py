@@ -524,9 +524,8 @@ def execute_pipeline(
     # since we called pipeline.run() directly instead of builder.run()
     if builder.run_dir is not None:
         builder.copy_configs_to_run_dir()
-        builder.generate_index_html()
-        index_path = builder.run_dir.parent / "index.html"
-        if index_path.exists():
+        index_path = builder.generate_index_html()
+        if index_path is not None and index_path.exists():
             console.print(f"\n[dim]Index updated → {index_path}[/]")
 
     _print_metrics_summary(result)
