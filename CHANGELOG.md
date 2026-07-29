@@ -34,12 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Fixed: Windows CLI no longer crashes on non-ASCII glyphs (⚡ ✓ ✗ ⚠ →).** Windows consoles default to cp1252 (`'charmap'` codec), which can't encode those glyphs; on a non-TTY stdout (CI log capture) this raised `UnicodeEncodeError: 'charmap' codec can't encode character '\u26a1'`. The CLI now forces UTF-8 stdio at startup (`_ensure_utf8_stdio`), and CI sets `PYTHONUTF8=1` (PEP 540 UTF-8 mode) — harmless on Linux.
 - **Fixed: `output_include_input` no longer pads filtered-out rows with NaN.** When `columns_filter` removed rows, the enriched output gained one NaN-padded row per filtered-out input row (e.g. a 3.4M-row output with only 804k real predictions). Input capture now happens after filtering, so output is 1:1 with predicted rows.
 - **Fixed (tests): mock model helper returns exactly `len(X)` probabilities.** The test helper over-returned when the proba list length didn't divide `n`, inflating arrays and masking the padding bug above.
-
-### Notes
-
-- **Migration: `segment_thresholds_*.json` default path changed.** Existing `infer.yaml` `segment_thresholds.path` entries pointing at `.../reports/evaluation/segment_thresholds_*.json` must move to `.../models/segment_thresholds_*.json`, or set `segmented_evaluation.thresholds_output_dir` in `train.yaml` to the old location.
 
 ## [0.3.3] - 2026-07-27
 

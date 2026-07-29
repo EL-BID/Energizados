@@ -14,6 +14,13 @@ jobs:
   test:
     name: ${{ matrix.os }} · py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    # PEP 540 UTF-8 mode: Windows runners default to cp1252 for stdio, which
+    # can't encode the non-ASCII glyphs the CLI prints (⚡ ✓ ✗ ⚠ →) and raises
+    # UnicodeEncodeError on the non-TTY stdout CI uses. Harmless on Linux
+    # (already UTF-8). The CLI also self-heals via _ensure_utf8_stdio(); this
+    # covers any other entrypoints.
+    env:
+      PYTHONUTF8: "1"
     strategy:
       fail-fast: false
       matrix:

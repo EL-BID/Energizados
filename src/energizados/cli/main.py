@@ -6,6 +6,7 @@ This module defines main command and available subcommands.
 
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -14,6 +15,32 @@ from rich.panel import Panel
 from rich.tree import Tree
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_utf8_stdio() -> None:
+    """Reconfigure stdout/stderr to UTF-8 (errors="replace").
+
+    Windows consoles default to a legacy codepage (cp1252, the 'charmap' codec)
+    that cannot encode the non-ASCII glyphs the CLI prints (⚡ ✓ ✗ ⚠ →). On a
+    non-TTY stdout (e.g. CI log capture) this raises ``UnicodeEncodeError``.
+    PEP 540 UTF-8 mode (``PYTHONUTF8=1``) fixes CI; this guard additionally
+    protects real Windows users running the CLI in a cp1252 console. Idempotent
+    and safe on streams that don't support ``reconfigure`` (test capture buffers
+    are skipped because they already report a UTF-8 encoding).
+    """
+    for _name in ("stdout", "stderr"):
+        stream = getattr(sys, _name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if encoding == "utf8":  # already UTF-8 — nothing to do
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            # Unsupported stream type (some wrappers); leave it as-is.
+            pass
 
 
 def _setup_logging(verbose: int = 0, log_file: Optional[str] = None):
@@ -150,6 +177,10 @@ def cli(ctx):
     For help on a specific command:
         energizados <command> --help
     """
+    # Force UTF-8 stdio so non-ASCII glyphs (⚡ ✓ ✗ ⚠ →) don't crash on Windows
+    # consoles whose default encoding (cp1252) can't encode them.
+    _ensure_utf8_stdio()
+
     # Shared context between commands
     ctx.ensure_object(dict)
 

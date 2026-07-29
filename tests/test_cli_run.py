@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 from rich.logging import RichHandler
 
@@ -17,7 +18,11 @@ from rich.logging import RichHandler
 # docs/typing.md for the rationale), so we silence the import-untyped hint
 # at the boundary instead of stamping every test with a project-wide change.
 from energizados.cli import ui  # type: ignore[import-untyped]
-from energizados.cli.main import _setup_logging, cli  # type: ignore[import-untyped]
+from energizados.cli.main import (  # type: ignore[import-untyped]
+    _ensure_utf8_stdio,
+    _setup_logging,
+    cli,
+)
 
 
 def strip_ansi(text: str) -> str:
@@ -1010,3 +1015,47 @@ class TestExecuteStepProfileMemory:
                     assert mock_pipeline.profile_memory is True
             finally:
                 os.chdir(old_cwd)
+
+
+class TestUtf8StdioGuard:
+    """``_ensure_utf8_stdio`` must be idempotent and never crash.
+
+    Covers the Windows cp1252 UnicodeEncodeError on ⚡/✓/✗/⚠/→ glyphs: the guard
+    reconfigures legacy-encoded streams to UTF-8 and leaves UTF-8 / non-
+    reconfigurable streams untouched.
+    """
+
+    def test_idempotent_on_utf8_streams(self, monkeypatch):
+        class _Utf8Stream:
+            encoding = "utf-8"
+
+            def reconfigure(self, *a, **k):
+                pytest.fail("utf-8 stream must not be reconfigured")
+
+        stream = _Utf8Stream()
+        monkeypatch.setattr("sys.stdout", stream, raising=False)
+        monkeypatch.setattr("sys.stderr", stream, raising=False)
+        _ensure_utf8_stdio()
+        _ensure_utf8_stdio()  # idempotent — second call also a no-op
+
+    def test_skips_stream_without_reconfigure(self, monkeypatch):
+        class _LegacyStream:
+            encoding = "cp1252"  # no reconfigure attribute
+
+        monkeypatch.setattr("sys.stdout", _LegacyStream(), raising=False)
+        _ensure_utf8_stdio()  # must not raise
+
+    def test_reconfigures_legacy_encoding(self, monkeypatch):
+        class _Cp1252Stream:
+            encoding = "cp1252"
+
+            def __init__(self):
+                self.called = {}
+
+            def reconfigure(self, *, encoding=None, errors=None):
+                self.called = {"encoding": encoding, "errors": errors}
+
+        stream = _Cp1252Stream()
+        monkeypatch.setattr("sys.stdout", stream, raising=False)
+        _ensure_utf8_stdio()
+        assert stream.called == {"encoding": "utf-8", "errors": "replace"}
