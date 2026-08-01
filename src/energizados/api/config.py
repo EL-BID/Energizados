@@ -8,13 +8,39 @@ and doctor() for system health checks.
 import logging
 import platform
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from energizados._version import get_version
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["merge_configs", "doctor", "DoctorReport", "CheckResult"]
+__all__ = [
+    "merge_configs",
+    "doctor",
+    "DoctorReport",
+    "CheckResult",
+    "REQUIRED_PACKAGES",
+    "OPTIONAL_PACKAGES",
+]
+
+# Required packages checked by doctor(): {import_name: (pypi_name, min_version)}.
+# import_name and pypi_name differ for some packages (e.g. sklearn vs scikit-learn);
+# importing by pypi_name silently fails (the bug fixed in this commit), so the
+# dict keeps them explicitly separated.
+REQUIRED_PACKAGES: Dict[str, Tuple[str, str]] = {
+    "pandas": ("pandas", "2.0.0"),
+    "numpy": ("numpy", "1.20.0"),
+    "sklearn": ("scikit-learn", "1.4.2"),
+    "lightgbm": ("lightgbm", "4.6.0"),
+    "yaml": ("pyyaml", "6.0"),
+    "click": ("click", "8.0"),
+}
+
+# Optional packages (not in core dependencies). Same shape as REQUIRED_PACKAGES.
+OPTIONAL_PACKAGES: Dict[str, Tuple[str, str]] = {
+    "matplotlib": ("matplotlib", "3.5.0"),
+    "seaborn": ("seaborn", "0.11.2"),
+}
 
 
 def merge_configs(configs: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -191,21 +217,7 @@ def doctor(include_optional: bool = False) -> DoctorReport:
         )
 
     # Required packages check
-    required_packages = {
-        "pandas": "2.0.0",
-        "numpy": "1.20.0",
-        "scikit-learn": "1.4.2",
-        "lightgbm": "4.6.0",
-        "yaml": "6.0",
-        "click": "8.0",
-    }
-
-    missing_packages = []
-    for package, min_version in required_packages.items():
-        try:
-            __import__(package)
-        except ImportError:
-            missing_packages.append(package)
+    missing_packages = _find_missing_packages(REQUIRED_PACKAGES)
 
     if missing_packages:
         report.add_check(
@@ -225,17 +237,7 @@ def doctor(include_optional: bool = False) -> DoctorReport:
 
     # Optional packages check (if requested)
     if include_optional:
-        optional_packages = {
-            "matplotlib": "3.5.0",
-            "seaborn": "0.11.2",
-        }
-
-        missing_optional = []
-        for package, min_version in optional_packages.items():
-            try:
-                __import__(package)
-            except ImportError:
-                missing_optional.append(package)
+        missing_optional = _find_missing_packages(OPTIONAL_PACKAGES)
 
         if missing_optional:
             report.add_check(
@@ -254,3 +256,21 @@ def doctor(include_optional: bool = False) -> DoctorReport:
             )
 
     return report
+
+
+def _find_missing_packages(packages: Dict[str, Tuple[str, str]]) -> List[str]:
+    """Return the pypi names of packages that cannot be imported.
+
+    Args:
+        packages: Mapping of ``{import_name: (pypi_name, min_version)}``.
+
+    Returns:
+        List of pypi names (suitable for ``pip install``) that failed to import.
+    """
+    missing: List[str] = []
+    for import_name, (pypi_name, _min_version) in packages.items():
+        try:
+            __import__(import_name)
+        except ImportError:
+            missing.append(pypi_name)
+    return missing
