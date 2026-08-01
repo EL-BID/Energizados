@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     from energizados.cli.main import _setup_logging
+
     _setup_logging(1)
 
     parser = argparse.ArgumentParser(description="Run inference using a trained model")
