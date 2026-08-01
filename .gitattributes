@@ -1,0 +1,37 @@
+# Normalize all text files to LF line endings in the working tree on every
+# platform. Without this, Windows runners (where Git for Windows defaults to
+# `core.autocrlf=true`) check out text files with CRLF, which makes pre-commit
+# hooks (isort, black) want to "fix" them by converting back to LF — failing
+# CI on every PR that touches a text file. Forcing LF everywhere is the
+# cross-platform standard recommended by GitHub.
+#
+# See https://docs.github.com/en/get-started/getting-started-with-git/
+#     configuring-git-to-handle-line-endings
+* text=auto eol=lf
+
+# Source files — explicit, in case a future contributor overrides the default.
+*.py  text eol=lf
+*.tpl text eol=lf
+*.md  text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.sh  text eol=lf
+*.txt text eol=lf
+
+# Binary files — never normalize.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.parquet binary
+*.pkl  binary
+*.sig  binary
+*.zip  binary
+*.db   binary
+*.sqlite binary
