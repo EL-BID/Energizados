@@ -19,10 +19,9 @@ import logging
 from pathlib import Path
 
 import yaml
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 logger = logging.getLogger(__name__)
-
-from energizados.core.pipeline import ConfigPipelineBuilder
 
 if __name__ == "__main__":
     from energizados.cli.main import _setup_logging
