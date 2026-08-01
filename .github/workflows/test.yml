@@ -62,10 +62,9 @@ jobs:
       - name: Fast tests
         run: pytest -m "not slow" -q --no-cov -x
       - name: Doctor smoke
-        # The doctor command has a pre-existing false-negative on sklearn
-        # detection (reports missing even when installed). Informational only;
-        # must not block PRs. Tracked separately, out of scope here.
-        continue-on-error: true
+        # Smoke-test the doctor command end-to-end. With the sklearn import-name
+        # fix in place, this must not report any required package as missing on
+        # a clean install of the dev extras.
         run: energizados doctor
       - name: Init smoke (non-interactive)
         # bash required on Windows: mktemp/ls are not PowerShell built-ins.

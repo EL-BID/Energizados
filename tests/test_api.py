@@ -333,6 +333,48 @@ def test_doctor_report_checks_have_required_fields():
         assert check.status in ["ok", "warning", "error"]
 
 
+def test_required_packages_separate_import_name_from_pypi_name():
+    """Regression: REQUIRED_PACKAGES must use the Python import name as key,
+    not the PyPI name. Importing scikit-learn by its PyPI name always fails
+    because the import name is ``sklearn``; same for PyYAML (imports as ``yaml``).
+
+    This pins the bug from issue #40 (doctor always reported scikit-learn missing).
+    """
+    from energizados.api.config import REQUIRED_PACKAGES
+
+    # The bug was using "scikit-learn" as the import key.
+    assert "scikit-learn" not in REQUIRED_PACKAGES
+    assert "sklearn" in REQUIRED_PACKAGES
+    # And the value must carry the PyPI name for the install hint.
+    assert REQUIRED_PACKAGES["sklearn"][0] == "scikit-learn"
+
+    # Same shape for PyYAML.
+    assert "pyyaml" not in REQUIRED_PACKAGES
+    assert "yaml" in REQUIRED_PACKAGES
+    assert REQUIRED_PACKAGES["yaml"][0] == "pyyaml"
+
+
+def test_find_missing_packages_uses_import_name_not_pypi_name():
+    """Regression for issue #40: _find_missing_packages must call
+    ``__import__(import_name)`` (sklearn, yaml), not ``__import__(pypi_name)``
+    (scikit-learn, pyyaml). Returns pypi names in the install hint.
+    """
+    from energizados.api.config import _find_missing_packages
+
+    # All keys here are importable in the test environment → none reported missing.
+    installed = {
+        "sklearn": ("scikit-learn", "1.4.2"),
+        "yaml": ("pyyaml", "6.0"),
+    }
+    assert _find_missing_packages(installed) == []
+
+    # A genuinely unimportable module returns its PyPI name (for pip install).
+    bogus = {
+        "definitely_not_a_real_module_xyz": ("real-pypi-name", "1.0"),
+    }
+    assert _find_missing_packages(bogus) == ["real-pypi-name"]
+
+
 # Test Pipeline re-export
 def test_pipeline_reexport():
     """Test that api.Pipeline is the same as core.Pipeline."""
