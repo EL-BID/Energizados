@@ -11,7 +11,7 @@ This guide covers setting up a development environment for contributing to the E
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/EL-BID/energizados.git
+git clone https://github.com/EL-BID/Energizados.git
 cd energizados
 ```
 

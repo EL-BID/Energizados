@@ -403,7 +403,7 @@ energizados run etl --dry-run
 
 If you're still experiencing issues:
 
-1. **Check the documentation:** https://energizados.readthedocs.io
+1. **Check the documentation:** https://github.com/EL-BID/Energizados#readme
 2. **Search existing issues:** https://github.com/EL-BID/Energizados/issues
 3. **Report a new issue:** https://github.com/EL-BID/Energizados/issues/new
 
