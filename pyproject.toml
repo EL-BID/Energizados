@@ -93,10 +93,10 @@ energizados-web-worker = "energizados.web.worker:main"
 energizados-web = "energizados.web.launcher:main"
 
 [project.urls]
-Homepage = "https://github.com/energizados/energizados"
-Documentation = "https://energizados.readthedocs.io"
-Repository = "https://github.com/energizados/energizados"
-Issues = "https://github.com/energizados/energizados/issues"
+Homepage = "https://github.com/EL-BID/Energizados"
+Documentation = "https://github.com/EL-BID/Energizados#readme"
+Repository = "https://github.com/EL-BID/Energizados"
+Issues = "https://github.com/EL-BID/Energizados/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

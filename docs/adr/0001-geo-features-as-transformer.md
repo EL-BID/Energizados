@@ -46,6 +46,6 @@ wrapper that delegates everything to the transformer.
   loads + predicts) lives once in the builders' shared `_finalize()`, driven by whether
   `geo_model.pkl` exists on disk. The transformer itself is mode-agnostic and testable in
   isolation (`fit` without touching disk).
-- **First framework-core ADR.** Web-console decisions live under
-  `src/energizados/web/docs/adr/`; this establishes the parallel home for framework-core
-  decisions.
+- **First framework-core ADR.** This established `docs/adr/` as the canonical home
+  for framework-core architecture decisions; later ADRs (generalized-run,
+  deprecate-global-scope, run-level-lineage) live alongside it.
