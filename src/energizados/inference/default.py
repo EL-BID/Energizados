@@ -64,14 +64,14 @@ class DefaultInference(BaseInference):
             ValueError: If no valid path is provided.
             FileNotFoundError: If the file does not exist.
         """
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         path: Optional[str] = model_path or self.model_path
         if not path:
             raise ValueError("No model path provided")
 
-        loaded = secure_load(path)
-        # ``secure_load`` is dynamically typed (untyped return); narrow it to
+        loaded = load(path)
+        # ``load`` is dynamically typed (untyped return); narrow it to
         # ``BaseModel`` for downstream consumers and the type checker.
         self.model = cast(BaseModel, loaded)
         return self.model
@@ -115,7 +115,7 @@ class DefaultInference(BaseInference):
             predictions: Predictions to save.
             output_path: Output path.
         """
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(output_path, label="inference output_path")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -135,7 +135,7 @@ class DefaultInference(BaseInference):
             probas: Probabilities.
             output_path: Output path.
         """
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(output_path, label="inference output_path")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)

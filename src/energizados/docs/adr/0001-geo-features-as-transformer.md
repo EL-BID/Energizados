@@ -29,7 +29,7 @@ wrapper that delegates everything to the transformer.
   `CONTEXT.md` defines a Transformer as *"a `fit`/`transform` unit that modifies columns
   during Preprocessing"* — adding `geo_cluster` is exactly that. It gives one clean
   composition target for all consumers and the change is bounded (three methods move;
-  `secure_pickle` and the param surface are preserved).
+  `integrity_pickle` and the param surface are preserved).
 
 ## Consequences
 

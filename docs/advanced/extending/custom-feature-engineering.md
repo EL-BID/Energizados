@@ -83,10 +83,10 @@ class BaseFeatureEngineering(ABC):
             from energizados.core.exceptions import ModelNotFittedError
             raise ModelNotFittedError(model_name=self.__class__.__name__)
 
-        from energizados.core.utils.secure_pickle import secure_dump
+        from energizados.core.utils.integrity_pickle import dump
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(self, path)
+        dump(self, path)
 
     @classmethod
     def load(cls, path: str) -> "BaseFeatureEngineering":
@@ -98,8 +98,8 @@ class BaseFeatureEngineering(ABC):
         Returns:
             BaseFeatureEngineering: Loaded pipeline.
         """
-        from energizados.core.utils.secure_pickle import secure_load
-        return secure_load(path)
+        from energizados.core.utils.integrity_pickle import load
+        return load(path)
 
     def get_feature_names_out(self) -> list:
         """Returns feature names after transformations.

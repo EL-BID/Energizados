@@ -100,7 +100,7 @@ class HierarchicalInference(BaseInference):
             ModelContainer: A lightweight container representing
             all loaded models.
         """
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         if self._is_loaded:
             return HierarchicalModelContainer(self._models, self._feature_engineerings)
@@ -111,17 +111,17 @@ class HierarchicalInference(BaseInference):
             mpath = route["model_path"]
 
             logger.info(f"[HierarchicalInference] Loading model for route '{name}': {mpath}")
-            self._models[name] = secure_load(mpath)
+            self._models[name] = load(mpath)
 
             fe_path = self.feature_engineering_paths.get(name)
             if fe_path:
                 logger.info(f"[HierarchicalInference] Loading FE for route '{name}': {fe_path}")
-                self._feature_engineerings[name] = secure_load(fe_path)
+                self._feature_engineerings[name] = load(fe_path)
 
         # Load default model
         if self.default_model_path:
             logger.info(f"[HierarchicalInference] Loading default model: {self.default_model_path}")
-            self._models["__default__"] = secure_load(self.default_model_path)
+            self._models["__default__"] = load(self.default_model_path)
 
             # Load the default model's feature engineering when configured. Without
             # this, unrouted rows are sent RAW to a model trained on feature-
@@ -131,7 +131,7 @@ class HierarchicalInference(BaseInference):
                 logger.info(
                     f"[HierarchicalInference] Loading FE for default model: {default_fe_path}"
                 )
-                self._feature_engineerings["__default__"] = secure_load(default_fe_path)
+                self._feature_engineerings["__default__"] = load(default_fe_path)
 
         self._is_loaded = True
         return HierarchicalModelContainer(self._models, self._feature_engineerings)
@@ -215,7 +215,7 @@ class HierarchicalInference(BaseInference):
 
     def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
         """Save predictions to CSV."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(output_path, label="inference output_path")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -228,7 +228,7 @@ class HierarchicalInference(BaseInference):
         output_path: str,
     ) -> None:
         """Save binary predictions and probabilities to CSV."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(output_path, label="inference output_path")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)

@@ -165,7 +165,7 @@ src/energizados/
 │   │   └── utils.py
 │   └── utils/         # Internal utilities
 │       ├── import_utils.py   # Dynamic class import with allowlist
-│       └── secure_pickle.py  # SHA-256 verified pickle save/load
+│       └── integrity_pickle.py  # SHA-256 verified pickle save/load
 ├── explainability/    # SHAP-based model explainability
 │   └── shap_explainer.py
 ├── cli/               # Command-line interface
@@ -212,7 +212,7 @@ The **single home** for all framework base classes is `energizados.contracts` (a
 - **`BasePipeline`** — Abstract base for user-defined pipelines. Requires `run(context)`.
 - **`BaseEvaluator`** — Abstract base for model evaluation. Requires `evaluate(X, y, model, threshold=0.5)`.
 - **`BaseETL`** — Abstract base for ETL processes. Requires `extract()`, `transform()`, `load()`.
-- **`BaseFeatureEngineering`** — Abstract base for feature engineering pipelines. Requires `fit()`, `transform()`. Includes `save()`/`load()` via `secure_pickle`.
+- **`BaseFeatureEngineering`** — Abstract base for feature engineering pipelines. Requires `fit()`, `transform()`. Includes `save()`/`load()` via `integrity_pickle`.
 - **`BaseFeatureSelector`** — Abstract base for feature selection methods. Requires `fit()`, `transform()`.
 - **`BaseExplorer`** — Abstract base for exploratory data analysis. Requires `explore()`.
 

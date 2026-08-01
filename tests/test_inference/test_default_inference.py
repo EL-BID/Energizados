@@ -75,8 +75,8 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        # Mock secure_load at its source
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        # Mock load at its source
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -110,7 +110,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -135,7 +135,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -157,7 +157,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference(threshold=0.65)
@@ -228,7 +228,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -247,7 +247,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             # Use threshold=0.5 (default)
@@ -436,9 +436,9 @@ class TestInferenceStepStandalone:
     """Tests for InferenceStep loading model/FE from config paths."""
 
     def test_load_model_from_config_path(self, temp_dir):
-        """When model_path is in config, model loads via secure_load."""
+        """When model_path is in config, model loads via load."""
         mock_model = _make_mock_model([0.3, 0.7, 0.4])
-        # Create a dummy file at model_path (content doesn't matter — secure_load is mocked)
+        # Create a dummy file at model_path (content doesn't matter — load is mocked)
         model_path = temp_dir / "model.pkl"
         model_path.write_bytes(b"fake")
 
@@ -453,7 +453,7 @@ class TestInferenceStepStandalone:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=mock_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=mock_model):
             context = step.execute({})
 
         assert "predictions" in context
@@ -461,7 +461,7 @@ class TestInferenceStepStandalone:
         assert len(context["predictions"]) == 3
 
     def test_load_fe_from_config_path(self, temp_dir):
-        """When feature_engineering_path is in config, FE loads via secure_load."""
+        """When feature_engineering_path is in config, FE loads via load."""
         mock_model = _make_mock_model([0.3, 0.7])
         mock_fe = MagicMock()
         mock_fe.transform = lambda df: df  # passthrough
@@ -483,14 +483,14 @@ class TestInferenceStepStandalone:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        def _secure_load_side_effect(path, **kwargs):
+        def _load_side_effect(path, **kwargs):
             if "fe" in str(path):
                 return mock_fe
             return mock_model
 
         with patch(
-            "energizados.core.utils.secure_pickle.secure_load",
-            side_effect=_secure_load_side_effect,
+            "energizados.core.utils.integrity_pickle.load",
+            side_effect=_load_side_effect,
         ):
             context = step.execute({})
 
@@ -691,7 +691,7 @@ class TestInferenceStepEnrichedOutput:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=mock_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=mock_model):
             step.execute({})
 
         metadata_path = Path(str(output_path) + ".metadata.json")
@@ -732,7 +732,7 @@ class TestInferenceStepEnrichedOutput:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=mock_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=mock_model):
             step.execute({})
 
         metadata_path = Path(str(output_path) + ".metadata.json")
@@ -747,10 +747,10 @@ class TestInferenceStepEnrichedOutput:
 
 
 class TestInferenceTemplate:
-    """Tests for 03_inference.py.tpl template using secure_load."""
+    """Tests for 03_inference.py.tpl template using integrity_pickle.load."""
 
-    def test_template_uses_secure_load(self):
-        """Generated template must use secure_load, not pickle.load."""
+    def test_template_uses_integrity_load(self):
+        """Generated template must reference integrity_pickle.load, not pickle.load."""
         tpl_path = (
             Path(__file__).resolve().parent.parent.parent
             / "src"
@@ -761,8 +761,12 @@ class TestInferenceTemplate:
             / "03_inference.py.tpl"
         )
         content = tpl_path.read_text(encoding="utf-8")
-        assert "secure_load" in content
-        assert "pickle.load" not in content
+        assert "integrity_pickle.load" in content
+        # Template must not invoke the stdlib pickle loader directly. Note we
+        # match the call form ``pickle.load(`` rather than the bare substring
+        # ``pickle.load`` because the docstring's ``integrity_pickle.load``
+        # reference legitimately contains that substring.
+        assert "pickle.load(" not in content
 
     def test_template_no_import_pickle(self):
         """Generated template must not import pickle."""

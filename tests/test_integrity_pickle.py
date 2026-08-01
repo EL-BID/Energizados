@@ -1,27 +1,27 @@
-"""Tests for secure_pickle integrity verification."""
+"""Tests for integrity_pickle integrity verification."""
 
 import joblib
 import pytest
 
-from energizados.core.utils.secure_pickle import secure_dump, secure_load
+from energizados.core.utils.integrity_pickle import dump, load
 
 
 @pytest.fixture()
 def pkl_file(tmp_path):
-    """Returns a helper that writes an object via secure_dump and gives back its path."""
+    """Returns a helper that writes an object via dump and gives back its path."""
 
     def _write(obj, name="model.pkl"):
         path = tmp_path / name
-        secure_dump(obj, str(path))
+        dump(obj, str(path))
         return path
 
     return _write
 
 
-class TestSecureDump:
+class TestDump:
     def test_creates_pkl_and_sig(self, tmp_path):
         path = tmp_path / "obj.pkl"
-        secure_dump({"key": "value"}, str(path))
+        dump({"key": "value"}, str(path))
 
         assert path.exists()
         assert (tmp_path / "obj.pkl.sig").exists()
@@ -30,7 +30,7 @@ class TestSecureDump:
         import hashlib
 
         path = tmp_path / "obj.pkl"
-        secure_dump([1, 2, 3], str(path))
+        dump([1, 2, 3], str(path))
 
         sig = (tmp_path / "obj.pkl.sig").read_text(encoding="utf-8").strip()
         assert len(sig) == 64
@@ -40,12 +40,12 @@ class TestSecureDump:
         assert sig == sha256
 
 
-class TestSecureLoad:
+class TestLoad:
     def test_roundtrip(self, pkl_file):
         obj = {"model": "lgbm", "score": 0.95}
         path = pkl_file(obj)
 
-        loaded = secure_load(str(path))
+        loaded = load(str(path))
         assert loaded == obj
 
     def test_raises_when_sig_missing(self, tmp_path):
@@ -54,7 +54,7 @@ class TestSecureLoad:
         # No .sig file — must raise
 
         with pytest.raises(FileNotFoundError, match="Integrity signature not found"):
-            secure_load(str(path))
+            load(str(path))
 
     def test_raises_when_sig_tampered(self, pkl_file, tmp_path):
         path = pkl_file({"data": "original"})
@@ -64,7 +64,7 @@ class TestSecureLoad:
         sig_path.write_text("0" * 64, encoding="utf-8")
 
         with pytest.raises(ValueError, match="Integrity check failed"):
-            secure_load(str(path))
+            load(str(path))
 
     def test_raises_when_pkl_tampered(self, pkl_file, tmp_path):
         path = pkl_file({"data": "original"})
@@ -73,4 +73,4 @@ class TestSecureLoad:
         joblib.dump({"data": "tampered"}, path)
 
         with pytest.raises(ValueError, match="Integrity check failed"):
-            secure_load(str(path))
+            load(str(path))

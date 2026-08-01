@@ -197,9 +197,9 @@ class BatchInference(BaseInference):
 
     def load_model(self, model_path: str) -> BaseModel:
         """Load model from pickle file."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
         logger.info(f"Loading model from {model_path}")
-        return secure_load(model_path)
+        return load(model_path)
 
     def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
         """Save predictions to CSV with index."""

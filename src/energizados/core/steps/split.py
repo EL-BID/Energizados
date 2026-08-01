@@ -171,7 +171,7 @@ class SplitStep(PipelineStep):
             input_path = context["etl_results"][last_etl]
 
         # Validate path safety before reading
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(input_path, label="split input_path")
 

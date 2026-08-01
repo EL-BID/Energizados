@@ -10,6 +10,13 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
+        # Templates are user-editable skeletons, not source files imported by
+        # the framework. isort's first-party detection heuristic classifies
+        # `from energizados...` differently depending on the file's path and
+        # the host OS, which produces spurious "Fixing ..." failures on
+        # Windows CI. Black and flake8 still lint .tpl files; only isort is
+        # excluded here.
+        exclude: \.tpl$
 
   - repo: https://github.com/psf/black
     rev: 26.5.1

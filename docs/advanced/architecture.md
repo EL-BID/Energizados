@@ -87,7 +87,7 @@ src/energizados/
 │   │   └── utils.py
 │   └── utils/              # Internal utilities
 │       ├── import_utils.py   # Dynamic import with allowlist
-│       └── secure_pickle.py  # SHA-256 verified pickle save/load
+│       └── integrity_pickle.py  # SHA-256 verified pickle save/load
 │
 ├── cli/                      # Command-line interface
 │   ├── main.py             # CLI commands
@@ -165,7 +165,7 @@ mi_proyecto/
 | `core/base.py` | Provides base classes for Pipeline, Model, and Inference |
 | `core/steps/` | Implements pipeline steps (splitting, training) |
 | `core/utils/import_utils.py` | Dynamic class loading with security allowlist |
-| `core/utils/secure_pickle.py` | Pickle serialization with SHA-256 verification |
+| `core/utils/integrity_pickle.py` | Pickle serialization with SHA-256 verification |
 
 ### Configuration Schema Module
 

@@ -144,7 +144,7 @@ class InferenceBuilder(StepBuilder):
                 """Run inference and store predictions in context.
 
                 Uses a config-first resolution chain:
-                1. Load model from config ``model_path`` via ``secure_load``
+                1. Load model from config ``model_path`` via ``load``
                 2. Fall back to ``context["model"]``
                 3. For hierarchical inference, load models via ``inference.load_model()``
                 4. Raise ``ValueError`` if neither is available
@@ -161,7 +161,7 @@ class InferenceBuilder(StepBuilder):
                 Returns:
                     Dict: Updated context with ``predictions`` and ``prediction_probas``.
                 """
-                from energizados.core.utils.secure_pickle import secure_load
+                from energizados.core.utils.integrity_pickle import load
 
                 # ``_model_path`` is reused by the metadata sidecar below.
                 # Hierarchical inference loads its own route models, so there is
@@ -181,7 +181,7 @@ class InferenceBuilder(StepBuilder):
                         "model_path"
                     )
                     if _model_path:
-                        model = secure_load(_model_path)
+                        model = load(_model_path)
                         logger.info(f"Loaded model from: {_model_path}")
                     elif context.get("model"):
                         model = context["model"]
@@ -196,7 +196,7 @@ class InferenceBuilder(StepBuilder):
                         "_resolved_feature_engineering_path"
                     ) or self.config.get("feature_engineering_path")
                     if _fe_path:
-                        feature_engineering = secure_load(_fe_path)
+                        feature_engineering = load(_fe_path)
                         logger.info(f"Loaded feature engineering from: {_fe_path}")
                     elif context.get("feature_engineering"):
                         feature_engineering = context["feature_engineering"]

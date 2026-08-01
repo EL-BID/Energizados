@@ -679,20 +679,20 @@ class DefaultEvaluator(BaseEvaluator):
 
     def _load_model(self, model_path: Optional[str] = None):
         """Loads the trained model from the given path."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         path = model_path or self.model_path
         logger.info(f"Loading model from: {path}")
-        return secure_load(path)
+        return load(path)
 
     def _load_feature_engineering(self, feature_engineering_path: Optional[str] = None):
         """Loads feature engineering if the path exists."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         path = feature_engineering_path or self.feature_engineering_path
         if path and Path(path).exists():
             logger.info(f"Loading feature engineering from: {path}")
-            return secure_load(path)
+            return load(path)
         return None
 
     def _resolve_thresholds_output_dir(self, model_path: Optional[str]) -> Path:
@@ -729,7 +729,7 @@ class DefaultEvaluator(BaseEvaluator):
         model_paths: Dict[str, str],
     ) -> Dict[str, Any]:
         """Execute evaluation in comparison mode (multiple models)."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         logger.info("Comparison mode detected - evaluating each model independently...")
 
@@ -774,7 +774,7 @@ class DefaultEvaluator(BaseEvaluator):
 
             # Load model
             logger.info(f"Loading model from: {model_path}")
-            model = secure_load(model_path)
+            model = load(model_path)
 
             # Determine if model uses raw or transformed data
             model_config = getattr(model, "config", {}) or {}

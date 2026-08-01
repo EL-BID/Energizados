@@ -320,7 +320,7 @@ class SourceETL(BaseETL):
             raise ETLError(f"SourceETL '{self.name}': input_paths is empty")
 
         # Read all files
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         dataframes = []
         for path in self.input_paths:
@@ -367,7 +367,7 @@ class SourceETL(BaseETL):
         """Extract data in incremental mode - only process pending files."""
         import re
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         # Validate glob pattern to prevent directory traversal
         # Only allow safe patterns: alphanumeric, _, -, /, *, ?, and []
@@ -739,7 +739,7 @@ class SourceETL(BaseETL):
         actual_output = output_path or self.output_path or ""
         import re
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         # Determine input files
         if self.raw_glob:
@@ -941,7 +941,7 @@ class SourceETL(BaseETL):
         """Load state from state_file."""
         import json
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         if not self.state_file:
             return
@@ -1197,7 +1197,7 @@ class SourceETL(BaseETL):
             ETLError: If data cannot be saved
         """
         try:
-            from energizados.core.utils.secure_pickle import validate_no_traversal
+            from energizados.core.utils.integrity_pickle import validate_no_traversal
 
             validate_no_traversal(path, label=f"ETL '{self.name}' output")
             output_path = Path(path)
@@ -1368,7 +1368,7 @@ class ClipOutliersETL(BaseETL):
         if not self.input_paths:
             raise ETLError(f"ClipOutliersETL '{self.name}': input_paths is empty")
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         path = self.input_paths[0]
         validate_no_traversal(path, label=f"ETL '{self.name}' input")
@@ -1417,7 +1417,7 @@ class ClipOutliersETL(BaseETL):
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """Save clipped dataset."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(path, label=f"ETL '{self.name}' output")
         output_path = Path(path)
@@ -1497,7 +1497,7 @@ class CleanFilesETL(BaseETL):
 
     def noop_load(self) -> pd.DataFrame:
         """Delete files and return empty DataFrame (BaseETL noop override)."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         deleted, skipped, failed = 0, 0, []
 
@@ -1663,7 +1663,7 @@ class GeoFeaturesETL(BaseETL):
         if not self.input_paths:
             raise ETLError(f"GeoFeaturesETL '{self.name}': input_paths is empty")
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         path = self.input_paths[0]
         validate_no_traversal(path, label=f"ETL '{self.name}' input")
@@ -1745,7 +1745,7 @@ class GeoFeaturesETL(BaseETL):
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """Save enriched dataset."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(path, label=f"ETL '{self.name}' output")
         output_path = Path(path)
