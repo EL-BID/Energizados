@@ -340,3 +340,35 @@ class TestConstantSelector:
         selector.fit(X, y)
 
         assert selector.selected_features_ is not None
+
+
+def test_boruta_shadow_uses_seeded_rng():
+    """Regression for issue #45: ``BorutaSelector.fit`` must use a seeded RNG
+    (derived from ``self.random_state``) to build the shadow column, not the
+    unseeded global ``np.random.randn``.
+
+    This is a source-level pin (same pattern as ``test_contracts.py`` pinning
+    ``secure_dump`` / ``secure_load``). A full behavioral regression test is
+    impractical here because BorutaSelector.fit runs ``n_runs_=10`` Boruta
+    iterations per call, so two fits take ~2 minutes — too slow for the fast
+    test suite. The source pin is sufficient because the only way to reintroduce
+    the bug is to revert to ``np.random.randn`` for the shadow column.
+    """
+    import inspect
+
+    from energizados.feature_selection.methods import BorutaSelector
+
+    source = inspect.getsource(BorutaSelector.fit)
+
+    # The bug was: ``X_temp["random"] = np.random.randn(len(X_temp))``
+    assert "np.random.randn" not in source, (
+        "BorutaSelector.fit must not use the unseeded np.random.randn for the "
+        "shadow column (regression for issue #45). Use a seeded RNG derived "
+        "from self.random_state instead."
+    )
+    # The fix: ``shadow_rng = np.random.default_rng(self.random_state + i)``
+    assert "default_rng(self.random_state" in source, (
+        "BorutaSelector.fit must construct the shadow column RNG from "
+        "self.random_state so identical (data, random_state) inputs produce "
+        "identical selected_features_."
+    )
