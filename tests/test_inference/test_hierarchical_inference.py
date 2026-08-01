@@ -159,8 +159,8 @@ class TestHierarchicalInferenceRouting:
             default_model_path=str(default_path),
         )
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
-            # secure_load is called for each model path in order
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
+            # load is called for each model path in order
             mock_load.side_effect = [fln_model, default_model]
             inference.load_model()
 
@@ -204,7 +204,7 @@ class TestHierarchicalInferenceRouting:
             default_model_path=str(p_default),
         )
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.side_effect = [route1_model, route2_model, default_model]
             inference.load_model()
 
@@ -237,7 +237,7 @@ class TestHierarchicalInferenceRouting:
             # No default_model_path
         )
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=fln_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=fln_model):
             inference.load_model()
 
         data = pd.DataFrame({"geo_region": ["FLN", "BLU"]})
@@ -295,7 +295,7 @@ class TestHierarchicalInferenceFeatureEngineering:
             feature_engineering_paths={"special": str(fe_path)},
         )
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.side_effect = [mock_model, mock_fe, default_model]
             inference.load_model()
 
@@ -343,7 +343,7 @@ class TestHierarchicalInferenceFeatureEngineering:
             },
         )
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.side_effect = [route_model, route_fe, default_model, default_fe]
             inference.load_model()
 
@@ -447,7 +447,7 @@ class TestHierarchicalInferenceBuilderIntegration:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.side_effect = [fln_model, default_model]
             result = step.execute({})
 

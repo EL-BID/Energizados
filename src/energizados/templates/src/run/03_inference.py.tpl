@@ -8,9 +8,10 @@ The script auto-resolves model and feature engineering paths from the
 run directory and passes them as config overrides to ConfigPipelineBuilder.
 
 SECURITY: Model and feature engineering artifacts are loaded via
-``secure_load`` (SHA-256 integrity check + path traversal protection) by
-the inference step. Do NOT load them with the stdlib ``pickle`` module
-or bare ``joblib.load`` here — that bypasses integrity verification.
+``integrity_pickle.load`` (SHA-256 integrity check + path traversal
+protection) by the inference step. Do NOT load them with the stdlib
+``pickle`` module or bare ``joblib.load`` here — that bypasses integrity
+verification.
 """
 
 import argparse

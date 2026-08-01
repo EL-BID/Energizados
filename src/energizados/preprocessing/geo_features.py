@@ -846,7 +846,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         BaseFeatureEngineering.save. Only the clustering model is carried across
         train->infer - hierarchy is refit from data every run.
         """
-        from energizados.core.utils.secure_pickle import secure_dump
+        from energizados.core.utils.integrity_pickle import dump
 
         target = path or self.geo_model_path
         if not target:
@@ -856,7 +856,7 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
                 "GeoFeatures.save: nothing to persist - fit(include_cluster=True) first"
             )
         Path(target).parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(
+        dump(
             {"scaler": self.scaler_, "kmeans": self.kmeans_, "n_clusters": self.n_clusters_},
             target,
         )
@@ -870,12 +870,12 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         model) but still fits hierarchy from data. The load-or-fit decision (does the
         file exist?) belongs to the caller.
         """
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         target = path or self.geo_model_path
         if not target:
             raise ValueError("GeoFeatures.load: no path given and geo_model_path is unset")
-        model = secure_load(target)
+        model = load(target)
         self.scaler_ = model["scaler"]
         self.kmeans_ = model["kmeans"]
         self.n_clusters_ = model["n_clusters"]

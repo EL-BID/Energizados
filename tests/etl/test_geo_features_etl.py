@@ -615,7 +615,7 @@ def test_fit_no_regions_file_empty_attributes():
 
 def test_geo_model_persisted_on_fit(tmp_path):
     """Fitting with geo_model_path saves .pkl + .sig with scaler/kmeans/n_clusters."""
-    from energizados.core.utils.secure_pickle import secure_load
+    from energizados.core.utils.integrity_pickle import load
 
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
@@ -638,7 +638,7 @@ def test_geo_model_persisted_on_fit(tmp_path):
 
     assert Path(model_path).exists()
     assert Path(model_path + ".sig").exists()
-    model = secure_load(model_path)
+    model = load(model_path)
     assert "scaler" in model
     assert "kmeans" in model
     assert "n_clusters" in model

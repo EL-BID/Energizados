@@ -142,10 +142,10 @@ class BaseModel(ABC):
         """
         self.check_fitted()
 
-        from energizados.core.utils.secure_pickle import secure_dump
+        from energizados.core.utils.integrity_pickle import dump
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(self, path)
+        dump(self, path)
         logger.info(f"Model saved to: {path}")
 
     @classmethod
@@ -162,9 +162,9 @@ class BaseModel(ABC):
             FileNotFoundError: If the .sig file is missing.
             ValueError: If integrity check fails or path contains '..'.
         """
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
-        model = secure_load(path)
+        model = load(path)
         logger.info(f"Model loaded from: {path}")
         return model
 
@@ -553,10 +553,10 @@ class BaseFeatureEngineering(ABC):
 
             raise ModelNotFittedError(model_name=self.__class__.__name__)
 
-        from energizados.core.utils.secure_pickle import secure_dump
+        from energizados.core.utils.integrity_pickle import dump
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(self, path)
+        dump(self, path)
         logger.info(f"Feature engineering saved to: {path}")
 
     @classmethod
@@ -573,9 +573,9 @@ class BaseFeatureEngineering(ABC):
             FileNotFoundError: If the .sig file is missing.
             ValueError: If integrity check fails or path contains '..'.
         """
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
-        pipeline = secure_load(path)
+        pipeline = load(path)
         logger.info(f"Feature engineering loaded from: {path}")
         return pipeline
 
@@ -710,10 +710,10 @@ class BaseFeatureSelector(ABC):
 
             raise ModelNotFittedError(model_name=self.__class__.__name__)
 
-        from energizados.core.utils.secure_pickle import secure_dump
+        from energizados.core.utils.integrity_pickle import dump
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(self, path)
+        dump(self, path)
         logger.info(f"Feature selector saved to: {path}")
 
     @classmethod
@@ -730,9 +730,9 @@ class BaseFeatureSelector(ABC):
             FileNotFoundError: If the .sig file is missing.
             ValueError: If integrity check fails or path contains '..'.
         """
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
-        selector = secure_load(path)
+        selector = load(path)
         logger.info(f"Feature selector loaded from: {path}")
         return selector
 

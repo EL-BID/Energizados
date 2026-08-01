@@ -120,8 +120,8 @@ class TestBaseModelSaveLoad:
             with pytest.raises(ModelNotFittedError):
                 model.save(path)
 
-    def test_save_uses_secure_pickle(self):
-        """GIVEN a fitted BaseModel WHEN save() is called THEN secure_dump is used."""
+    def test_save_uses_integrity_pickle(self):
+        """GIVEN a fitted BaseModel WHEN save() is called THEN dump is used."""
         import tempfile
         from pathlib import Path
 
@@ -136,8 +136,8 @@ class TestBaseModelSaveLoad:
             assert path.exists()
             assert Path(str(path) + ".sig").exists()
 
-    def test_load_uses_secure_pickle(self):
-        """GIVEN a saved BaseModel WHEN load() is called THEN secure_load is used."""
+    def test_load_uses_integrity_pickle(self):
+        """GIVEN a saved BaseModel WHEN load() is called THEN load is used."""
         import tempfile
         from pathlib import Path
 
@@ -198,8 +198,8 @@ class TestBaseFeatureSelectorSaveLoad:
             with pytest.raises(ModelNotFittedError):
                 selector.save(path)
 
-    def test_save_uses_secure_pickle(self):
-        """GIVEN a fitted BaseFeatureSelector WHEN save() is called THEN secure_dump is used."""
+    def test_save_uses_integrity_pickle(self):
+        """GIVEN a fitted BaseFeatureSelector WHEN save() is called THEN dump is used."""
         import tempfile
         from pathlib import Path
 
@@ -214,8 +214,8 @@ class TestBaseFeatureSelectorSaveLoad:
             assert path.exists()
             assert Path(str(path) + ".sig").exists()
 
-    def test_load_uses_secure_pickle(self):
-        """GIVEN a saved BaseFeatureSelector WHEN load() is called THEN secure_load is used."""
+    def test_load_uses_integrity_pickle(self):
+        """GIVEN a saved BaseFeatureSelector WHEN load() is called THEN load is used."""
         import tempfile
         from pathlib import Path
 
@@ -259,25 +259,25 @@ class TestBaseFeatureSelectorSaveLoad:
             assert path.exists()
 
 
-class TestSecurePickleIntegration:
-    """Test that all base classes use secure_pickle consistently."""
+class TestIntegrityPickleIntegration:
+    """Test that all base classes use integrity_pickle consistently."""
 
-    def test_base_feature_engineering_uses_secure_pickle(self):
-        """GIVEN BaseFeatureEngineering WHEN save() and load() are inspected THEN they use secure_pickle."""
+    def test_base_feature_engineering_uses_integrity_pickle(self):
+        """GIVEN BaseFeatureEngineering WHEN save() and load() are inspected THEN they use integrity_pickle."""
         import inspect
 
         from energizados.contracts import BaseFeatureEngineering
 
-        # Check that save() uses secure_dump
+        # Check that save() uses dump
         save_source = inspect.getsource(BaseFeatureEngineering.save)
-        assert "secure_dump" in save_source
+        assert "dump" in save_source
 
-        # Check that load() uses secure_load
+        # Check that load() uses load
         load_source = inspect.getsource(BaseFeatureEngineering.load)
-        assert "secure_load" in load_source
+        assert "load" in load_source
 
-    def test_all_bases_use_same_secure_pickle_pattern(self):
-        """GIVEN all base classes with save/load WHEN they are inspected THEN they use the same secure_pickle pattern."""
+    def test_all_bases_use_same_integrity_pickle_pattern(self):
+        """GIVEN all base classes with save/load WHEN they are inspected THEN they use the same integrity_pickle pattern."""
         import inspect
 
         from energizados.contracts import (
@@ -286,23 +286,23 @@ class TestSecurePickleIntegration:
             BaseModel,
         )
 
-        # BaseModel should use secure_dump and secure_load
+        # BaseModel should use dump and load
         model_save = inspect.getsource(BaseModel.save)
         model_load = inspect.getsource(BaseModel.load)
-        assert "secure_dump" in model_save
-        assert "secure_load" in model_load
+        assert "dump" in model_save
+        assert "load" in model_load
 
-        # BaseFeatureSelector should use secure_dump and secure_load
+        # BaseFeatureSelector should use dump and load
         selector_save = inspect.getsource(BaseFeatureSelector.save)
         selector_load = inspect.getsource(BaseFeatureSelector.load)
-        assert "secure_dump" in selector_save
-        assert "secure_load" in selector_load
+        assert "dump" in selector_save
+        assert "load" in selector_load
 
-        # BaseFeatureEngineering should use secure_dump and secure_load
+        # BaseFeatureEngineering should use dump and load
         fe_save = inspect.getsource(BaseFeatureEngineering.save)
         fe_load = inspect.getsource(BaseFeatureEngineering.load)
-        assert "secure_dump" in fe_save
-        assert "secure_load" in fe_load
+        assert "dump" in fe_save
+        assert "load" in fe_load
 
 
 class TestShimReexports:

@@ -970,7 +970,7 @@ def test_stratified_regression(sample_parquet, tmp_path):
 
     # Read splits (we can't verify exact proportions without the data,
     # but we verify the files exist and are accessible)
-    from energizados.core.utils.secure_pickle import validate_no_traversal
+    from energizados.core.utils.integrity_pickle import validate_no_traversal
 
     validate_no_traversal(result["train_path"], label="train_path")
     validate_no_traversal(result["val_path"], label="val_path")
@@ -998,7 +998,7 @@ def test_random_regression(sample_parquet, tmp_path):
 
     # Read splits (we can't verify exact sizes without the data,
     # but we verify the files exist and are accessible)
-    from energizados.core.utils.secure_pickle import validate_no_traversal
+    from energizados.core.utils.integrity_pickle import validate_no_traversal
 
     validate_no_traversal(result["train_path"], label="train_path")
     validate_no_traversal(result["val_path"], label="val_path")

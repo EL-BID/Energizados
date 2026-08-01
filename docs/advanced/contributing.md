@@ -289,7 +289,7 @@ src/energizados/
 │   │   └── utils.py
 │   └── utils/            # Internal utilities
 │       ├── import_utils.py   # Dynamic import with allowlist
-│       └── secure_pickle.py  # Pickle with SHA-256 verification
+│       └── integrity_pickle.py  # Pickle with SHA-256 verification
 │
 ├── eda/                   # Exploratory Data Analysis
 │   ├── base.py                # BaseExplorer: abstract class
