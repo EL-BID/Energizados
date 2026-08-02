@@ -567,7 +567,7 @@ train:
     meta_learner:
       type: "logistic_regression"
       params: {}
-    use_val_as_oof: true  # or false for proper CV OOF
+    use_val_as_oof: false  # default; set true for blending (faster but leaky)
     cv: 5
 
   evaluation:

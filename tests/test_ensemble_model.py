@@ -79,7 +79,7 @@ class TestEnsembleModelConstruction:
         )
         assert ens.method == "soft_voting"
         assert ens.weights is None
-        assert ens.use_val_as_oof is True
+        assert ens.use_val_as_oof is False  # default since #47: K-fold OOF, leakage-safe
         assert ens.cv == 5
         assert ens.skip_base_fit is False
         assert ens.is_fitted_ is False
@@ -346,3 +346,68 @@ class TestEnsembleRegistry:
 
         with pytest.raises(KeyError):
             ModelRegistry.get("ensemble")
+
+
+# ---------------------------------------------------------------------------
+# Regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_blending_warns_about_leakage_at_fit(caplog):
+    """Regression for issue #47: when ``use_val_as_oof=True`` (blending),
+    ``EnsembleModel.fit`` must emit a warning explaining the leakage tradeoff
+    so the choice is conscious.
+    """
+    import contextlib
+    import logging
+
+    ens = EnsembleModel(
+        base_models=[_make_dummy_model(0.3), _make_dummy_model(0.7)],
+        model_types=["lightgbm", "catboost"],
+        model_names=["lgbm", "cat"],
+        method="stacking",
+        use_val_as_oof=True,
+        skip_base_fit=True,  # we only care about the warning path
+    )
+
+    X = pd.DataFrame({"a": [1.0, 2.0, 3.0, 4.0]})
+    y = pd.Series([0, 1, 0, 1])
+
+    with caplog.at_level(logging.WARNING, logger="energizados.modeling.ensemble"):
+        # Downstream blending errors (no X_val) are fine — we only assert
+        # that the warning fires *before* any failure.
+        with contextlib.suppress(Exception):
+            ens.fit(X, y)
+
+    assert any(
+        "blending" in r.message and "leakage" in r.message.lower() for r in caplog.records
+    ), "Expected a leakage warning when use_val_as_oof=True is set explicitly"
+
+
+def test_blending_warning_silent_when_oof_mode(caplog):
+    """Regression for issue #47: with the new default ``use_val_as_oof=False``
+    (proper K-fold OOF), no leakage warning is emitted at fit time.
+    """
+    import contextlib
+    import logging
+
+    ens = EnsembleModel(
+        base_models=[_make_dummy_model(0.3), _make_dummy_model(0.7)],
+        model_types=["lightgbm", "catboost"],
+        model_names=["lgbm", "cat"],
+        method="stacking",
+        use_val_as_oof=False,
+        skip_base_fit=True,
+    )
+
+    X = pd.DataFrame({"a": [1.0, 2.0, 3.0, 4.0]})
+    y = pd.Series([0, 1, 0, 1])
+
+    with caplog.at_level(logging.WARNING, logger="energizados.modeling.ensemble"):
+        with contextlib.suppress(Exception):
+            ens.fit(X, y)
+
+    leakage_warnings = [
+        r for r in caplog.records if "blending" in r.message and "leakage" in r.message.lower()
+    ]
+    assert not leakage_warnings, "No leakage warning should fire when use_val_as_oof=False"

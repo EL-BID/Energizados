@@ -33,8 +33,9 @@ class EnsembleModel(BaseModel):
             Keys: "type" (default "logistic_regression"), "params" (dict).
         weights: Per-model weights for soft voting. None means equal weights.
         use_val_as_oof: When True (blending), use val set predictions as stack
-            features for the meta-learner. When False, generate proper K-fold OOF
-            predictions on the training set (expensive).
+            features for the meta-learner. When False (default), generate proper
+            K-fold OOF predictions on the training set (expensive but
+            leakage-safe).
         cv: Number of folds used when use_val_as_oof=False.
         skip_base_fit: When True, base models are assumed already fitted and
             EnsembleModel.fit() only trains the meta-learner.
@@ -46,6 +47,10 @@ class EnsembleModel(BaseModel):
         is trained on predictions that are not truly out-of-fold.  For production-
         grade evaluation, set ``use_val_as_oof=False`` to generate proper K-fold OOF
         predictions, or reserve a separate hold-out set for the meta-learner.
+
+        Because of this tradeoff the default is ``use_val_as_oof=False`` and a
+        ``logger.warning`` is emitted from ``fit()`` whenever blending is
+        explicitly enabled.
     """
 
     def __init__(
@@ -56,7 +61,7 @@ class EnsembleModel(BaseModel):
         method: str = "soft_voting",
         meta_learner_config: Optional[Dict] = None,
         weights: Optional[List[float]] = None,
-        use_val_as_oof: bool = True,
+        use_val_as_oof: bool = False,
         cv: int = 5,
         skip_base_fit: bool = False,
         threshold: float = 0.5,
@@ -97,6 +102,16 @@ class EnsembleModel(BaseModel):
         Returns:
             self: The fitted ensemble.
         """
+        if self.method == "stacking" and self.use_val_as_oof:
+            logger.warning(
+                "Ensemble is using blending (use_val_as_oof=True): the "
+                "meta-learner is trained on val-set predictions where base "
+                "models early-stopped on the same val, which is not truly "
+                "out-of-fold. For production-grade evaluation set "
+                "use_val_as_oof=False (proper K-fold OOF, slower but "
+                "leakage-safe)."
+            )
+
         if not self.skip_base_fit:
             logger.info("Fitting base models inside EnsembleModel...")
             for name, model in zip(self.model_names, self.base_models):

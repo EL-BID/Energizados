@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Ensemble stacking default flipped to `use_val_as_oof=False` (leakage-safe).** Previously the default was `True` (blending), where base models early-stopped on the validation set and the meta-learner was then trained on predictions of the same validation set — not truly out-of-fold. The default is now `False` everywhere: `EnsembleModel.__init__`, `TrainingStep` config fallbacks, and the YAML template / docs examples. When blending is explicitly enabled (`use_val_as_oof=True`), `EnsembleModel.fit()` now emits a `logger.warning` describing the tradeoff so the choice is conscious.
+  - **Migration (BREAKING):** if your YAML config does NOT explicitly set `use_val_as_oof`, training will now use proper K-fold OOF (slower, leakage-safe) instead of blending. To restore the previous fast/leaky behavior, set `use_val_as_oof: true` explicitly.
 - **Inference: default output now includes ALL columns (behavior change).** With no `output_columns`, the predictions file contains all input + `prediction` + `probability` + `rule_*` (was only `[prediction, probability]`).
   - **Migration:** to restore the minimal 2-column output, set `output_columns: [prediction, probability]`.
 - **Inference: `index.html` no longer regenerated for inference runs.** The run index lists training evaluation reports, so it's now skipped for non-training run types (`inference`/`eda`/`etl`). Only training runs update it.
