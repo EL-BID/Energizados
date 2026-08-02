@@ -119,3 +119,61 @@ class TestLauncherHelp:
         assert "--port" in result.stdout
         assert "--db-path" in result.stdout
         assert "--log-level" in result.stdout
+        assert "--allow-remote" in result.stdout
+
+
+class TestRemoteHostGuard:
+    """Regression tests for issue #41: the launcher must refuse to bind to a
+    non-loopback interface without explicit opt-in via --allow-remote, since
+    the console has no auth and accepts arbitrary YAML as job configuration
+    (code-execution surface).
+    """
+
+    def test_loopback_host_passes_without_opt_in(self):
+        """127.0.0.1 is the default and must work without --allow-remote."""
+        from energizados.web.launcher import _assert_safe_host_or_explicit_opt_in
+
+        # Should NOT raise.
+        _assert_safe_host_or_explicit_opt_in("127.0.0.1", allow_remote=False)
+
+    def test_localhost_alias_passes(self):
+        """The string 'localhost' is also safe."""
+        from energizados.web.launcher import _assert_safe_host_or_explicit_opt_in
+
+        _assert_safe_host_or_explicit_opt_in("localhost", allow_remote=False)
+
+    def test_ipv6_loopback_passes(self):
+        """::1 is the IPv6 loopback and is also safe."""
+        from energizados.web.launcher import _assert_safe_host_or_explicit_opt_in
+
+        _assert_safe_host_or_explicit_opt_in("::1", allow_remote=False)
+
+    def test_non_loopback_host_refuses_without_opt_in(self, capsys):
+        """A non-loopback host without --allow-remote must fail-closed."""
+        from energizados.web.launcher import _assert_safe_host_or_explicit_opt_in
+
+        with pytest.raises(SystemExit) as exc_info:
+            _assert_safe_host_or_explicit_opt_in("0.0.0.0", allow_remote=False)  # nosec B104
+
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        assert "SECURITY" in captured.err
+        assert "0.0.0.0" in captured.err  # nosec B104
+        assert "--allow-remote" in captured.err
+
+    def test_non_loopback_host_passes_with_opt_in(self):
+        """A non-loopback host WITH --allow-remote must pass (opt-in respected)."""
+        from energizados.web.launcher import _assert_safe_host_or_explicit_opt_in
+
+        # Should NOT raise.
+        _assert_safe_host_or_explicit_opt_in("0.0.0.0", allow_remote=True)  # nosec B104
+
+    def test_lan_ip_refuses_without_opt_in(self, capsys):
+        """A LAN IP without --allow-remote must also fail-closed."""
+        from energizados.web.launcher import _assert_safe_host_or_explicit_opt_in
+
+        with pytest.raises(SystemExit) as exc_info:
+            _assert_safe_host_or_explicit_opt_in("192.168.1.100", allow_remote=False)  # nosec B104
+
+        assert exc_info.value.code == 2
+        assert "192.168.1.100" in capsys.readouterr().err
