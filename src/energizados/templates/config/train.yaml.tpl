@@ -470,7 +470,7 @@ train:
   #     params:
   #       C: 1.0
   #       max_iter: 1000
-  #   use_val_as_oof: true        # true = blending (fast); false = proper CV OOF (expensive)
+  #   use_val_as_oof: false       # false (default) = proper CV OOF (slower, leakage-safe); true = blending (faster but leaky)
   #   cv: 5                       # used only when use_val_as_oof: false
 
   # Soft voting alternative:

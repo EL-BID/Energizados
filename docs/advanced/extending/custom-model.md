@@ -257,7 +257,7 @@ train:
       type: "logistic_regression"
       params:
         C: 1.0
-    use_val_as_oof: true
+    use_val_as_oof: false  # default; set true for blending (faster but leaky)
 ```
 
 ## Testing Custom Models

@@ -436,7 +436,7 @@ class TrainingStep(PipelineStep):
         # Fail-fast: blending requires validation data
         if (
             self.ensemble_config
-            and self.ensemble_config.get("use_val_as_oof", True)
+            and self.ensemble_config.get("use_val_as_oof", False)
             and X_val_transformed is None
         ):
             raise ConfigurationError(
@@ -823,7 +823,7 @@ class TrainingStep(PipelineStep):
             method=self.ensemble_config.get("method", "soft_voting"),
             meta_learner_config=self.ensemble_config.get("meta_learner"),
             weights=self.ensemble_config.get("weights"),
-            use_val_as_oof=self.ensemble_config.get("use_val_as_oof", True),
+            use_val_as_oof=self.ensemble_config.get("use_val_as_oof", False),
             cv=self.ensemble_config.get("cv", 5),
             skip_base_fit=True,  # base models already fitted above
         )
