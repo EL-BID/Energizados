@@ -77,7 +77,68 @@ def parse_args():
         ),
     )
 
+    parser.add_argument(
+        "--allow-remote",
+        action="store_true",
+        default=False,
+        help=(
+            "Opt-in to bind the web console to a non-loopback interface "
+            "(--host != 127.0.0.1). Required to start when --host is set to "
+            "anything other than 127.0.0.1/localhost. The console has no auth "
+            "and accepts arbitrary YAML as job configuration, so this is a "
+            "code-execution surface — see docs/web-console/DEPLOYMENT.md."
+        ),
+    )
+
     return parser.parse_args()
+
+
+# Hosts that are considered safe to bind without --allow-remote. Anything else
+# (0.0.0.0, an IP on the LAN, a public hostname, etc.) requires explicit opt-in.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _assert_safe_host_or_explicit_opt_in(host: str, allow_remote: bool) -> None:
+    """Refuse to start if the host is non-loopback and --allow-remote is unset.
+
+    The web console has no authentication layer and accepts arbitrary YAML as
+    job configuration in a context where the worker calls
+    ``register_allowed_prefix("src")`` and ``os.chdir(job_dir)``. Binding to
+    anything other than loopback exposes a code-execution surface. The default
+    bind is 127.0.0.1 (loopback) which contains the blast radius; this guard
+    makes the foot-gun explicit when a user asks for a wider bind.
+
+    Args:
+        host: Parsed ``--host`` value.
+        allow_remote: Parsed ``--allow-remote`` flag.
+
+    Raises:
+        SystemExit(2): if ``host`` is non-loopback and ``allow_remote`` is False.
+    """
+    if allow_remote or host in _LOOPBACK_HOSTS:
+        return
+
+    # LOUD stderr warning, fail-closed.
+    sys.stderr.write(
+        "\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "!!                                                                    !!\n"
+        f"!!  SECURITY: refusing to bind to non-localhost host '{host}'.       !!\n"
+        "!!                                                                    !!\n"
+        "!!  The Energizados web console has NO authentication and accepts     !!\n"
+        "!!  arbitrary YAML as job configuration. Binding to a non-loopback    !!\n"
+        "!!  interface exposes a code-execution surface: anyone who can reach  !!\n"
+        "!!  this port can submit a job that imports arbitrary Python modules  !!\n"
+        "!!  under src/. The default bind (127.0.0.1) contains the blast       !!\n"
+        "!!  radius; binding wider requires explicit opt-in.                   !!\n"
+        "!!                                                                    !!\n"
+        "!!  To override (you have been warned), pass --allow-remote and see   !!\n"
+        "!!  docs/web-console/DEPLOYMENT.md for the threat model.              !!\n"
+        "!!                                                                    !!\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "\n"
+    )
+    sys.exit(2)
 
 
 def _web_argv(host: str, port: int) -> List[str]:
@@ -167,6 +228,11 @@ def main():
     global _web_process, _worker_process
 
     args = parse_args()
+
+    # Fail-closed: refuse to bind to a non-loopback interface without explicit
+    # opt-in via --allow-remote. See _assert_safe_host_or_explicit_opt_in()
+    # for the full rationale and threat model.
+    _assert_safe_host_or_explicit_opt_in(args.host, args.allow_remote)
 
     # Set log level
     logging.getLogger().setLevel(getattr(logging, args.log_level))

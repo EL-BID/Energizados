@@ -5,6 +5,30 @@ This guide covers deployment options for the Energizados web console, which cons
 1. **Web Server** (FastAPI + HTMX) - Serves HTTP requests and UI
 2. **Worker Process** - Executes async jobs via ConfigPipelineBuilder
 
+## ⚠️ Threat model — read this before binding to anything other than 127.0.0.1
+
+The web console has **no authentication layer** and **accepts arbitrary YAML as job configuration**. The worker process calls `register_allowed_prefix("src")` and `os.chdir(job_dir)` for each job, so submitting a job with a crafted YAML that imports an attacker-controlled module under `src/` runs arbitrary Python code as the worker process.
+
+The default bind is `127.0.0.1` (loopback), which contains the blast radius to the host running the console. Binding wider requires **explicit opt-in**:
+
+```
+energizados-web --host 0.0.0.0 --port 8000
+```
+
+will refuse to start with a `SECURITY: refusing to bind to non-localhost host '0.0.0.0'` error and exit code 2. To override (you have been warned that this exposes a code-execution surface):
+
+```
+energizados-web --host 0.0.0.0 --port 8000 --allow-remote
+```
+
+**Before using `--allow-remote`, ensure at least one of the following is true:**
+
+- The host is on an isolated network where every reachable client is trusted to run code as your user.
+- A reverse proxy in front of the console adds authentication (basic auth, OAuth proxy, mTLS, etc.) AND restricts which clients can reach it.
+- You are running inside a container/VM that you consider disposable and are prepared to recreate.
+
+**Out of scope of the current console (tracked separately):** per-project RBAC, job-config allowlist/sandboxing, native authentication middleware. Until those land, `--allow-remote` is a conscious operator decision, not a default.
+
 ## Phase 2 — Runs Browsing
 
 Phase 2 **added** runs browsing and artifact serving capabilities with **zero infrastructure changes** required (a later phase added the multi-project workspace and dashboards; see the web console README's Version History):
