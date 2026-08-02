@@ -226,7 +226,20 @@ The **single home** for all framework base classes is `energizados.contracts` (a
 - `energizados.eda.base.BaseExplorer`
 - `energizados.inference.base.BaseInference`
 
-**Stability commitment**: All base classes are frozen public API. Future changes will follow deprecation rules. Shims guarantee old import paths continue to work.
+**Stability commitment**: 5 of the 8 base classes are **frozen public API** — they have multiple adapters or subclasses in the framework, which validates their interface shape. The other 3 are **extension points for users**: still supported, but not stability-frozen, because a single adapter (or none) does not yet validate the interface shape against real-world usage. They will be promoted to frozen API when a second adapter appears in the wild.
+
+| Base class | Framework adapters | Status |
+|---|---|---|
+| `BaseModel` | 7 adapters (`LGBMModelAdapter`, `CATModelAdapter`, `XGBModelAdapter`, `NNModelAdapter`, `LSTMNNModelAdapter`, `SimpleTrendAdapter`, `SimpleConstantAdapter`) | **frozen** |
+| `BaseETL` | 4+ subclasses (`SourceETL`, `CleanFilesETL`, `ClipOutliersETL`, `GeoFeaturesETL`) | **frozen** |
+| `BaseFeatureSelector` | 6 subclasses (`BorutaSelector`, `CorrelationSelector`, `ConstantSelector`, plus their variants) | **frozen** |
+| `BaseExplorer` | 7+ subclasses under `energizados.eda.*` | **frozen** |
+| `BaseInference` | 2 adapters (`DefaultInference`, `HierarchicalInference`) | **frozen** |
+| `BasePipeline` | 0 framework consumers (the framework's own `Pipeline` does not inherit it — see class docstring) | **extension point** |
+| `BaseEvaluator` | 1 adapter (`DefaultEvaluator`) | **extension point** |
+| `BaseFeatureEngineering` | 1 adapter (`DefaultFeatureEngineering`) | **extension point** |
+
+Shims guarantee old import paths continue to work for all 8.
 
 ### Service Layer API (energizados.api)
 
