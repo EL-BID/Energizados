@@ -283,9 +283,16 @@ class BorutaSelector(BaseFeatureSelector):
         d = {}
         pbar = tqdm(total=self.n_runs_, desc="Running Boruta", leave=False)
         for i in range(self.n_runs_):
-            # Add random variable as shadow feature
+            # Add random variable as shadow feature.
+            # IMPORTANT: derive the shadow column from a per-iteration RNG seeded
+            # from ``self.random_state``. Previously this used the unseeded global
+            # NumPy RNG and the shadow varied run-to-run, which made
+            # ``selected_features_`` non-deterministic even with the same
+            # ``random_state``. The seed offset ``+ i`` mirrors the per-iteration
+            # seed already used by BorutaPy below.
+            shadow_rng = np.random.default_rng(self.random_state + i)
             X_temp = X.copy()
-            X_temp["random"] = np.random.randn(len(X_temp))
+            X_temp["random"] = shadow_rng.standard_normal(len(X_temp))
 
             rf = RandomForestClassifier(
                 n_jobs=-1,
