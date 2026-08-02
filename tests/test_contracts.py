@@ -553,53 +553,9 @@ class TestNoopLoadHook:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
 
-    def test_base_etl_has_is_noop_load_flag(self):
-        """GIVEN BaseETL WHEN inspecting attributes THEN _is_noop_load flag exists."""
-        from energizados.contracts import BaseETL
-
-        assert hasattr(BaseETL, "_is_noop_load")
-        # Check it has a class-level default
-        assert "_is_noop_load" in BaseETL.__dict__
-
-    def test_base_etl_run_checks_noop_load_flag(self):
-        """GIVEN BaseETL with _is_noop_load=True WHEN run() is called THEN noop_load() is returned."""
-        import tempfile
-
-        import pandas as pd
-
-        from energizados.contracts import BaseETL
-
-        class NoopETL(BaseETL):
-            def __init__(self):
-                super().__init__(name="noop")
-                self._is_noop_load = True
-
-            def extract(self):
-                raise Exception("extract should not be called")
-
-            def transform(self, df):
-                raise Exception("transform should not be called")
-
-            def load(self, df, path):
-                raise Exception("load should not be called")
-
-        etl = NoopETL()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            result = etl.run(f"{tmpdir}/output.parquet")
-
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 0
-
 
 class TestCleanFilesETLCompliance:
     """Test CleanFilesETL respects BaseETL contract via noop_load."""
-
-    def test_clean_files_etl_sets_noop_load_flag(self):
-        """GIVEN CleanFilesETL WHEN instantiated THEN _is_noop_load is True."""
-        from energizados.etl.pipeline import CleanFilesETL
-
-        etl = CleanFilesETL(name="clean", input_paths=[])
-        assert etl._is_noop_load is True
 
     def test_clean_files_etl_overrides_noop_load(self):
         """GIVEN CleanFilesETL WHEN noop_load() is called THEN files are deleted."""

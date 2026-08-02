@@ -372,13 +372,12 @@ class BaseEvaluator(ABC):
 class BaseETL(ABC):
     """Base class for ETL processes.
 
-    Supports normal ETLs (extract/transform/load) and noop ETLs
-    (e.g., CleanFilesETL) via the _is_noop_load flag.
+    Subclasses implement ``extract()``, ``transform()``, ``load()`` following
+    the standard extract/transform/load pattern. ETLs that do not produce a
+    dataset (e.g., ``CleanFilesETL``, which only deletes files) override
+    ``run()`` directly and return an empty DataFrame; the ``noop_load()``
+    hook exists as a convenience they can call from their override.
     """
-
-    # Class-level default so concrete ETLs whose __init__ does not call
-    # super().__init__() still resolve the flag. CleanFilesETL sets True in PR#2.
-    _is_noop_load: bool = False
 
     def __init__(self, name=None, input_paths=None, output_path=None, **params):
         """Initialize the ETL instance.
@@ -392,7 +391,6 @@ class BaseETL(ABC):
         self.name = name
         self.input_paths = input_paths
         self.output_path = output_path
-        self._is_noop_load = False  # Subclass sets True for noop
 
     @abstractmethod
     def extract(self) -> pd.DataFrame:
@@ -446,19 +444,16 @@ class BaseETL(ABC):
         """Execute the ETL pipeline.
 
         Args:
-            output_path: Where to save the output (ignored for noop ETLs).
+            output_path: Where to save the output.
 
         Returns:
-            pd.DataFrame: Transformed data (empty for noop ETLs).
+            pd.DataFrame: Transformed data.
         """
         import logging
 
         from energizados.core.exceptions import ETLError
 
         logger = logging.getLogger(__name__)
-
-        if self._is_noop_load:
-            return self.noop_load()
 
         try:
             df = self.extract()
