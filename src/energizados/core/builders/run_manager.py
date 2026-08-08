@@ -272,14 +272,15 @@ class RunManager:
                         break
                     suffix += 1
 
-        # ADR-0001: training runs use models/ + reports/evaluation/ subdirs.
+        # ADR-0001: training runs get a models/ subdir pre-created.
+        # reports/evaluation/ is created on demand by DefaultEvaluator only when
+        # evaluation is enabled — an empty reports/ dir is never left behind.
         # EDA/inference/ETL write their artifacts at the run-dir root, so those
         # subdirs are omitted (keeps failed-run cleanup honest — empty dirs no
         # longer make a non-training run look like it produced partial output).
         # config/ is always created so copy_configs_to_run_dir works for all types.
         if self._run_type == "training":
             (run_dir / "models").mkdir(parents=True, exist_ok=True)
-            (run_dir / "reports" / "evaluation").mkdir(parents=True, exist_ok=True)
         (run_dir / "config").mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Run directory ({self._run_type}): {run_dir}")

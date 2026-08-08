@@ -9,56 +9,55 @@ description = "Framework para detección de fraude en consumo energético"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
-authors = [
-    { name = "Energizados Team", email = "contact@energizados.org" }
-]
+authors = [{ name = "Energizados Team", email = "contact@energizados.org" }]
 keywords = [
-    "ml",
-    "machine-learning",
-    "fraud-detection",
-    "energy",
-    "electricity",
-    "non-technical-losses",
-    "anomaly-detection",
+  "ml",
+  "machine-learning",
+  "fraud-detection",
+  "energy",
+  "electricity",
+  "non-technical-losses",
+  "anomaly-detection",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: Other/Proprietary License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
-    "boruta==0.4.3",
-    "click>=8.0",
-    "geobr>=0.2.0",
-    "imbalanced-learn~=0.12.0",
-    "joblib>=1.3.0",
-    "lightgbm~=4.6.0",
-    "numpy>=1.21.6",
-    "pandas>=2.0.0",
-    "plotly>=5.0.0",
-    "pyarrow>=19.0.0",
-    "pyyaml>=6.0",
-    "requests>=2.32.0",
-    "rich>=13.0",
-    "scikit-learn~=1.4.2",
-    "scipy>=1.11.0,<2.0.0",
-    "shap>=0.42.0",
-    "tsfel==0.1.9",
-    "tqdm>=4.64.0",
-    "unidecode~=1.4.0",
-    "matplotlib>=3.5.0",
-    "seaborn>=0.11.2",
-    "GPUtil>=1.4.0",
-    "jsonschema>=4.0.0",
-    "psutil>=5.9.0",
+  "boruta==0.4.3",
+  "click>=8.0",
+  "geobr>=0.2.0",
+  "geopandas>=0.14.0",
+  "imbalanced-learn~=0.12.0",
+  "joblib>=1.3.0",
+  "lightgbm~=4.6.0",
+  "numpy>=1.21.6",
+  "pandas>=2.0.0",
+  "plotly>=5.0.0",
+  "pyarrow>=19.0.0",
+  "pyyaml>=6.0",
+  "requests>=2.32.0",
+  "rich>=13.0",
+  "scikit-learn~=1.4.2",
+  "scipy>=1.11.0,<2.0.0",
+  "shap>=0.42.0",
+  "tsfel==0.1.9",
+  "tqdm>=4.64.0",
+  "unidecode~=1.4.0",
+  "matplotlib>=3.5.0",
+  "seaborn>=0.11.2",
+  "GPUtil>=1.4.0",
+  "jsonschema>=4.0.0",
+  "psutil>=5.9.0",
 ]
 
 [project.optional-dependencies]
@@ -67,24 +66,24 @@ tensorflow = ["tensorflow>=2.17.0"]
 xgboost = ["xgboost>=2.0.0"]
 all = ["catboost==1.2.8", "tensorflow>=2.17.0", "xgboost>=2.0.0"]
 dev = [
-    "black>=23.0",
-    "ipykernel>=6.0",
-    "ipywidgets>=8.0",
-    "jupyterlab>=4.0",
-    "mkdocs-material>=9.5.0",
-    "mypy>=1.0",
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "ruff>=0.1.0",
-    "pre-commit (>=4.5.1,<5.0.0)",
-    "twine (>=6.2.0,<7.0.0)",
-    "setuptools (>=82.0.0,<83.0.0)",
+  "black>=23.0",
+  "ipykernel>=6.0",
+  "ipywidgets>=8.0",
+  "jupyterlab>=4.0",
+  "mkdocs-material>=9.5.0",
+  "mypy>=1.0",
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "ruff>=0.1.0",
+  "pre-commit (>=4.5.1,<5.0.0)",
+  "twine (>=6.2.0,<7.0.0)",
+  "setuptools (>=82.0.0,<83.0.0)",
 ]
 web = [
-    "fastapi>=0.100.0",
-    "uvicorn[standard]>=0.23.0",
-    "jinja2>=3.1.0",
-    "python-multipart>=0.0.6",
+  "fastapi>=0.100.0",
+  "uvicorn[standard]>=0.23.0",
+  "jinja2>=3.1.0",
+  "python-multipart>=0.0.6",
 ]
 
 [project.scripts]
@@ -134,33 +133,33 @@ line-length = 100
 target-version = "py39"
 select = ["E", "F", "I", "N", "W"]
 ignore = [
-    "E501",  # Line too long (handled by black)
-    "N806",  # Variable in function should be lowercase (we have some uppercase vars)
+  "E501", # Line too long (handled by black)
+  "N806", # Variable in function should be lowercase (we have some uppercase vars)
 ]
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".hg",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "venv",
 ]
 
 [tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"__init__.py" = ["F401"] # Allow unused imports in __init__.py
 
 # Pytest configuration
 [tool.pytest.ini_options]
@@ -169,40 +168,36 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "--strict-markers",
-    "--strict-config",
-    # Default test run omits slow tests. A plain `pytest` deselects them.
-    # Run slow tests explicitly with: pytest -m slow
-    "-m", "not slow",
-    "--cov=energizados",
-    "--cov-report=term-missing",
-    "--cov-report=html",
+  "--strict-markers",
+  "--strict-config",
+  # Default test run omits slow tests. A plain `pytest` deselects them.
+  # Run slow tests explicitly with: pytest -m slow
+  "-m",
+  "not slow",
+  "--cov=energizados",
+  "--cov-report=term-missing",
+  "--cov-report=html",
 ]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "integration: marks tests as integration tests",
+  "unit: marks tests as unit tests",
 ]
 
 # Coverage configuration
 [tool.coverage.run]
 source = ["src"]
-omit = [
-    "*/tests/*",
-    "*/test_*.py",
-    "*/__pycache__/*",
-    "*/site-packages/*",
-]
+omit = ["*/tests/*", "*/test_*.py", "*/__pycache__/*", "*/site-packages/*"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-    "@abstractmethod",
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "@abstractmethod",
 ]
 
 # Mypy configuration
@@ -221,13 +216,13 @@ strict_equality = true
 
 [[tool.mypy.overrides]]
 module = [
-    "boruta.*",
-    "catboost.*",
-    "geobr.*",
-    "imblearn.*",
-    "lightgbm.*",
-    "tsfel.*",
-    "unidecode.*",
-    "xgboost.*",
+  "boruta.*",
+  "catboost.*",
+  "geobr.*",
+  "imblearn.*",
+  "lightgbm.*",
+  "tsfel.*",
+  "unidecode.*",
+  "xgboost.*",
 ]
 ignore_missing_imports = true
