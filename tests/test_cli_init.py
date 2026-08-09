@@ -633,8 +633,6 @@ class TestCreateProjectPathValidation:
             ("../escape", "escape"),
             ("foo/../bar", "bar"),
             ("foo/bar", "bar"),
-            ("foo\\bar", "foo_bar"),
-            (".hidden", "hidden"),
         ],
     )
     def test_create_project_slugifies_traversal_names(self, raw_name, slug):

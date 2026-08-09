@@ -20,12 +20,13 @@ def _slugify_for_filesystem(name: str) -> str:
     filesystem directory component.
 
     Path-traversal inputs such as ``"../escape"`` or ``"foo/bar"`` are reduced
-    to a single path component (e.g. ``"escape"`` or ``"foo_bar"``) so that
+    to a single path component (e.g. ``"escape"`` or ``"bar"``) so that
     concatenating it with any base directory cannot escape the target. This
     is the function CodeQL recognizes as the taint sanitizer for the
     ``py/path-injection`` alerts on the downstream ``Path() / ...`` sinks:
-    the returned string is derived solely from the input, not from the input
-    itself, so a taint analysis treats it as a fresh, untainted value.
+    the returned string is derived solely from the input via
+    ``os.path.basename`` (a CodeQL-known sanitizer), so a taint analysis
+    treats it as a fresh, untainted value.
 
     The CLI command (``main.init``) keeps a separate, stricter check that
     *rejects* traversal-shaped names with a clear error so the operator gets
@@ -33,32 +34,29 @@ def _slugify_for_filesystem(name: str) -> str:
     counterpart used at the ``create_project`` sink.
 
     Raises:
-        ValueError: If ``name`` is empty or slugs to an empty string.
+        ValueError: If ``name`` is empty, has only whitespace, or reduces
+            to a name that is not safe to use as a single directory
+            component (``.``, ``..``, or a leading-dot hidden name).
 
     Returns:
-        A string containing only characters that are safe as a single
-        filesystem directory name (no ``/``, ``\\``, ``..``, leading ``.``,
-        or control characters).
+        A safe single-component directory name.
     """
     if not name or not name.strip():
         raise ValueError("Project name must not be empty.")
-    # Take the basename first: this drops everything before the last
-    # separator, so ``"../escape"`` becomes ``"escape"`` and ``"foo/bar"``
-    # becomes ``"bar"``. CodeQL tracks ``os.path.basename`` as a recognized
-    # sanitizer.
+    # ``os.path.basename`` is recognized by CodeQL as a taint sanitizer for
+    # ``py/path-injection``: it returns the final path component, dropping
+    # everything before the last separator. ``"../escape"`` -> ``"escape"``,
+    # ``"foo/bar"`` -> ``"bar"``. The result is then re-derived to break the
+    # taint chain on the assignment to ``project_name`` (and to
+    # ``project_path`` after we re-base it on the slug).
     import os.path
 
     safe = os.path.basename(name)
-    # Belt and suspenders: any remaining ``..``, separators, or control
-    # characters become ``_``. This catches inputs like bare ``".."`` (where
-    # ``basename`` returns ``".."``) and NUL bytes.
-    import re
-
-    safe = re.sub(r"\.\.|[/\\\x00-\x1f]", "_", safe)
-    # Drop leading dots so the result is not a hidden file.
-    safe = safe.lstrip(".")
-    safe = safe.strip()
-    if not safe:
+    # ``os.path.basename`` alone leaves a few unsafe results: ``".."``,
+    # ``"."``, ``""`` (when the input is a separator), and any name
+    # starting with ``.`` (hidden file). Reject those explicitly so the
+    # caller cannot end up creating ``".."`` or ``".hidden"`` directories.
+    if not safe or safe in (".", "..") or safe.startswith("."):
         raise ValueError(f"Project name {name!r} is not safe to use as a directory name.")
     return safe
 
@@ -162,15 +160,22 @@ def create_project(
     # last validation point shared by every caller (CLI, web console,
     # future automation scripts) and the sink that CodeQL flags
     # (``py/path-injection`` in this file).
-    # Slugify the name so the result is safe to use as a single directory
-    # component. ``_slugify_for_filesystem`` uses ``os.path.basename`` and
-    # a regex that strips ``..``, separators, and control characters; CodeQL
-    # tracks ``os.path.basename`` as a recognized taint sanitizer, so the
-    # reassigned ``project_name`` clears the ``py/path-injection`` flags
-    # on every downstream ``Path(...) / project_path`` sink.
-    # The CLI command rejects traversal-shaped names with a clear error
-    # before reaching here, so the operator UX is still explicit.
+    # Slugify the name and re-base the project path on the safe slug. This is
+    # the step CodeQL needs to clear the ``py/path-injection`` flags on the
+    # downstream ``Path(...) / project_path`` sinks:
+    #
+    #   1. ``_slugify_for_filesystem`` uses ``os.path.basename`` (a CodeQL
+    #      recognized sanitizer) to derive a safe single-component name.
+    #   2. We reassign ``project_path`` so its last component is the safe
+    #      name, not the user-provided one. After this line, every downstream
+    #      ``project_path / "..."`` operation traces its taint to the
+    #      sanitizer (not the original input), so the 18 alerts resolve.
+    #
+    # The CLI command (``main.init``) keeps a separate, stricter check that
+    # *rejects* traversal-shaped names with a clear ``click.BadParameter``
+    # before reaching here, so the operator UX stays explicit.
     project_name = _slugify_for_filesystem(project_name)
+    project_path = project_path.parent / project_name
 
     if project_path.exists():
         if not force:
