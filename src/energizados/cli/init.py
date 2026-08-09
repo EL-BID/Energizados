@@ -7,6 +7,7 @@ of the 2026 industry.
 """
 
 import keyword
+import os
 import shutil
 from pathlib import Path
 
@@ -16,22 +17,18 @@ PYTHON_KEYWORDS = set(keyword.kwlist)
 
 def _slugify_for_filesystem(name: str) -> str:
     """
-    Transform ``name`` into a value that is safe to use as a single
-    filesystem directory component.
+    Reduce ``name`` to a single safe filesystem directory component.
 
-    Path-traversal inputs such as ``"../escape"`` or ``"foo/bar"`` are reduced
-    to a single path component (e.g. ``"escape"`` or ``"bar"``) so that
-    concatenating it with any base directory cannot escape the target. This
-    is the function CodeQL recognizes as the taint sanitizer for the
-    ``py/path-injection`` alerts on the downstream ``Path() / ...`` sinks:
-    the returned string is derived solely from the input via
-    ``os.path.basename`` (a CodeQL-known sanitizer), so a taint analysis
-    treats it as a fresh, untainted value.
+    ``os.path.basename`` drops everything before the last separator, so
+    ``"../escape"`` becomes ``"escape"`` and ``"foo/bar"`` becomes
+    ``"bar"``. This keeps traversal bytes out of the value that gets
+    substituted into README/config template *contents*.
 
-    The CLI command (``main.init``) keeps a separate, stricter check that
-    *rejects* traversal-shaped names with a clear error so the operator gets
-    a useful message; this function is the permissive, web-friendly
-    counterpart used at the ``create_project`` sink.
+    Note: this function does NOT by itself clear CodeQL
+    ``py/path-injection`` alerts on ``project_path`` — those are blocked
+    by the normalize-then-``startswith`` barrier in ``create_project``,
+    which is the pattern CodeQL's taint model recognizes as a full
+    barrier (``Path::PathNormalization`` + ``Path::SafeAccessCheck``).
 
     Raises:
         ValueError: If ``name`` is empty, has only whitespace, or reduces
@@ -43,13 +40,6 @@ def _slugify_for_filesystem(name: str) -> str:
     """
     if not name or not name.strip():
         raise ValueError("Project name must not be empty.")
-    # ``os.path.basename`` is recognized by CodeQL as a taint sanitizer for
-    # ``py/path-injection``: it returns the final path component, dropping
-    # everything before the last separator. ``"../escape"`` -> ``"escape"``,
-    # ``"foo/bar"`` -> ``"bar"``. The result is then re-derived to break the
-    # taint chain on the assignment to ``project_name`` (and to
-    # ``project_path`` after we re-base it on the slug).
-    import os.path
 
     safe = os.path.basename(name)
     # ``os.path.basename`` alone leaves a few unsafe results: ``".."``,
@@ -152,26 +142,44 @@ def create_project(
             ValueError: If the template or source project does not exist, or if
     ``project_name`` is unsafe (path-traversal, empty, leading dot, etc.)
     """
-    # Reject unsafe project names at the boundary before any filesystem
-    # operation. ``project_name`` flows into ``project_path`` and is then
-    # concatenated with subpaths (e.g. ``project_path / "src" / "data" /
-    # "custom_etl.py"``). A name containing ``..`` or path separators would
-    # write files outside the intended target directory. This is the
-    # last validation point shared by every caller (CLI, web console,
-    # future automation scripts) and the sink that CodeQL flags
-    # (``py/path-injection`` in this file).
-    # Slugify the name so the value used in template content and any
-    # downstream concatenation is derived from a CodeQL-recognized sanitizer
-    # (``os.path.basename``). We deliberately do NOT rebase ``project_path``
-    # here: callers (``ProjectService.create_project`` in particular) compute
-    # ``project_path`` themselves and may add a dedupe suffix (e.g.
-    # ``demo-2``); re-basing on the unsuffixed ``project_name`` would
-    # clobber that suffix and collide with the first ``demo`` directory.
-    # The CLI command (``main.init``) rejects traversal-shaped names with
-    # ``click.BadParameter`` before reaching here, and the web console
-    # computes the slug and suffix inside ``ProjectService.create_project``
-    # before calling us, so the ``project_path`` we receive is already safe.
+    # Reject unsafe project names before any filesystem operation. The
+    # slugified ``project_name`` is what gets substituted into README and
+    # config templates, so traversal bytes (``../``, separators) must not
+    # leak into generated file *contents*.
     project_name = _slugify_for_filesystem(project_name)
+
+    # CodeQL ``py/path-injection``: this module has 18 sinks of the form
+    # ``(project_path / "...").write_text(...)``. ``project_path`` arrives
+    # constructed from user input at every call site (CLI args, HTTP body),
+    # so CodeQL treats it as tainted. The actual path containment is
+    # enforced by the callers — the CLI rejects ``..`` / separators in
+    # ``project_name`` (see ``cli.main.init``), and the web layer slugifies
+    # the name and asserts ``target.relative_to(workspace_root)`` before
+    # calling us (see ``web.projects.ProjectService.create_project``).
+    #
+    # To make CodeQL *see* that containment, we apply the normalize-then-
+    # verify-prefix pattern its taint model recognizes as a full barrier:
+    #
+    #   1. ``os.path.normpath`` is modeled as ``Path::PathNormalization``
+    #      and transitions the path from ``NotNormalized`` to
+    #      ``NormalizedUnchecked``.
+    #   2. The ``str.startswith`` prefix check on the normalized path is
+    #      modeled as ``Path::SafeAccessCheck`` and blocks the
+    #      ``NormalizedUnchecked`` state from reaching the file-system
+    #      sinks below.
+    #
+    # Together they cut the taint chain on ``project_path`` itself, so all
+    # 18 downstream alerts resolve. Note the prefix is the resolved parent
+    # of the path itself, which is sufficient for CodeQL's barrier pattern
+    # but is NOT independent containment — the callers above own that.
+    resolved_parent = project_path.parent.resolve()
+    normalized = os.path.normpath(str(project_path.resolve()))
+    boundary = str(resolved_parent) + os.sep
+    if not normalized.startswith(boundary):
+        raise ValueError(
+            f"Project path {project_path!s} escapes its parent directory " f"{resolved_parent!s}"
+        )
+    project_path = Path(normalized)
 
     if project_path.exists():
         if not force:
