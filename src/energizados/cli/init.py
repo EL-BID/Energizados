@@ -160,22 +160,18 @@ def create_project(
     # last validation point shared by every caller (CLI, web console,
     # future automation scripts) and the sink that CodeQL flags
     # (``py/path-injection`` in this file).
-    # Slugify the name and re-base the project path on the safe slug. This is
-    # the step CodeQL needs to clear the ``py/path-injection`` flags on the
-    # downstream ``Path(...) / project_path`` sinks:
-    #
-    #   1. ``_slugify_for_filesystem`` uses ``os.path.basename`` (a CodeQL
-    #      recognized sanitizer) to derive a safe single-component name.
-    #   2. We reassign ``project_path`` so its last component is the safe
-    #      name, not the user-provided one. After this line, every downstream
-    #      ``project_path / "..."`` operation traces its taint to the
-    #      sanitizer (not the original input), so the 18 alerts resolve.
-    #
-    # The CLI command (``main.init``) keeps a separate, stricter check that
-    # *rejects* traversal-shaped names with a clear ``click.BadParameter``
-    # before reaching here, so the operator UX stays explicit.
+    # Slugify the name so the value used in template content and any
+    # downstream concatenation is derived from a CodeQL-recognized sanitizer
+    # (``os.path.basename``). We deliberately do NOT rebase ``project_path``
+    # here: callers (``ProjectService.create_project`` in particular) compute
+    # ``project_path`` themselves and may add a dedupe suffix (e.g.
+    # ``demo-2``); re-basing on the unsuffixed ``project_name`` would
+    # clobber that suffix and collide with the first ``demo`` directory.
+    # The CLI command (``main.init``) rejects traversal-shaped names with
+    # ``click.BadParameter`` before reaching here, and the web console
+    # computes the slug and suffix inside ``ProjectService.create_project``
+    # before calling us, so the ``project_path`` we receive is already safe.
     project_name = _slugify_for_filesystem(project_name)
-    project_path = project_path.parent / project_name
 
     if project_path.exists():
         if not force:

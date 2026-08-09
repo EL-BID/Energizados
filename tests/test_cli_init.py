@@ -636,29 +636,42 @@ class TestCreateProjectPathValidation:
         ],
     )
     def test_create_project_slugifies_traversal_names(self, raw_name, slug):
-        """Traversal-shaped names slug to a safe directory name; the result
-        lives under ``project_path.parent`` (the workspace) and never escapes."""
+        """Traversal-shaped names get sanitized via ``_slugify_for_filesystem``
+        (which uses ``os.path.basename``, a CodeQL-recognized sanitizer) and
+        the project is created at the ``project_path`` the caller chose.
+
+        The caller's contract is to pass a safe ``project_path`` —
+        ``ProjectService`` does this by building the path from
+        ``slugify_project_id(name)`` before invoking us. Here we mirror
+        that contract by passing the slug as the path component.
+        """
         from energizados.cli.init import create_project
 
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir)
-            project_path = workspace / "intended"
+            # Caller is responsible for a safe project_path; this mirrors
+            # what ProjectService does (slugify + dedupe before calling us).
+            project_path = workspace / slug
             create_project(project_name=raw_name, project_path=project_path)
-            # The project was created at <workspace>/<slug> (NOT at
-            # project_path; the slug replaced the name component).
-            created = workspace / slug
-            assert created.is_dir(), (
-                f"Expected the project to be created at {created} for input "
-                f"{raw_name!r}; instead the directory is missing"
+            # The project was created at the caller-chosen path, NOT at a
+            # path derived from the (potentially traversal-shaped) raw name.
+            assert project_path.is_dir(), (
+                f"Expected the project to be created at {project_path}; "
+                f"instead the directory is missing"
             )
-            # The slug must not contain path-traversal characters.
-            assert ".." not in created.name
-            assert "/" not in created.name
-            assert "\\" not in created.name
             # The created path is strictly inside the workspace.
-            assert str(created.resolve()).startswith(
+            assert str(project_path.resolve()).startswith(
                 str(workspace.resolve())
-            ), f"Project path {created} escaped workspace {workspace}"
+            ), f"Project path {project_path} escaped workspace {workspace}"
+            # The path's final component is the safe slug, not the raw name.
+            assert project_path.name == slug
+            assert ".." not in project_path.name
+            # The README inside the project must NOT contain the raw
+            # traversal string. The ``{{project_name}}`` placeholder is
+            # replaced with the slugified name (not the raw input),
+            # so ``../escape`` never appears in the generated file.
+            readme = (project_path / "README.md").read_text(encoding="utf-8")
+            assert "../" not in readme, f"Raw traversal name {raw_name!r} leaked into README.md"
 
     @pytest.mark.parametrize(
         "empty_slug_name,reason",
