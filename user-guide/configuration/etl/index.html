@@ -10,24 +10,26 @@
       
       
       
-        <link rel="canonical" href="https://bid-code4dev.github.io/energizados/user-guide/configuration/etl/">
+      
+        <link rel="prev" href="../../cli-reference/">
       
       
+        <link rel="next" href="../train/">
       
       
         
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>ETL Configuration - Energizados</title>
+        <title>ETLs - Energizados</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -114,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ETL Configuration
+              ETLs
             
           </span>
         </div>
@@ -196,13 +198,13 @@
     
     
       <div class="md-header__source">
-        <a href="https://github.com/bid-code4dev/energizados" title="Go to repository" class="md-source" data-md-component="source">
+        <a href="https://github.com/EL-BID/Energizados" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
-    bid-code4dev/energizados
+    EL-BID/Energizados
   </div>
 </a>
       </div>
@@ -242,7 +244,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../getting-started/installation/" class="md-tabs__link">
+        <a href="../../../getting-started/overview/" class="md-tabs__link">
           
   
   
@@ -258,10 +260,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../project-structure/" class="md-tabs__link">
           
   
@@ -302,11 +306,51 @@
     
     
       <li class="md-tabs__item">
+        <a href="../../../web-console/" class="md-tabs__link">
+          
+  
+  
+  Web Console
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../../../advanced/architecture/" class="md-tabs__link">
           
   
   
   Advanced
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../releases/v0.3.3/" class="md-tabs__link">
+          
+  
+  
+  Releases
 
         </a>
       </li>
@@ -352,13 +396,13 @@
   </label>
   
     <div class="md-nav__source">
-      <a href="https://github.com/bid-code4dev/energizados" title="Go to repository" class="md-source" data-md-component="source">
+      <a href="https://github.com/EL-BID/Energizados" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
-    bid-code4dev/energizados
+    EL-BID/Energizados
   </div>
 </a>
     </div>
@@ -445,6 +489,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../getting-started/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -541,28 +613,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -580,7 +655,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -651,28 +726,31 @@
                 
   
   
+    
   
   
+  
     
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -690,7 +768,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -705,10 +783,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../etls.md" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ETLs
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -724,6 +829,308 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sourceetl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SourceETL
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SourceETL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mode-concat-vertical-concatenation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode: Concat (Vertical Concatenation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-merge-horizontal-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode: Merge (Horizontal Merge)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-incremental-record-level-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode: Incremental (Record-level filtering)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reprocess-write_mode-combinations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reprocess × write_mode Combinations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourceetl-parameters-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SourceETL Parameters Reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-csv-with-custom-read-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: CSV with custom read options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-custom-transform-function" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Custom transform function
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-sampling-for-quick-iteration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Sampling for quick iteration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#etl-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ETL Dependencies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ETL Dependencies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dependency-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency Patterns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dependency Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#serial-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serial Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallel-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#diamond-pattern-convergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diamond Pattern (Convergence)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complete Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#geofeaturesetl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GeoFeaturesETL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clipoutliersetl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ClipOutliersETL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanfilesetl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CleanFilesETL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-etl-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom ETL Classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -736,7 +1143,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../training.md" class="md-nav__link">
+      <a href="../train/" class="md-nav__link">
         
   
   
@@ -792,7 +1199,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../inference.md" class="md-nav__link">
+      <a href="../infer/" class="md-nav__link">
         
   
   
@@ -1089,7 +1496,7 @@
   <span class="md-ellipsis">
     
   
-    Advanced
+    Web Console
   
 
     
@@ -1102,6 +1509,123 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Web Console
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../web-console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../web-console/DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1134,6 +1658,208 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GeoFeatures as transformer (ADR-0001)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/0002-generalized-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generalized run (ADR-0002)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deprecate global scope (ADR-0003)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../adr/0004-run-level-lineage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run-level lineage (ADR-0004)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1189,10 +1915,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_4" >
         
           
-          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_4" id="__nav_6_4_label" tabindex="0">
             
   
   
@@ -1210,8 +1936,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1412,6 +2138,95 @@
     
   
     PyPI Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../releases/v0.3.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.3.3
   
 
     
@@ -1758,6 +2573,64 @@
   
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../../project-structure/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    User Guide
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="./" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Configuration
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 
@@ -1772,6 +2645,49 @@
 <p>Complete reference for <code>etl.yaml</code> configuration.</p>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>The ETL configuration file defines data extraction, transformation, and loading processes. Each ETL can depend on other ETLs, creating a Directed Acyclic Graph (DAG) that executes in topological order.</p>
+<p><strong>In this page:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#file-structure">File Structure</a></td>
+<td>minimal <code>etl.yaml</code> template + schema versioning</td>
+</tr>
+<tr>
+<td><a href="#sourceetl">SourceETL</a></td>
+<td><code>concat</code>, <code>merge</code>, <code>incremental</code> modes</td>
+</tr>
+<tr>
+<td><a href="#etl-dependencies">ETL Dependencies</a></td>
+<td>DAG, <code>@etl_name</code> references, <code>depends_on</code></td>
+</tr>
+<tr>
+<td><a href="#dependency-patterns">Dependency Patterns</a></td>
+<td>common dependency recipes</td>
+</tr>
+<tr>
+<td><a href="#geofeaturesetl">GeoFeaturesETL</a></td>
+<td>geographic features from lat/lon</td>
+</tr>
+<tr>
+<td><a href="#clipoutliersetl">ClipOutliersETL</a></td>
+<td>clip extreme consumption values</td>
+</tr>
+<tr>
+<td><a href="#cleanfilesetl">CleanFilesETL</a></td>
+<td>delete intermediate files</td>
+</tr>
+<tr>
+<td><a href="#custom-etl-classes">Custom ETL Classes</a></td>
+<td>subclassing <code>BaseETL</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="file-structure">File Structure<a class="headerlink" href="#file-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">schema_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">                 </span><span class="c1"># Schema version (checked by CLI on run/validate)</span>
@@ -1854,7 +2770,7 @@
 <h2 id="sourceetl">SourceETL<a class="headerlink" href="#sourceetl" title="Permanent link">&para;</a></h2>
 <p><code>SourceETL</code> is the built-in ETL implementation. It reads CSV, Parquet (<code>.parquet</code>/<code>.pq</code>), and Excel (<code>.xlsx</code>/<code>.xls</code>) files and supports two processing modes.</p>
 <blockquote>
-<p><strong>Note:</strong> New projects created with <code>energizados init</code> use <code>custom_class: "data.custom_etl.CustomETL"</code> for the sample ETL — this is the generated <code>CustomETL</code> class in <code>src/data/custom_etl.py</code>, which extends <code>BaseETL</code>. Use <code>energizados.etl.pipeline.SourceETL</code> when you want the built-in implementation directly without a custom class.</p>
+<p><strong>Note:</strong> New projects created with <code>energizados init</code> use <code>custom_class: "src.data.custom_etl.CustomETL"</code> for the sample ETL — this is the generated <code>CustomETL</code> class in <code>src/data/custom_etl.py</code>, which extends <code>BaseETL</code>. Use <code>energizados.etl.pipeline.SourceETL</code> when you want the built-in implementation directly without a custom class.</p>
 </blockquote>
 <h3 id="mode-concat-vertical-concatenation">Mode: Concat (Vertical Concatenation)<a class="headerlink" href="#mode-concat-vertical-concatenation" title="Permanent link">&para;</a></h3>
 <p>Concatenates multiple input files vertically (stacks rows).</p>
@@ -2020,7 +2936,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Output structure:</strong>
+<p><strong>Output structure:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>data/processed/consumos/
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>├── partition=2024-01/
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>│   └── data.parquet   ← records from January 2024
@@ -2028,7 +2944,7 @@
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>│   └── data.parquet
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>└── partition=2024-03/
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    └── data.parquet
-</code></pre></div></p>
+</code></pre></div>
 <p><strong>File-level deduplication (optional):</strong></p>
 <p>If you also want to skip entire files that were already processed in a previous run, combine <code>incremental_key</code> with <code>raw_glob</code> and <code>state_file</code>. The state tracks both the high-water mark and the list of processed files:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">params</span><span class="p">:</span>
@@ -2446,6 +3362,13 @@
 <p>Adds geographic features from latitude/longitude coordinates. Combines KMeans geographic
 clustering, IBGE administrative hierarchy, and haversine distance features in a single ETL step.
 Run after the main dataset-building ETL and before training.</p>
+<blockquote>
+<p><strong>Architecture (ADR-0001):</strong> <code>GeoFeaturesETL</code> is a thin file-I/O wrapper over the
+<code>GeoFeatures</code> transformer (<code>preprocessing/geo_features.py</code>), which owns the clustering
+logic. The same transformer can be used directly via <code>custom_class</code> in <code>global_transformers</code>
+with <code>include_cluster: true</code>. Set <code>geo_model_path</code> to persist the KMeans model on train and
+reuse it on inference (consistent <code>geo_cluster</code> labels across runs).</p>
+</blockquote>
 <p><strong>Generated columns:</strong></p>
 <table>
 <thead>
@@ -2459,7 +3382,7 @@ Run after the main dataset-building ETL and before training.</p>
 <tr>
 <td><code>geo_cluster</code></td>
 <td>int</td>
-<td>KMeans cluster label (−1 for invalid/zero coordinates)</td>
+<td>KMeans cluster label (−1 for invalid/zero coordinates). Set <code>include_cluster: false</code> to suppress this column.</td>
 </tr>
 <tr>
 <td><code>geo_estado</code></td>
@@ -2554,6 +3477,12 @@ hierarchy columns and <code>−1</code> for <code>geo_cluster</code>.</p>
 <td>Random seed for KMeans</td>
 </tr>
 <tr>
+<td><code>include_cluster</code></td>
+<td>bool</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, skip KMeans <code>geo_cluster</code> column while still generating IBGE hierarchy + distance features. Useful when <code>stratified_time</code> split is not needed.</td>
+</tr>
+<tr>
 <td><code>include_hierarchy</code></td>
 <td>bool / list</td>
 <td><code>true</code></td>
@@ -2582,6 +3511,24 @@ hierarchy columns and <code>−1</code> for <code>geo_cluster</code>.</p>
 <td>string</td>
 <td><code>null</code></td>
 <td>Directory to persist IBGE shapefiles on disk</td>
+</tr>
+<tr>
+<td><code>regions_file</code></td>
+<td>str</td>
+<td><code>null</code></td>
+<td>Path to a <code>REGION;CITY</code> CSV. Assigns <code>geo_regiao</code> by matching IBGE municipality names to <code>CITY</code> (accent- and case-insensitive). Takes priority over <code>region_cities</code>. Logs matched/unmatched municipalities; stores <code>matched_municipalities_</code>/<code>unmatched_municipalities_</code> on <code>fit()</code>.</td>
+</tr>
+<tr>
+<td><code>region_cities</code></td>
+<td>list</td>
+<td><code>null</code></td>
+<td>List of <code>REFERENCE_CITIES</code> keys. When set and <code>regions_file</code> is not provided, <code>geo_regiao</code> is the nearest city by haversine distance instead of the IBGE macro-region.</td>
+</tr>
+<tr>
+<td><code>geo_model_path</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>Path to persist/load the KMeans+scaler model. On train: fits and saves. On inference: if the file exists, loads it instead of re-fitting (keeps <code>geo_cluster</code> labels consistent with training). Omit to fit fresh every run.</td>
 </tr>
 </tbody>
 </table>
@@ -2642,10 +3589,12 @@ is required when using <code>method: stratified_time</code> in <code>train.yaml<
 </table>
 <h2 id="cleanfilesetl">CleanFilesETL<a class="headerlink" href="#cleanfilesetl" title="Permanent link">&para;</a></h2>
 <p>Deletes files after the pipeline completes. Useful for removing intermediate outputs and freeing disk space. This ETL does not produce a dataset — it returns an empty DataFrame so the orchestrator can track it normally in the DAG.</p>
-<p>The files to delete are specified in the <code>input</code> field, which supports:
-- Direct paths: <code>"data/processed/consumos.parquet"</code>
-- References to other ETL outputs: <code>"@consumos"</code> (resolved by the orchestrator)
-- Glob patterns: <code>"data/processed/tmp_*.parquet"</code></p>
+<p>The files to delete are specified in the <code>input</code> field, which supports:</p>
+<ul>
+<li>Direct paths: <code>"data/processed/consumos.parquet"</code></li>
+<li>References to other ETL outputs: <code>"@consumos"</code> (resolved by the orchestrator)</li>
+<li>Glob patterns: <code>"data/processed/tmp_*.parquet"</code></li>
+</ul>
 <p>The <code>output</code> field is optional — no file is written.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">clean_files</span><span class="p">:</span>
@@ -2777,7 +3726,7 @@ is required when using <code>method: stratified_time</code> in <code>train.yaml<
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

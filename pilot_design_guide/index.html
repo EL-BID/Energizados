@@ -1,0 +1,2788 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Machine learning framework for detecting non-technical losses in energy distribution">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Guía de Diseño de Prueba Piloto en Campo - Energizados</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="light-blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#guia-de-diseno-de-prueba-piloto-en-campo" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Energizados" class="md-header__button md-logo" aria-label="Energizados" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Energizados
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Guía de Diseño de Prueba Piloto en Campo
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/EL-BID/Energizados" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    EL-BID/Energizados
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/overview/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../user-guide/project-structure/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/end-to-end-example/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../web-console/" class="md-tabs__link">
+          
+  
+  
+  Web Console
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../advanced/architecture/" class="md-tabs__link">
+          
+  
+  
+  Advanced
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../releases/v0.3.3/" class="md-tabs__link">
+          
+  
+  
+  Releases
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Energizados" class="md-nav__button md-logo" aria-label="Energizados" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Energizados
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/EL-BID/Energizados" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    EL-BID/Energizados
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/first-project/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your First Project
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/project-structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configuration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/configuration/etl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ETLs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/configuration/train/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/configuration/evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/configuration/infer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/eda/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EDA Module
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/understanding-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Understanding Results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/end-to-end-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/model-selection-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Selection Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/ensemble-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ensemble Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web Console
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Web Console
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-console/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-console/DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture Decision Records
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture Decision Records
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GeoFeatures as transformer (ADR-0001)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0002-generalized-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generalized run (ADR-0002)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-deprecate-global-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deprecate global scope (ADR-0003)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0004-run-level-lineage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run-level lineage (ADR-0004)
+  
+
+    
+  </span>
+  
+  
+    
+  
+  
+    <span class="md-status md-status--accepted"></span>
+  
+
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/development-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_4" id="__nav_6_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extending the Framework
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Extending the Framework
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/extending/custom-etl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom ETL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/extending/custom-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/extending/custom-feature-engineering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Feature Engineering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/extending/custom-preprocessing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Preprocessing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/extending/custom-inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Inference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/pypi-publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PyPI Publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Releases
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/v0.3.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.3.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cuando-usar-esta-guia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cuándo usar esta guía
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diseno-experimental-de-un-vistazo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diseño experimental de un vistazo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-1-definir-hipotesis-y-metrica-primaria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 1 — Definir hipótesis y métrica primaria
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-2-definir-la-poblacion-elegible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 2 — Definir la población elegible
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-3-calcular-y-validar-el-tamano-muestral" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 3 — Calcular y validar el tamaño muestral
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-4-formalizar-el-criterio-bau-y-asignar-los-grupos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 4 — Formalizar el criterio BAU y asignar los grupos
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Paso 4 — Formalizar el criterio BAU y asignar los grupos">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-formalizar-el-criterio-bau" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Formalizar el criterio BAU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-asignar-los-grupos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Asignar los grupos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-opcional-tercer-brazo-aleatorio-gold-standard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 (Opcional) Tercer brazo aleatorio — gold standard
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-5-preparar-el-protocolo-de-campo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 5 — Preparar el protocolo de campo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-6-ejecutar-el-trabajo-de-campo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 6 — Ejecutar el trabajo de campo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-7-analisis-estadistico" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 7 — Análisis estadístico
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-8-reporte-y-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 8 — Reporte y decisión
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paso-9-lecciones-para-iteracion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paso 9 — Lecciones para iteración
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#estimacion-del-valor-medio-del-fraude-cuando-la-distribuidora-no-lo-provee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Estimación del valor medio del fraude (cuando la distribuidora no lo provee)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Estimación del valor medio del fraude (cuando la distribuidora no lo provee)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-estimacion-por-componentes-vos-podes-armarla" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Estimación por componentes (vos podés armarla)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-rangos-tipicos-del-sector-solo-referencia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Rangos típicos del sector (solo referencia)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-mas-confiable-pedirlo-a-la-distribuidora" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Más confiable: pedirlo a la distribuidora
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-mientras-tanto-analisis-de-sensibilidad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Mientras tanto: análisis de sensibilidad
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitaciones-especificas-del-diseno-bau-declarar-en-el-reporte" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitaciones específicas del diseño BAU (declarar en el reporte)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#checklist-de-entregables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checklist de entregables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pitfalls-comunes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pitfalls comunes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="guia-de-diseno-de-prueba-piloto-en-campo">Guía de Diseño de Prueba Piloto en Campo<a class="headerlink" href="#guia-de-diseno-de-prueba-piloto-en-campo" title="Permanent link">&para;</a></h1>
+<p>Protocolo de campo controlado para validar el modelo de detección de fraude antes de su despliegue completo. Mide el <strong>valor incremental (lift)</strong> del modelo contra el <strong>criterio actual de la empresa (BAU — Business As Usual)</strong>, que es la pregunta de negocio real: <em>"¿Conviene migrar de lo que hacemos hoy al modelo?"</em></p>
+<p>El diseño canónico usa <strong>200 inspecciones priorizadas por el modelo vs 200 inspecciones priorizadas por el criterio actual de la empresa</strong>.</p>
+<blockquote>
+<p><strong>Nota sobre el control:</strong> Esta guía usa BAU como control principal. Comparar contra aleatorio mide <em>"¿el modelo es mejor que no hacer nada inteligente?"</em>, lo cual infla el lift. Comparar contra BAU mide <em>"¿el modelo es mejor que lo que ya hacemos?"</em>, que es el número que defiende el ROI del cambio. El control aleatorio se mantiene como <strong>tercer brazo opcional</strong> (gold standard) en el Paso 4.</p>
+</blockquote>
+<hr />
+<h2 id="cuando-usar-esta-guia">Cuándo usar esta guía<a class="headerlink" href="#cuando-usar-esta-guia" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Antes de desplegar una nueva versión del modelo a producción.</li>
+<li>Cuando la distribuidora pregunta: <em>"¿Cuánto fraude adicional encuentra el modelo comparado con lo que hacemos hoy?"</em></li>
+<li>Como evidencia para justificar el ROI y aprobar el reemplazo del criterio actual.</li>
+</ul>
+<hr />
+<h2 id="diseno-experimental-de-un-vistazo">Diseño experimental de un vistazo<a class="headerlink" href="#diseno-experimental-de-un-vistazo" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Elemento</th>
+<th>Grupo tratamiento</th>
+<th>Grupo control (BAU)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Selección</td>
+<td>Top-N clientes por score del modelo (descendente)</td>
+<td>Top-N clientes por <strong>criterio actual de la empresa</strong> aplicado al mismo pool</td>
+</tr>
+<tr>
+<td>Propósito</td>
+<td>Medir precision@k del modelo</td>
+<td>Establecer el baseline de la práctica actual</td>
+</tr>
+<tr>
+<td>Cegamiento del inspector</td>
+<td>Idéntico al control (doble ciego si es posible)</td>
+<td>Idéntico al tratamiento</td>
+</tr>
+<tr>
+<td>Ventana temporal</td>
+<td>Misma que el control</td>
+<td>Misma que el tratamiento</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Importante:</strong> Este es un <strong>cuasi-experimento</strong>, no un RCT estricto. Ambos grupos se seleccionan por una regla (modelo vs BAU), así que mide <em>lift de un criterio sobre otro</em>. El análisis por deciles (Paso 7) es lo que valida el ranking interno del modelo de forma independiente.</p>
+</blockquote>
+<hr />
+<h2 id="paso-1-definir-hipotesis-y-metrica-primaria">Paso 1 — Definir hipótesis y métrica primaria<a class="headerlink" href="#paso-1-definir-hipotesis-y-metrica-primaria" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> decidir el éxito/fracaso con un criterio pre-registrado, no con interpretación post-hoc.</p>
+<ol>
+<li>
+<p>Escribí la <strong>hipótesis primaria</strong> en una frase medible. Ejemplo:</p>
+<blockquote>
+<p>"Inspeccionar los top-200 clientes por score del modelo produce un hit rate de fraude ≥ 1.5× el hit rate de los top-200 por el criterio actual de la empresa, sobre la misma población y período."</p>
+</blockquote>
+</li>
+<li>
+<p>Fijá la <strong>métrica primaria</strong>: <code>lift = hit_rate_modelo / hit_rate_BAU</code>.</p>
+</li>
+<li>
+<p>Fijá <strong>métricas secundarias</strong>:</p>
+</li>
+<li>Hit rate absoluto por grupo (con IC 95%).</li>
+<li>ROI estimado (escenarios bajo/medio/alto del valor del fraude).</li>
+<li>Completion rate por grupo.</li>
+<li>
+<p>Distribución de hallazgos por segmento (<code>actividad</code>, <code>zona</code>, <code>nivel_tension</code>).</p>
+</li>
+<li>
+<p><strong>Pre-registrar el umbral de decisión antes del trabajo de campo.</strong> Contra BAU los lifts son más chicos (BAU ya tiene poder predictivo), así que los umbrales son distintos a los de un control aleatorio:</p>
+</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Resultado contra BAU</th>
+<th>Decisión</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lift ≥ 1.5× con p &lt; 0.05</td>
+<td>Desplegar el modelo (reemplazar BAU)</td>
+</tr>
+<tr>
+<td>Lift 1.1–1.5×</td>
+<td>Marginal: decidir según costo operativo del cambio y ROI proyectado</td>
+</tr>
+<tr>
+<td>Lift &lt; 1.1×</td>
+<td>El modelo no supera a la práctica actual; iterar</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Ajustá el umbral de corte según el costo de cambiar el proceso operativo. Migrar de BAU al modelo tiene costo (capacitación, integración, riesgo), así que un lift de 1.1–1.3× puede no justificar el cambio aunque sea estadísticamente positivo.</p>
+</blockquote>
+<p><strong>Entregable:</strong> Documento de 1 página con hipótesis + métricas + umbral de decisión, fechado y firmado antes del trabajo de campo.</p>
+<hr />
+<h2 id="paso-2-definir-la-poblacion-elegible">Paso 2 — Definir la población elegible<a class="headerlink" href="#paso-2-definir-la-poblacion-elegible" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> garantizar que ambos grupos compitan en igualdad de condiciones (sin sesgo de selección).</p>
+<ol>
+<li>Definí el <strong>universo de clientes inspeccionables</strong>:</li>
+<li>Mismo período de referencia (ej. clientes activos con <code>12_anterior</code> a <code>1_anterior</code> completo).</li>
+<li>Misma región geográfica.</li>
+<li>Mismo tipo de cliente (o estratificar — ver Paso 3).</li>
+<li>
+<p>Excluir clientes ya inspeccionados en los últimos N meses.</p>
+</li>
+<li>
+<p>Generá el <strong>pool maestro</strong> como <code>data/processed/pilot_pool.parquet</code> con:</p>
+</li>
+<li><code>client_id</code></li>
+<li><code>score_modelo</code> (probabilidad de fraude)</li>
+<li>Variables necesarias para aplicar el criterio BAU (ej. consumo histórico, denuncias, antigüedad del medidor).</li>
+<li>Variables de estratificación: <code>actividad</code>, <code>zona</code>, <code>nivel_tension</code>, <code>geo_region</code>.</li>
+<li>
+<p><code>fecha_inspeccion_referencia</code> (control temporal).</p>
+</li>
+<li>
+<p>Validá que el pool tenga <strong>al menos 10× el tamaño de la muestra</strong> (mínimo ~4.000 clientes) para que la selección BAU sea comparable y representativa.</p>
+</li>
+</ol>
+<p><strong>Entregable:</strong> <code>pilot_pool.parquet</code> + criterios de elegibilidad escritos.</p>
+<hr />
+<h2 id="paso-3-calcular-y-validar-el-tamano-muestral">Paso 3 — Calcular y validar el tamaño muestral<a class="headerlink" href="#paso-3-calcular-y-validar-el-tamano-muestral" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> confirmar que el N por grupo alcanza para detectar el lift esperado con poder adecuado.</p>
+<blockquote>
+<p><strong>Consecuencia de usar BAU:</strong> los lifts contra BAU son típicamente <strong>1.3×–1.8×</strong>, no 2×+. Detectar un lift más chico requiere <strong>más muestra</strong>. 200+200 puede ser suficiente para lifts ≥ 1.5× con prevalencia alta, pero <strong>queda corto para detectar lifts de 1.2×–1.3×</strong>. Si esperás un lift modesto, subí el N.</p>
+</blockquote>
+<ol>
+<li>
+<p>Estimá la <strong>prevalencia base de fraude</strong> esperada en el pool (tasa histórica de la distribuidora). Llamémosla <code>p0</code>.</p>
+</li>
+<li>
+<p>Calculá el poder para el lift objetivo. Regla práctica (α=0.05, poder 0.8) para un control <strong>con poder predictivo (BAU)</strong>:</p>
+</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Prevalencia <code>p0</code></th>
+<th>Lift detectable con n=200/grupo</th>
+<th>Lift detectable con n=400/grupo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3%</td>
+<td>~2.0×</td>
+<td>~1.6×</td>
+</tr>
+<tr>
+<td>5%</td>
+<td>~1.7×</td>
+<td>~1.4×</td>
+</tr>
+<tr>
+<td>10%</td>
+<td>~1.5×</td>
+<td>~1.25×</td>
+</tr>
+<tr>
+<td>15%</td>
+<td>~1.35×</td>
+<td>~1.2×</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Si tu objetivo es demostrar lift ~1.3× contra BAU, <strong>necesitás n=400–600 por grupo</strong>, no 200.</p>
+</blockquote>
+<ol>
+<li>
+<p>Si la prevalencia es <strong>&lt; 5%</strong> o esperás un lift BAU modesto (&lt; 1.4×), <strong>subí a 400–600 por grupo</strong> o aceptá que el piloto será <strong>direccional</strong> (no definitivo) y declaralo en las limitaciones.</p>
+</li>
+<li>
+<p>Si la prevalencia es <strong>&gt; 10%</strong> y esperás lift ≥ 1.5×, 200 + 200 alcanza.</p>
+</li>
+</ol>
+<p><strong>Entregable:</strong> Nota técnica con el cálculo de poder, el lift objetivo y la justificación del N.</p>
+<hr />
+<h2 id="paso-4-formalizar-el-criterio-bau-y-asignar-los-grupos">Paso 4 — Formalizar el criterio BAU y asignar los grupos<a class="headerlink" href="#paso-4-formalizar-el-criterio-bau-y-asignar-los-grupos" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> producir dos grupos comparables definidos por reglas explícitas y reproducibles.</p>
+<blockquote>
+<p><strong>Gate obligatorio:</strong> el criterio actual de la empresa tiene que poder <strong>formalizarse y codificarse</strong>. Si los criterios actuales son "el operador elige por intuición", <strong>no tenés un control: tenés ruido</strong>. En ese caso, o los formalizás con el equipo de campo, o volvés al control aleatorio (ver Paso 4.3).</p>
+</blockquote>
+<h3 id="41-formalizar-el-criterio-bau">4.1 Formalizar el criterio BAU<a class="headerlink" href="#41-formalizar-el-criterio-bau" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Con el equipo de pérdidas/fraude de la empresa, <strong>escribí los criterios actuales</strong> en lenguaje codificable. Ejemplos de criterios BAU formalizables:</li>
+<li><em>"Top-N clientes con mayor caída porcentual de consumo en los últimos 3 meses."</em></li>
+<li><em>"Clientes denunciados por vecinos en el último trimestre."</em></li>
+<li>
+<p><em>"Clientes con consumo promedio &gt; X y medidor con antigüedad &gt; Y."</em></p>
+</li>
+<li>
+<p><strong>Requisitos del criterio formalizado:</strong></p>
+</li>
+<li><strong>Explícito:</strong> escrito, no verbal.</li>
+<li><strong>Reproducible:</strong> podés aplicarlo al pool y obtener una lista determinística.</li>
+<li>
+<p><strong>Determinista o sembrado:</strong> al recorrerlo da el mismo resultado (si usa aleatoriedad, fijar semilla).</p>
+</li>
+<li>
+<p>Implementá el criterio como una función que rankea el pool y devuelve el <strong>ranking BAU</strong> (<code>rank_bau</code> por cliente).</p>
+</li>
+</ol>
+<p><strong>Entregable de 4.1:</strong> Documento con el criterio BAU formalizado + script que lo aplica al pool.</p>
+<h3 id="42-asignar-los-grupos">4.2 Asignar los grupos<a class="headerlink" href="#42-asignar-los-grupos" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Grupo tratamiento (modelo):</strong> los <strong>top-N</strong> clientes del pool por <code>score_modelo</code> descendente.</p>
+</li>
+<li>
+<p><strong>Grupo control (BAU):</strong> los <strong>top-N</strong> clientes del pool por <code>rank_bau</code> (criterio actual).</p>
+</li>
+</ol>
+<blockquote>
+<p><strong>Atención — superposición:</strong> los dos grupos pueden compartir clientes (un cliente puede estar en el top-N del modelo Y en el top-N del BAU). Esto es esperable y <strong>no es un problema</strong>: esos clientes compartidos simplemente no aportan información discriminante para el lift. Reportá cuántos clientes se superponen. Si la superposición es muy alta (&gt; 50%), el modelo y BAU están de acuerdo en gran medida y el lift esperado será chico.</p>
+</blockquote>
+<p>Para evitar inspeccionar dos veces al mismo cliente, podés:
+   - <strong>Asignar cada cliente a un solo grupo</strong> (quitar de un grupo los que están en el otro) y reportar la superposición, o
+   - <strong>Mantener la superposición</strong> y aceptar que algunos clientes aportan a ambos brazos (análisis más simple, pero reduce el N efectivo del contraste).</p>
+<ol>
+<li>
+<p>Asigná un identificador de grupo a cada cliente: <code>grupo = "modelo" | "bau"</code>.</p>
+</li>
+<li>
+<p>Guardá el archivo de asignación con <strong>timestamp y semilla aleatoria</strong> para reproducibilidad.</p>
+</li>
+</ol>
+<p><strong>Entregable de 4.2:</strong> <code>pilot_assignments.parquet</code> con <code>client_id</code>, <code>grupo</code>, <code>score_modelo</code>, <code>rank_bau</code>, y conteo de superposición.</p>
+<h3 id="43-opcional-tercer-brazo-aleatorio-gold-standard">4.3 (Opcional) Tercer brazo aleatorio — gold standard<a class="headerlink" href="#43-opcional-tercer-brazo-aleatorio-gold-standard" title="Permanent link">&para;</a></h3>
+<p>Si el presupuesto lo permite (N total = 600), agregar un <strong>tercer grupo de N clientes aleatorios</strong> del pool (estratificado por <code>zona</code> / <code>nivel_tension</code>). Esto da dos lifts complementarios:</p>
+<ul>
+<li><strong>Modelo vs BAU</strong> → valor incremental de cambiar (defiende el ROI del reemplazo).</li>
+<li><strong>Modelo vs aleatorio</strong> → valor absoluto del modelo (comparable con benchmarks externos y publicaciones).</li>
+</ul>
+<p>Es la versión más defendible ante cualquier stakeholder.</p>
+<hr />
+<h2 id="paso-5-preparar-el-protocolo-de-campo">Paso 5 — Preparar el protocolo de campo<a class="headerlink" href="#paso-5-preparar-el-protocolo-de-campo" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> que las inspecciones sean comparables entre grupos y no introduzcan sesgo de medición.</p>
+<ol>
+<li>
+<p><strong>Doble ciego (ideal):</strong> los inspectores <strong>no deben saber</strong> de qué grupo es cada inspección (ni si es "modelo" ni "BAU"). Si no es posible, al menos que no conozcan el criterio de origen.</p>
+</li>
+<li>
+<p><strong>Protocolo de inspección idéntico</strong> para ambos grupos:</p>
+</li>
+<li>Mismo checklist.</li>
+<li>Mismo criterio de confirmación de fraude (manipulación de medidor, derivación clandestina, etc.).</li>
+<li>
+<p>Mismo formulario de captura.</p>
+</li>
+<li>
+<p>Definir <strong>categorías de resultado exhaustivas</strong>:</p>
+</li>
+<li><code>fraude_confirmado</code></li>
+<li><code>sin_fraude</code></li>
+<li><code>no_contactado</code> (cliente ausente)</li>
+<li><code>direccion_invalida</code></li>
+<li><code>medidor_inaccesible</code></li>
+<li>
+<p><code>otro</code> (con descripción)</p>
+</li>
+<li>
+<p><strong>Distribución temporal balanceada:</strong> mezclá inspecciones modelo y BAU en las mismas jornadas/rutas. No mandes todos los BAU en un mes y los del modelo el siguiente.</p>
+</li>
+<li>
+<p><strong>Capacitación breve</strong> a inspectores (30 min): objetivo del piloto, importancia del cegamiento de grupo, cómo registrar resultados.</p>
+</li>
+</ol>
+<p><strong>Entregable:</strong> Manual de procedimiento de campo + formulario de captura.</p>
+<hr />
+<h2 id="paso-6-ejecutar-el-trabajo-de-campo">Paso 6 — Ejecutar el trabajo de campo<a class="headerlink" href="#paso-6-ejecutar-el-trabajo-de-campo" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> recolectar datos limpios y completos.</p>
+<ol>
+<li>
+<p>Ejecutá las <strong>inspecciones</strong> dentro del período definido (idealmente ≤ 4–6 semanas para evitar deriva temporal).</p>
+</li>
+<li>
+<p><strong>Seguimiento semanal</strong> del completion rate por grupo:</p>
+</li>
+<li>Si un grupo tiene &gt; 20% de <code>no_contactado</code>, programar <strong>reintentos</strong>.</li>
+<li>
+<p>Si la diferencia de completion rate entre grupos es &gt; 10 puntos porcentuales, alerta de sesgo operativo.</p>
+</li>
+<li>
+<p><strong>Auditoría de calidad:</strong> revisar el 10% de las inspecciones para verificar consistencia del registro.</p>
+</li>
+</ol>
+<p><strong>Entregable:</strong> Base de datos de resultados con una fila por inspección (<code>client_id</code>, <code>grupo</code>, <code>resultado</code>, <code>fecha_inspeccion</code>, <code>inspector_id</code>).</p>
+<hr />
+<h2 id="paso-7-analisis-estadistico">Paso 7 — Análisis estadístico<a class="headerlink" href="#paso-7-analisis-estadistico" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> estimar el lift con incertidumbre honesta.</p>
+<ol>
+<li>
+<p><strong>Limpieza:</strong> separar las inspecciones válidas (completadas) de las no completadas. Reportar completion rate por grupo.</p>
+</li>
+<li>
+<p><strong>Hit rate por grupo:</strong></p>
+</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>hit_rate_modelo = fraudes_confirmados_modelo / inspecciones_completadas_modelo
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>hit_rate_bau    = fraudes_confirmados_bau    / inspecciones_completadas_bau
+</code></pre></div>
+<ol>
+<li><strong>Lift con intervalo de confianza:</strong></li>
+<li>Usar test de proporciones (Z-test o Fisher exact) para el p-valor.</li>
+<li>
+<p>Reportar el IC 95% del lift, no solo el puntual.</p>
+</li>
+<li>
+<p><strong>Análisis por deciles del score del modelo (obligatorio):</strong></p>
+</li>
+<li>Dividir todos los clientes inspeccionados en deciles según <code>score_modelo</code>.</li>
+<li>Graficar hit rate por decil.</li>
+<li>Un modelo bien comportado muestra hit rate <strong>monótonamente decreciente</strong> del decil 10 al decil 1. Esto valida el ranking interno <strong>de forma independiente del BAU</strong>.</li>
+<li>
+<p>Opcional: marcar en el gráfico qué decil cae cada inspección BAU para ver dónde se concentra el criterio actual.</p>
+</li>
+<li>
+<p><strong>ROI</strong> con escenarios bajo/medio/alto del valor medio del fraude. La base del cálculo es el <strong>excedente del modelo sobre BAU</strong>:</p>
+</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>fraudes_extra = fraudes_modelo - fraudes_bau
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>ROI = fraudes_extra × valor_medio_fraude - costo_diferencial_inspecciones
+</code></pre></div>
+<ol>
+<li><strong>Análisis segmentado:</strong> lift por <code>zona</code>, <code>actividad</code>, <code>nivel_tension</code>. ¿El modelo supera a BAU en todos los segmentos o hay nichos donde BAU sigue siendo mejor? Esto guía un despliegue híbrido (modelo en algunos segmentos, BAU en otros).</li>
+</ol>
+<p><strong>Entregable:</strong> Reporte de análisis con tablas, IC, gráfico de deciles, superposición modelo/BAU y ROI.</p>
+<hr />
+<h2 id="paso-8-reporte-y-decision">Paso 8 — Reporte y decisión<a class="headerlink" href="#paso-8-reporte-y-decision" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> cerrar el piloto con una decisión clara y accionable.</p>
+<ol>
+<li>
+<p>Comparar el resultado contra el <strong>umbral pre-registrado</strong> del Paso 1.</p>
+</li>
+<li>
+<p>Redactar el reporte final con:</p>
+</li>
+<li>Diseño del piloto (población, criterio BAU formalizado, asignación, N).</li>
+<li>Resultados primarios: lift modelo-vs-BAU + IC + p-valor.</li>
+<li>Resultados secundarios: deciles, segmentos, ROI, superposición.</li>
+<li>Limitaciones (ver lista abajo — incluye leakage).</li>
+<li>
+<p><strong>Recomendación explícita:</strong> desplegar / despliegue híbrido / iterar / descartar.</p>
+</li>
+<li>
+<p><strong>Presentación a stakeholders</strong> con foco en:</p>
+</li>
+<li>"¿Cuánto fraude adicional encontramos con el modelo respecto a lo que hacemos hoy?" (lift absoluto contra BAU).</li>
+<li>"¿Cuál es el ROI esperado al escalar?" (proyección a 1.000 / 5.000 inspecciones).</li>
+</ol>
+<p><strong>Entregable:</strong> Reporte ejecutivo + decisión documentada.</p>
+<hr />
+<h2 id="paso-9-lecciones-para-iteracion">Paso 9 — Lecciones para iteración<a class="headerlink" href="#paso-9-lecciones-para-iteracion" title="Permanent link">&para;</a></h2>
+<p><strong>Objetivo:</strong> que el piloto alimente la próxima versión del modelo.</p>
+<ol>
+<li>
+<p><strong>Falsos positivos del modelo</strong> (top-N del modelo sin fraude) son oro: analizar qué features los empujaron hacia arriba en el ranking. ¿Hay un patrón? ¿Falta alguna feature?</p>
+</li>
+<li>
+<p><strong>Casos donde BAU ganó</strong> (fraude encontrado por BAU que el modelo rankeó bajo): ¿qué tenían en común? ¿Qué sabe el criterio actual que el modelo no capturó? Estas observaciones pueden convertirse en features nuevas.</p>
+</li>
+<li>
+<p>Registrar todo en <code>docs/pilot_learnings.md</code> para alimentar el próximo ciclo de entrenamiento.</p>
+</li>
+</ol>
+<p><strong>Entregable:</strong> Documento de lecciones + backlog de mejoras del modelo.</p>
+<hr />
+<h2 id="estimacion-del-valor-medio-del-fraude-cuando-la-distribuidora-no-lo-provee">Estimación del valor medio del fraude (cuando la distribuidora no lo provee)<a class="headerlink" href="#estimacion-del-valor-medio-del-fraude-cuando-la-distribuidora-no-lo-provee" title="Permanent link">&para;</a></h2>
+<p>El cálculo de ROI necesita el valor monetario promedio de un caso de fraude confirmado. Si la distribuidora no lo suministra, estimarlo en este orden de confianza:</p>
+<h3 id="1-estimacion-por-componentes-vos-podes-armarla">1. Estimación por componentes (vos podés armarla)<a class="headerlink" href="#1-estimacion-por-componentes-vos-podes-armarla" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>valor_fraude = energia_no_facturada + multa + regularizacion
+</code></pre></div>
+<ul>
+<li><strong>Energía no facturada:</strong> <code>consumo_promedio_mensual × meses_fraude × tarifa</code>.</li>
+<li><code>meses_fraude</code>: 6 meses (conservador, ventana típica de recuperación).</li>
+<li><code>tarifa</code>: del dataset o promedio residencial regional.</li>
+<li><code>consumo_promedio_mensual</code>: mediana de <code>1_anterior</code> para clientes no fraudulentos, o percentil 25 de la población (conservador).</li>
+<li><strong>Multa:</strong> típicamente 2×–3× la energía no facturada, según regulación local.</li>
+<li><strong>Regularizacion:</strong> R$ 200–500 por caso (medidor + reconexión).</li>
+</ul>
+<h3 id="2-rangos-tipicos-del-sector-solo-referencia">2. Rangos típicos del sector (solo referencia)<a class="headerlink" href="#2-rangos-tipicos-del-sector-solo-referencia" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Segmento</th>
+<th>Valor medio del fraude</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Residencial</td>
+<td>R$ 1.500 – R$ 5.000</td>
+</tr>
+<tr>
+<td>Comercial</td>
+<td>R$ 5.000 – R$ 20.000</td>
+</tr>
+<tr>
+<td>Industrial</td>
+<td>R$ 20.000 – R$ 100.000+</td>
+</tr>
+</tbody>
+</table>
+<p>Para una muestra mixta, un promedio ponderado razonable de primer piso es <strong>R$ 3.000 – R$ 8.000</strong>.</p>
+<h3 id="3-mas-confiable-pedirlo-a-la-distribuidora">3. Más confiable: pedirlo a la distribuidora<a class="headerlink" href="#3-mas-confiable-pedirlo-a-la-distribuidora" title="Permanent link">&para;</a></h3>
+<p>Pedirle al equipo de pérdidas/fraude los <strong>casos de fraude regularizados de los últimos 1–2 años</strong> con su valuación final. Con 20–30 casos históricos ya se obtiene una media creíble.</p>
+<h3 id="4-mientras-tanto-analisis-de-sensibilidad">4. Mientras tanto: análisis de sensibilidad<a class="headerlink" href="#4-mientras-tanto-analisis-de-sensibilidad" title="Permanent link">&para;</a></h3>
+<p>Siempre correr el ROI con tres escenarios para que la decisión no dependa de un solo supuesto:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ROI_bajo  = fraudes_extra × R$ 1.500  - costo_diferencial_inspecciones
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>ROI_medio = fraudes_extra × R$ 5.000  - costo_diferencial_inspecciones
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>ROI_alto  = fraudes_extra × R$ 15.000 - costo_diferencial_inspecciones
+</code></pre></div>
+<blockquote>
+<p>El valor medio del fraude <strong>varía mucho por tipo de cliente</strong>. Reportar el ROI <strong>segmentado</strong> (residencial / comercial / industrial) o al menos por <code>nivel_tension</code> / <code>actividad</code> — una media única puede ser engañosa en una muestra mixta.</p>
+</blockquote>
+<hr />
+<h2 id="limitaciones-especificas-del-diseno-bau-declarar-en-el-reporte">Limitaciones específicas del diseño BAU (declarar en el reporte)<a class="headerlink" href="#limitaciones-especificas-del-diseno-bau-declarar-en-el-reporte" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Leakage potencial:</strong> si el modelo fue entrenado con labels generados por inspecciones que surgieron de los criterios actuales, el modelo aprendió parcialmente a <em>replicar</em> lo que ya hace la empresa. El lift modelo-vs-BAU puede entonces medir en parte <em>"cuánto el modelo recuerda el criterio actual"</em> en lugar de <em>"cuánto lo supera"</em>. No invalida el piloto, pero hay que declararlo.</li>
+<li><strong>Superposición de grupos:</strong> parte del top-N del modelo puede coincidir con el top-N de BAU. Reportar el % de superposición; reduce el N efectivo del contraste.</li>
+<li><strong>Criterio BAU estático:</strong> el control mide contra el criterio actual <em>en el momento del piloto</em>. Si la empresa mejora su criterio durante o después, el lift puede cambiar.</li>
+<li><strong>Poder estadístico:</strong> con N=200+200, el piloto puede ser solo direccional si el lift esperado es &lt; 1.4×. Declarar si este es el caso.</li>
+</ul>
+<hr />
+<h2 id="checklist-de-entregables">Checklist de entregables<a class="headerlink" href="#checklist-de-entregables" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Paso</th>
+<th>Entregable</th>
+<th>Tiempo estimado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Hipótesis + métricas + umbral</td>
+<td>1 día</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Pool maestro</td>
+<td>1–2 días</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Cálculo de poder</td>
+<td>0.5 día</td>
+</tr>
+<tr>
+<td>4.1</td>
+<td>Criterio BAU formalizado + script</td>
+<td>1–2 días</td>
+</tr>
+<tr>
+<td>4.2</td>
+<td>Asignación de grupos + superposición</td>
+<td>0.5 día</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Protocolo de campo</td>
+<td>2–3 días</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Trabajo de campo</td>
+<td>4–6 semanas</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Análisis</td>
+<td>3–5 días</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Reporte + decisión</td>
+<td>2 días</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Lecciones</td>
+<td>2 días</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pitfalls-comunes">Pitfalls comunes<a class="headerlink" href="#pitfalls-comunes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Comparar contra aleatorio cuando el objetivo es reemplazar BAU.</strong> Infla el lift artificialmente. Usar BAU como control principal.</li>
+<li><strong>Criterio BAU no formalizable.</strong> "Intuición del operador" no es un control reproducible. Gate del Paso 4.1.</li>
+<li><strong>Ignorar la superposición de grupos.</strong> Reportar siempre el % de clientes compartidos entre top-N modelo y top-N BAU.</li>
+<li><strong>No ajustar el umbral de decisión.</strong> Los umbrales de control aleatorio (~2×) no aplican a BAU. Usar 1.1–1.5× según Paso 1.</li>
+<li><strong>Subestimar el N necesario.</strong> Lifts contra BAU son más chicos → se necesita más muestra para detectarlos. Si el lift es modesto, 200+200 no alcanza.</li>
+<li><strong>Olvidar el leakage.</strong> Declarar si el modelo se entrenó con labels de inspecciones BAU.</li>
+<li><strong>Metric shopping post-hoc.</strong> Siempre comparar contra el umbral pre-registrado.</li>
+<li><strong>Completion rate desbalanceado.</strong> Una diferencia &gt;10 puntos porcentuales entre grupos señaliza sesgo operativo, no performance del modelo.</li>
+<li><strong>Omitir el análisis por deciles.</strong> Un buen top-N no prueba que el ranking esté bien ordenado en todo el rango de scores.</li>
+<li><strong>Confounding temporal/geográfico.</strong> Ambos grupos deben compartir el mismo período y región.</li>
+<li><strong>Efecto Hawthorne del inspector.</strong> Cegar el grupo siempre que sea posible.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
