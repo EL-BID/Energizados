@@ -138,7 +138,7 @@ class IsolationForestScore(BaseEstimator, TransformerMixin):
             # IsolationForest requires contamination in (0.0, 0.5]. Both extremes
             # are degenerate subpopulations that crash fit() otherwise:
             #   - fraud-MAJORITY (y.mean() > 0.5): region-filtered dataset, e.g. 56% fraud
-            #     (CELESC v3 F3E1) — passed y.mean()>0.5 and crashed.
+            #     (a real-world region-filtered training subset) — passed y.mean()>0.5 and crashed.
             #   - all-negative (y.mean() == 0.0): a region with no positives in train —
             #     0.0 is excluded from sklearn's range too.
             # Clip into the valid open interval. The if_score feature is unaffected:

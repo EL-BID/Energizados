@@ -138,12 +138,14 @@ Each phase builds on the **best configuration** from the previous phase. Apply t
 Val is used for early stopping and hyperparameter tuning — it already informed training decisions, so selecting by val would reward models that overfit to val, not models that generalize. Test is the only set the model never saw.
 
 **Selection bias caveat**: When comparing many experiments on the same test set, the winner may have won by chance (the more experiments, the higher the risk). Two mitigations:
+
 - The tiebreaker threshold (< 0.001) treats small differences as noise — prefer simpler.
 - If the dataset is large enough, reserve a **final holdout** (e.g. last 3–6 months) that is NEVER used until the final model of the last phase. All phase-by-phase selection happens on val/test; the holdout gives an unbiased estimate of real-world performance at the end only.
 
 ### Path Conventions
 
 All YAMLs in a version share:
+
 - `input_path`: points to the processed dataset from ETL
 - `output_base_dir`: `"output/{version}/exp/"`
 - `splits_dir`: `"output/{version}/exp/temp/splits/"`
@@ -196,6 +198,7 @@ Ask the user for (or read from existing files):
 ### Step 2: Generate _experiments.md
 
 Create the roadmap file with:
+
 1. Header (objective, metric, dataset stats, date, naming convention)
 2. Mermaid dependency diagram
 3. Execution rules
@@ -208,6 +211,7 @@ Create the roadmap file with:
 ### Step 3: Generate All YAML Files
 
 For each experiment in the roadmap:
+
 1. Start from the YAML skeleton (see [assets/yaml-skeleton.yaml](assets/yaml-skeleton.yaml))
 2. Set the 4-line header comment
 3. Fill `description` with hypothesis
@@ -218,6 +222,7 @@ For each experiment in the roadmap:
 ### Step 4: Verify Consistency
 
 Before finishing, verify:
+
 - All filenames match `fase{N}_exp{M}_{name}.yaml` convention
 - All `input_path` values point to the same dataset
 - All `split` sections are identical within a phase
@@ -252,6 +257,7 @@ print(f"Consumption periods: {len(consumption_cols)}")
 ### Generating a YAML from Template
 
 When generating YAMLs, follow this pattern:
+
 1. Start with the 4-line comment header
 2. Use YAML anchors for repeated values (`&period_suffix`)
 3. Keep `description` as multiline string with hypothesis
@@ -282,4 +288,4 @@ wait
 - **Standard template**: See [assets/experiment-template-standard.md](assets/experiment-template-standard.md) for 4-5 phases
 - **Quick template**: See [assets/experiment-template-quick.md](assets/experiment-template-quick.md) for 3 phases
 - **YAML skeleton**: See [assets/yaml-skeleton.yaml](assets/yaml-skeleton.yaml) for base config structure
-- **Reference experiment set**: `.proyects/celesc/config/v0/` — complete working example
+- **Reference experiment set**: `.proyects/sample/config/v0/` — complete working example

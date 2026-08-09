@@ -1467,7 +1467,7 @@ class CleanFilesETL(BaseETL):
             - "@maestros"
             - "@consumos"
             - "@inspecciones"
-            - "data/processed/celesc_dataset.parquet"
+            - "data/processed/dataset.parquet"
           custom_class: "energizados.etl.pipeline.CleanFilesETL"
           params:
             missing_ok: true

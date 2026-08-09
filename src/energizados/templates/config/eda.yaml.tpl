@@ -33,7 +33,7 @@ eda:
   # ============================================
   loading:
     file_encoding: "utf-8-sig"      # Windows BOM handling
-    decimal_separator: "."          # "," for CELESC-style data
+    decimal_separator: "."          # "," for locale-specific data (e.g. Brazilian distributors)
     detect_numeric_as_string: true  # Alert if numbers loaded as object
     auto_strip_strings: true        # Trim trailing whitespace in categoricals
     on_bad_lines: "warn"            # warn | skip | error
