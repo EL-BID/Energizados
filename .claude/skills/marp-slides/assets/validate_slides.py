@@ -255,7 +255,7 @@ def validate_tables(content: str, result: ValidationResult) -> None:
     # Check for empty table cells or inconsistent column counts
     table_blocks = re.findall(
         r"(\|.+\|\s*\n\|[\s\-:|]+\|\s*\n(?:\|.+\|\s*\n)+)", content, re.MULTILINE
-    )
+    )  # noqa: E226  # `-` inside character class is a literal, not subtraction
     for i, table in enumerate(table_blocks):
         rows = [r.strip() for r in table.strip().split("\n") if r.strip()]
         if len(rows) < 3:  # header + separator + at least 1 data row
@@ -263,18 +263,20 @@ def validate_tables(content: str, result: ValidationResult) -> None:
                 CheckResult(
                     "WARNING",
                     "table_completeness",
-                    f"Table {i+1} has fewer than 3 rows. Consider adding data or removing the table.",
+                    f"Table {i + 1} has fewer than 3 rows. Consider adding data or removing the table.",
                 )
             )
 
         # Check column consistency
-        col_counts = [len(r.split("|")) - 2 for r in rows if not re.match(r"^\|[\s\-:|]+\|$", r)]
+        col_counts = [
+            len(r.split("|")) - 2 for r in rows if not re.match(r"^\|[\s\-:|]+\|$", r)
+        ]  # noqa: E226
         if col_counts and len(set(col_counts)) > 1:
             result.results.append(
                 CheckResult(
                     "WARNING",
                     "table_alignment",
-                    f"Table {i+1} has inconsistent column counts across rows.",
+                    f"Table {i + 1} has inconsistent column counts across rows.",
                 )
             )
 

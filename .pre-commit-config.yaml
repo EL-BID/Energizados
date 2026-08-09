@@ -44,3 +44,9 @@ repos:
     hooks:
       - id: prettier
         types: [yaml]
+        # `yaml-skeleton.yaml` is a user-editable template that uses `{...}`
+        # placeholders, which prettier-yaml mis-parses as flow mappings
+        # (SyntaxError: Map comment with trailing content). Templates are not
+        # source files imported by the framework, so excluding them is
+        # consistent with the isort `.tpl` exclusion above.
+        exclude: '(^|/)yaml-skeleton\.yaml$'

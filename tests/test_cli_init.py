@@ -10,6 +10,7 @@ Updated to support the new 2026 structure with src/, tests/, docs/, etc.
 import tempfile
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from energizados.cli.main import cli
@@ -546,6 +547,70 @@ class TestPerSectionSchemaVersion:
             assert "energizados>=1.0.0" not in requirements
 
 
+class TestInitPathValidation:
+    """Verify that `init` rejects project names that would escape the target directory.
+
+    The project name is concatenated with `--path` and then with subpaths
+    (e.g. `project_path / "src" / "data" / "custom_etl.py"`). A name that
+    contains `..` or path separators would write files outside the intended
+    directory (CodeQL: py/path-injection). The CLI must reject these inputs
+    with a clear error.
+    """
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    @pytest.mark.parametrize(
+        "bad_name,reason",
+        [
+            ("../escape", "parent-directory reference"),
+            ("..", "parent-directory reference alone"),
+            ("foo/../bar", "embedded parent-directory reference"),
+            ("foo/bar", "forward slash"),
+            ("foo\\bar", "backslash"),
+            (".hidden", "leading dot"),
+            ("", "empty"),
+            ("   ", "whitespace only"),
+        ],
+    )
+    def test_init_rejects_unsafe_project_name(self, bad_name, reason):
+        """`init` must refuse names that would escape the target directory.
+
+        The validation must run BEFORE any filesystem write: if a bad name
+        reaches the filesystem layer, it could write files outside the target
+        directory before a later check (e.g. ``FileExistsError``) aborts.
+        We assert the validation error message in the output to guarantee the
+        name was caught at the CLI boundary.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", bad_name, "--path", tmpdir])
+            assert result.exit_code != 0, (
+                f"Expected non-zero exit for {bad_name!r} ({reason}); "
+                f"got exit_code=0 and output:\n{result.output}"
+            )
+            # The click-rendered usage error must come from our validation,
+            # not from a downstream filesystem failure after the bad name was
+            # already used to build a path.
+            assert "Invalid value" in result.output, (
+                f"Expected validation error for {bad_name!r} "
+                f"(reason: {reason}); got output:\n{result.output}"
+            )
+
+    def test_init_rejects_name_with_leading_or_trailing_whitespace(self):
+        """A name with surrounding whitespace is rejected (ambiguous on the filesystem)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "  my_project  ", "--path", tmpdir])
+            assert result.exit_code != 0
+            assert not (Path(tmpdir) / "  my_project  ").exists()
+
+    def test_init_accepts_valid_names(self):
+        """Sanity check: a normal name still works after the new validation."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "my_project", "--path", tmpdir])
+            assert result.exit_code == 0
+            assert (Path(tmpdir) / "my_project").is_dir()
+
+
 class TestSchemaValidation:
     """Tests for per-section schema compatibility checker."""
 
@@ -563,7 +628,6 @@ class TestSchemaValidation:
 
     def test_check_fails_with_newer_schema(self):
         """Verify that compatibility check fails when a section schema is newer."""
-        import pytest
 
         from energizados._version import CURRENT_SCHEMA_VERSIONS
         from energizados.cli.compat import check_project_compatibility
@@ -585,7 +649,6 @@ class TestSchemaValidation:
 
     def test_check_independent_per_section(self):
         """Verify that each section is checked independently."""
-        import pytest
 
         from energizados._version import CURRENT_SCHEMA_VERSIONS
         from energizados.cli.compat import check_project_compatibility

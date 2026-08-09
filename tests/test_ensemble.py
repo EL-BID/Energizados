@@ -1,4 +1,5 @@
 """Tests for EnsembleModel no-holdout compatibility (FR6)."""
+
 import numpy as np
 import pandas as pd
 import pytest
