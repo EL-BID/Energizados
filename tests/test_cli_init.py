@@ -611,6 +611,63 @@ class TestInitPathValidation:
             assert (Path(tmpdir) / "my_project").is_dir()
 
 
+class TestCreateProjectPathValidation:
+    """Verify the path-traversal guard at the ``create_project`` sink.
+
+    The web console (``ProjectService.create_project``) calls
+    ``create_project`` directly, bypassing the CLI command. The validation
+    MUST run inside ``create_project`` so that any caller — CLI, web, or
+    future automation — is protected, and so that the CodeQL
+    ``py/path-injection`` alerts in ``cli/init.py`` are resolved.
+    """
+
+    @pytest.mark.parametrize(
+        "bad_name,reason",
+        [
+            ("../escape", "parent-directory reference"),
+            ("..", "parent-directory reference alone"),
+            ("foo/../bar", "embedded parent-directory reference"),
+            ("foo/bar", "forward slash"),
+            ("foo\\bar", "backslash"),
+            (".hidden", "leading dot"),
+            ("", "empty"),
+            ("   ", "whitespace only"),
+        ],
+    )
+    def test_create_project_rejects_unsafe_name(self, bad_name, reason):
+        """``create_project`` raises ``ValueError`` for unsafe names."""
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "intended"
+            with pytest.raises(ValueError) as excinfo:
+                create_project(project_name=bad_name, project_path=project_path)
+            assert "must not" in str(excinfo.value).lower(), (
+                f"Expected a clear validation message for {bad_name!r} ({reason}); "
+                f"got: {excinfo.value}"
+            )
+            assert (
+                not project_path.exists()
+            ), f"create_project was called with {bad_name!r} but a directory was created"
+
+    def test_create_project_rejects_name_with_leading_or_trailing_whitespace(self):
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "intended"
+            with pytest.raises(ValueError):
+                create_project(project_name="  my_project  ", project_path=project_path)
+
+    def test_create_project_accepts_valid_name(self):
+        """Sanity check: a normal name still works after the new validation."""
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "my_project"
+            create_project(project_name="my_project", project_path=project_path)
+            assert project_path.is_dir()
+
+
 class TestSchemaValidation:
     """Tests for per-section schema compatibility checker."""
 

@@ -14,6 +14,33 @@ from pathlib import Path
 PYTHON_KEYWORDS = set(keyword.kwlist)
 
 
+def _validate_project_name(name: str) -> None:
+    """
+    Reject project names that would let the project escape the target directory.
+
+    ``name`` flows into ``Path(target) / name`` and is then concatenated with
+    subpaths when scaffolding the project. A name containing ``..``, path
+    separators, or leading whitespace would write files outside the intended
+    target directory. This is the last boundary before the filesystem and
+    the sink that CodeQL flags (``py/path-injection``).
+
+    Raises:
+        ValueError: If ``name`` is empty, has leading/trailing whitespace,
+            contains ``..`` or path separators, or starts with ``.``.
+    """
+    if not name or not name.strip():
+        raise ValueError("Project name must not be empty.")
+    if name != name.strip():
+        raise ValueError("Project name must not have leading or trailing whitespace.")
+    if ".." in name or "/" in name or "\\" in name:
+        raise ValueError(
+            "Project name must not contain path separators ('/', '\\') or '..' "
+            "(would escape the target directory)."
+        )
+    if name.startswith("."):
+        raise ValueError("Project name must not start with '.'.")
+
+
 def _sanitize_package_name(name: str) -> str:
     """
     Sanitizes a project name to be valid as a Python package.
@@ -91,19 +118,30 @@ def create_project(
     force: bool = False,
 ):
     """
-    Creates a new Energizados project with the base structure.
+        Creates a new Energizados project with the base structure.
 
-    Args:
-        project_name: Name of the project
-        project_path: Path where to create the project
-        template: Name of the template to use
-        copy_from: Name of the source project to copy
-        force: If True, removes the existing directory before creating
+        Args:
+            project_name: Name of the project
+            project_path: Path where to create the project
+            template: Name of the template to use
+            copy_from: Name of the source project to copy
+            force: If True, removes the existing directory before creating
 
-    Raises:
-        FileExistsError: If the project directory already exists and force=False
-        ValueError: If the template or source project does not exist
+        Raises:
+            FileExistsError: If the project directory already exists and force=False
+            ValueError: If the template or source project does not exist, or if
+    ``project_name`` is unsafe (path-traversal, empty, leading dot, etc.)
     """
+    # Reject unsafe project names at the boundary before any filesystem
+    # operation. ``project_name`` flows into ``project_path`` and is then
+    # concatenated with subpaths (e.g. ``project_path / "src" / "data" /
+    # "custom_etl.py"``). A name containing ``..`` or path separators would
+    # write files outside the intended target directory. This is the
+    # last validation point shared by every caller (CLI, web console,
+    # future automation scripts) and the sink that CodeQL flags
+    # (``py/path-injection`` in this file).
+    _validate_project_name(project_name)
+
     if project_path.exists():
         if not force:
             raise FileExistsError(f"The directory '{project_path}' already exists")
