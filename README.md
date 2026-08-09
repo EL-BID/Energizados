@@ -39,6 +39,7 @@ energizados run etl,train
 - [User Guide](docs/user-guide/) - Complete framework documentation
 - [Tutorials](docs/tutorials/) - Hands-on examples and walkthroughs
 - [Advanced](docs/advanced/) - Extending and customizing the framework
+- [Domain Glossary (CONTEXT.md)](CONTEXT.md) - Ubiquitous-language glossary: the single source of truth for framework terms (Pipeline, Step, Context, Model, Run, Job, Project, ...)
 
 ## 🤝 Contributing
 

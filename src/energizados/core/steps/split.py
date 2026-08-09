@@ -69,6 +69,8 @@ class SplitStep(PipelineStep):
         val_period: Optional[list] = None,
         test_period: Optional[list] = None,
         save_splits: bool = True,
+        geo_stratify: Optional[Dict[str, Any]] = None,
+        unlabeled_negatives: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -85,6 +87,8 @@ class SplitStep(PipelineStep):
         self.val_period = val_period
         self.test_period = test_period
         self.save_splits = save_splits
+        self.geo_stratify = geo_stratify
+        self.unlabeled_negatives = unlabeled_negatives
 
     def _validate_time_series_config(self) -> None:
         """Validate time_series-specific config. Raises ValueError if invalid."""
@@ -167,7 +171,7 @@ class SplitStep(PipelineStep):
             input_path = context["etl_results"][last_etl]
 
         # Validate path safety before reading
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(input_path, label="split input_path")
 
@@ -307,6 +311,13 @@ class SplitStep(PipelineStep):
             val_df = pd.concat(val_parts).reset_index(drop=True)
             test_df = pd.concat(test_parts).reset_index(drop=True)
 
+        # No-holdout split: all data to train, no val/test reserved
+        elif self.method == "none":
+            logger.info("Split method 'none': assigning all data to train (no holdout).")
+            train_df = df.copy()
+            val_df = pd.DataFrame()
+            test_df = pd.DataFrame()
+
         # Random/stratified split
         else:
             # Separate X and y
@@ -349,6 +360,28 @@ class SplitStep(PipelineStep):
             test_df = X_test.copy()
             test_df[self.target_column] = y_test.values
 
+        # F1: Inject unlabeled negatives (after split, before geo_stratify)
+        unlabeled_metadata = {}
+        if self.unlabeled_negatives and self.unlabeled_negatives.get("enabled", False):
+            train_df_before = train_df.copy()
+            train_df = self._inject_unlabeled_negatives(train_df, val_df, test_df)
+            # Capture metadata for F1 injection
+            unlabeled_metadata = {
+                "unlabeled_negatives_injected": len(train_df) - len(train_df_before),
+                "unlabeled_negatives_source": self.unlabeled_negatives.get("source_path"),
+                "unlabeled_negatives_excluded_by_dedup": getattr(self, "_last_excluded_count", 0),
+                "new_fraud_rate": (
+                    (train_df[self.target_column] == 1).sum() / len(train_df)
+                    if len(train_df) > 0
+                    else 0
+                ),
+            }
+
+        # F3: Geo-stratified sampling (after F1 location)
+        geo_metadata = {}
+        if self.geo_stratify and self.geo_stratify.get("enabled", False):
+            train_df, geo_metadata = self._apply_geo_stratify(train_df)
+
         # Save splits
         train_path = self.splits_dir / "train.parquet"
         val_path = self.splits_dir / "val.parquet"
@@ -356,8 +389,9 @@ class SplitStep(PipelineStep):
 
         if self.save_splits:
             train_df.to_parquet(train_path, index=False)
-            val_df.to_parquet(val_path, index=False)
-            test_df.to_parquet(test_path, index=False)
+            if self.method != "none":
+                val_df.to_parquet(val_path, index=False)
+                test_df.to_parquet(test_path, index=False)
 
         # Save split metadata
         metadata = {
@@ -395,13 +429,33 @@ class SplitStep(PipelineStep):
             metadata["random_state"] = self.random_state
 
         metadata["target_distribution"] = {
-            "train": train_df[self.target_column].value_counts().to_dict(),
-            "val": val_df[self.target_column].value_counts().to_dict(),
-            "test": test_df[self.target_column].value_counts().to_dict(),
+            "train": (
+                train_df[self.target_column].value_counts().to_dict()
+                if self.target_column in train_df.columns
+                else {}
+            ),
+            "val": (
+                val_df[self.target_column].value_counts().to_dict()
+                if self.target_column in val_df.columns
+                else {}
+            ),
+            "test": (
+                test_df[self.target_column].value_counts().to_dict()
+                if self.target_column in test_df.columns
+                else {}
+            ),
         }
 
+        # Add unlabeled_negatives metadata if injection was performed
+        if unlabeled_metadata and unlabeled_metadata.get("unlabeled_negatives_injected", 0) > 0:
+            metadata.update(unlabeled_metadata)
+
+        # Add geo_stratify metadata if stratification was performed
+        if geo_metadata:
+            metadata.update(geo_metadata)
+
         if self.save_splits:
-            with open(self.splits_dir / "split_metadata.json", "w") as f:
+            with open(self.splits_dir / "split_metadata.json", "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2, default=str)
 
         logger.info(f"\n{'=' * 50}")
@@ -415,6 +469,9 @@ class SplitStep(PipelineStep):
         # Show target distribution
         logger.info("\nTarget distribution:")
         for split_name, split_df in [("Train", train_df), ("Val", val_df), ("Test", test_df)]:
+            if len(split_df) == 0 or self.target_column not in split_df.columns:
+                logger.info(f"{split_name}: (no data)")
+                continue
             dist = split_df[self.target_column].value_counts()
             total = len(split_df)
             logger.info(f"{split_name}:")
@@ -449,8 +506,8 @@ class SplitStep(PipelineStep):
         return {
             **context,
             "train_path": str(train_path),
-            "val_path": str(val_path),
-            "test_path": str(test_path),
+            "val_path": str(val_path) if self.method != "none" else None,
+            "test_path": str(test_path) if self.method != "none" else None,
             "splits_dir": str(self.splits_dir),
         }
 
@@ -521,3 +578,282 @@ class SplitStep(PipelineStep):
             "min": str(df[date_col].min()),
             "max": str(df[date_col].max()),
         }
+
+    def _inject_unlabeled_negatives(
+        self, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Inject unlabeled negative samples into training data.
+
+        1. Load source_path parquet
+        2. For time_series: filter by date_column within train_period
+        3. Exclude IDs present in val_df or test_df (using id_column)
+        4. Sample up to max_per_cutoff records
+        5. Assign target=0
+        6. Fill missing columns with NaN, log WARNING per missing column
+        7. Concatenate to train_df
+        8. Log count added and new fraud rate
+
+        Args:
+            train_df: Training DataFrame (labeled data)
+            val_df: Validation DataFrame
+            test_df: Test DataFrame
+
+        Returns:
+            Training DataFrame with injected unlabeled negatives
+        """
+        # Check if feature is enabled
+        if not self.unlabeled_negatives or not self.unlabeled_negatives.get("enabled", False):
+            return train_df
+
+        source_path = self.unlabeled_negatives.get("source_path")
+        if not source_path:
+            logger.warning("unlabeled_negatives.enabled is True but source_path is not set")
+            return train_df
+
+        # Check if source file exists
+        if not Path(source_path).exists():
+            raise FileNotFoundError(f"Unlabeled negatives source file not found: {source_path}")
+
+        # Load unlabeled data
+        logger.info(f"Loading unlabeled negatives from: {source_path}")
+        unlabeled_df = pd.read_parquet(source_path)
+        original_count = len(unlabeled_df)
+
+        # For time_series: filter by date_column within train_period
+        unlabeled_date_col = self.unlabeled_negatives.get("date_column")
+        if self.method == "time_series" and unlabeled_date_col and self.train_period:
+            if unlabeled_date_col in unlabeled_df.columns:
+                unlabeled_df[unlabeled_date_col] = pd.to_datetime(unlabeled_df[unlabeled_date_col])
+                start_date = pd.to_datetime(self.train_period[0])
+                end_date = (
+                    pd.to_datetime(self.train_period[1]) if len(self.train_period) > 1 else None
+                )
+
+                date_mask = unlabeled_df[unlabeled_date_col] >= start_date
+                if end_date is not None:
+                    date_mask = date_mask & (unlabeled_df[unlabeled_date_col] <= end_date)
+
+                filtered_count = date_mask.sum()
+                if filtered_count < len(unlabeled_df):
+                    logger.info(
+                        f"Filtered unlabeled data by train_period [{self.train_period[0]}, "
+                        f"{self.train_period[1] if len(self.train_period) > 1 else '...'}]: "
+                        f"{filtered_count}/{original_count} rows retained"
+                    )
+                unlabeled_df = unlabeled_df[date_mask].copy()
+            else:
+                logger.warning(
+                    f"date_column '{unlabeled_date_col}' not found in unlabeled data. "
+                    "Skipping date filtering."
+                )
+
+        # Exclude IDs present in val_df or test_df (dedup)
+        id_column = self.unlabeled_negatives.get("id_column")
+        self._last_excluded_count = 0
+        if id_column and id_column in unlabeled_df.columns:
+            val_ids = set()
+            test_ids = set()
+
+            if id_column in val_df.columns:
+                val_ids = set(val_df[id_column])
+            if id_column in test_df.columns:
+                test_ids = set(test_df[id_column])
+
+            exclude_ids = val_ids | test_ids
+            if exclude_ids:
+                before_dedup = len(unlabeled_df)
+                unlabeled_df = unlabeled_df[~unlabeled_df[id_column].isin(exclude_ids)].copy()
+                self._last_excluded_count = before_dedup - len(unlabeled_df)
+                if self._last_excluded_count > 0:
+                    logger.info(
+                        f"Excluded {self._last_excluded_count} unlabeled rows with IDs present in val/test"
+                    )
+
+        # Sample up to max_per_cutoff records
+        max_per_cutoff = self.unlabeled_negatives.get("max_per_cutoff", 1500)
+        random_state = self.unlabeled_negatives.get("random_state", self.random_state)
+
+        if len(unlabeled_df) > max_per_cutoff:
+            unlabeled_df = unlabeled_df.sample(n=max_per_cutoff, random_state=random_state)
+            logger.info(
+                f"Sampled {max_per_cutoff} unlabeled rows from {len(unlabeled_df)} available"
+            )
+
+        if len(unlabeled_df) == 0:
+            logger.warning("No unlabeled negatives to inject after filtering")
+            return train_df
+
+        # Fill missing columns with NaN
+        train_columns = set(train_df.columns)
+        unlabeled_columns = set(unlabeled_df.columns)
+        missing_columns = train_columns - unlabeled_columns - {self.target_column}
+
+        for col in missing_columns:
+            unlabeled_df[col] = float("nan")
+            logger.warning(f"Missing column '{col}' in unlabeled data — filled with NaN")
+
+        # Assign target=0
+        unlabeled_df[self.target_column] = 0
+
+        # Concatenate to train_df
+        injected_count = len(unlabeled_df)
+        new_train_df = pd.concat([train_df, unlabeled_df], ignore_index=True)
+
+        # Log count added and new fraud rate
+        new_total = len(new_train_df)
+        positive_count = (new_train_df[self.target_column] == 1).sum()
+        new_fraud_rate = positive_count / new_total if new_total > 0 else 0
+
+        logger.info(f"{'=' * 50}")
+        logger.info("UNLABELED NEGATIVES INJECTION")
+        logger.info(f"{'=' * 50}")
+        logger.info(f"Rows added:        {injected_count:>6}")
+        logger.info(f"Excluded (dedup):  {self._last_excluded_count:>6}")
+        logger.info(f"New train total:   {new_total:>6}")
+        logger.info(f"New fraud rate:    {new_fraud_rate * 100:>5.1f}%")
+        logger.info(f"{'=' * 50}")
+
+        return new_train_df
+
+    def _apply_geo_stratify(self, train_df: pd.DataFrame) -> tuple:
+        """
+        Apply geographic stratified sampling to training data.
+
+        Strategies:
+        - proportional: cap strata larger than median to median size
+        - equal: reduce all strata to smallest size
+        - capped: cap each stratum at max_per_stratum
+
+        Logs before/after counts per stratum and total.
+        Logs WARNING if >50% of data is discarded.
+
+        Args:
+            train_df: Training DataFrame to subsample
+
+        Returns:
+            Tuple of (subsampled DataFrame, metadata dict)
+        """
+        # If geo_stratify is not configured or disabled, return original with empty metadata
+        if not self.geo_stratify or not self.geo_stratify.get("enabled", False):
+            return train_df, {}
+
+        # Validate that geo_stratify.column exists
+        geo_column = self.geo_stratify.get("column")
+        if geo_column is None:
+            raise ValueError(
+                "geo_stratify.column is required when geo_stratify is enabled. "
+                "Add column to your geo_stratify configuration."
+            )
+
+        if geo_column not in train_df.columns:
+            raise ValueError(
+                f"Geo-stratify column '{geo_column}' not found in dataset columns. "
+                f"Available columns: {list(train_df.columns)}"
+            )
+
+        strategy = self.geo_stratify.get("strategy", "proportional")
+        geo_random_state = self.geo_stratify.get("random_state", self.random_state)
+
+        # Log before counts
+        original_count = len(train_df)
+        group_counts_before = train_df[geo_column].value_counts().sort_index()
+        logger.info(f"\n{'=' * 50}")
+        logger.info(f"GEO-STRATIFY SAMPLING ({strategy.upper()})")
+        logger.info(f"{'=' * 50}")
+        logger.info(f"Geo column: {geo_column}")
+        logger.info(f"Original samples: {original_count}")
+        logger.info("Counts per stratum (before):")
+        for stratum, count in group_counts_before.items():
+            logger.info(f"  {stratum}: {count}")
+
+        # Apply the selected strategy
+        if strategy == "proportional":
+            # Cap strata larger than median to median size
+            median_size = int(group_counts_before.median())
+            logger.info(f"Median stratum size: {median_size}")
+
+            sampled_dfs = []
+            for stratum, count in group_counts_before.items():
+                stratum_df = train_df[train_df[geo_column] == stratum]
+                if count > median_size:
+                    stratum_df = stratum_df.sample(n=median_size, random_state=geo_random_state)
+                    logger.info(f"  {stratum}: {count} -> {median_size} (capped to median)")
+                else:
+                    logger.info(f"  {stratum}: {count} (unchanged)")
+                sampled_dfs.append(stratum_df)
+
+            result_df = pd.concat(sampled_dfs, ignore_index=True)
+
+        elif strategy == "equal":
+            # Reduce all strata to smallest stratum size
+            min_size = int(group_counts_before.min())
+            logger.info(f"Minimum stratum size: {min_size}")
+
+            sampled_dfs = []
+            for stratum, count in group_counts_before.items():
+                stratum_df = train_df[train_df[geo_column] == stratum]
+                stratum_df = stratum_df.sample(n=min_size, random_state=geo_random_state)
+                logger.info(f"  {stratum}: {count} -> {min_size}")
+                sampled_dfs.append(stratum_df)
+
+            result_df = pd.concat(sampled_dfs, ignore_index=True)
+
+        elif strategy == "capped":
+            # Cap each stratum at max_per_stratum
+            max_per_stratum = self.geo_stratify.get("max_per_stratum")
+            if max_per_stratum is None:
+                raise ValueError(
+                    "geo_stratify.max_per_stratum is required when strategy='capped'. "
+                    "Add max_per_stratum to your geo_stratify configuration."
+                )
+            logger.info(f"Max per stratum: {max_per_stratum}")
+
+            sampled_dfs = []
+            for stratum, count in group_counts_before.items():
+                stratum_df = train_df[train_df[geo_column] == stratum]
+                if count > max_per_stratum:
+                    stratum_df = stratum_df.sample(n=max_per_stratum, random_state=geo_random_state)
+                    logger.info(f"  {stratum}: {count} -> {max_per_stratum} (capped)")
+                else:
+                    logger.info(f"  {stratum}: {count} (unchanged)")
+                sampled_dfs.append(stratum_df)
+
+            result_df = pd.concat(sampled_dfs, ignore_index=True)
+
+        else:
+            raise ValueError(
+                f"Unknown geo_stratify strategy: '{strategy}'. "
+                f"Valid strategies: proportional, equal, capped."
+            )
+
+        # Log after counts
+        final_count = len(result_df)
+        reduction_pct = (original_count - final_count) / original_count * 100
+        logger.info(f"\nFinal samples: {final_count} ({reduction_pct:.1f}% reduction)")
+        logger.info("Counts per stratum (after):")
+        for stratum, count in result_df[geo_column].value_counts().sort_index().items():
+            logger.info(f"  {stratum}: {count}")
+        logger.info(f"{'=' * 50}")
+
+        # Log WARNING if >50% data loss
+        if reduction_pct > 50:
+            logger.warning(
+                f"Geo-stratify '{strategy}' discarded {reduction_pct:.1f}% of training data "
+                f"({original_count - final_count} rows). "
+                f"Consider using a different strategy or adjust parameters."
+            )
+
+        # Build metadata for split_metadata.json
+        group_counts_after = result_df[geo_column].value_counts().sort_index()
+        geo_metadata = {
+            "geo_stratify_strategy": strategy,
+            "geo_stratify_column": geo_column,
+            "geo_stratify_total_before": original_count,
+            "geo_stratify_total_after": final_count,
+            "geo_stratify_reduction_pct": round(reduction_pct, 2),
+            "geo_stratify_counts_before": {str(k): int(v) for k, v in group_counts_before.items()},
+            "geo_stratify_counts_after": {str(k): int(v) for k, v in group_counts_after.items()},
+        }
+
+        return result_df, geo_metadata

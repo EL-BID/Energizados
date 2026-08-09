@@ -125,7 +125,7 @@ class CustomETL(SourceETL):
 #        - "data/raw/file2.csv"
 #        - "data/raw/file3.csv"
 #      output: "data/processed/concatenated.parquet"
-#      custom_class: "{{package}}.data.custom_etl.CustomETL"
+#      custom_class: "src.data.custom_etl.CustomETL"
 #      params:
 #        mode: "concat"
 #
@@ -138,7 +138,7 @@ class CustomETL(SourceETL):
 #        - "data/processed/consumption.parquet"
 #        - "data/processed/customers.parquet"
 #      output: "data/processed/merged.parquet"
-#      custom_class: "{{package}}.data.custom_etl.CustomETL"
+#      custom_class: "src.data.custom_etl.CustomETL"
 #      params:
 #        mode: "merge"
 #        merge_config:
@@ -153,6 +153,6 @@ class CustomETL(SourceETL):
 #      input:
 #        - "data/raw/data.csv"
 #      output: "data/processed/clean.parquet"
-#      custom_class: "{{package}}.data.custom_etl.CustomETL"
+#      custom_class: "src.data.custom_etl.CustomETL"
 #      params:
 #        mode: "concat"

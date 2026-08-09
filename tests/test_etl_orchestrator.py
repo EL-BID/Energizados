@@ -243,7 +243,7 @@ class TestETLOrchestrator:
         try:
             test_file = temp_dir / "data"
             test_file.mkdir(parents=True)
-            (test_file / "file.csv").write_text("data")
+            (test_file / "file.csv").write_text("data", encoding="utf-8")
 
             # Change to temp directory so relative paths work
             import os
@@ -267,8 +267,8 @@ class TestETLOrchestrator:
         try:
             file1 = temp_dir / "file1.csv"
             file2 = temp_dir / "file2.csv"
-            file1.write_text("data1")
-            file2.write_text("data2")
+            file1.write_text("data1", encoding="utf-8")
+            file2.write_text("data2", encoding="utf-8")
 
             # Change to temp directory
             import os
@@ -357,7 +357,7 @@ class TestManifestAwareResolution:
                 "processed_files": ["raw.parquet"],
             }
             state_file = state_dir / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             configs = {
@@ -442,7 +442,7 @@ class TestManifestAwareResolution:
                 "processed_files": ["raw.parquet"],
             }
             state_file = state_dir / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             configs = {
@@ -482,7 +482,7 @@ class TestManifestAwareResolution:
 
             # Direct file
             direct_file = tmpdir_path / "extra.csv"
-            direct_file.write_text("a,b\n1,2\n")
+            direct_file.write_text("a,b\n1,2\n", encoding="utf-8")
 
             # State file for upstream (with manifest fields)
             state_dir = tmpdir_path / "states"
@@ -495,7 +495,7 @@ class TestManifestAwareResolution:
                 "processed_files": ["raw.parquet"],
             }
             state_file = state_dir / "state.json"
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             configs = {
@@ -575,7 +575,7 @@ class TestManifestAwareResolution:
                 "new_partitions": ["2024-01"],
                 "processed_files": ["raw.parquet"],
             }
-            with open(state_file, "w") as f:
+            with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
 
             orchestrator = ETLOrchestrator({})
@@ -623,7 +623,7 @@ class TestManifestAwareResolution:
 
             # Verify state file was written with manifest fields
             assert upstream_state.exists()
-            with open(upstream_state) as f:
+            with open(upstream_state, encoding="utf-8") as f:
                 state = json.load(f)
             assert "new_partitions" in state
             assert set(state["new_partitions"]) == {"2024-01", "2024-02"}
@@ -658,3 +658,101 @@ class TestManifestAwareResolution:
             assert len(paths) == 2
             assert f"{upstream_output}/partition=2024-01/data.parquet" in paths
             assert f"{upstream_output}/partition=2024-02/data.parquet" in paths
+
+
+class TestETLOrchestratorProfiling:
+    """Tests for the ``profile_memory`` flag and per-ETL memory metrics.
+
+    Covers the contract used by the ``-vv`` CLI profiling feature: when
+    profiling is on, ``on_etl_complete`` receives a metrics dict; when off,
+    behavior is unchanged (``metrics=None``).
+    """
+
+    @pytest.fixture
+    def mock_configs(self, tmp_path):
+        """Single-ETL config that resolves to the module-level MockETL.
+
+        Uses a real on-disk CSV because ``resolve_input_paths`` validates
+        existence of literal (non-``@``) input paths.
+        """
+        input_file = tmp_path / "input1.csv"
+        input_file.write_text("data\n1\n2\n3\n", encoding="utf-8")
+        return {
+            "etl1": {
+                "enabled": True,
+                "input": str(input_file),
+                "output": str(tmp_path / "output1.parquet"),
+                "custom_class": "tests.test_etl_orchestrator.MockETL",
+                "depends_on": [],
+            },
+        }
+
+    def test_default_profiling_off_passes_none(self, mock_configs):
+        """Without profile_memory, on_etl_complete receives metrics=None."""
+        orch = ETLOrchestrator(mock_configs)
+        captured = []
+        orch.on_etl_complete = lambda name, rows, metrics=None: captured.append(metrics)
+        orch.run()
+        assert captured == [None]
+        assert orch.memory_metrics == {}
+
+    def test_profile_memory_passes_metrics_dict(self, mock_configs):
+        """With profile_memory=True, on_etl_complete receives a metrics dict."""
+        orch = ETLOrchestrator(mock_configs, profile_memory=True)
+        captured = []
+        orch.on_etl_complete = lambda name, rows, metrics=None: captured.append(metrics)
+        orch.run()
+        assert len(captured) == 1
+        metrics = captured[0]
+        assert set(metrics.keys()) == {"rss_start", "rss_end", "delta", "peak"}
+        assert metrics["peak"] >= metrics["rss_start"] > 0
+
+    def test_profile_memory_accumulates_in_state(self, mock_configs):
+        """The orchestrator stores per-ETL metrics in ``memory_metrics``."""
+        orch = ETLOrchestrator(mock_configs, profile_memory=True)
+        orch.run()
+        assert "etl1" in orch.memory_metrics
+        assert set(orch.memory_metrics["etl1"].keys()) == {
+            "rss_start",
+            "rss_end",
+            "delta",
+            "peak",
+        }
+
+
+# --- ETL output_base_dir is NOT treated as an ETL entry in the DAG -------------
+
+
+class TestOrchestratorIgnoresOutputBaseDir:
+    """ETLOrchestrator must filter ``output_base_dir`` (like ``schema_version``) so it
+    is never mistaken for an ETL named 'output_base_dir' (which would fail validation
+    with 'missing required field input')."""
+
+    def test_output_base_dir_filtered_from_etl_configs(self):
+        configs = {
+            "output_base_dir": "runs/etl",
+            "etl1": {
+                "enabled": True,
+                "input": "data/input.csv",
+                "output": "data/output.parquet",
+                "depends_on": [],
+            },
+        }
+        orchestrator = ETLOrchestrator(configs)
+        assert "output_base_dir" not in orchestrator.etl_configs
+        assert set(orchestrator.etl_configs.keys()) == {"etl1"}
+
+    def test_output_base_dir_does_not_register_as_etl(self):
+
+        configs = {
+            "output_base_dir": "runs/etl",
+            "etl1": {
+                "enabled": True,
+                "input": "data/input.csv",
+                "output": "data/output.parquet",
+                "depends_on": [],
+            },
+        }
+        orchestrator = ETLOrchestrator(configs)
+        # Would raise 'unknown dependencies' if output_base_dir were treated as an ETL.
+        orchestrator.validate_dependencies()

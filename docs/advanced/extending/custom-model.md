@@ -80,6 +80,22 @@ class BaseModel(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_raw_model(self):
+        """
+        Return the underlying fitted estimator (e.g. the sklearn/LightGBM/Keras object).
+
+        The framework uses this for SHAP explainability and to access the raw
+        model for evaluation and persistence.
+
+        Returns:
+            The raw fitted model instance (e.g. LGBMClassifier, Sequential).
+
+        Raises:
+            ModelNotFittedError: If model is not fitted
+        """
+        pass
+
     def check_fitted(self):
         """Check that model is fitted.
 
@@ -131,7 +147,7 @@ Wire it in `config/train.yaml`:
 train:
   models:
     - type: "sklearn_adapter"
-      custom_class: "models.sklearn_adapter.SklearnModelAdapter"
+      custom_class: "src.models.sklearn_adapter.SklearnModelAdapter"
       params:
         estimator_class: "sklearn.ensemble.RandomForestClassifier"
         estimator_params:
@@ -209,7 +225,7 @@ Wire it in `config/train.yaml`:
 train:
   models:
     - name: "custom_lgbm"
-      custom_class: "models.custom_lightgbm.CustomLightGBMModel"
+      custom_class: "src.models.custom_lightgbm.CustomLightGBMModel"
       params:
         n_estimators: 1000
         learning_rate: 0.05
@@ -224,14 +240,14 @@ Custom models can be used as base models in ensembles:
 train:
   models:
     - name: "sklearn_rf"
-      custom_class: "models.sklearn_adapter.SklearnModelAdapter"
+      custom_class: "src.models.sklearn_adapter.SklearnModelAdapter"
       params:
         estimator_class: "sklearn.ensemble.RandomForestClassifier"
         estimator_params:
           n_estimators: 100
 
     - name: "custom_lgbm"
-      custom_class: "models.custom_lightgbm.CustomLightGBMModel"
+      custom_class: "src.models.custom_lightgbm.CustomLightGBMModel"
       params:
         n_estimators: 500
 
@@ -241,7 +257,7 @@ train:
       type: "logistic_regression"
       params:
         C: 1.0
-    use_val_as_oof: true
+    use_val_as_oof: false  # default; set true for blending (faster but leaky)
 ```
 
 ## Testing Custom Models
@@ -252,7 +268,7 @@ import pytest
 import numpy as np
 
 from energizados.core.base import BaseModel
-from models.sklearn_adapter import SklearnModelAdapter
+from src.models.sklearn_adapter import SklearnModelAdapter
 
 
 def test_sklearn_adapter_fit_predict(synthetic_classification_data):
@@ -310,8 +326,9 @@ The framework includes several built-in model adapters:
 
 | Model | Class | Description |
 |-------|-------|-------------|
-| LightGBM | `LGBMModel` | Gradient boosting with native categorical support |
-| CatBoost | `CATModel` | Gradient boosting with automatic categorical handling |
+| LightGBM | `LGBMModel` / `LGBMModelAdapter` | Gradient boosting with native categorical support |
+| CatBoost | `CATModel` / `CATModelAdapter` | Gradient boosting with automatic categorical handling |
+| XGBoost | `XGBModel` / `XGBModelAdapter` | Gradient boosting, sklearn-compatible (optional dep: `pip install energizados[xgboost]`) |
 | Neural Network | `NNModel` | Feedforward neural network (TensorFlow/Keras) |
 | LSTM | `LSTMNNModel` | LSTM for sequential consumption data |
 | Simple Trend | `SimpleTrendAdapter` | Rule-based model detecting dramatic consumption drops |
@@ -322,7 +339,7 @@ The framework includes several built-in model adapters:
 - [Custom ETLs](custom-etl.md) - Learn about ETL extensions
 - [Custom Feature Engineering](custom-feature-engineering.md) - Feature pipeline customization
 - [Custom Inference](custom-inference.md) - Inference implementations
-- [Ensemble Models](../../user-guide/configuration/train.md#ensemble) - Using multiple models
+- [Ensemble Models](../../user-guide/configuration/train.md#ensemble-configuration) - Using multiple models
 
 ---
 

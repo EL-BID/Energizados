@@ -8,6 +8,8 @@ Tests cover:
 - Phase 4, 6, 7 existing enabled gates still work
 """
 
+import os
+
 import pandas as pd
 import pytest
 
@@ -54,7 +56,7 @@ class TestPhaseGatesEnabled:
         explorer = DatasetExplorer(
             input_path=sample_csv,
             target_column="target",
-            output_dir=str(sample_csv).rsplit("/", 1)[0],
+            output_dir=os.path.dirname(sample_csv),
             sections=sections,
         )
 
@@ -87,7 +89,7 @@ class TestPhaseGatesEnabled:
         explorer = DatasetExplorer(
             input_path=sample_csv,
             target_column="target",
-            output_dir=str(sample_csv).rsplit("/", 1)[0],
+            output_dir=os.path.dirname(sample_csv),
             sections=sections,
         )
 
@@ -113,7 +115,7 @@ class TestPhaseGatesDefault:
         explorer = DatasetExplorer(
             input_path=sample_csv,
             target_column="target",
-            output_dir=str(sample_csv).rsplit("/", 1)[0],
+            output_dir=os.path.dirname(sample_csv),
             sections=None,  # Default
         )
 
@@ -132,7 +134,7 @@ class TestPhaseGatesDefault:
         explorer = DatasetExplorer(
             input_path=sample_csv,
             target_column="target",
-            output_dir=str(sample_csv).rsplit("/", 1)[0],
+            output_dir=os.path.dirname(sample_csv),
             sections=sections,
         )
 

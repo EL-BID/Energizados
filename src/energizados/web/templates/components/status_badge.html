@@ -1,0 +1,12 @@
+{% macro status_badge(status) -%}
+{% set status_classes = {
+    'queued': 'status-queued',
+    'running': 'status-running',
+    'success': 'status-success',
+    'partial': 'status-partial',
+    'failed': 'status-failed',
+    'aborted': 'status-aborted'
+} %}
+{% set status_class = status_classes.get(status, 'bg-secondary') %}
+<span class="status-badge {{ status_class }}">{{ status|title }}</span>
+{%- endmacro %}

@@ -10,11 +10,19 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 from rich.logging import RichHandler
 
-from energizados.cli import ui
-from energizados.cli.main import _setup_logging, cli
+# ``energizados`` is not published with a ``py.typed`` marker (see
+# docs/typing.md for the rationale), so we silence the import-untyped hint
+# at the boundary instead of stamping every test with a project-wide change.
+from energizados.cli import ui  # type: ignore[import-untyped]
+from energizados.cli.main import (  # type: ignore[import-untyped]
+    _ensure_utf8_stdio,
+    _setup_logging,
+    cli,
+)
 
 
 def strip_ansi(text: str) -> str:
@@ -29,6 +37,55 @@ class TestRunCommand:
         """Set up test environment."""
         self.runner = CliRunner()
 
+    def test_run_logs_validation_error_to_logging(self, caplog):
+        """StepValidationError must reach the logging system (and thus run.log).
+
+        The CLI renders the error as a Rich panel on the terminal, but that
+        bypasses ``logging`` — so the FileHandler feeding run.log never saw it.
+        The handler now also emits an ERROR record. ``_setup_logging`` is patched
+        so pytest's caplog handler survives (the real one clobbers root handlers).
+        """
+        from energizados.core.exceptions import (  # type: ignore[import-untyped]
+            StepValidationError,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "test_project"
+            project_path.mkdir()
+            (project_path / "config").mkdir()
+            (project_path / "config" / "etl.yaml").write_text(
+                "etl:\n  sample:\n    enabled: false\n", encoding="utf-8"
+            )
+
+            import os
+
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.execute_pipeline") as mock_exec:
+                    mock_exec.side_effect = StepValidationError(
+                        "Validation failed in step InferenceStep",
+                        step="InferenceStep",
+                        missing_keys=["model"],
+                    )
+                    with patch("energizados.cli.main._setup_logging"):
+                        with caplog.at_level(logging.ERROR, logger="energizados.cli.main"):
+                            result = self.runner.invoke(cli, ["run", "etl", "-v"])
+            finally:
+                os.chdir(old_cwd)
+
+            # Aborted, panel rendered with the corrected title, and — crucially —
+            # the failure now flows through logging (the channel run.log reads).
+            assert result.exit_code != 0
+            output = strip_ansi(result.output)
+            assert "Validation failed" in output
+            assert "Dataset not found" not in output  # old hardcoded title is gone
+            assert any(
+                "Validation failed" in r.getMessage()
+                for r in caplog.records
+                if r.levelno >= logging.ERROR
+            )
+
     def test_run_single_config(self):
         """Verify that run works with a single config name."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -38,12 +95,15 @@ class TestRunCommand:
             config_dir = project_path / "config"
             config_dir.mkdir()
             etl_yaml = config_dir / "etl.yaml"
-            etl_yaml.write_text("""
+            etl_yaml.write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -64,16 +124,22 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
-            (config_dir / "train.yaml").write_text("""
+""",
+                encoding="utf-8",
+            )
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -92,12 +158,15 @@ train:
             # Create custom config directory
             custom_config = Path(tmpdir) / "custom_config"
             custom_config.mkdir()
-            (custom_config / "etl.yaml").write_text("""
+            (custom_config / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -116,12 +185,15 @@ etl:
         """Verify that run works with absolute config path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "custom.yaml"
-            config_file.write_text("""
+            config_file.write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -184,10 +256,13 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train.yaml").write_text("""
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -209,13 +284,16 @@ train:
             config_dir = project_path / "config"
             config_dir.mkdir()
             # Fix YAML indentation and add required fields
-            (config_dir / "etl.yaml").write_text("""etl:
+            (config_dir / "etl.yaml").write_text(
+                """etl:
   sample:
     enabled: false
     input: data/input.csv
     output: data/output.csv
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -244,12 +322,15 @@ class TestValidateCommand:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -270,16 +351,22 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
-            (config_dir / "train.yaml").write_text("""
+""",
+                encoding="utf-8",
+            )
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -298,12 +385,15 @@ train:
             # Create custom config directory
             custom_config = Path(tmpdir) / "custom_config"
             custom_config.mkdir()
-            (custom_config / "etl.yaml").write_text("""
+            (custom_config / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -347,12 +437,15 @@ etl:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "etl.yaml").write_text("""
+            (config_dir / "etl.yaml").write_text(
+                """
 etl:
   sample:
     enabled: false
     custom_class: "energizados.etl.pipeline.SourceETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -411,6 +504,7 @@ class TestRichLoggingIntegration:
         from rich.progress import Progress
 
         _setup_logging(verbose=1)  # INFO level
+        assert ui.rich_handler is not None
         assert ui.rich_handler.level == logging.INFO
 
         original_level = ui.rich_handler.level
@@ -427,6 +521,7 @@ class TestRichLoggingIntegration:
     def test_verbose_2_sets_debug_level(self):
         """Verify that verbose=2 sets DEBUG level on RichHandler."""
         _setup_logging(verbose=2)
+        assert ui.rich_handler is not None
         root_logger = logging.getLogger()
         assert len(root_logger.handlers) == 1
         assert root_logger.handlers[0].level == logging.DEBUG
@@ -436,6 +531,7 @@ class TestRichLoggingIntegration:
         """Verify that WARNING messages are visible during Progress context."""
         # Set up INFO level logging
         _setup_logging(verbose=1)
+        assert ui.rich_handler is not None
         assert ui.rich_handler.level == logging.INFO
 
         # Save original level to restore later
@@ -473,10 +569,13 @@ class TestRichLoggingIntegration:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train.yaml").write_text("""
+            (config_dir / "train.yaml").write_text(
+                """
 train:
   enabled: false
-""")
+""",
+                encoding="utf-8",
+            )
 
             import os
 
@@ -492,7 +591,9 @@ train:
 
                     # Capture output
                     with patch("energizados.cli.run.console.print"):
-                        from energizados.cli.run import execute_pipeline
+                        from energizados.cli.run import (  # type: ignore[import-untyped]
+                            execute_pipeline,
+                        )
 
                         result = execute_pipeline([str(config_dir / "train.yaml")])
 
@@ -566,43 +667,84 @@ class TestGetStepType:
         assert _get_step_type("training") is None  # 'training' != 'train' exact, no separator
 
 
-class TestSplitConfigsByType:
-    """Tests for split_configs_by_type — the core dispatch logic."""
+class TestBuildOrderedRuns:
+    """Tests for build_ordered_runs — the core dispatch logic.
 
-    def test_no_repeated_types(self):
-        from energizados.cli.run import split_configs_by_type
+    build_ordered_runs groups config paths into ordered execution runs,
+    each run being a list of paths executed together in one merged pipeline.
+    The order of runs always matches the order the user passed the configs.
+    """
 
-        shared, repeated = split_configs_by_type(["/p/etl.yaml", "/p/train.yaml"])
-        assert len(shared) == 2
-        assert repeated == []
+    def test_unique_types_coalesce_into_one_run(self):
+        from energizados.cli.run import build_ordered_runs
 
-    def test_all_same_type(self):
-        from energizados.cli.run import split_configs_by_type
+        runs = build_ordered_runs(["/p/etl.yaml", "/p/train.yaml"])
+        assert runs == [["/p/etl.yaml", "/p/train.yaml"]]
 
-        shared, repeated = split_configs_by_type(["/p/train_01.yaml", "/p/train_02.yaml"])
-        assert shared == []
-        assert len(repeated) == 2
+    def test_all_same_type_run_individually(self):
+        from energizados.cli.run import build_ordered_runs
+
+        runs = build_ordered_runs(["/p/train_01.yaml", "/p/train_02.yaml"])
+        assert runs == [["/p/train_01.yaml"], ["/p/train_02.yaml"]]
 
     def test_mixed_with_repeated(self):
-        from energizados.cli.run import split_configs_by_type
+        from energizados.cli.run import build_ordered_runs
 
-        shared, repeated = split_configs_by_type(
+        runs = build_ordered_runs(
             ["/p/etl.yaml", "/p/eda.yaml", "/p/train_01.yaml", "/p/train_02.yaml"]
         )
-        assert len(shared) == 2
-        shared_stems = {Path(p).stem for p in shared}
-        assert shared_stems == {"etl", "eda"}
-        assert len(repeated) == 2
+        assert runs == [
+            ["/p/etl.yaml", "/p/eda.yaml"],
+            ["/p/train_01.yaml"],
+            ["/p/train_02.yaml"],
+        ]
 
     def test_etl_with_repeated_trains(self):
-        from energizados.cli.run import split_configs_by_type
+        from energizados.cli.run import build_ordered_runs
 
-        shared, repeated = split_configs_by_type(
-            ["/p/etl.yaml", "/p/train_01.yaml", "/p/train_02.yaml"]
+        runs = build_ordered_runs(["/p/etl.yaml", "/p/train_01.yaml", "/p/train_02.yaml"])
+        assert runs == [["/p/etl.yaml"], ["/p/train_01.yaml"], ["/p/train_02.yaml"]]
+
+    def test_unique_type_after_repeated_keeps_user_order(self):
+        """Regression: infer (unique) after repeated trains must run LAST.
+
+        Previously `etl,train_01,train_02,infer` bucketed infer into a
+        `shared` group executed FIRST, before the trains — running inference
+        with no trained model and breaking the user-specified order.
+        """
+        from energizados.cli.run import build_ordered_runs
+
+        runs = build_ordered_runs(
+            ["/p/etl.yaml", "/p/train_01.yaml", "/p/train_02.yaml", "/p/infer.yaml"]
         )
-        assert len(shared) == 1
-        assert Path(shared[0]).stem == "etl"
-        assert len(repeated) == 2
+        assert runs == [
+            ["/p/etl.yaml"],
+            ["/p/train_01.yaml"],
+            ["/p/train_02.yaml"],
+            ["/p/infer.yaml"],  # LAST, not first
+        ]
+
+    def test_wildcard_pattern_etl_train_infer(self):
+        """The user's exact pattern: multiple etls, multiple trains, one infer.
+
+        `v5/etl*,v5/train*,v5/infer` resolves (sorted within each wildcard) to
+        [etl-infer, etl-train, train-final, train, infer] — all in user order.
+        """
+        from energizados.cli.run import build_ordered_runs
+
+        runs = build_ordered_runs(
+            [
+                "/p/etl-infer.yaml",
+                "/p/etl-train.yaml",
+                "/p/train-final.yaml",
+                "/p/train.yaml",
+                "/p/infer.yaml",
+            ]
+        )
+        flat = [Path(run[0]).stem for run in runs]
+        assert flat == ["etl-infer", "etl-train", "train-final", "train", "infer"]
+        # infer must be the very last run
+        assert Path(runs[-1][0]).stem == "infer"
 
 
 class TestSequentialSameTypeExecution:
@@ -620,13 +762,17 @@ class TestSequentialSameTypeExecution:
             project_path.mkdir()
             config_dir = project_path / "config"
             config_dir.mkdir()
-            (config_dir / "train_01_baseline.yaml").write_text("training:\n  enabled: false\n")
-            (config_dir / "train_02_lgbm.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "train_01_baseline.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
+            (config_dir / "train_02_lgbm.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
 
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None, overwrite=False):
+            def mock_execute(config_paths, run_name=None, overwrite=False, profile_memory=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -652,14 +798,17 @@ class TestSequentialSameTypeExecution:
             config_dir = project_path / "config"
             config_dir.mkdir()
             (config_dir / "etl.yaml").write_text(
-                "etl:\n  sample:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n"
+                "etl:\n  sample:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n",
+                encoding="utf-8",
             )
-            (config_dir / "train.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "train.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
 
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None, overwrite=False):
+            def mock_execute(config_paths, run_name=None, overwrite=False, profile_memory=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -675,7 +824,7 @@ class TestSequentialSameTypeExecution:
                 os.chdir(old_cwd)
 
     def test_etl_eda_two_trains(self):
-        """etl,eda,train_01,train_02 → shared run etl+eda, then train_01, then train_02."""
+        """etl,eda,train_01,train_02 → merged run etl+eda, then train_01, then train_02."""
         import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -684,16 +833,21 @@ class TestSequentialSameTypeExecution:
             config_dir = project_path / "config"
             config_dir.mkdir()
             (config_dir / "etl.yaml").write_text(
-                "etl:\n  s:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n"
+                "etl:\n  s:\n    enabled: false\n    custom_class: energizados.etl.pipeline.SourceETL\n",
+                encoding="utf-8",
             )
-            (config_dir / "eda.yaml").write_text("eda:\n  enabled: false\n")
-            (config_dir / "train_01_baseline.yaml").write_text("training:\n  enabled: false\n")
-            (config_dir / "train_02_lgbm.yaml").write_text("training:\n  enabled: false\n")
+            (config_dir / "eda.yaml").write_text("eda:\n  enabled: false\n", encoding="utf-8")
+            (config_dir / "train_01_baseline.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
+            (config_dir / "train_02_lgbm.yaml").write_text(
+                "training:\n  enabled: false\n", encoding="utf-8"
+            )
 
             old_cwd = os.getcwd()
             call_args = []
 
-            def mock_execute(config_paths, run_name=None, overwrite=False):
+            def mock_execute(config_paths, run_name=None, overwrite=False, profile_memory=False):
                 call_args.append(list(config_paths))
                 return {}
 
@@ -715,3 +869,193 @@ class TestSequentialSameTypeExecution:
                     assert call_args[2][0].endswith("train_02_lgbm.yaml")
             finally:
                 os.chdir(old_cwd)
+
+
+class TestMemoryProfiling:
+    """Tests for the -vv memory profiling feature: helpers and CLI wiring."""
+
+    def test_format_mem_inline_empty(self):
+        from energizados.cli.run import _format_mem_inline
+
+        assert _format_mem_inline(None) == ""
+        assert _format_mem_inline({}) == ""
+
+    def test_format_mem_inline_no_warning_below_1gb(self):
+        from energizados.cli.run import _format_mem_inline
+
+        out = _format_mem_inline({"delta": 100 * 1024**2, "peak": 200 * 1024**2})
+        assert "Δ100.0MB" in out
+        assert "peak 200.0MB" in out
+        assert "⚠" not in out
+
+    def test_format_mem_inline_warning_above_1gb(self):
+        from energizados.cli.run import _format_mem_inline
+
+        out = _format_mem_inline({"delta": 2 * 1024**3, "peak": 5 * 1024**3})
+        assert "Δ2.0GB" in out
+        assert "peak 5.0GB" in out
+        assert "⚠" in out
+
+    def test_print_profiling_table_renders_sorted_rows(self):
+        """The profiling table renders rows sorted by peak (desc)."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        from energizados.cli.run import _print_profiling_table
+
+        rows = [
+            (
+                "maestros",
+                {
+                    "rss_start": 500 * 1024**2,
+                    "rss_end": 600 * 1024**2,
+                    "delta": 100 * 1024**2,
+                    "peak": 700 * 1024**2,
+                },
+            ),
+            (
+                "consumos",
+                {
+                    "rss_start": 1 * 1024**3,
+                    "rss_end": 4 * 1024**3,
+                    "delta": 3 * 1024**3,
+                    "peak": 9 * 1024**3,
+                },
+            ),
+        ]
+        captured = []
+        with patch(
+            "energizados.cli.run.console.print", side_effect=lambda *a, **k: captured.append(a)
+        ):
+            _print_profiling_table(rows)
+
+        buf = StringIO()
+        probe = Console(file=buf, width=120)
+        for args in captured:
+            probe.print(*args)
+        text = buf.getvalue()
+
+        assert "Memory profile" in text
+        assert "consumos" in text
+        assert "maestros" in text
+        assert "9.0GB" in text  # peak of consumos
+        # consumos (9GB peak) must appear before maestros (700MB peak)
+        assert text.index("consumos") < text.index("maestros")
+
+    def test_execute_pipeline_propagates_profile_memory_flag(self):
+        """execute_pipeline(profile_memory=True) sets pipeline.profile_memory=True."""
+        import os
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n", encoding="utf-8")
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.ConfigPipelineBuilder") as mock_builder:
+                    mock_pipeline = mock_builder.return_value.build.return_value
+                    mock_pipeline.steps = []
+                    mock_pipeline.run.return_value = {}
+                    mock_builder.return_value._director.run_manager._run_dir = None
+                    with patch("energizados.cli.run.console.print"):
+                        from energizados.cli.run import execute_pipeline
+
+                        execute_pipeline([str(config_dir / "train.yaml")], profile_memory=True)
+                    assert mock_pipeline.profile_memory is True
+            finally:
+                os.chdir(old_cwd)
+
+
+class TestExecuteStepProfileMemory:
+    """Regression: ``energizados run X --step Y -vv`` crashed with TypeError
+    because ``execute_step`` did not accept the ``profile_memory`` kwarg that
+    ``main.py`` always passes under ``-vv``.
+    """
+
+    def test_execute_step_accepts_profile_memory(self):
+        """execute_step(profile_memory=True) must not raise TypeError."""
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n", encoding="utf-8")
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                with patch("energizados.cli.run.ConfigPipelineBuilder") as mock_builder:
+                    mock_pipeline = mock_builder.return_value.build.return_value
+                    # TrainingStep is the target of ``--step train``
+                    from energizados.core.steps.training import (  # type: ignore[import-untyped]
+                        TrainingStep,
+                    )
+
+                    mock_pipeline.steps = [TrainingStep()]
+                    mock_pipeline.profile_memory = False
+                    mock_pipeline.run.return_value = {}
+                    mock_builder.return_value.run_dir = None
+                    with patch("energizados.cli.run.console.print"):
+                        from energizados.cli.run import execute_step
+
+                        # Must not raise TypeError: unexpected keyword 'profile_memory'
+                        execute_step(
+                            [str(config_dir / "train.yaml")],
+                            "train",
+                            profile_memory=True,
+                        )
+                    assert mock_pipeline.profile_memory is True
+            finally:
+                os.chdir(old_cwd)
+
+
+class TestUtf8StdioGuard:
+    """``_ensure_utf8_stdio`` must be idempotent and never crash.
+
+    Covers the Windows cp1252 UnicodeEncodeError on ⚡/✓/✗/⚠/→ glyphs: the guard
+    reconfigures legacy-encoded streams to UTF-8 and leaves UTF-8 / non-
+    reconfigurable streams untouched.
+    """
+
+    def test_idempotent_on_utf8_streams(self, monkeypatch):
+        class _Utf8Stream:
+            encoding = "utf-8"
+
+            def reconfigure(self, *a, **k):
+                pytest.fail("utf-8 stream must not be reconfigured")
+
+        stream = _Utf8Stream()
+        monkeypatch.setattr("sys.stdout", stream, raising=False)
+        monkeypatch.setattr("sys.stderr", stream, raising=False)
+        _ensure_utf8_stdio()
+        _ensure_utf8_stdio()  # idempotent — second call also a no-op
+
+    def test_skips_stream_without_reconfigure(self, monkeypatch):
+        class _LegacyStream:
+            encoding = "cp1252"  # no reconfigure attribute
+
+        monkeypatch.setattr("sys.stdout", _LegacyStream(), raising=False)
+        _ensure_utf8_stdio()  # must not raise
+
+    def test_reconfigures_legacy_encoding(self, monkeypatch):
+        class _Cp1252Stream:
+            encoding = "cp1252"
+
+            def __init__(self):
+                self.called = {}
+
+            def reconfigure(self, *, encoding=None, errors=None):
+                self.called = {"encoding": encoding, "errors": errors}
+
+        stream = _Cp1252Stream()
+        monkeypatch.setattr("sys.stdout", stream, raising=False)
+        _ensure_utf8_stdio()
+        assert stream.called == {"encoding": "utf-8", "errors": "replace"}

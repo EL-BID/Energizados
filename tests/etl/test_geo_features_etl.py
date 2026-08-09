@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -6,6 +7,8 @@ import pytest
 
 from energizados.core.exceptions import ETLError
 from energizados.etl.pipeline import GeoFeaturesETL
+
+geobr = pytest.importorskip("geobr")
 
 
 def _make_df(n=20, valid=True):
@@ -104,6 +107,30 @@ def test_geo_cluster_not_in_pipeline_imports():
     import energizados.etl.pipeline as m
 
     assert not hasattr(m, "GeoClusterETL"), "GeoClusterETL should be removed"
+
+
+def test_include_cluster_false_skips_clustering(tmp_path):
+    """When include_cluster=False, geo_cluster is NOT added and hierarchy/distances still work."""
+    df = _make_df(n=30)
+    input_path = str(tmp_path / "input.parquet")
+    output_path = str(tmp_path / "output.parquet")
+    df.to_parquet(input_path, index=False)
+
+    etl = GeoFeaturesETL(
+        name="test_geo",
+        input_paths=[input_path],
+        output_path=output_path,
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_cluster=False,
+        include_hierarchy=False,
+        include_distances=False,
+    )
+    raw = etl.extract()
+    result = etl.transform(raw)
+
+    assert "geo_cluster" not in result.columns
 
 
 # --- _resolve_hierarchy_levels ---
@@ -262,7 +289,7 @@ def test_hierarchy_levels_invalid_raises(tmp_path):
         include_distances=False,
     )
     raw = etl.extract()
-    with pytest.raises(ValueError, match="Invalid hierarchy levels"):
+    with pytest.raises(ValueError, match="Invalid hierarchy level"):
         etl.transform(raw)
 
 
@@ -294,7 +321,10 @@ def test_load_regions_mapping_basic(tmp_path):
     from energizados.preprocessing.geo_features import _load_regions_mapping
 
     csv = tmp_path / "regioes.csv"
-    csv.write_text('"REGION";"CITY"\n"Florianopolis";"FLORIANOPOLIS"\n"Blumenau";"BLUMENAU"\n')
+    csv.write_text(
+        '"REGION";"CITY"\n"Florianopolis";"FLORIANOPOLIS"\n"Blumenau";"BLUMENAU"\n',
+        encoding="utf-8",
+    )
     mapping = _load_regions_mapping(str(csv))
     assert mapping["FLORIANOPOLIS"] == "Florianopolis"
     assert mapping["BLUMENAU"] == "Blumenau"
@@ -304,7 +334,7 @@ def test_load_regions_mapping_normalizes_accented_city(tmp_path):
     from energizados.preprocessing.geo_features import _load_regions_mapping
 
     csv = tmp_path / "regioes.csv"
-    csv.write_text('"REGION";"CITY"\n"Florianopolis";"Florianópolis"\n')
+    csv.write_text('"REGION";"CITY"\n"Florianopolis";"Florianópolis"\n', encoding="utf-8")
     mapping = _load_regions_mapping(str(csv))
     assert "FLORIANOPOLIS" in mapping
 
@@ -381,7 +411,7 @@ _MOCK_GEOCODE = "energizados.preprocessing.geo_features._IBGEGeocoder.geocode_po
 def _make_etl_with_regions_file(tmp_path, csv_content, region_cities=None):
     """Build a GeoFeaturesETL with a temp regions CSV and mocked IBGE."""
     csv_path = tmp_path / "regioes.csv"
-    csv_path.write_text(csv_content)
+    csv_path.write_text(csv_content, encoding="utf-8")
 
     n = 20
     rng = np.random.default_rng(0)
@@ -519,7 +549,7 @@ def test_fit_populates_unmatched_municipalities(tmp_path):
 
     # Create a small regions CSV
     csv_path = tmp_path / "regioes.csv"
-    csv_path.write_text('"REGION";"CITY"\n"Regiao1";"FLORIANOPOLIS"\n')
+    csv_path.write_text('"REGION";"CITY"\n"Regiao1";"FLORIANOPOLIS"\n', encoding="utf-8")
 
     df = pd.DataFrame({"lat": [-27.59, -26.92, -27.82], "lon": [-48.55, -49.07, -50.33]})
 
@@ -576,3 +606,171 @@ def test_fit_no_regions_file_empty_attributes():
 
     assert gf.unmatched_municipalities_ == []
     assert gf.matched_municipalities_ == []
+
+
+# ===================================================================
+# R2a: geo_model_path — persist KMeans+scaler on fit, load on predict
+# ===================================================================
+
+
+def test_geo_model_persisted_on_fit(tmp_path):
+    """Fitting with geo_model_path saves .pkl + .sig with scaler/kmeans/n_clusters."""
+    from energizados.core.utils.integrity_pickle import load
+
+    df = _make_df(n=30)
+    input_path = str(tmp_path / "input.parquet")
+    df.to_parquet(input_path, index=False)
+
+    model_path = str(tmp_path / "geo_model.pkl")
+    etl = GeoFeaturesETL(
+        name="test_geo",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "output.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_hierarchy=False,
+        include_distances=False,
+        geo_model_path=model_path,
+    )
+    raw = etl.extract()
+    etl.transform(raw)
+
+    assert Path(model_path).exists()
+    assert Path(model_path + ".sig").exists()
+    model = load(model_path)
+    assert "scaler" in model
+    assert "kmeans" in model
+    assert "n_clusters" in model
+    assert model["n_clusters"] == 3
+
+
+def test_predict_mode_matches_fit_mode(tmp_path):
+    """geo_cluster from predict mode (loaded model) == fit mode on same coords."""
+    df = _make_df(n=30)
+    input_path = str(tmp_path / "input.parquet")
+    df.to_parquet(input_path, index=False)
+
+    model_path = str(tmp_path / "geo_model.pkl")
+
+    # ETL #1: fit mode (no file yet -> fits + saves)
+    etl1 = GeoFeaturesETL(
+        name="train",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "out1.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_hierarchy=False,
+        include_distances=False,
+        geo_model_path=model_path,
+    )
+    raw1 = etl1.extract()
+    result1 = etl1.transform(raw1)
+
+    # ETL #2: predict mode (file exists -> loads instead of fitting)
+    etl2 = GeoFeaturesETL(
+        name="infer",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "out2.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_hierarchy=False,
+        include_distances=False,
+        geo_model_path=model_path,
+    )
+    raw2 = etl2.extract()
+    result2 = etl2.transform(raw2)
+
+    np.testing.assert_array_equal(result1["geo_cluster"].values, result2["geo_cluster"].values)
+
+
+def test_predict_mode_without_file_falls_back_to_fit(tmp_path):
+    """geo_model_path pointing at a nonexistent path -> fits normally, no error."""
+    df = _make_df(n=30)
+    input_path = str(tmp_path / "input.parquet")
+    df.to_parquet(input_path, index=False)
+
+    etl = GeoFeaturesETL(
+        name="test_geo",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "output.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_hierarchy=False,
+        include_distances=False,
+        geo_model_path=str(tmp_path / "nonexistent" / "geo_model.pkl"),
+    )
+    raw = etl.extract()
+    result = etl.transform(raw)
+    assert "geo_cluster" in result.columns
+
+
+def test_no_geo_model_path_keeps_old_behavior(tmp_path):
+    """Without geo_model_path, no file is written (backward compatible)."""
+    df = _make_df(n=30)
+    input_path = str(tmp_path / "input.parquet")
+    df.to_parquet(input_path, index=False)
+
+    etl = GeoFeaturesETL(
+        name="test_geo",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "output.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+        n_clusters=3,
+        include_hierarchy=False,
+        include_distances=False,
+    )
+    raw = etl.extract()
+    result = etl.transform(raw)
+    assert "geo_cluster" in result.columns
+    # No model file should have been written anywhere in tmp_path
+    assert not list(tmp_path.glob("*.pkl"))
+
+
+# ===================================================================
+# R2b: chunked geocode_points — result-preserving equivalence
+# ===================================================================
+
+
+def test_geocode_points_chunked_equals_unchunked(tmp_path):
+    """Chunked geocode_points (chunk_size=5) == unchunked (chunk_size=10_000)."""
+    import geopandas as gpd
+    from shapely.geometry import box
+
+    from energizados.preprocessing.geo_features import _IBGEGeocoder
+
+    # Synthetic municipios: 3 non-overlapping boxes over SC-ish coords
+    synthetic_gdf = gpd.GeoDataFrame(
+        {
+            "name_muni": ["MuniA", "MuniB", "MuniC"],
+            "abbrev_state": ["SC", "SC", "SC"],
+            "geometry": [
+                box(-49.5, -28.0, -48.5, -27.0),
+                box(-48.5, -28.0, -47.5, -27.0),
+                box(-49.5, -29.0, -48.5, -28.0),
+            ],
+        },
+        crs="EPSG:4326",
+    )
+
+    rng = np.random.default_rng(99)
+    n = 50
+    lats = rng.uniform(-29.0, -27.0, n)
+    lons = rng.uniform(-49.5, -47.5, n)
+
+    with patch(
+        "energizados.preprocessing.geo_features._IBGEGeocoder._load_municipios",
+        return_value=synthetic_gdf,
+    ):
+        mun_chunked, uf_chunked, reg_chunked = _IBGEGeocoder.geocode_points(
+            lats, lons, chunk_size=5
+        )
+        mun_full, uf_full, reg_full = _IBGEGeocoder.geocode_points(lats, lons, chunk_size=10_000)
+
+    np.testing.assert_array_equal(mun_chunked, mun_full)
+    np.testing.assert_array_equal(uf_chunked, uf_full)
+    np.testing.assert_array_equal(reg_chunked, reg_full)

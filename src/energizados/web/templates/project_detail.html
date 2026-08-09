@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% from "components/status_badge.html" import status_badge %}
+
+{% block title %}{{ project.name }} — Project{% endblock %}
+{% block app_title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+{% set pid = project.project_id %}
+
+{# ---------------- 1. Project header (hero) ---------------- #}
+<section class="app-hero mb-4">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+        <div>
+            <h1 class="app-hero__title">{{ project.name }}</h1>
+            <code class="app-hero__path">{{ project.path }}</code>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/projects/{{ pid }}/runs" class="btn btn-outline-primary btn-sm">Runs</a>
+            <a href="/projects/{{ pid }}/dashboard" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+            <a href="/projects" class="btn btn-outline-secondary btn-sm">All projects</a>
+        </div>
+    </div>
+
+    <div class="app-hero__stats">
+        <div class="app-stat">
+            <span class="app-stat__value">{{ jobs_total }}</span>
+            <span class="app-stat__label">Jobs</span>
+        </div>
+        <div class="app-stat">
+            <span class="app-stat__value">{{ runs_total }}</span>
+            <span class="app-stat__label">Runs</span>
+        </div>
+        <div class="app-stat">
+            {% if latest_job %}
+            <span class="app-stat__value">{{ status_badge(latest_job.status.value) }}</span>
+            {% else %}
+            <span class="app-stat__value text-muted">—</span>
+            {% endif %}
+            <span class="app-stat__label">Latest job</span>
+        </div>
+    </div>
+</section>
+
+{# ---------------- 2. Latest training summary ---------------- #}
+<section class="app-card mb-4">
+    <div class="app-card__header">
+        <h2 class="app-card__title">Latest training</h2>
+        {% if latest_training %}
+        <a class="app-card__link" href="/projects/{{ pid }}/runs/{{ latest_training.run_id }}">View run →</a>
+        {% endif %}
+    </div>
+
+    {% if latest_training and latest_training_eval %}
+    {% set is_multi = latest_training_eval.get("is_multi") %}
+    {% if not is_multi %}
+    {% set m = latest_training_eval.get("metrics") or {} %}
+    <div class="app-metrics">
+        <div class="app-metric">
+            <span class="app-metric__label">AUC</span>
+            <span class="app-metric__value">{{ "%.3f"|format(m.get("auc")) if m.get("auc") is not none else "—" }}</span>
+        </div>
+        <div class="app-metric">
+            <span class="app-metric__label">F1</span>
+            <span class="app-metric__value">{{ "%.3f"|format(m.get("f1")) if m.get("f1") is not none else "—" }}</span>
+        </div>
+        <div class="app-metric">
+            <span class="app-metric__label">Precision</span>
+            <span class="app-metric__value">{{ "%.3f"|format(m.get("precision")) if m.get("precision") is not none else "—" }}</span>
+        </div>
+        <div class="app-metric">
+            <span class="app-metric__label">Recall</span>
+            <span class="app-metric__value">{{ "%.3f"|format(m.get("recall")) if m.get("recall") is not none else "—" }}</span>
+        </div>
+    </div>
+    {% else %}
+    {# Ensemble: per-model metrics live in ranking, not a single metrics dict.
+       Point users to Compare rather than showing four empty placeholders. #}
+    <div class="app-empty">
+        <i class="bi bi-people me-1"></i>
+        Ensemble run — per-model metrics are available in
+        <a href="/projects/{{ pid }}/runs/compare?ids={{ latest_training.run_id }}">Compare</a>.
+        {% if latest_training_eval.get("best_model") %}
+        Best base model: <code>{{ latest_training_eval.get("best_model") }}</code>.
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="app-card__meta">
+        <span class="text-muted small">Model:</span>
+        <code class="small">{{ latest_training.model_types | join(", ") if latest_training.model_types else "—" }}</code>
+        {% if is_multi %}<span class="badge text-bg-secondary">Ensemble</span>{% endif %}
+        {% if latest_training.status %}<span class="text-muted small">· {{ status_badge(latest_training.status) }}</span>{% endif %}
+        {% if latest_training.timestamp %}<span class="text-muted small">· {{ latest_training.timestamp[:19] }} UTC</span>{% endif %}
+    </div>
+    {% elif latest_training %}
+    {# Training run exists but produced no evaluation report (e.g. failed/partial). #}
+    <div class="app-empty">
+        Training run <code>{{ latest_training.run_id }}</code> has no evaluation summary
+        (status: {{ latest_training.status }}).
+    </div>
+    {% else %}
+    <div class="app-empty">No training runs yet for this project.</div>
+    {% endif %}
+</section>
+
+{# ---------------- 3. Jobs & Runs by Run type ---------------- #}
+<section class="mb-4">
+    <h2 class="app-section-title">Jobs &amp; Runs by type</h2>
+
+    {% set type_meta = {
+        "etl": {"icon": "bi-database", "label": "ETL"},
+        "eda": {"icon": "bi-bar-chart", "label": "EDA"},
+        "inference": {"icon": "bi-lightning", "label": "Inference"},
+        "training": {"icon": "bi-cpu", "label": "Training"}
+    } %}
+
+    {% for bucket in run_type_buckets %}
+    {% set tjobs = job_groups[bucket] %}
+    {% set truns = run_groups[bucket] %}
+    {% set meta = type_meta[bucket] %}
+    <div class="app-card mb-3">
+        <div class="app-card__header">
+            <h3 class="app-card__title app-card__title--sm">
+                <i class="bi {{ meta.icon }} me-1"></i>{{ meta.label }}
+            </h3>
+            <span class="app-card__count">
+                {{ tjobs|length }} job{{ '' if tjobs|length == 1 else 's' }} ·
+                {{ truns|length }} run{{ '' if truns|length == 1 else 's' }}
+            </span>
+        </div>
+
+        {% if not tjobs and not truns %}
+        <div class="app-empty app-empty--inline">No {{ meta.label|lower }} activity yet.</div>
+        {% else %}
+        <div class="row g-3">
+            <div class="col-md-6">
+                <h4 class="app-subtitle">Jobs</h4>
+                {% if tjobs %}
+                <table class="table table-sm table-hover align-middle">
+                    <thead><tr><th>Job</th><th>Status</th><th>Run</th><th>Enqueued</th></tr></thead>
+                    <tbody>
+                    {% for job in tjobs[:10] %}
+                    <tr>
+                        <td><a href="/projects/{{ pid }}/jobs/{{ job.job_id }}"><code class="small">{{ job.job_id[:12] }}</code></a></td>
+                        <td>{{ status_badge(job.status.value) }}</td>
+                        <td>{% if job.run_id %}<code class="small">{{ job.run_id[:16] }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td class="small text-muted">{{ job.enqueued_at[:19] if job.enqueued_at else "—" }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="app-empty app-empty--inline">No jobs.</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <h4 class="app-subtitle">Runs</h4>
+                {% if truns %}
+                <table class="table table-sm table-hover align-middle">
+                    <thead><tr><th>Run</th><th>Status</th>{% if bucket == "training" %}<th>AUC</th><th>F1</th>{% endif %}</tr></thead>
+                    <tbody>
+                    {% for run in truns[:10] %}
+                    <tr>
+                        <td><a href="/projects/{{ pid }}/runs/{{ run.run_id }}"><code class="small">{{ run.run_id[:20] }}</code></a></td>
+                        <td>{{ status_badge(run.status) }}</td>
+                        {% if bucket == "training" %}
+                        <td>{{ "%.3f"|format(run.val_auc) if run.val_auc is not none else "—" }}</td>
+                        <td>{{ "%.3f"|format(run.val_f1) if run.val_f1 is not none else "—" }}</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="app-empty app-empty--inline">No runs.</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</section>
+
+{# ---------------- 4. Lineage snippet ---------------- #}
+{# ADR-0003: derived_from (Run→Run retrain chain). lineage_chain is ordered
+   root→leaf; lineage_available is True only when at least one run has a real
+   derived_from link. The muted placeholder is the empty-state. #}
+<section class="app-card mb-4">
+    <div class="app-card__header">
+        <h2 class="app-card__title">Lineage</h2>
+        {% if lineage_available %}
+        <span class="app-card__count">retrain chain · {{ lineage_chain|length }} run{{ '' if lineage_chain|length == 1 else 's' }}</span>
+        {% endif %}
+    </div>
+    {% if lineage_available %}
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        {% for run in lineage_chain %}
+        {% if not loop.first %}<span class="text-muted" aria-label="derived from">→</span>{% endif %}
+        <a href="/projects/{{ pid }}/runs/{{ run.run_id }}" class="app-card__link">
+            <code class="small">{{ run.run_id[:24] }}</code>
+        </a>
+        {% endfor %}
+    </div>
+    <div class="app-card__meta">
+        <span class="text-muted small">
+            <i class="bi bi-diagram-3 me-1"></i>
+            Each run was retrained from the one before it (<code>derived_from</code>).
+        </span>
+    </div>
+    {% else %}
+    <div class="app-empty">
+        <i class="bi bi-diagram-3 me-1"></i>
+        No retrain lineage yet — runs Retrained from another Run will appear here
+        as a <code>derived_from</code> chain (ADR-0003).
+    </div>
+    {% endif %}
+</section>
+
+{# ---------------- 5. YAML editor (preserved action) ---------------- #}
+<section class="mb-2">
+    <h2 class="app-section-title">Submit a job</h2>
+    <div class="row g-3">
+        <div class="col-md-6">
+            {% set submit_url = '/projects/' ~ pid ~ '/jobs' %}
+            {% include "components/editor.html" %}
+        </div>
+        <div class="col-md-6">
+            <div id="validation-output">
+                <div class="app-empty">
+                    Submit a configuration to see validation results. Jobs run in
+                    <code>{{ project.path }}</code>.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

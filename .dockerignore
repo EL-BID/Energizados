@@ -1,0 +1,93 @@
+# Energizados - Docker Ignore
+# Excludes unnecessary files from Docker build context
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Data and outputs (mounted as volumes)
+data/
+output/
+.proyects/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development tools
+.pyre/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Notebooks and examples
+notebooks/
+examples/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Deployment (not needed in image)
+deploy/

@@ -6,6 +6,19 @@ Complete reference for `etl.yaml` configuration.
 
 The ETL configuration file defines data extraction, transformation, and loading processes. Each ETL can depend on other ETLs, creating a Directed Acyclic Graph (DAG) that executes in topological order.
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [File Structure](#file-structure) | minimal `etl.yaml` template + schema versioning |
+| [SourceETL](#sourceetl) | `concat`, `merge`, `incremental` modes |
+| [ETL Dependencies](#etl-dependencies) | DAG, `@etl_name` references, `depends_on` |
+| [Dependency Patterns](#dependency-patterns) | common dependency recipes |
+| [GeoFeaturesETL](#geofeaturesetl) | geographic features from lat/lon |
+| [ClipOutliersETL](#clipoutliersetl) | clip extreme consumption values |
+| [CleanFilesETL](#cleanfilesetl) | delete intermediate files |
+| [Custom ETL Classes](#custom-etl-classes) | subclassing `BaseETL` |
+
 ## File Structure
 
 ```yaml
@@ -46,7 +59,7 @@ etl:
 
 `SourceETL` is the built-in ETL implementation. It reads CSV, Parquet (`.parquet`/`.pq`), and Excel (`.xlsx`/`.xls`) files and supports two processing modes.
 
-> **Note:** New projects created with `energizados init` use `custom_class: "data.custom_etl.CustomETL"` for the sample ETL — this is the generated `CustomETL` class in `src/data/custom_etl.py`, which extends `BaseETL`. Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly without a custom class.
+> **Note:** New projects created with `energizados init` use `custom_class: "src.data.custom_etl.CustomETL"` for the sample ETL — this is the generated `CustomETL` class in `src/data/custom_etl.py`, which extends `BaseETL`. Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly without a custom class.
 
 ### Mode: Concat (Vertical Concatenation)
 
@@ -148,6 +161,7 @@ etl:
 | `write_mode` | string | `"append"` | How to handle existing partition files: `"append"` concatenates new records; `"replace"` overwrites with new data only. |
 
 **Output structure:**
+
 ```
 data/processed/consumos/
 ├── partition=2024-01/
@@ -491,11 +505,17 @@ Adds geographic features from latitude/longitude coordinates. Combines KMeans ge
 clustering, IBGE administrative hierarchy, and haversine distance features in a single ETL step.
 Run after the main dataset-building ETL and before training.
 
+> **Architecture (ADR-0001):** `GeoFeaturesETL` is a thin file-I/O wrapper over the
+> `GeoFeatures` transformer (`preprocessing/geo_features.py`), which owns the clustering
+> logic. The same transformer can be used directly via `custom_class` in `global_transformers`
+> with `include_cluster: true`. Set `geo_model_path` to persist the KMeans model on train and
+> reuse it on inference (consistent `geo_cluster` labels across runs).
+
 **Generated columns:**
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `geo_cluster` | int | KMeans cluster label (−1 for invalid/zero coordinates) |
+| `geo_cluster` | int | KMeans cluster label (−1 for invalid/zero coordinates). Set `include_cluster: false` to suppress this column. |
 | `geo_estado` | str | Brazilian state (UF) from IBGE spatial join |
 | `geo_municipio` | str | Municipality from IBGE spatial join |
 | `geo_regiao` | str | Macro region (Norte, Nordeste, Sudeste, Sul, Centro-Oeste) |
@@ -540,11 +560,15 @@ geo_features:
 | `lon_col` | string | `"longitud"` | Longitude column name (Spanish spelling by default) |
 | `n_clusters` | int | `10` | Number of KMeans geographic clusters |
 | `random_state` | int | `42` | Random seed for KMeans |
+| `include_cluster` | bool | `true` | When `false`, skip KMeans `geo_cluster` column while still generating IBGE hierarchy + distance features. Useful when `stratified_time` split is not needed. |
 | `include_hierarchy` | bool / list | `true` | Add IBGE hierarchy columns. `true` = all three (`geo_estado`, `geo_municipio`, `geo_regiao`), `false` = none, or a list of level names (`"estado"`, `"municipio"`, `"regiao"`) to include only specific levels. |
 | `include_distances` | bool | `true` | Add haversine distance columns to reference cities |
 | `distance_cities` | list | `null` (top-5) | Cities for distance calculation (see available list below). If `null`, defaults to the top 5. |
 | `include_coords` | bool | `false` | Keep original lat/lon columns in output |
 | `cache_dir` | string | `null` | Directory to persist IBGE shapefiles on disk |
+| `regions_file` | str | `null` | Path to a `REGION;CITY` CSV. Assigns `geo_regiao` by matching IBGE municipality names to `CITY` (accent- and case-insensitive). Takes priority over `region_cities`. Logs matched/unmatched municipalities; stores `matched_municipalities_`/`unmatched_municipalities_` on `fit()`. |
+| `region_cities` | list | `null` | List of `REFERENCE_CITIES` keys. When set and `regions_file` is not provided, `geo_regiao` is the nearest city by haversine distance instead of the IBGE macro-region. |
+| `geo_model_path` | string | `null` | Path to persist/load the KMeans+scaler model. On train: fits and saves. On inference: if the file exists, loads it instead of re-fitting (keeps `geo_cluster` labels consistent with training). Omit to fit fresh every run. |
 
 **Available cities for `distance_cities`:**
 
@@ -589,6 +613,7 @@ etl:
 Deletes files after the pipeline completes. Useful for removing intermediate outputs and freeing disk space. This ETL does not produce a dataset — it returns an empty DataFrame so the orchestrator can track it normally in the DAG.
 
 The files to delete are specified in the `input` field, which supports:
+
 - Direct paths: `"data/processed/consumos.parquet"`
 - References to other ETL outputs: `"@consumos"` (resolved by the orchestrator)
 - Glob patterns: `"data/processed/tmp_*.parquet"`

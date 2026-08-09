@@ -9,11 +9,13 @@ import pandas as pd
 import pytest
 from sklearn.pipeline import Pipeline
 
+from energizados.core.utils.import_utils import register_allowed_prefix
 from energizados.feature_engineering.default import (
-    _build_global_transformers_pipeline,
+    _build_split_global_pipelines,
     _build_transformer_from_config,
     get_preprocesor,
 )
+from energizados.preprocessing.group_features import GroupRelativeConsumption
 from energizados.preprocessing.preprocessing import (
     CardinalityReducer,
     ExtraVars,
@@ -21,6 +23,9 @@ from energizados.preprocessing.preprocessing import (
     ToDummy,
     TsfelVars,
 )
+
+# Register tests prefix for test imports
+register_allowed_prefix("tests")
 
 
 # Custom transformer for testing
@@ -305,62 +310,99 @@ class TestGetPreprocesorPriority:
             get_preprocesor(config)
 
 
-class TestBuildGlobalTransformersPipeline:
-    """Tests for _build_global_transformers_pipeline."""
+class TestBuildSplitGlobalPipelines:
+    """Tests for _build_split_global_pipelines.
 
-    def test_returns_none_for_empty_config(self):
-        """Verify that it returns None for empty config."""
-        pipeline = _build_global_transformers_pipeline([])
-        assert pipeline is None
+    The global transformers are split into two pipelines based on each
+    transformer's ``pipeline_stage`` attribute: ``"pre"`` transformers run
+    before the ColumnTransformer (they need raw categorical columns) and the
+    rest run after. The function returns a ``(pre_pipeline, post_pipeline)``
+    tuple where each element is a ``Pipeline`` or ``None``.
+    """
 
-    def test_returns_none_for_none_config(self):
-        """Verify that it returns None for None config."""
-        pipeline = _build_global_transformers_pipeline(None)
-        assert pipeline is None
+    def test_returns_none_none_for_empty_config(self):
+        """Verify that it returns (None, None) for empty config."""
+        pre_pipeline, post_pipeline = _build_split_global_pipelines([])
+        assert pre_pipeline is None
+        assert post_pipeline is None
 
-    def test_builds_pipeline_with_single_transformer(self):
-        """Verify that it builds a Pipeline with one transformer."""
+    def test_returns_none_none_for_none_config(self):
+        """Verify that it returns (None, None) for None config."""
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(None)
+        assert pre_pipeline is None
+        assert post_pipeline is None
+
+    def test_post_transformer_goes_to_post_pipeline(self):
+        """Verify that a default (post) transformer goes to the post pipeline only."""
         config = [{"tsfel_vars": {"num_periodos": 6}}]
-        pipeline = _build_global_transformers_pipeline(config)
-        assert isinstance(pipeline, Pipeline)
-        assert len(pipeline.steps) == 1
-        assert pipeline.steps[0][0] == "global_tsfel_vars_0"
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(config)
+        assert pre_pipeline is None
+        assert isinstance(post_pipeline, Pipeline)
+        assert len(post_pipeline.steps) == 1
+        assert post_pipeline.steps[0][0] == "global_tsfel_vars_0"
 
-    def test_builds_pipeline_with_multiple_transformers(self):
-        """Verify that it builds a Pipeline with multiple transformers."""
+    def test_multiple_post_transformers(self):
+        """Verify that multiple post transformers build a single post pipeline."""
         config = [
             {"tsfel_vars": {"num_periodos": 12}},
             {"extra_vars": {"num_periodos": 3}},
             {"extra_vars": {"num_periodos": 6}},
         ]
-        pipeline = _build_global_transformers_pipeline(config)
-        assert isinstance(pipeline, Pipeline)
-        assert len(pipeline.steps) == 3
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(config)
+        assert pre_pipeline is None
+        assert isinstance(post_pipeline, Pipeline)
+        assert len(post_pipeline.steps) == 3
 
-    def test_transformer_instances(self):
-        """Verify that transformer instances are correct."""
+    def test_post_transformer_instances(self):
+        """Verify that post transformer instances are correct."""
         config = [
             {"tsfel_vars": {"num_periodos": 12}},
             {"extra_vars": {"num_periodos": 3}},
         ]
-        pipeline = _build_global_transformers_pipeline(config)
-        _, tsfel_transformer = pipeline.steps[0]
-        _, extra_transformer = pipeline.steps[1]
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(config)
+        _, tsfel_transformer = post_pipeline.steps[0]
+        _, extra_transformer = post_pipeline.steps[1]
         assert isinstance(tsfel_transformer, TsfelVars)
         assert isinstance(extra_transformer, ExtraVars)
         assert tsfel_transformer.num_periodos == 12
         assert extra_transformer.num_periodos == 3
 
+    def test_pre_stage_transformer_goes_to_pre_pipeline(self):
+        """Verify that a pipeline_stage='pre' transformer goes to the pre pipeline only."""
+        config = [{"group_relative_consumption": {"group_column": "actividad"}}]
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(config)
+        assert isinstance(pre_pipeline, Pipeline)
+        assert post_pipeline is None
+        assert len(pre_pipeline.steps) == 1
+        assert pre_pipeline.steps[0][0] == "global_group_relative_consumption_0"
+        _, transformer = pre_pipeline.steps[0]
+        assert isinstance(transformer, GroupRelativeConsumption)
+
+    def test_mixed_pre_post_transformers_split(self):
+        """Verify that pre and post transformers are routed to separate pipelines."""
+        config = [
+            {"group_relative_consumption": {"group_column": "actividad"}},
+            {"extra_vars": {"num_periodos": 3}},
+        ]
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(config)
+        assert isinstance(pre_pipeline, Pipeline)
+        assert isinstance(post_pipeline, Pipeline)
+        assert len(pre_pipeline.steps) == 1
+        assert len(post_pipeline.steps) == 1
+        assert isinstance(pre_pipeline.steps[0][1], GroupRelativeConsumption)
+        assert isinstance(post_pipeline.steps[0][1], ExtraVars)
+
     def test_custom_class_global_transformer(self):
-        """Verify the use of custom_class in global transformers."""
+        """Verify the use of custom_class in global transformers (post by default)."""
         config = [
             {
                 "custom_class": "tests.test_default_feature_engineering.CustomTestTransformer",
                 "params": {"multiplier": 2.0},
             }
         ]
-        pipeline = _build_global_transformers_pipeline(config)
-        _, transformer = pipeline.steps[0]
+        pre_pipeline, post_pipeline = _build_split_global_pipelines(config)
+        assert pre_pipeline is None
+        _, transformer = post_pipeline.steps[0]
         assert isinstance(transformer, CustomTestTransformer)
         assert transformer.multiplier == 2.0
 

@@ -208,10 +208,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/EL-BID/energizados"
-Documentation = "https://energizados.readthedocs.io"
-Repository = "https://github.com/EL-BID/energizados"
-Issues = "https://github.com/EL-BID/energizados/issues"
+Homepage = "https://github.com/EL-BID/Energizados"
+Documentation = "https://github.com/EL-BID/Energizados#readme"
+Repository = "https://github.com/EL-BID/Energizados"
+Issues = "https://github.com/EL-BID/Energizados/issues"
 ```
 
 ### Verify README.md
@@ -317,7 +317,7 @@ To automate future publications:
 
 ### 1. Create Secret in GitHub
 
-1. Go to repo: https://github.com/EL-BID/energizados/settings/secrets/actions
+1. Go to repo: https://github.com/EL-BID/Energizados/settings/secrets/actions
 2. Create new secret:
     - **Name**: `PYPI_API_TOKEN`
     - **Value**: `pypi-AGVmAGx...your-complete-token...`
@@ -423,4 +423,4 @@ After first publication:
 
 ---
 
-← [Advanced Topics](../advanced/) | [Contributing](contributing.md) →
+← [Advanced Topics](architecture.md) | [Contributing](contributing.md) →

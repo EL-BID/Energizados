@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if global_deprecated %}
+<div id="global-deprecation-banner" class="alert alert-warning d-flex align-items-center gap-2" role="alert">
+    <span aria-hidden="true">⚠️</span>
+    <div>
+        <strong>Global job creation is deprecated (ADR-0002).</strong>
+        Use a <a href="/projects">project</a> to create and run jobs.
+        Existing Global jobs remain visible below (read-only).
+    </div>
+</div>
+{% endif %}
+<div class="row g-4">
+    <div class="col-md-6">
+        {% include "components/editor.html" %}
+    </div>
+
+    <div class="col-md-6">
+        <div id="validation-output">
+            <div class="app-empty">
+                ℹ️ Submit a configuration to see validation results
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Job List Section -->
+<section class="mt-4">
+    <div id="job-list-container">
+        <section class="app-card mb-0">
+            <div class="app-card__header">
+                <h2 class="app-card__title app-card__title--sm">📋 Job List</h2>
+            </div>
+            <div class="app-loading">
+                <span class="app-spinner" aria-hidden="true"></span>
+                <span>Loading jobs…</span>
+            </div>
+        </section>
+    </div>
+    {# OOB refresh anchor: job_created.html (returned by POST /jobs) emits an
+       OOB element with this id that re-fetches /jobs on load, so a newly
+       created job appears in #job-list-container without a manual reload. #}
+    <span id="job-created-refresh" aria-hidden="true"></span>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Load job list via HTMX on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            htmx.ajax('get', '/jobs', {target: '#job-list-container'});
+        }, 100);
+    });
+</script>
+{% endblock %}

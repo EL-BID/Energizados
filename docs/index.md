@@ -2,6 +2,15 @@
 
 A machine learning framework for detecting electricity theft (non-technical losses) in energy distribution systems.
 
+## Quick Start
+
+```bash
+pip install energizados
+energizados init my_project
+cd my_project
+energizados run etl,train
+```
+
 ## Choose Your Path
 
 !!! info "End User"
@@ -14,34 +23,22 @@ A machine learning framework for detecting electricity theft (non-technical loss
 
     [Explore Advanced →](advanced/architecture.md)
 
-## Quick Start
-
-```bash
-pip install energizados
-energizados init my_project
-cd my_project
-energizados run etl,train
-```
-
 ## What's Inside
 
-Energizados provides a complete toolkit for electricity theft detection:
+- **ETL Framework** — Multiple ETLs with dependencies, configured via YAML
+- **ML Models** — LightGBM, CatBoost, XGBoost, Neural Networks (Dense + LSTM), plus rule-based baselines
+- **Feature Engineering** — Preprocessing, global transformers, and selection (Boruta, correlation, etc.)
+- **EDA Module** — Interactive exploratory reports
+- **Evaluation** — Metrics, plots, threshold calibration, and SHAP explainability
+- **Web Console** — Async job runner for multi-project workflows
 
-- **ETL Framework** — Configure multiple ETLs with dependencies using YAML
-- **ML Models** — LightGBM, CatBoost, Neural Networks (Dense), LSTM, plus rule-based baselines
-- **EDA Module** — Comprehensive exploratory data analysis with interactive reports
-- **CLI** — Streamlined command-line interface for the entire pipeline
-- **Model Explainability** — SHAP values (TreeExplainer + KernelExplainer) for regulatory compliance
+For the full model list and pipeline stages, see the [Overview](getting-started/overview.md).
 
-### Supported Models
+## Stay Current
 
-| Model Type | Description | Best For |
-|------------|-------------|----------|
-| `lightgbm` | Gradient Boosting | Fast training, tabular data |
-| `catboost` | CatBoost | Native categorical handling |
-| `neural_network` | Feedforward Dense NN | Quick baseline with embeddings |
-| `lstm` | LSTM | Sequential consumption patterns |
-| `simple_trend` | Rule-based trend | Fast fraud rules, no ML |
-| `simple_constant` | Rule-based constant | Detect constant meter readings |
+- [Releases](releases/v0.3.3.md) — per-version release notes
+- [Changelog](https://github.com/EL-BID/Energizados/blob/master/CHANGELOG.md) — full change history
 
-The framework is designed for both quick prototyping and production deployment, with extensible architecture for custom preprocessing, feature engineering, and model implementations.
+---
+
+New projects ship with a sample dataset, so you can run the pipeline end-to-end immediately. Start with the [Installation guide](getting-started/installation.md).

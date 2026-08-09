@@ -45,6 +45,7 @@ Executes a pipeline from YAML configuration files.
 - `--step, -s`: Execute only a specific pipeline step (`etl`, `split`, `train`, `evaluation`, `infer`)
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
+- `--json, -j`: Output results as JSON instead of human-readable format (useful for scripting and CI/CD integration)
 - `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 - `--name, -n`: Custom run directory name. Without this, auto-generated timestamp is used (e.g., `train-20260318_2209`). Only alphanumeric, dashes, and underscores allowed.
 - `--overwrite, -o`: Overwrite existing output directory if it exists
@@ -120,6 +121,7 @@ Validates YAML configuration files.
 ### Optional Options
 
 - `--config-path, -p`: Override config directory (default: `config/`)
+- `--json, -j`: Output validation results as JSON instead of human-readable format
 - `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
 
 ### Config Name Resolution
@@ -149,6 +151,7 @@ Checks system information and validates the environment.
 ### Options
 
 - `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
+- `--json, -j`: Output health-check results as JSON instead of human-readable format
 - `--optional, -o`: Include optional visualization packages (matplotlib, seaborn)
 
 ### Examples

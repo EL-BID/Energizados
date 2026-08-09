@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 
 from energizados.core.pipeline import ConfigPipelineBuilder, Pipeline
 from energizados.etl.orchestrator import ETLOrchestrator
@@ -70,7 +71,7 @@ etl:
     output: "data/output.parquet"
     custom_class: "energizados.etl.pipeline.SourceETL"
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         return config_file
 
@@ -124,7 +125,7 @@ train:
 evaluation:
   enabled: false
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
@@ -351,7 +352,7 @@ training:
 evaluation:
   enabled: false
 """
-        config_file.write_text(config_content)
+        config_file.write_text(config_content, encoding="utf-8")
 
         # Should not raise exception
         validate_config([str(config_file)])
@@ -364,7 +365,7 @@ evaluation:
 
         config_file = tmp_path / "invalid.yaml"
         # Use truly invalid YAML that causes parsing error
-        config_file.write_text("invalid: [unclosed")
+        config_file.write_text("invalid: [unclosed", encoding="utf-8")
 
         with pytest.raises(ConfigurationError):
             validate_config([str(config_file)])
@@ -379,19 +380,27 @@ class TestTrainingConfigIntegration:
 
         config_file = tmp_path / "training_single.yaml"
         output_base = str(tmp_path / "output")
-        config_file.write_text(f"""
-train:
-  enabled: true
-  target_column: target
-  output_base_dir: "{output_base}"
-  models:
-    - type: lightgbm
-      hyperparams: {{}}
-      hyperparam_search:
-        enabled: false
-  feature_engineering:
-    enabled: false
-""")
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "train": {
+                        "enabled": True,
+                        "target_column": "target",
+                        "output_base_dir": output_base,
+                        "models": [
+                            {
+                                "type": "lightgbm",
+                                "hyperparams": {},
+                                "hyperparam_search": {"enabled": False},
+                            }
+                        ],
+                        "feature_engineering": {"enabled": False},
+                    }
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
         assert isinstance(pipeline, Pipeline)
@@ -404,26 +413,38 @@ train:
 
         config_file = tmp_path / "training_ensemble.yaml"
         output_base = str(tmp_path / "output")
-        config_file.write_text(f"""
-training:
-  enabled: true
-  target_column: target
-  output_base_dir: "{output_base}"
-  models:
-    - name: lgbm
-      type: lightgbm
-      hyperparams: {{}}
-      hyperparam_search: {{enabled: false}}
-    - name: cat
-      type: catboost
-      hyperparams: {{}}
-      hyperparam_search: {{enabled: false}}
-  ensemble:
-    method: soft_voting
-    weights: [0.6, 0.4]
-  feature_engineering:
-    enabled: false
-""")
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "training": {
+                        "enabled": True,
+                        "target_column": "target",
+                        "output_base_dir": output_base,
+                        "models": [
+                            {
+                                "name": "lgbm",
+                                "type": "lightgbm",
+                                "hyperparams": {},
+                                "hyperparam_search": {"enabled": False},
+                            },
+                            {
+                                "name": "cat",
+                                "type": "catboost",
+                                "hyperparams": {},
+                                "hyperparam_search": {"enabled": False},
+                            },
+                        ],
+                        "ensemble": {
+                            "method": "soft_voting",
+                            "weights": [0.6, 0.4],
+                        },
+                        "feature_engineering": {"enabled": False},
+                    }
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
         assert isinstance(pipeline, Pipeline)
@@ -435,16 +456,20 @@ training:
 
         config_file = tmp_path / "cfg.yaml"
         output_base = str(tmp_path / "output")
-        config_file.write_text(f"""
-train:
-  enabled: true
-  output_base_dir: "{output_base}"
-  models:
-    - type: lightgbm
-      hyperparams: {{}}
-  feature_engineering:
-    enabled: false
-""")
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "train": {
+                        "enabled": True,
+                        "output_base_dir": output_base,
+                        "models": [{"type": "lightgbm", "hyperparams": {}}],
+                        "feature_engineering": {"enabled": False},
+                    }
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
 
@@ -460,19 +485,21 @@ train:
 
         config_file = tmp_path / "cfg2.yaml"
         output_base = str(tmp_path / "output")
-        config_file.write_text(f"""
-train:
-  enabled: true
-  output_base_dir: "{output_base}"
-  models:
-    - type: lightgbm
-    - type: catboost
-  ensemble:
-    method: stacking
-    use_val_as_oof: true
-  feature_engineering:
-    enabled: false
-""")
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "train": {
+                        "enabled": True,
+                        "output_base_dir": output_base,
+                        "models": [{"type": "lightgbm"}, {"type": "catboost"}],
+                        "ensemble": {"method": "stacking", "use_val_as_oof": True},
+                        "feature_engineering": {"enabled": False},
+                    }
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
         builder = ConfigPipelineBuilder(str(config_file))
         pipeline = builder.build()
 

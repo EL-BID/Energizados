@@ -6,6 +6,7 @@ and model training to prevent data leakage.
 """
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -13,11 +14,37 @@ import numpy as np
 import pandas as pd
 
 from energizados.core.base import PipelineStep
-from energizados.core.utils.secure_pickle import secure_dump
-from energizados.feature_engineering import DefaultFeatureEngineering
-from energizados.modeling.registry import ModelRegistry
+from energizados.core.exceptions import ConfigurationError
+from energizados.core.utils.integrity_pickle import dump
 
 logger = logging.getLogger(__name__)
+
+
+class MetricsDict(dict):
+    """Dict that emits deprecation warning on legacy model_metrics access (Phase 5)."""
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "model_metrics":
+            warnings.warn(
+                "'model_metrics' is deprecated; use 'metrics' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Return canonical metrics key (set below)
+            return super().__getitem__("metrics")
+        return super().__getitem__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Override get() to emit deprecation warning for model_metrics key."""
+        if key == "model_metrics":
+            warnings.warn(
+                "'model_metrics' is deprecated; use 'metrics' instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Return canonical metrics key
+            return super().get("metrics", default)
+        return super().get(key, default)
 
 
 class _SklearnCalibWrapper:
@@ -49,6 +76,14 @@ class _CalibratedWrapper:
     After ``CalibratedClassifierCV.fit()``, ``predict_proba`` returns 2D (n, 2).
     This wrapper extracts the positive-class column so downstream code (evaluator,
     inference) continues to receive 1D arrays as expected.
+
+    It also delegates the ``BaseModel`` contract (``get_raw_model``,
+    ``check_fitted``, ``is_fitted_``, ``config``, ``cols_for_model``, ``_model``)
+    to the wrapped adapter so downstream consumers (SHAP explainer, evaluator
+    feature importance, report generation) work on calibrated models exactly as
+    they do on the underlying adapter. Without this delegation the saved wrapper
+    is serialized via ``dump`` as if it were a ``BaseModel`` but lacks the attributes
+    those consumers read, silently degrading SHAP/feature-importance output.
     """
 
     def __init__(self, calibrated_clf, original_adapter) -> None:
@@ -60,6 +95,33 @@ class _CalibratedWrapper:
 
     def predict(self, X):
         return self._adapter.predict(X)
+
+    # ------------------------------------------------------------------
+    # BaseModel contract delegation
+    # ------------------------------------------------------------------
+    def get_raw_model(self):
+        """Return the raw underlying model (for SHAP / feature importance)."""
+        return self._adapter.get_raw_model()
+
+    def check_fitted(self):
+        """Delegate fitted-state check to the wrapped adapter."""
+        return self._adapter.check_fitted()
+
+    @property
+    def is_fitted_(self):
+        return getattr(self._adapter, "is_fitted_", False)
+
+    @property
+    def config(self):
+        return getattr(self._adapter, "config", {})
+
+    @property
+    def cols_for_model(self):
+        return getattr(self._adapter, "cols_for_model", None)
+
+    @property
+    def _model(self):
+        return getattr(self._adapter, "_model", None)
 
 
 def _date_columns_needed_by_preprocessing(preprocessing_config: dict) -> set:
@@ -154,9 +216,12 @@ class TrainingStep(PipelineStep):
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the full training pipeline.
 
-        Loads train/val/test splits from disk, fits DefaultFeatureEngineering on
-        training data, transforms all splits, fits the model(s), and saves artifacts.
-        A quick validation AUC/F1 is logged after training.
+        Loads train/val/test splits from disk, optionally applies
+        ``columns_filter`` row-level filtering (from
+        ``feature_engineering.preprocessing.columns_filter``), fits
+        DefaultFeatureEngineering on training data, transforms all splits,
+        fits the model(s), and saves artifacts.  A quick validation
+        AUC/F1 is logged after training.
 
         Args:
             context: Pipeline context dict; may contain ``train_path``, ``val_path``,
@@ -177,8 +242,8 @@ class TrainingStep(PipelineStep):
             self.val_path = self.val_path or context.get("val_path")
             self.test_path = self.test_path or context.get("test_path")
 
-        if not self.train_path or not self.val_path:
-            raise ValueError("train_path and val_path are required")
+        if not self.train_path:
+            raise ValueError("train_path is required")
 
         # Phase A: Load data
         logger.info("\n" + "=" * 50)
@@ -188,24 +253,50 @@ class TrainingStep(PipelineStep):
         self._report_phase(context, "loading", 0)
 
         train_df = pd.read_parquet(self.train_path)
-        val_df = pd.read_parquet(self.val_path)
+        val_df = pd.read_parquet(self.val_path) if self.val_path else None
         test_df = pd.read_parquet(self.test_path) if self.test_path else None
 
         logger.info(f"Train shape: {train_df.shape}")
-        logger.info(f"Val shape: {val_df.shape}")
+        if val_df is not None:
+            logger.info(f"Val shape: {val_df.shape}")
         if test_df is not None:
             logger.info(f"Test shape: {test_df.shape}")
 
         X_train = train_df.drop(columns=[self.target_column])
         y_train = train_df[self.target_column]
-        X_val = val_df.drop(columns=[self.target_column])
-        y_val = val_df[self.target_column]
+        X_val = val_df.drop(columns=[self.target_column]) if val_df is not None else None
+        y_val = val_df[self.target_column] if val_df is not None else None
 
         X_test = None
         y_test = None  # noqa: F841
         if test_df is not None:
             X_test = test_df.drop(columns=[self.target_column])
             y_test = test_df[self.target_column]  # noqa: F841
+
+        # Apply columns_filter (row-level filtering) before any transformations
+        columns_filter = self.feature_engineering_config.get("preprocessing", {}).get(
+            "columns_filter"
+        )
+        if columns_filter:
+            from energizados.core.utils.columns_filter import apply_columns_filter
+
+            logger.info("Applying columns_filter to training data...")
+            X_train, n_removed = apply_columns_filter(X_train, columns_filter)
+            y_train = y_train.loc[X_train.index]
+            if n_removed > 0:
+                logger.info(f"  Train: removed {n_removed} rows")
+
+            if X_val is not None:
+                X_val, n_removed = apply_columns_filter(X_val, columns_filter)
+                y_val = y_val.loc[X_val.index]
+                if n_removed > 0:
+                    logger.info(f"  Val: removed {n_removed} rows")
+
+            if X_test is not None:
+                X_test, n_removed = apply_columns_filter(X_test, columns_filter)
+                y_test = y_test.loc[X_test.index]  # noqa: F841
+                if n_removed > 0:
+                    logger.info(f"  Test: removed {n_removed} rows")
 
         datetime_cols = X_train.select_dtypes(include=["datetime64", "datetimetz"]).columns.tolist()
         if datetime_cols:
@@ -216,7 +307,8 @@ class TrainingStep(PipelineStep):
             if cols_to_drop:
                 logger.info(f"Dropping datetime columns before feature engineering: {cols_to_drop}")
                 X_train = X_train.drop(columns=cols_to_drop)
-                X_val = X_val.drop(columns=cols_to_drop)
+                if X_val is not None:
+                    X_val = X_val.drop(columns=cols_to_drop)
                 if X_test is not None:
                     X_test = X_test.drop(columns=cols_to_drop)
             if needed_by_temporal & set(datetime_cols):
@@ -241,6 +333,9 @@ class TrainingStep(PipelineStep):
             fe_config = {"enabled": False}
             fs_config = {"enabled": False}
 
+        # Lazy import to avoid module-level cycle
+        from energizados.feature_engineering import DefaultFeatureEngineering
+
         feature_engineering = DefaultFeatureEngineering(
             preprocessing_config=fe_config,
             feature_selection_config=fs_config,
@@ -264,7 +359,7 @@ class TrainingStep(PipelineStep):
 
         logger.info("Transforming train, val, test...")
         X_train_transformed = feature_engineering.transform(X_train)
-        X_val_transformed = feature_engineering.transform(X_val)
+        X_val_transformed = feature_engineering.transform(X_val) if X_val is not None else None
         X_test_transformed = feature_engineering.transform(X_test) if X_test is not None else None
 
         # Drop any datetime columns that survived feature engineering (e.g. date columns used
@@ -277,18 +372,20 @@ class TrainingStep(PipelineStep):
                 f"Dropping residual datetime columns after feature engineering: {residual_dt_cols}"
             )
             X_train_transformed = X_train_transformed.drop(columns=residual_dt_cols)
-            X_val_transformed = X_val_transformed.drop(columns=residual_dt_cols)
+            if X_val_transformed is not None:
+                X_val_transformed = X_val_transformed.drop(columns=residual_dt_cols)
             if X_test_transformed is not None:
                 X_test_transformed = X_test_transformed.drop(columns=residual_dt_cols)
 
         logger.info(f"Train transformed shape: {X_train_transformed.shape}")
-        logger.info(f"Val transformed shape: {X_val_transformed.shape}")
+        if X_val_transformed is not None:
+            logger.info(f"Val transformed shape: {X_val_transformed.shape}")
         if X_test_transformed is not None:
             logger.info(f"Test transformed shape: {X_test_transformed.shape}")
 
         # Diagnostic: NaN counts
         train_nan = X_train_transformed.isnull().sum().sum()
-        val_nan = X_val_transformed.isnull().sum().sum()
+        val_nan = X_val_transformed.isnull().sum().sum() if X_val_transformed is not None else 0
         if train_nan > 0 or val_nan > 0:
             logger.warning(f"NaN values - Train: {train_nan}, Val: {val_nan}")
             nan_per_col = X_train_transformed.isnull().sum()
@@ -324,7 +421,7 @@ class TrainingStep(PipelineStep):
         output_pkl = self.feature_engineering_config.get("output_pkl")
         fe_path = Path(output_pkl) if output_pkl else self.output_dir / "feature_engineering.pkl"
         fe_path.parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(feature_engineering, fe_path)
+        dump(feature_engineering, fe_path)
         logger.info(f"Feature Engineering saved to: {fe_path}")
 
         self._report_phase(context, "feature_engineering", 50)
@@ -335,6 +432,20 @@ class TrainingStep(PipelineStep):
         logger.info("=" * 50)
 
         names = self._resolve_model_names(self.models_configs)
+
+        # Fail-fast: blending requires validation data
+        if (
+            self.ensemble_config
+            and self.ensemble_config.get("use_val_as_oof", False)
+            and X_val_transformed is None
+        ):
+            raise ConfigurationError(
+                "Ensemble blending (use_val_as_oof=True) requires a validation split, "
+                "but no validation data is available (split.method='none'). "
+                "Options: (a) provide a validation split (split.method != 'none'), "
+                "(b) switch to K-fold OOF stacking (use_val_as_oof: false), or "
+                "(c) use soft_voting ensemble method."
+            )
 
         # Initialize variables for all modes
         model = None
@@ -378,104 +489,122 @@ class TrainingStep(PipelineStep):
         # Phase D: Quick val metrics
         from sklearn.metrics import f1_score, roc_auc_score
 
-        # Comparison mode: calculate metrics for each model
-        if len(self.models_configs) > 1 and not self.ensemble_config:
-            val_metrics = {}
-            logger.info("\nComparison mode - validation metrics per model:")
+        if X_val_transformed is not None:
+            # Comparison mode: calculate metrics for each model
+            if len(self.models_configs) > 1 and not self.ensemble_config:
+                val_metrics = {}
+                logger.info("\nComparison mode - validation metrics per model:")
 
-            for name in names:
+                for name in names:
+                    model_type = None
+                    for cfg in self.models_configs:
+                        if cfg.get("name") == name or (
+                            cfg.get("type") == name and names.count(name) == 1
+                        ):
+                            model_type = cfg.get("type")
+                            break
+                    if model_type is None:
+                        model_type = name  # Fallback to name
+
+                    if model_type in ["simple_trend", "simple_constant"]:
+                        X_val_for_pred = X_val
+                    else:
+                        X_val_for_pred = X_val_transformed
+
+                    val_proba = models_dict[name].predict_proba(X_val_for_pred)
+                    val_pred = (val_proba >= 0.5).astype(int)
+
+                    val_auc = roc_auc_score(y_val, val_proba)
+                    val_f1 = f1_score(y_val, val_pred)
+
+                    val_metrics[name] = {"auc": val_auc, "f1": val_f1}
+                    logger.info(f"  {name:15s} AUC: {val_auc:.4f}, F1: {val_f1:.4f}")
+
+                # Use first model's predictions for global stats (backward compatibility)
+                first_name = names[0]
                 model_type = None
                 for cfg in self.models_configs:
-                    if cfg.get("name") == name or (
-                        cfg.get("type") == name and names.count(name) == 1
+                    if cfg.get("name") == first_name or (
+                        cfg.get("type") == first_name and names.count(first_name) == 1
                     ):
                         model_type = cfg.get("type")
                         break
                 if model_type is None:
-                    model_type = name  # Fallback to name
+                    model_type = first_name
 
                 if model_type in ["simple_trend", "simple_constant"]:
                     X_val_for_pred = X_val
                 else:
                     X_val_for_pred = X_val_transformed
 
-                val_proba = models_dict[name].predict_proba(X_val_for_pred)
+                val_proba = models_dict[first_name].predict_proba(X_val_for_pred)
+                val_auc = None
+                val_f1 = None
+            else:
+                # Single model or ensemble mode
+                model_type = (
+                    self.models_configs[0].get("type", "lightgbm")
+                    if len(self.models_configs) == 1
+                    else None
+                )
+                if model_type in ["simple_trend", "simple_constant"]:
+                    X_val_for_pred = X_val
+                else:
+                    X_val_for_pred = X_val_transformed
+
+                val_proba = model.predict_proba(X_val_for_pred)
                 val_pred = (val_proba >= 0.5).astype(int)
 
                 val_auc = roc_auc_score(y_val, val_proba)
                 val_f1 = f1_score(y_val, val_pred)
+                val_metrics = None
 
-                val_metrics[name] = {"auc": val_auc, "f1": val_f1}
-                logger.info(f"  {name:15s} AUC: {val_auc:.4f}, F1: {val_f1:.4f}")
+                logger.info(f"\nValidation AUC: {val_auc:.4f}")
+                logger.info(f"Validation F1:  {val_f1:.4f}")
 
-            # Use first model's predictions for global stats (backward compatibility)
-            first_name = names[0]
-            model_type = None
-            for cfg in self.models_configs:
-                if cfg.get("name") == first_name or (
-                    cfg.get("type") == first_name and names.count(first_name) == 1
-                ):
-                    model_type = cfg.get("type")
-                    break
-            if model_type is None:
-                model_type = first_name
+            import numpy as np
 
-            if model_type in ["simple_trend", "simple_constant"]:
-                X_val_for_pred = X_val
-            else:
-                X_val_for_pred = X_val_transformed
+            logger.info(
+                f"Val proba stats (first model): min={val_proba.min():.4f}, max={val_proba.max():.4f}, "
+                f"mean={val_proba.mean():.4f}, median={np.median(val_proba):.4f}, "
+                f"pct>0.5={100 * (val_proba >= 0.5).mean():.1f}%, "
+                f"pct>0.3={100 * (val_proba >= 0.3).mean():.1f}%, "
+                f"pct>0.1={100 * (val_proba >= 0.1).mean():.1f}%"
+            )
 
-            val_proba = models_dict[first_name].predict_proba(X_val_for_pred)
+            # Save val predictions
+            val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/temp/splits")
+            val_pred_path = val_pred_dir / "val_predictions.parquet"
+            val_predictions = pd.DataFrame(
+                {"y_true": y_val.values, "y_proba": val_proba},
+                index=y_val.index,
+            )
+            val_predictions.to_parquet(val_pred_path)
+            logger.info(f"Val predictions saved to: {val_pred_path}")
+            val_predictions_path = str(val_pred_path)
+
+        else:
+            logger.info(
+                "Training in no-holdout mode. No honest validation metrics available. "
+                "Internal 10% split used for early stopping only."
+            )
+            val_proba = None
             val_auc = None
             val_f1 = None
-        else:
-            # Single model or ensemble mode
-            model_type = (
-                self.models_configs[0].get("type", "lightgbm")
-                if len(self.models_configs) == 1
+            val_metrics = (
+                {name: {"auc": None, "f1": None} for name in names}
+                if (len(self.models_configs) > 1 and not self.ensemble_config)
                 else None
             )
-            if model_type in ["simple_trend", "simple_constant"]:
-                X_val_for_pred = X_val
-            else:
-                X_val_for_pred = X_val_transformed
-
-            val_proba = model.predict_proba(X_val_for_pred)
-            val_pred = (val_proba >= 0.5).astype(int)
-
-            val_auc = roc_auc_score(y_val, val_proba)
-            val_f1 = f1_score(y_val, val_pred)
-            val_metrics = None
-
-            logger.info(f"\nValidation AUC: {val_auc:.4f}")
-            logger.info(f"Validation F1:  {val_f1:.4f}")
-
-        import numpy as np
-
-        logger.info(
-            f"Val proba stats (first model): min={val_proba.min():.4f}, max={val_proba.max():.4f}, "
-            f"mean={val_proba.mean():.4f}, median={np.median(val_proba):.4f}, "
-            f"pct>0.5={100 * (val_proba >= 0.5).mean():.1f}%, "
-            f"pct>0.3={100 * (val_proba >= 0.3).mean():.1f}%, "
-            f"pct>0.1={100 * (val_proba >= 0.1).mean():.1f}%"
-        )
-
-        # Save val predictions
-        val_pred_dir = Path(self.val_path).parent if self.val_path else Path("data/temp/splits")
-        val_pred_path = val_pred_dir / "val_predictions.parquet"
-        val_predictions = pd.DataFrame(
-            {"y_true": y_val.values, "y_proba": val_proba},
-            index=y_val.index,
-        )
-        val_predictions.to_parquet(val_pred_path)
-        logger.info(f"Val predictions saved to: {val_pred_path}")
+            val_predictions_path = None
 
         # Build return context
         result = {
             **context,
             "feature_engineering_path": str(fe_path),
-            "val_predictions_path": str(val_pred_path),
+            "val_predictions_path": val_predictions_path,
             "feature_engineering": feature_engineering,
+            "holdout_mode": "none" if X_val_transformed is None else "standard",
         }
 
         # Comparison mode: set model_paths and val_metrics
@@ -488,6 +617,8 @@ class TrainingStep(PipelineStep):
             result["val_auc"] = None
             result["val_f1"] = None
             result["comparison_mode"] = True
+            # Set canonical metrics key for comparison mode (Phase 5)
+            result["metrics"] = val_metrics if val_metrics else {}
         else:
             # Single model or ensemble mode
             result["model_path"] = str(model_path)
@@ -498,10 +629,13 @@ class TrainingStep(PipelineStep):
             result["val_auc"] = val_auc
             result["val_f1"] = val_f1
             result["comparison_mode"] = False
+            # Set canonical metrics key for single/ensemble mode (Phase 5)
+            result["metrics"] = {"auc": val_auc, "f1": val_f1}
 
         self._report_phase(context, "evaluation", 100)
 
-        return result
+        # Wrap result in MetricsDict for deprecation warning (Phase 5)
+        return MetricsDict(result)
 
     # ------------------------------------------------------------------
     # Single model helpers
@@ -527,8 +661,11 @@ class TrainingStep(PipelineStep):
         model_type = cfg.get("type", "lightgbm")
         logger.info(f"Training model '{name}' (type: {model_type})")
 
+        # Lazy import to avoid module-level cycle
+        from energizados.modeling.registry import ModelRegistry
+
         model_class = ModelRegistry.get(model_type)
-        params = self._prepare_model_params(cfg, X_train)
+        params = model_class.from_config(cfg, X_train)
 
         # For simple models, use raw data instead of transformed
         if model_type in ["simple_trend", "simple_constant"]:
@@ -549,11 +686,17 @@ class TrainingStep(PipelineStep):
         # Apply probability calibration if configured
         calibration_config = cfg.get("calibration", {})
         if calibration_config.get("enabled", False):
-            model = self._apply_calibration(model, model_type, X_val, y_val, calibration_config)
-            logger.info(f"Applied probability calibration to model '{name}'")
+            if X_val is not None:
+                model = self._apply_calibration(model, model_type, X_val, y_val, calibration_config)
+                logger.info(f"Applied probability calibration to model '{name}'")
+            else:
+                logger.warning(
+                    f"Calibration enabled for model '{name}' but no validation data available "
+                    "(holdout_mode='none'). Skipping calibration. Model will ship uncalibrated."
+                )
 
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(model, save_path)
+        dump(model, save_path)
         logger.info(f"Model '{name}' saved to: {save_path}")
 
         return model, save_path
@@ -680,7 +823,7 @@ class TrainingStep(PipelineStep):
             method=self.ensemble_config.get("method", "soft_voting"),
             meta_learner_config=self.ensemble_config.get("meta_learner"),
             weights=self.ensemble_config.get("weights"),
-            use_val_as_oof=self.ensemble_config.get("use_val_as_oof", True),
+            use_val_as_oof=self.ensemble_config.get("use_val_as_oof", False),
             cv=self.ensemble_config.get("cv", 5),
             skip_base_fit=True,  # base models already fitted above
         )
@@ -691,7 +834,7 @@ class TrainingStep(PipelineStep):
         ensemble.fit(X_train, y_train, X_val=X_val, y_val=y_val)
 
         ensemble_path = self.output_dir / "ensemble.pkl"
-        secure_dump(ensemble, ensemble_path)
+        dump(ensemble, ensemble_path)
         logger.info(f"Ensemble saved to: {ensemble_path}")
 
         return ensemble, ensemble_path
@@ -730,94 +873,25 @@ class TrainingStep(PipelineStep):
         return names
 
     # ------------------------------------------------------------------
-    # Model param preparation
-    # ------------------------------------------------------------------
-
-    def _prepare_model_params(self, model_config: Dict, X_train: pd.DataFrame) -> Dict:
-        """
-        Prepare constructor parameters for a model based on its type.
-
-        Args:
-            model_config: Single model config dict (with "type", "hyperparams", etc.).
-            X_train: Transformed training DataFrame (used to derive column lists).
-
-        Returns:
-            Dict: Parameters for the model constructor.
-        """
-        params = model_config.copy()
-        model_type = params.get("type", "lightgbm")
-
-        if model_type in ["lightgbm", "lgbm", "catboost", "cat", "xgboost", "xgb"]:
-            params["cols_for_model"] = X_train.columns.tolist()
-            sampling_config = params.pop("sampling", {})
-            params["sampling_method"] = sampling_config.get("method", "undersample")
-            params["sampling_th"] = sampling_config.get("threshold", 0.5)
-            class_weight = params.pop("class_weight", None)
-            if class_weight is not None:
-                params["class_weight"] = class_weight
-            params["hyperparams"] = params.pop("hyperparams", {})
-            hyperparam_search = params.pop("hyperparam_search", {})
-            params["search_hip"] = hyperparam_search.get("enabled", False)
-            params["n_iter"] = hyperparam_search.get("n_iter", 60)
-            params["cv"] = hyperparam_search.get("cv", 3)
-            params["n_splits"] = hyperparam_search.get("n_splits", 5)
-
-        elif model_type in ["neural_network", "nn", "lstm"]:
-            consumption_cols = [c for c in X_train.columns if "_anterior" in c]
-            feature_cols = [c for c in X_train.columns if c not in consumption_cols]
-            params["features_names"] = feature_cols
-            params["spents_names"] = consumption_cols
-            sampling_config = params.pop("sampling", {})
-            params["sampling_method"] = sampling_config.get("method", "undersample")
-            params["sampling_th"] = sampling_config.get("threshold", 0.5)
-            class_weight = params.pop("class_weight", None)
-            if class_weight is not None:
-                params["class_weight"] = class_weight
-            params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
-
-        elif model_type in ["simple_trend", "simple_constant"]:
-            # Simple models work on raw consumption columns, not preprocessed
-            # They use columns directly from input data - pass config with threshold/params
-            # SimpleTrendAdapter accepts: last_base_value, last_eval_value, threshold
-            # SimpleConstantAdapter accepts: min_count_constante
-            if model_type == "simple_trend":
-                params["last_base_value"] = params.get("last_base_value", 6)
-                params["last_eval_value"] = params.get("last_eval_value", 3)
-                params["threshold"] = params.get("threshold", 50)
-            elif model_type == "simple_constant":
-                params["min_count_constante"] = params.get("min_count_constante", 3)
-            # Remove any config that's not valid for simple models
-            params.pop("sampling", None)
-            params.pop("class_weight", None)
-            params.pop("hyperparams", None)
-            params.pop("hyperparam_search", None)
-
-        # Store the type string in the config so evaluator can read it
-        params["config"] = {"type": model_type}
-
-        # Remove keys that are not model constructor arguments
-        params.pop("type", None)
-        params.pop("name", None)
-        params.pop("calibration", None)
-
-        return params
-
-    # ------------------------------------------------------------------
     # PipelineStep interface
     # ------------------------------------------------------------------
 
     def validate_input(self, context: Dict[str, Any]) -> bool:
         """Validate that both train and validation parquet files exist."""
         train_path = self.train_path or context.get("train_path")
-        val_path = self.val_path or context.get("val_path")
-        if not train_path or not val_path:
+        if not train_path:
             return False
-        return Path(train_path).exists() and Path(val_path).exists()
+        if not Path(train_path).exists():
+            return False
+        val_path = self.val_path or context.get("val_path")
+        if val_path and not Path(val_path).exists():
+            return False
+        return True
 
     def get_required_keys(self) -> list:
         """Return required context keys."""
-        if not self.train_path or not self.val_path:
-            return ["train_path", "val_path"]
+        if not self.train_path:
+            return ["train_path"]
         return []
 
     def get_output_keys(self) -> list:

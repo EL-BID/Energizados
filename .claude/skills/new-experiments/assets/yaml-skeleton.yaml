@@ -34,6 +34,13 @@ train:
         - { DROP_COL_1 }
         - { DROP_COL_2 }
 
+      # Optional row-level filter (applied to train/val/test before FE).
+      # Supports equality, comparison operators (>, <, >=, <=, !=, like), and _expr.
+      # Leave commented out if not needed.
+      # columns_filter:
+      #   { FILTER_COL_1 }: { FILTER_VAL_1 }
+      #   _expr: "(zona == 'A') & (consumo > 100)"
+
       columns:
         { COL_1 }:
           - { ENCODING_STRATEGY }: {}

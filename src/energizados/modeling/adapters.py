@@ -93,6 +93,56 @@ class LGBMModelAdapter(BaseModel):
             class_weight=class_weight,
         )
 
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for lightgbm.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "lightgbm")
+
+        # Extract columns from X_train
+        params["cols_for_model"] = X_train.columns.tolist()
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Pop hyperparams (will be passed through)
+        params["hyperparams"] = params.pop("hyperparams", {})
+
+        # Flatten hyperparam_search config
+        hyperparam_search = params.pop("hyperparam_search", {})
+        params["search_hip"] = hyperparam_search.get("enabled", False)
+        params["n_iter"] = hyperparam_search.get("n_iter", 60)
+        params["cv"] = hyperparam_search.get("cv", 3)
+        params["n_splits"] = hyperparam_search.get("n_splits", 5)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
+
     def fit(
         self,
         X: pd.DataFrame,
@@ -207,7 +257,9 @@ class CATModelAdapter(BaseModel):
         self.n_splits = n_splits
         self.class_weight = class_weight
         self.threshold = threshold
+        self._trained_pipeline = None
 
+        # Import the original model
         from energizados.modeling.supervised_models import CATModel as OriginalCAT
 
         self._model = OriginalCAT(
@@ -221,7 +273,56 @@ class CATModelAdapter(BaseModel):
             n_splits=n_splits,
             class_weight=class_weight,
         )
-        self._trained_pipeline = None
+
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for catboost.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "catboost")
+
+        # Extract columns from X_train
+        params["cols_for_model"] = X_train.columns.tolist()
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Pop hyperparams (will be passed through)
+        params["hyperparams"] = params.pop("hyperparams", {})
+
+        # Flatten hyperparam_search config
+        hyperparam_search = params.pop("hyperparam_search", {})
+        params["search_hip"] = hyperparam_search.get("enabled", False)
+        params["n_iter"] = hyperparam_search.get("n_iter", 60)
+        params["cv"] = hyperparam_search.get("cv", 3)
+        params["n_splits"] = hyperparam_search.get("n_splits", 5)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
 
     def fit(
         self,
@@ -350,6 +451,56 @@ class XGBModelAdapter(BaseModel):
         )
         self._trained_pipeline = None
 
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for xgboost.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "xgboost")
+
+        # Extract columns from X_train
+        params["cols_for_model"] = X_train.columns.tolist()
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Pop hyperparams (will be passed through)
+        params["hyperparams"] = params.pop("hyperparams", {})
+
+        # Flatten hyperparam_search config
+        hyperparam_search = params.pop("hyperparam_search", {})
+        params["search_hip"] = hyperparam_search.get("enabled", False)
+        params["n_iter"] = hyperparam_search.get("n_iter", 60)
+        params["cv"] = hyperparam_search.get("cv", 3)
+        params["n_splits"] = hyperparam_search.get("n_splits", 5)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
+
     def fit(
         self,
         X: pd.DataFrame,
@@ -463,6 +614,54 @@ class NNModelAdapter(BaseModel):
         )
         self._pipe_features = None
         self._pipe_spent = None
+
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for neural_network.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "neural_network")
+
+        # Derive consumption vs feature columns
+        consumption_cols = [c for c in X_train.columns if "_anterior" in c]
+        feature_cols = [c for c in X_train.columns if c not in consumption_cols]
+        params["features_names"] = feature_cols
+        params["spents_names"] = consumption_cols
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Extract hyperparam_search enabled flag
+        params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+        params.pop("hyperparams", None)  # NN doesn't use hyperparams dict
+        params.pop("hyperparam_search", None)
+
+        return params
 
     def fit(
         self,
@@ -583,6 +782,54 @@ class LSTMNNModelAdapter(BaseModel):
         self._pipe_features = None
         self._pipe_spent = None
 
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for lstm.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "lstm")
+
+        # Derive consumption vs feature columns
+        consumption_cols = [c for c in X_train.columns if "_anterior" in c]
+        feature_cols = [c for c in X_train.columns if c not in consumption_cols]
+        params["features_names"] = feature_cols
+        params["spents_names"] = consumption_cols
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Extract hyperparam_search enabled flag
+        params["search_hip"] = params.pop("hyperparam_search", {}).get("enabled", False)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+        params.pop("hyperparams", None)  # LSTM doesn't use hyperparams dict
+        params.pop("hyperparam_search", None)
+
+        return params
+
     def fit(
         self,
         X: pd.DataFrame,
@@ -700,6 +947,44 @@ class SimpleTrendAdapter(BaseModel):
             is_wide=True,
         )
 
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for simple_trend.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame (not used by simple models)
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "simple_trend")
+
+        # Extract specific parameters for SimpleTrendAdapter
+        params["last_base_value"] = params.get("last_base_value", 6)
+        params["last_eval_value"] = params.get("last_eval_value", 3)
+        params["threshold"] = params.get("threshold", 50)
+
+        # Remove any config that's not valid for simple models
+        params.pop("sampling", None)
+        params.pop("class_weight", None)
+        params.pop("hyperparams", None)
+        params.pop("hyperparam_search", None)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
+
     def fit(
         self,
         X: pd.DataFrame,
@@ -782,6 +1067,42 @@ class SimpleConstantAdapter(BaseModel):
         from energizados.modeling.simple_models import ConstantConsumptionClassifierWide
 
         self._model = ConstantConsumptionClassifierWide(min_count_constante=min_count_constante)
+
+    @classmethod
+    def from_config(cls, config: dict, X_train: pd.DataFrame) -> dict:
+        """
+        Derive constructor kwargs from YAML config.
+
+        Replicates the _prepare_model_params ladder logic for simple_constant.
+
+        Args:
+            config: Model config dict (with "type", "hyperparams", etc.)
+            X_train: Post-feature-engineering DataFrame (not used by simple models)
+
+        Returns:
+            Dict: Constructor kwargs for cls.__init__
+        """
+        params = config.copy()
+        model_type = params.get("type", "simple_constant")
+
+        # Extract specific parameter for SimpleConstantAdapter
+        params["min_count_constante"] = params.get("min_count_constante", 3)
+
+        # Remove any config that's not valid for simple models
+        params.pop("sampling", None)
+        params.pop("class_weight", None)
+        params.pop("hyperparams", None)
+        params.pop("hyperparam_search", None)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
 
     def fit(
         self,

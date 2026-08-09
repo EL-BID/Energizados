@@ -12,6 +12,9 @@ from energizados.feature_selection.methods import (
     ConstantSelector,
     CorrelationSelector,
     MutualInformationSelector,
+    feature_selection_by_boruta,
+    feature_selection_by_constant,
+    feature_selection_by_correlation,
 )
 from energizados.feature_selection.pipeline import (
     FeatureSelectionPipeline,

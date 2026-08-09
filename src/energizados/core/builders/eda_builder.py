@@ -4,6 +4,7 @@ EDA Step Builder.
 This module constructs Exploratory Data Analysis pipeline steps from configuration.
 """
 
+import copy
 from typing import Any, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
@@ -17,7 +18,17 @@ class EDABuilder(StepBuilder):
 
     Constructs a step that performs exploratory data analysis
     based on the 'eda' section of the configuration.
+
+    ADR-0001: when ``run_dir`` is provided (typed EDA run), the HTML report is
+    written into the run dir (``<run_dir>/eda_report.html``) instead of the
+    fixed ``output/eda/`` location, and the report path is pushed to context as
+    ``eda_report_path`` for run-metadata bookkeeping.
     """
+
+    def __init__(self, config: Dict[str, Any], run_dir: Optional[Any] = None):
+        super().__init__(config)
+        # ``run_dir`` may be a Path or None; kept as-is (DatasetExplorer wants a str).
+        self._run_dir = run_dir
 
     def build(self) -> Optional[PipelineStep]:
         """
@@ -31,6 +42,21 @@ class EDABuilder(StepBuilder):
             return None
 
         full_config = self.config
+        run_dir = self._run_dir
+
+        # ADR-0001: for typed EDA runs (run_dir provided) the report and
+        # artifacts MUST land inside the run dir, overriding any
+        # output.output_dir set in the YAML. DatasetExplorer re-reads
+        # output_dir from the config dict (dataset_explorer.py), so we force
+        # it onto a COPY of the config AND pass it as the explicit kwarg.
+        # The caller's config is never mutated.
+        if run_dir is not None:
+            effective_config = copy.deepcopy(full_config)
+            effective_config.setdefault("output", {})["output_dir"] = str(run_dir)
+            effective_output_dir = str(run_dir)
+        else:
+            effective_config = full_config
+            effective_output_dir = full_config.get("output", {}).get("output_dir", "output/eda/")
 
         class EDAStep(PipelineStep):
             """Pipeline step that runs Exploratory Data Analysis."""
@@ -42,7 +68,6 @@ class EDABuilder(StepBuilder):
                 col_detection = eda_config.get("column_detection", {})
                 data_sources = eda_config.get("data_sources", {})
                 primary = data_sources.get("primary", {})
-                output_cfg = eda_config.get("output", {})
 
                 explorer = DatasetExplorer(
                     input_path=primary.get("path", ""),
@@ -53,12 +78,15 @@ class EDABuilder(StepBuilder):
                     lon_column=col_detection.get("lon_col"),
                     zone_column=col_detection.get("zone_col"),
                     periods_suffix=col_detection.get("periods_suffix", "_anterior"),
-                    output_dir=output_cfg.get("output_dir", "output/eda/"),
+                    output_dir=effective_output_dir,
                     sections=eda_config.get("sections"),
-                    config=full_config,
+                    config=effective_config,
                 )
                 results = explorer.run()
                 context["eda_results"] = results
+                # ADR-0001: surface the report path for run-metadata output_paths.
+                if isinstance(results, dict) and results.get("report_path"):
+                    context["eda_report_path"] = results["report_path"]
                 return context
 
             def get_required_keys(self) -> List[str]:

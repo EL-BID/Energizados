@@ -75,8 +75,8 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        # Mock secure_load at its source
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        # Mock load at its source
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -110,7 +110,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -135,7 +135,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -157,7 +157,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference(threshold=0.65)
@@ -228,7 +228,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             inference = DefaultInference()
@@ -247,7 +247,7 @@ class TestDefaultInference:
         with open(model_path, "wb") as f:
             pickle.dump(mock_model, f)
 
-        with patch("energizados.core.utils.secure_pickle.secure_load") as mock_load:
+        with patch("energizados.core.utils.integrity_pickle.load") as mock_load:
             mock_load.return_value = mock_model
 
             # Use threshold=0.5 (default)
@@ -314,7 +314,7 @@ class TestInferenceValidation:
             "infer": {
                 "enabled": True,
                 "input_path": "data/processed/test.parquet",
-                "output_path": "output/predictions.csv",
+                "output_predictions_path": "output/predictions.csv",
                 "model_path": "output/train-20260101_1200/models/model.pkl",
                 "feature_engineering_path": "output/train-20260101_1200/models/fe.pkl",
                 "output_include_input": True,
@@ -368,7 +368,7 @@ class TestInferenceValidation:
             "infer": {
                 "enabled": True,
                 "input_path": "data/processed/test.parquet",
-                "output_path": "output/predictions.csv",
+                "output_predictions_path": "output/predictions.csv",
                 "threshold": 0.5,
             }
         }
@@ -389,19 +389,56 @@ def _make_mock_model(proba_values=None):
 
     def _predict_proba(X):
         n = len(X)
-        return np.array(_proba[:n] if len(_proba) >= n else _proba * (n // len(_proba) + 1))
+        if n == 0 or not _proba:
+            return np.array([])
+        # Cycle through ``_proba`` to return EXACTLY n probabilities.
+        # The previous branch ``_proba * (n // len(_proba) + 1)`` over-returned
+        # when len(_proba) did not divide n (e.g. [0.5,0.5] * 3 == 6 for n=4),
+        # silently yielding more predictions than input rows and masking
+        # downstream concat/alignment bugs.
+        return np.array([_proba[i % len(_proba)] for i in range(n)])
 
     model.predict_proba = _predict_proba
     return model
+
+
+class TestMockModelHelper:
+    """Guards for the ``_make_mock_model`` predict_proba helper."""
+
+    def test_predict_proba_returns_exactly_n_rows(self):
+        """predict_proba must return exactly len(X) probabilities.
+
+        Regression: the helper previously over-returned when
+        ``len(proba_values)`` did not divide ``n`` (e.g. ``[0.5, 0.5]`` for
+        ``n=4`` yielded 6 values), masking downstream concat/alignment bugs
+        in the enriched InferenceStep output.
+        """
+        model = _make_mock_model([0.5, 0.5])
+        out = model.predict_proba(np.zeros((4, 2)))
+        assert len(out) == 4
+        assert set(np.unique(out).tolist()) == {0.5}
+
+    def test_predict_proba_cycles_values_when_proba_shorter_than_n(self):
+        """Distinct proba values cycle to fill exactly n rows."""
+        model = _make_mock_model([0.3, 0.7])
+        out = model.predict_proba(np.zeros((5, 2)))
+        assert len(out) == 5
+        assert out.tolist() == [0.3, 0.7, 0.3, 0.7, 0.3]
+
+    def test_predict_proba_empty_input(self):
+        """Empty input yields an empty probability array (no IndexError)."""
+        model = _make_mock_model([0.3, 0.7])
+        out = model.predict_proba(np.zeros((0, 2)))
+        assert len(out) == 0
 
 
 class TestInferenceStepStandalone:
     """Tests for InferenceStep loading model/FE from config paths."""
 
     def test_load_model_from_config_path(self, temp_dir):
-        """When model_path is in config, model loads via secure_load."""
+        """When model_path is in config, model loads via load."""
         mock_model = _make_mock_model([0.3, 0.7, 0.4])
-        # Create a dummy file at model_path (content doesn't matter — secure_load is mocked)
+        # Create a dummy file at model_path (content doesn't matter — load is mocked)
         model_path = temp_dir / "model.pkl"
         model_path.write_bytes(b"fake")
 
@@ -416,7 +453,7 @@ class TestInferenceStepStandalone:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=mock_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=mock_model):
             context = step.execute({})
 
         assert "predictions" in context
@@ -424,7 +461,7 @@ class TestInferenceStepStandalone:
         assert len(context["predictions"]) == 3
 
     def test_load_fe_from_config_path(self, temp_dir):
-        """When feature_engineering_path is in config, FE loads via secure_load."""
+        """When feature_engineering_path is in config, FE loads via load."""
         mock_model = _make_mock_model([0.3, 0.7])
         mock_fe = MagicMock()
         mock_fe.transform = lambda df: df  # passthrough
@@ -446,14 +483,14 @@ class TestInferenceStepStandalone:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        def _secure_load_side_effect(path, **kwargs):
+        def _load_side_effect(path, **kwargs):
             if "fe" in str(path):
                 return mock_fe
             return mock_model
 
         with patch(
-            "energizados.core.utils.secure_pickle.secure_load",
-            side_effect=_secure_load_side_effect,
+            "energizados.core.utils.integrity_pickle.load",
+            side_effect=_load_side_effect,
         ):
             context = step.execute({})
 
@@ -554,7 +591,7 @@ class TestInferenceStepEnrichedOutput:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "csv",
             "threshold": 0.5,
@@ -583,7 +620,7 @@ class TestInferenceStepEnrichedOutput:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "parquet",
             "threshold": 0.5,
@@ -601,7 +638,7 @@ class TestInferenceStepEnrichedOutput:
         assert "probability" in df.columns
 
     def test_output_without_include_input(self, temp_dir):
-        """output_include_input=false → only prediction + probability columns."""
+        """output_include_input=false is a no-op: ALL columns are returned by default."""
         mock_model = _make_mock_model([0.3, 0.7])
         input_data = pd.DataFrame({"f1": [1.0, 2.0], "f2": ["a", "b"]})
         input_path = temp_dir / "input.parquet"
@@ -610,7 +647,7 @@ class TestInferenceStepEnrichedOutput:
 
         config = {
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": False,
             "output_format": "csv",
             "threshold": 0.5,
@@ -622,7 +659,11 @@ class TestInferenceStepEnrichedOutput:
         step.execute(context)
 
         df = pd.read_csv(output_path)
-        assert set(df.columns) == {"prediction", "probability"}
+        # Default behavior now includes all input columns + prediction + probability.
+        assert "f1" in df.columns
+        assert "f2" in df.columns
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
 
     def test_metadata_sidecar_content(self, temp_dir):
         """Metadata sidecar has model_hash, timestamp, threshold, row_count."""
@@ -636,13 +677,13 @@ class TestInferenceStepEnrichedOutput:
         model_path = temp_dir / "model.pkl"
         model_path.write_bytes(b"fake")
         sig_path = str(model_path) + ".sig"
-        with open(sig_path, "w") as f:
+        with open(sig_path, "w", encoding="utf-8") as f:
             f.write("abc123fake_hash")
 
         config = {
             "model_path": str(model_path),
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_include_input": True,
             "output_format": "csv",
             "threshold": 0.5,
@@ -650,13 +691,13 @@ class TestInferenceStepEnrichedOutput:
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=mock_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=mock_model):
             step.execute({})
 
         metadata_path = Path(str(output_path) + ".metadata.json")
         assert metadata_path.exists()
 
-        meta = json.loads(metadata_path.read_text())
+        meta = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert "model_hash" in meta
         assert meta["model_hash"] == "abc123fake_hash"
         assert "timestamp" in meta
@@ -684,19 +725,19 @@ class TestInferenceStepEnrichedOutput:
         config = {
             "model_path": str(model_path),
             "input_path": str(input_path),
-            "output_path": str(output_path),
+            "output_predictions_path": str(output_path),
             "output_format": "csv",
             "threshold": 0.5,
         }
         builder = InferenceBuilder(config)
         step = builder.build()
 
-        with patch("energizados.core.utils.secure_pickle.secure_load", return_value=mock_model):
+        with patch("energizados.core.utils.integrity_pickle.load", return_value=mock_model):
             step.execute({})
 
         metadata_path = Path(str(output_path) + ".metadata.json")
         assert metadata_path.exists()
-        meta = json.loads(metadata_path.read_text())
+        meta = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert meta["model_hash"] is None
 
 
@@ -706,10 +747,10 @@ class TestInferenceStepEnrichedOutput:
 
 
 class TestInferenceTemplate:
-    """Tests for 03_inference.py.tpl template using secure_load."""
+    """Tests for 03_inference.py.tpl template using integrity_pickle.load."""
 
-    def test_template_uses_secure_load(self):
-        """Generated template must use secure_load, not pickle.load."""
+    def test_template_uses_integrity_load(self):
+        """Generated template must reference integrity_pickle.load, not pickle.load."""
         tpl_path = (
             Path(__file__).resolve().parent.parent.parent
             / "src"
@@ -719,9 +760,13 @@ class TestInferenceTemplate:
             / "run"
             / "03_inference.py.tpl"
         )
-        content = tpl_path.read_text()
-        assert "secure_load" in content
-        assert "pickle.load" not in content
+        content = tpl_path.read_text(encoding="utf-8")
+        assert "integrity_pickle.load" in content
+        # Template must not invoke the stdlib pickle loader directly. Note we
+        # match the call form ``pickle.load(`` rather than the bare substring
+        # ``pickle.load`` because the docstring's ``integrity_pickle.load``
+        # reference legitimately contains that substring.
+        assert "pickle.load(" not in content
 
     def test_template_no_import_pickle(self):
         """Generated template must not import pickle."""
@@ -734,7 +779,7 @@ class TestInferenceTemplate:
             / "run"
             / "03_inference.py.tpl"
         )
-        content = tpl_path.read_text()
+        content = tpl_path.read_text(encoding="utf-8")
         assert "import pickle" not in content
 
 
@@ -746,7 +791,7 @@ class TestInferenceTemplate:
 class TestColumnsFilterOperators:
     """Tests for columns_filter with operators (>, <, >=, <=, !=, like) and _expr."""
 
-    def test_filter_equality_simple_list(self):
+    def test_filter_equality_simple_list(self, tmp_path):
         """columns_filter with simple list: zona in ['A', 'B']."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -757,7 +802,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         temp_dir.mkdir(exist_ok=True)
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
@@ -779,7 +824,7 @@ class TestColumnsFilterOperators:
         predictions = result["predictions"]
         assert len(predictions) == 4, f"Expected 4 predictions, got {len(predictions)}"
 
-    def test_filter_operator_greater_than(self):
+    def test_filter_operator_greater_than(self, tmp_path):
         """columns_filter with > operator: consumo > 250."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -789,7 +834,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -807,7 +852,7 @@ class TestColumnsFilterOperators:
         # Should filter: 300, 400, 500 = 3 rows
         assert len(result["predictions"]) == 3
 
-    def test_filter_operator_less_than_equal(self):
+    def test_filter_operator_less_than_equal(self, tmp_path):
         """columns_filter with <= operator: consumo <= 200."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -817,7 +862,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -835,7 +880,7 @@ class TestColumnsFilterOperators:
         # Should filter: 100, 200 = 2 rows
         assert len(result["predictions"]) == 2
 
-    def test_filter_operator_not_equal(self):
+    def test_filter_operator_not_equal(self, tmp_path):
         """columns_filter with != operator: filter out nulls."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -845,7 +890,7 @@ class TestColumnsFilterOperators:
                 "zona": ["A", None, "B", None, "C"],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -867,7 +912,7 @@ class TestColumnsFilterOperators:
         predictions = result["predictions"]
         assert len(predictions) >= 3, f"Expected at least 3 predictions, got {len(predictions)}"
 
-    def test_filter_operator_like(self):
+    def test_filter_operator_like(self, tmp_path):
         """columns_filter with like operator: case-insensitive substring."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -877,7 +922,7 @@ class TestColumnsFilterOperators:
                 "actividad": ["INDUSTRIA_A", "COMERCIO", "INDUSTRIA_B", "SERVICIOS", "AGRICULTURA"],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -895,7 +940,7 @@ class TestColumnsFilterOperators:
         # Should filter: INDUSTRIA_A, INDUSTRIA_B = 2 rows
         assert len(result["predictions"]) == 2
 
-    def test_filter_pandas_expr(self):
+    def test_filter_pandas_expr(self, tmp_path):
         """columns_filter with _expr using pandas query syntax."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -906,7 +951,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -924,7 +969,7 @@ class TestColumnsFilterOperators:
         # Should filter: zona A & consumo >= 200 -> row index 2 (zona=A, consumo=300) = 1 row
         assert len(result["predictions"]) == 1
 
-    def test_filter_multiple_operators_chained(self):
+    def test_filter_multiple_operators_chained(self, tmp_path):
         """columns_filter with multiple operators on same column."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -934,7 +979,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400, 500],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -954,7 +999,7 @@ class TestColumnsFilterOperators:
         # The filter should reduce from 5 rows to fewer rows
         assert len(predictions) < 5, f"Filter should reduce rows, got {len(predictions)}"
 
-    def test_filter_expr_and_simple_combined(self):
+    def test_filter_expr_and_simple_combined(self, tmp_path):
         """columns_filter with both _expr and column filters."""
         from energizados.core.builders.inference_builder import InferenceBuilder
 
@@ -965,7 +1010,7 @@ class TestColumnsFilterOperators:
                 "consumo_1_anterior": [100, 200, 300, 400],
             }
         )
-        temp_dir = Path("/tmp/test_columns_filter")  # nosec B108
+        temp_dir = tmp_path
         input_path = temp_dir / "input.parquet"
         input_data.to_parquet(input_path, index=False)
 
@@ -987,3 +1032,51 @@ class TestColumnsFilterOperators:
         # After _expr (zona == 'B'): rows 1 and 3 (consumo 200 y 400)
         # After consumption filter (> 150): 200, 400 are both > 150 -> 2 rows
         assert len(result["predictions"]) == 2
+
+    def test_columns_filter_with_include_input_no_padding(self, temp_dir):
+        """columns_filter + output_include_input must not pad filtered-out rows.
+
+        Regression: ``original_data`` was captured BEFORE ``columns_filter``, so
+        ``include_input`` prepended the full (pre-filter) input and the outer
+        ``pd.concat`` padded prediction/probability with NaN for the filtered-out
+        rows. The enriched output must contain exactly the filtered rows.
+        """
+        from energizados.core.builders.inference_builder import InferenceBuilder
+
+        mock_model = _make_mock_model([0.5] * 5)
+        input_data = pd.DataFrame(
+            {
+                "zona": ["A", "B", "C", "A", "B"],
+                "consumo_1_anterior": [100, 200, 300, 400, 500],
+            }
+        )
+        input_path = temp_dir / "input.parquet"
+        input_data.to_parquet(input_path, index=False)
+        output_path = temp_dir / "predictions.csv"
+
+        config = {
+            "input_path": str(input_path),
+            "output_predictions_path": str(output_path),
+            "output_include_input": True,
+            "output_format": "csv",
+            "columns_filter": {"zona": ["A", "B"]},
+            "threshold": 0.5,
+        }
+        builder = InferenceBuilder(config)
+        step = builder.build()
+
+        context = {"model": mock_model}
+        step.execute(context)
+
+        assert output_path.exists()
+        df = pd.read_csv(output_path)
+        # Input had 5 rows; filter keeps A(2) + B(2) = 4. Output MUST be 4,
+        # not 5 with a NaN-padded prediction on the filtered-out 'C' row.
+        assert len(df) == 4, f"Expected 4 output rows, got {len(df)}"
+        assert "prediction" in df.columns
+        assert "probability" in df.columns
+        # No NaN predictions/probabilities allowed.
+        assert df["prediction"].isna().sum() == 0
+        assert df["probability"].isna().sum() == 0
+        # Enriched rows must correspond to the kept segments only.
+        assert set(df["zona"]) == {"A", "B"}

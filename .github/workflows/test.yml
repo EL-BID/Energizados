@@ -1,0 +1,91 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master, "release/*"]
+  pull_request:
+  workflow_dispatch:
+
+# Test-only workflow: least-privilege GITHUB_TOKEN scope.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    # PEP 540 UTF-8 mode: Windows runners default to cp1252 for stdio, which
+    # can't encode the non-ASCII glyphs the CLI prints (⚡ ✓ ✗ ⚠ →) and raises
+    # UnicodeEncodeError on the non-TTY stdout CI uses. Harmless on Linux
+    # (already UTF-8). The CLI also self-heals via _ensure_utf8_stdio(); this
+    # covers any other entrypoints.
+    env:
+      PYTHONUTF8: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history needed so the Lint step can compute
+          # `git diff origin/<base_ref>...HEAD` (shallow clone has no base ref).
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev,web]"
+      - name: Lint
+        # Only lint files changed in this PR (vs the base branch). The
+        # repo has pre-existing pre-commit issues in untouched files
+        # (3.11+ compatibility in templates, prettier syntax in
+        # .claude/skills/ assets, etc.) that are out of scope for this
+        # cross-platform patch and would otherwise block every CI run.
+        # github.base_ref is only set on pull_request events, so guard the
+        # whole step with `if: github.event_name == 'pull_request'` and
+        # also declare `shell: bash` so the script parses on windows-latest
+        # (default shell there is pwsh).
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          CHANGED=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}...HEAD)
+          if [ -n "$CHANGED" ]; then
+            echo "Linting changed files:"
+            echo "$CHANGED"
+            pre-commit run --files $CHANGED
+          else
+            echo "No changed files to lint."
+          fi
+      - name: Fast tests
+        run: pytest -m "not slow" -q --no-cov -x
+      - name: Doctor smoke
+        # Smoke-test the doctor command end-to-end. With the sklearn import-name
+        # fix in place, this must not report any required package as missing on
+        # a clean install of the dev extras.
+        run: energizados doctor
+      - name: Init smoke (non-interactive)
+        # bash required on Windows: mktemp/ls are not PowerShell built-ins.
+        # GitHub-hosted windows-latest runners ship with Git Bash on PATH.
+        shell: bash
+        run: |
+          set -e
+          WORK=$(mktemp -d)
+          cd "$WORK"
+          # Clean create (exercises the happy path).
+          energizados init smoke --yes --force
+          # Conflict create WITHOUT --force: exercises the FileExistsError handler
+          # and the --yes-without-force refusal branch (cli/main.py). The refusal
+          # path aborts with a non-zero exit; the assertion in the next line
+          # proves it actually refused instead of silently overwriting.
+          set +e
+          energizados init smoke --yes
+          RC=$?
+          set -e
+          if [ "$RC" -eq 0 ]; then
+            echo "ERROR: --yes without --force should have refused, but exit was 0" >&2
+            exit 1
+          fi
+          ls smoke/src/run/

@@ -16,6 +16,7 @@ import pandas as pd
 
 from energizados.core.exceptions import ETLDependencyError, ETLError
 from energizados.core.utils import import_class
+from energizados.core.utils.memory_sampler import MemorySampler
 
 logger = logging.getLogger(__name__)
 
@@ -63,21 +64,33 @@ class ETLOrchestrator:
         on_etl_start=None,
         on_etl_complete=None,
         on_etl_error=None,
+        profile_memory: bool = False,
     ):
         """Initialize the orchestrator.
 
         Args:
             etl_configs: Dictionary with configuration for each ETL.
+            profile_memory: When True, sample RSS around each ETL ``run`` and
+                surface the stats via ``on_etl_complete(..., metrics=...)`` and
+                ``self.memory_metrics``. Off by default to keep zero overhead
+                in normal runs; the CLI enables it under ``-vv``.
         """
         from energizados._version import SCHEMA_VERSION_KEY
 
-        self.etl_configs = {k: v for k, v in etl_configs.items() if k != SCHEMA_VERSION_KEY}
+        # Filter top-level scalar keys that live under ``etl:`` but are NOT ETL
+        # entries. SCHEMA_VERSION_KEY, output_base_dir and output_name (ADR: generalized run-dir)
+        # would otherwise be treated as ETLs and fail validation (missing
+        # ``input``) or register as bogus DAG nodes.
+        _EXCLUDED_TOP_KEYS = {SCHEMA_VERSION_KEY, "output_base_dir", "output_name"}
+        self.etl_configs = {k: v for k, v in etl_configs.items() if k not in _EXCLUDED_TOP_KEYS}
         self.etl_instances: Dict[str, object] = {}
         self.execution_order: List[str] = []
         self.results: Dict[str, pd.DataFrame] = {}
         self.on_etl_start = on_etl_start
         self.on_etl_complete = on_etl_complete
         self.on_etl_error = on_etl_error
+        self.profile_memory = profile_memory
+        self.memory_metrics: Dict[str, Dict[str, int]] = {}
 
     def validate_dependencies(self) -> None:
         """
@@ -210,7 +223,7 @@ class ETLOrchestrator:
             return None
 
         try:
-            with open(state_path, "r") as f:
+            with open(state_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             logger.debug(f"  • Could not read state file at {state_path}: {e}")
@@ -292,7 +305,12 @@ class ETLOrchestrator:
 
             # Specific file
             else:
-                if not Path(path_spec).exists():
+                # Check if this path is the output of an upstream ETL
+                is_upstream_output = any(
+                    self.etl_configs.get(upstream, {}).get("output") == path_spec
+                    for upstream in self.etl_configs
+                )
+                if not is_upstream_output and not Path(path_spec).exists():
                     raise ETLError(f"ETL '{etl_name}': input file '{path_spec}' does not exist")
                 resolved_paths.append(path_spec)
 
@@ -385,13 +403,23 @@ class ETLOrchestrator:
                 if self.on_etl_start:
                     self.on_etl_start(etl_name, i, len(self.execution_order))
                 try:
-                    result = etl.run(output_path=etl_config.get("output"))
+                    metrics = None
+                    if self.profile_memory:
+                        with MemorySampler() as sampler:
+                            result = etl.run(output_path=etl_config.get("output"))
+                        metrics = sampler.stats
+                        self.memory_metrics[etl_name] = metrics
+                    else:
+                        result = etl.run(output_path=etl_config.get("output"))
                     self.results[etl_name] = result
                     logger.info(f"✓ {etl_name} completed ({len(result)} rows)")
                     if self.on_etl_complete:
-                        self.on_etl_complete(etl_name, len(result))
+                        self.on_etl_complete(etl_name, len(result), metrics=metrics)
                 except Exception as e:
-                    logger.exception(f"✗ {etl_name} failed")
+                    # Log a one-liner here. The full traceback is emitted once by the
+                    # CLI top-level handler (cli.main.run) so it reaches run.log a
+                    # single time and the console doesn't render the traceback twice.
+                    logger.error("✗ %s failed: %s", etl_name, e)
                     if self.on_etl_error:
                         self.on_etl_error(etl_name, e)
                     raise ETLError(f"Error executing ETL '{etl_name}': {e}") from e

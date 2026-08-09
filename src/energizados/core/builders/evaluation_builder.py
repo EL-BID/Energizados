@@ -9,7 +9,6 @@ from typing import Any, Dict, Optional
 from energizados.core.base import PipelineStep
 from energizados.core.builders.base import StepBuilder
 from energizados.core.utils import import_class
-from energizados.evaluation import DefaultEvaluator
 
 
 class EvaluationBuilder(StepBuilder):
@@ -62,6 +61,9 @@ class EvaluationBuilder(StepBuilder):
         model_path = eval_config.get("model_path")
         fe_path = eval_config.get("feature_engineering_path")
 
+        # Lazy import to avoid module-level cycle
+        from energizados.evaluation import DefaultEvaluator
+
         # Use DefaultEvaluator
         return DefaultEvaluator(
             input_path=eval_config.get("input_path"),
@@ -79,6 +81,9 @@ class EvaluationBuilder(StepBuilder):
             segment_columns=eval_config.get("segment_columns"),
             experiment_description=self.experiment_description,
             segmented_evaluation=eval_config.get("segmented_evaluation"),
+            thresholds_output_dir=(
+                (eval_config.get("segmented_evaluation") or {}).get("thresholds_output_dir")
+            ),
         )
 
     def is_enabled(self) -> bool:

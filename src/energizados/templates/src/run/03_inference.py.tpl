@@ -6,6 +6,12 @@ Usage:
 
 The script auto-resolves model and feature engineering paths from the
 run directory and passes them as config overrides to ConfigPipelineBuilder.
+
+SECURITY: Model and feature engineering artifacts are loaded via
+``integrity_pickle.load`` (SHA-256 integrity check + path traversal
+protection) by the inference step. Do NOT load them with the stdlib
+``pickle`` module or bare ``joblib.load`` here — that bypasses integrity
+verification.
 """
 
 import argparse
@@ -13,14 +19,13 @@ import logging
 from pathlib import Path
 
 import yaml
+from energizados.core.pipeline import ConfigPipelineBuilder
 
 logger = logging.getLogger(__name__)
 
-from energizados.core.pipeline import ConfigPipelineBuilder
-from energizados.core.utils.secure_pickle import secure_load
-
 if __name__ == "__main__":
     from energizados.cli.main import _setup_logging
+
     _setup_logging(1)
 
     parser = argparse.ArgumentParser(description="Run inference using a trained model")

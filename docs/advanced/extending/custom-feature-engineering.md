@@ -3,6 +3,7 @@
 ## When to Use This vs Individual Custom Transformers
 
 Use a custom `BaseFeatureEngineering` implementation when you need to:
+
 - Replace the entire preprocessing + feature selection pipeline with a completely custom approach
 - Implement complex interactions between preprocessing and feature selection steps
 - Optimize performance by fusing multiple operations
@@ -76,15 +77,16 @@ class BaseFeatureEngineering(ABC):
             path: Path where to save the pipeline (.pkl extension).
 
         Raises:
-            ValueError: If fit() was not called previously.
+            ModelNotFittedError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("You must call fit() before saving pipeline")
+            from energizados.core.exceptions import ModelNotFittedError
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
 
-        from energizados.core.utils.secure_pickle import secure_dump
+        from energizados.core.utils.integrity_pickle import dump
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-        secure_dump(self, path)
+        dump(self, path)
 
     @classmethod
     def load(cls, path: str) -> "BaseFeatureEngineering":
@@ -96,8 +98,8 @@ class BaseFeatureEngineering(ABC):
         Returns:
             BaseFeatureEngineering: Loaded pipeline.
         """
-        from energizados.core.utils.secure_pickle import secure_load
-        return secure_load(path)
+        from energizados.core.utils.integrity_pickle import load
+        return load(path)
 
     def get_feature_names_out(self) -> list:
         """Returns feature names after transformations.
@@ -106,10 +108,11 @@ class BaseFeatureEngineering(ABC):
             list: List of output feature names.
 
         Raises:
-            ValueError: If fit() was not called previously.
+            ModelNotFittedError: If fit() was not called previously.
         """
         if not self.is_fitted_:
-            raise ValueError("You must call fit() first")
+            from energizados.core.exceptions import ModelNotFittedError
+            raise ModelNotFittedError(model_name=self.__class__.__name__)
         return self._get_feature_names_out()
 
     def _get_feature_names_out(self) -> list:
@@ -168,11 +171,12 @@ class DomainSpecificFeatureEngineering(BaseFeatureEngineering):
 ```
 
 Wire it in `config/train.yaml`:
+
 ```yaml
 train:
   feature_engineering:
     enabled: true
-    custom_class: "features.domain_feature_engineering.DomainSpecificFeatureEngineering"
+    custom_class: "src.features.domain_feature_engineering.DomainSpecificFeatureEngineering"
     params:
       # Any parameters for your custom pipeline
 ```
@@ -189,7 +193,7 @@ train:
     preprocessing:
       columns:
         actividad:
-          - custom_class: "preprocessing.CustomCardinalityReducer"
+          - custom_class: "src.preprocessing.CustomCardinalityReducer"
             params:
               threshold: 0.001
           - to_dummy: {}
@@ -201,7 +205,7 @@ train:
 train:
   feature_engineering:
     preprocessing:
-      custom_class: "preprocessing.CustomPreprocessing"
+      custom_class: "src.preprocessing.CustomPreprocessing"
       params:
         custom_param: value
 ```
@@ -215,12 +219,14 @@ train:
       enabled: true
       steps:
         - name: custom_selector
-          custom_class: "features.CustomFeatureSelector"
+          custom_class: "src.features.CustomFeatureSelector"
           params:
             param1: value1
 ```
 
 ## Available Preprocessing Transformations
+
+> **Note:** Global transformers (listed below) are documented in full detail in the [Training Configuration → Global Transformers](../../user-guide/configuration/train.md#global-transformers) section, including the pre/post encoding stage distinction.
 
 | Transformation | Description | Parameters |
 |----------------|-------------|------------|
@@ -232,8 +238,13 @@ train:
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
 | `tsfel_vars` | Time series feature extraction using tsfel | `num_periodos` (int, default=12), `features` (dict, default=None — inline `{domain: [names]}` selection; if null uses all domains and logs the list), `periods_suffix` (str, default="_anterior"), `n_jobs` (int, default=1), `chunk_size` (int, default=500), `cache_dir` (str, default=None) |
 | `extra_vars` | Statistical features for different time windows | `num_periodos` (int, default=3), `periods_suffix` (str, default="_anterior"), `count_nulls` (bool, default=False) |
-| `group_relative_consumption` | Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` | `group_column` (str, default="actividad"), `windows` (list[int], default=[3,6,12]), `metrics` (list[str], default=["mean","max"]), `periods_suffix` (str, default="_anterior") |
-| `seasonal_anomaly` | Seasonal z-score for each month vs group mean/std for that calendar month. Generates `seasonal_anomaly_{i}_anterior` | `group_column` (str, default="actividad"), `date_column` (str, required), `periods_suffix` (str, default="_anterior") |
+| `group_relative_consumption` | **[pre-encoding]** Consumption relative to group statistics (e.g. actividad, tarifa, zona). Generates `prop_cons_{window}_{metric}_{group_column}` | `group_column` (str, default="actividad"), `windows` (list[int], default=[3,6,12]), `metrics` (list[str], default=["mean","max"]), `periods_suffix` (str, default="_anterior") |
+| `seasonal_anomaly` | **[pre-encoding]** Seasonal z-score for each month vs group mean/std for that calendar month. Generates `seasonal_anomaly_{i}_anterior` | `group_column` (str, default="actividad"), `date_column` (str, required), `periods_suffix` (str, default="_anterior") |
+| `clip_outliers` | Clips extreme values in consumption columns (run first among post-encoding transformers) | `threshold` (float, default=100000), `columns` (list, default=null), `periods_suffix` (str, default="_anterior") |
+| `consumption_patterns` | Domain-specific fraud detection features (diff ratios, zero ratio, z-score, slope, consistency, drastic changes, autocorrelation, seasonal ratio) | `num_periodos` (int, default=12), `periods_suffix` (str, default="_anterior"), plus enable flags (see train.md) |
+| `if_score` | Isolation Forest anomaly score (inverted; higher = more anomalous) | `n_estimators` (int, default=100), `contamination` (float/str, default="auto"), `contamination_from_target` (bool, default=false), plus other params (see train.md) |
+| `temporal_features` | Calendar features from a date column with flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding. Cyclic encoding preserves calendar circularity (Dec & Jan are neighbors) | `date_column` (str, required), `features` (list, default=["month","quarter","week","dayofweek"]), `encoding` (str, default="both" — "flat"/"cyclic"/"both"), `drop_date_column` (bool, default=false) |
+| `geo_features` | Not a built-in key. The `GeoFeatures` transformer provides clustering (`geo_cluster`), IBGE hierarchy, and distances — use it via `GeoFeaturesETL` in `etl.yaml` (recommended; handles file I/O), or directly via `custom_class` here with `include_cluster: true`. | `custom_class` path + `GeoFeatures` params (`include_cluster`, `n_clusters`, `regions_file`, `geo_model_path`, …) |
 
 ## Global Transformers
 
@@ -283,7 +294,7 @@ train:
             periods_suffix: "_anterior"
 
         # Custom global transformer
-        - custom_class: "preprocessing.CustomGlobalTransformer"
+        - custom_class: "src.preprocessing.CustomGlobalTransformer"
           params:
             custom_param: value
 ```
@@ -297,7 +308,7 @@ See [Custom Preprocessing](custom-preprocessing.md) for more details on global t
 import pytest
 import pandas as pd
 
-from features.domain_feature_engineering import DomainSpecificFeatureEngineering
+from src.features.domain_feature_engineering import DomainSpecificFeatureEngineering
 
 
 def test_custom_feature_engineering_fit_transform(synthetic_classification_data):
@@ -329,6 +340,7 @@ def test_custom_feature_engineering_fit_transform(synthetic_classification_data)
 ```
 
 Run tests:
+
 ```bash
 pytest tests/test_custom_feature_engineering.py -v
 ```
@@ -337,7 +349,7 @@ pytest tests/test_custom_feature_engineering.py -v
 
 - [Custom Preprocessing](custom-preprocessing.md) - Custom column and global transformers
 - [Custom Models](custom-model.md) - Model implementations
-- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering) - Available transformations and usage
+- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering-configuration) - Available transformations and usage
 
 ---
 

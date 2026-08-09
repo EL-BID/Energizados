@@ -1,0 +1,180 @@
+<section class="app-card editor-section">
+    <div class="app-card__header">
+        <h2 class="app-card__title">📝 Pipeline Configuration (YAML)</h2>
+    </div>
+    <form hx-post="{{ submit_url | default('/jobs') }}" hx-target="#validation-output" hx-swap="innerHTML">
+            <div class="mb-3">
+                <label for="config-type" class="form-label">Configuration Type</label>
+                <select name="config_type" id="config-type" class="form-select" required>
+                    <option value="etl">ETL Pipeline</option>
+                    <option value="train" selected>Training Pipeline</option>
+                    <option value="eda">Exploratory Data Analysis</option>
+                    <option value="infer">Inference</option>
+                </select>
+            </div>
+
+            <!-- Config authoring helpers: load a shipped template or the project's own config file. -->
+            <div class="mb-3">
+                <label class="form-label small text-muted">Load a preset into the editor</label>
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select id="template-select" class="form-select form-select-sm" data-template-base="/api/templates/">
+                            <option value="">Template…</option>
+                            <option value="etl">ETL template</option>
+                            <option value="train">Train template</option>
+                            <option value="infer">Infer template</option>
+                            <option value="eda">EDA template</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="load-template-btn">Load template</button>
+                    </div>
+                    {% if project_id %}
+                    <div class="col-auto">
+                        <select id="project-config-select" class="form-select form-select-sm">
+                            <option value="">Project config…</option>
+                            <option value="etl">config/etl.yaml</option>
+                            <option value="train">config/train.yaml</option>
+                            <option value="infer">config/infer.yaml</option>
+                            <option value="eda">config/eda.yaml</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm"
+                            id="load-project-config-btn"
+                            data-config-base="/projects/{{ project_id }}/config/"
+                        >Load from project</button>
+                    </div>
+                    {% endif %}
+                </div>
+                <small class="form-text text-muted">Loading replaces the editor contents. Submit is unchanged.</small>
+            </div>
+
+            <div class="mb-3">
+                <label for="yaml-content" class="form-label">YAML Configuration</label>
+                <textarea
+                    name="yaml_content"
+                    id="yaml-content"
+                    class="form-control yaml-editor"
+                    rows="15"
+                    required
+                    placeholder="Enter your pipeline configuration in YAML format...
+
+Example (Training Pipeline):
+train:
+  enabled: true
+  input_path: 'data/processed/dataset.parquet'
+  target_column: 'target'
+
+  split:
+    method: 'stratified'
+    test_size: 0.2
+    random_state: 42
+
+  feature_engineering:
+    enabled: true
+
+  models:
+    - type: 'lightgbm'
+      sampling:
+        method: 'undersample'
+      hyperparams:
+        num_leaves: 31
+        learning_rate: 0.05
+
+  evaluation:
+    enabled: true"
+                ></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="yaml-file" class="form-label">Or upload YAML file</label>
+                <input type="file" id="yaml-file" class="form-control" accept=".yaml,.yml">
+                <small class="form-text text-muted">File upload will populate the editor above</small>
+            </div>
+
+            {% if submit_disabled %}
+            <button type="submit" class="btn btn-primary btn-lg" disabled aria-disabled="true"
+                    title="Global job creation is deprecated (ADR-0002)">
+                🚀 Submit Job (deprecated)
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-primary btn-lg" hx-disabled-elt="this">
+                🚀 Submit Job
+                <span class="app-spinner htmx-indicator" role="status" aria-label="Submitting"></span>
+            </button>
+            {% endif %}
+
+            <button
+                type="button"
+                class="btn btn-outline-secondary btn-lg"
+                hx-post="/plan"
+                hx-target="#validation-output"
+                hx-vals='js:{"yaml_content": document.getElementById("yaml-content").value, "config_type": document.getElementById("config-type").value}'
+                hx-include='[name="yaml_content"]'
+                hx-disabled-elt="this"
+            >
+                👁️ Preview Plan
+                <span class="app-spinner htmx-indicator" role="status" aria-label="Loading plan"></span>
+            </button>
+        </form>
+</section>
+
+<script>
+    // File upload handler - populates textarea when file is selected
+    document.getElementById('yaml-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('yaml-content').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    // Shared: replace the editor contents with fetched text.
+    function fillEditor(text) {
+        document.getElementById('yaml-content').value = text;
+    }
+
+    // Load a shipped config template (raw .tpl content, no substitution).
+    // Available everywhere (global + project views) — templates are package assets.
+    document.getElementById('load-template-btn').addEventListener('click', async function() {
+        const sel = document.getElementById('template-select');
+        const name = sel.value;
+        if (!name) {
+            alert('Pick a template first');
+            return;
+        }
+        const base = sel.dataset.templateBase || '/api/templates/';
+        const r = await fetch(base + encodeURIComponent(name));
+        if (!r.ok) {
+            alert('Could not load template ' + name);
+            return;
+        }
+        fillEditor(await r.text());
+    });
+
+    // Load one of the project's own config files (project-scoped control only).
+    const loadProjectBtn = document.getElementById('load-project-config-btn');
+    if (loadProjectBtn) {
+        loadProjectBtn.addEventListener('click', async function() {
+            const sel = document.getElementById('project-config-select');
+            const type = sel.value;
+            if (!type) {
+                alert('Pick a project config first');
+                return;
+            }
+            const base = loadProjectBtn.dataset.configBase;
+            const r = await fetch(base + encodeURIComponent(type));
+            if (!r.ok) {
+                alert('Could not load project config ' + type);
+                return;
+            }
+            fillEditor(await r.text());
+        });
+    }
+</script>

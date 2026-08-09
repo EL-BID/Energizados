@@ -159,6 +159,22 @@ pip install tensorflow-cpu>=2.10.0
 
 ---
 
+## XGBoost Installation Errors
+
+### Symptom
+
+Error importing XGBoost or installing `energizados[xgboost]`
+
+### Solution
+
+XGBoost is an optional dependency. If import fails, install it explicitly:
+
+```bash
+pip install energizados[xgboost]
+```
+
+---
+
 ## ETL Execution Errors
 
 ### Symptom
@@ -176,7 +192,7 @@ ls -la data/raw/  # Verify input files exist
 2. Validate configuration:
 
 ```bash
-energizados validate config/etl.yaml -v
+energizados validate etl -v
 ```
 
 3. Run with verbose output:
@@ -274,7 +290,7 @@ evaluation:
 ```yaml
 calibration:
   enabled: true
-  method: "cost_benefit"  # Must be: cost_benefit, operational, precision_recall
+  strategy: "cost_benefit"  # Must be: cost_benefit, operational, precision_recall
   params:
     cost_fp: 1  # Required for cost_benefit
     cost_fn: 10
@@ -340,7 +356,7 @@ This checks:
 ### 2. Validate Configuration
 
 ```bash
-energizados validate config/etl.yaml,config/train.yaml -v
+energizados validate etl,train -v
 ```
 
 This verifies:
@@ -387,9 +403,9 @@ energizados run etl --dry-run
 
 If you're still experiencing issues:
 
-1. **Check the documentation:** https://energizados.readthedocs.io
-2. **Search existing issues:** https://github.com/energizados/energizados/issues
-3. **Report a new issue:** https://github.com/energizados/energizados/issues/new
+1. **Check the documentation:** https://github.com/EL-BID/Energizados#readme
+2. **Search existing issues:** https://github.com/EL-BID/Energizados/issues
+3. **Report a new issue:** https://github.com/EL-BID/Energizados/issues/new
 
 When reporting an issue, include:
 

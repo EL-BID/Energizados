@@ -43,11 +43,13 @@ class PipelineDirector:
 
     def __init__(
         self,
-        config_path: str = None,
-        config: Dict = None,
-        config_paths: List[str] = None,
+        config_path: Optional[str] = None,
+        config: Optional[Dict] = None,
+        config_paths: Optional[List[str]] = None,
         run_name: Optional[str] = None,
         overwrite: bool = False,
+        run_type: Optional[str] = None,
+        derived_from: Optional[str] = None,
     ):
         """
         Initialize the director.
@@ -58,6 +60,10 @@ class PipelineDirector:
             config_paths: List of all config files used (for copying to run dir)
             run_name: Optional custom run directory name
             overwrite: If True, overwrite existing run directory
+            run_type: ADR-0001 optional explicit run type. When None (default),
+                the type is computed from the config in ``build()`` by priority
+                ``training > inference > eda > etl``.
+            derived_from: ADR-0003 optional source run_id for retrain lineage.
         """
         if config is not None:
             self.config = config
@@ -71,11 +77,83 @@ class PipelineDirector:
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
         self._run_name: Optional[str] = run_name
         self._overwrite: bool = overwrite
-        self.run_manager = RunManager(self.config_paths, run_name=run_name, overwrite=overwrite)
+        self._explicit_run_type: Optional[str] = run_type
+        self.run_manager = RunManager(
+            self.config_paths,
+            run_name=run_name,
+            overwrite=overwrite,
+            run_type=run_type if run_type is not None else "training",
+            derived_from=derived_from,
+        )
         self._run_dir: Optional[Path] = None
 
         # Validate configuration against schema
         self._validate_config()
+
+    def _compute_run_type(self) -> str:
+        """Compute the single run type for this config (ADR-0001).
+
+        Priority ``training > inference > eda > etl`` so a merged etl+train
+        config stays a training run (preserves today's behavior). Only PURE
+        non-training configs get a typed run dir.
+
+        Returns:
+            One of ``training``/``inference``/``eda``/``etl``.
+        """
+        train_config = self.config.get("train", {})
+        eval_config = train_config.get("evaluation", {}) or self.config.get("evaluation", {})
+        if train_config.get("enabled", False) or eval_config.get("enabled", False):
+            return "training"
+        if self.config.get("infer", {}).get("enabled", False):
+            return "inference"
+        if self.config.get("eda", {}).get("enabled", False):
+            return "eda"
+        if self.config.get("etl"):
+            return "etl"
+        return "training"
+
+    def _resolve_base_output_dir(self) -> str:
+        """Resolve the base output directory (ADR-0001).
+
+        Checks ``train``/``infer``/``eda``/``etl`` sections for
+        ``output_base_dir`` in that priority order; defaults to ``output``. The
+        worker has already chdir'd into the project, so relative paths resolve
+        under the project root. Including ``etl`` lets a pure-ETL run place its
+        run-dir (log + config copy) outside the default ``output/``.
+        """
+        for section in ("train", "infer", "eda", "etl"):
+            cfg = self.config.get(section, {})
+            if isinstance(cfg, dict) and cfg.get("output_base_dir"):
+                return cfg["output_base_dir"]
+        return "output"
+
+    def _resolve_output_name(self) -> Optional[str]:
+        """Resolve the run-directory NAME from config (ADR: mirror output_base_dir).
+
+        Checks ``train``/``infer``/``eda``/``etl`` sections for ``output_name`` in
+        that priority order; defaults to ``None`` (timestamped run dir). This is
+        the config-driven equivalent of the CLI ``-n`` flag. The CLI value
+        (``self._run_name``) takes precedence over this — see ``build()``.
+        """
+        for section in ("train", "infer", "eda", "etl"):
+            cfg = self.config.get(section, {})
+            if isinstance(cfg, dict) and cfg.get("output_name"):
+                return cfg["output_name"]
+        return None
+
+    def _has_enabled_section(self) -> bool:
+        """True if any pipeline section is enabled (ADR-0001 run-dir gate)."""
+        train_config = self.config.get("train", {})
+        eval_config = train_config.get("evaluation", {}) or self.config.get("evaluation", {})
+        if train_config.get("enabled", False) or eval_config.get("enabled", False):
+            return True
+        if self.config.get("infer", {}).get("enabled", False):
+            return True
+        if self.config.get("eda", {}).get("enabled", False):
+            return True
+        if self.config.get("etl"):
+            return True
+        return False
 
     def _load_config(self, path: str) -> Dict:
         """Load configuration from YAML."""
@@ -103,14 +181,16 @@ class PipelineDirector:
         """
         pipeline = Pipeline(config=self.config)
 
-        # Generate timestamped run directory if training or evaluation is enabled
-        train_config = self.config.get("train", {})
-        eval_config = train_config.get("evaluation", {}) or self.config.get("evaluation", {})
-        if train_config.get("enabled", False) or eval_config.get("enabled", False):
-            base_output_dir = train_config.get("output_base_dir", "output")
-            self._run_dir = self.run_manager.generate_run_dir(
-                base_output_dir, run_name=self._run_name
-            )
+        # ADR-0001: create a typed run directory when ANY enabled section is
+        # present (not just training/evaluation). Compute ONE run_type by
+        # priority before generate_run_dir so the prefix is correct.
+        if self._has_enabled_section():
+            run_type = self._explicit_run_type or self._compute_run_type()
+            self.run_manager._run_type = run_type
+            base_output_dir = self._resolve_base_output_dir()
+            # CLI -n (self._run_name) takes precedence over config output_name.
+            run_name = self._run_name or self._resolve_output_name()
+            self._run_dir = self.run_manager.generate_run_dir(base_output_dir, run_name=run_name)
 
         # Build and add each step
         # Step 1: ETL
@@ -142,34 +222,43 @@ class PipelineDirector:
         if not eval_config:
             eval_config = self.config.get("evaluation", {})
         if eval_config.get("enabled", False):
-            eval_output_dir = (
-                str(self._run_dir / "reports" / "evaluation") if self._run_dir else None
-            )
-            experiment_description = self.config.get("train", {}).get("description")
-            eval_builder = EvaluationBuilder(
-                eval_config, eval_output_dir, experiment_description=experiment_description
-            )
-            eval_step = eval_builder.build()
-            if eval_step is not None:
-                pipeline.add_step(eval_step)
+            split_method = split_config.get("method", "stratified")
+            if split_method == "none":
+                logger.warning(
+                    "Evaluation is enabled but split.method is 'none' — no test set "
+                    "available. Skipping evaluation step automatically."
+                )
+            else:
+                eval_output_dir = (
+                    str(self._run_dir / "reports" / "evaluation") if self._run_dir else None
+                )
+                experiment_description = self.config.get("train", {}).get("description")
+                eval_builder = EvaluationBuilder(
+                    eval_config, eval_output_dir, experiment_description=experiment_description
+                )
+                eval_step = eval_builder.build()
+                if eval_step is not None:
+                    pipeline.add_step(eval_step)
 
-        # Step 5: Inference
+        # Step 5: Inference (ADR-0001: predictions relocate into the run dir)
         if self.config.get("infer", {}).get("enabled", False):
-            inference_builder = InferenceBuilder(self.config.get("infer", {}))
+            inference_builder = InferenceBuilder(
+                self.config.get("infer", {}), run_dir=self._run_dir
+            )
             inference_step = inference_builder.build()
             if inference_step is not None:
                 pipeline.add_step(inference_step)
 
-        # Step 6: EDA
+        # Step 6: EDA (ADR-0001: report relocates into the run dir)
         if self.config.get("eda", {}).get("enabled", False):
-            eda_builder = EDABuilder(self.config.get("eda", {}))
+            eda_builder = EDABuilder(self.config.get("eda", {}), run_dir=self._run_dir)
             eda_step = eda_builder.build()
             if eda_step is not None:
                 pipeline.add_step(eda_step)
 
         return pipeline
 
-    def run(self) -> Dict[str, Any]:
+    def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """
         Convenience method: builds and runs the pipeline, then performs post-run tasks.
 
@@ -179,13 +268,18 @@ class PipelineDirector:
 
         If pipeline fails, cleans up empty run directories.
 
+        Args:
+            progress_callback: Optional callback invoked with ProgressEvent objects,
+                forwarded to Pipeline.run. Used by the web worker to stream live
+                job progress to the SSE endpoint.
+
         Returns:
             Dict: Final context with pipeline results
         """
         pipeline = self.build()
 
         try:
-            result = pipeline.run()
+            result = pipeline.run(progress_callback=progress_callback)
         except Exception:
             # Clean up empty run directory on failure
             self._cleanup_failed_run()

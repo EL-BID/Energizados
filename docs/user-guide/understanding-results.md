@@ -144,6 +144,29 @@ The default threshold is 0.5, but **this is rarely optimal for fraud detection**
    - Calculate expected value: `(TP × savings_per_fraudster) - (FP × cost_per_inspection)`
    - Choose threshold that maximizes expected profit
 
+### Automatic Threshold Calibration
+
+Instead of choosing a threshold by hand, the framework can **automatically find the optimal threshold on the validation set**. Enable it under `evaluation.calibration` in `train.yaml`, selecting one of three strategies via **`calibration.strategy`**:
+
+| Strategy | What it optimizes | Key parameters |
+|----------|-------------------|----------------|
+| `cost_benefit` | Minimizes total cost `(FP × cost_fp) + (FN × cost_fn)` (default) | `cost_fp` (default 1), `cost_fn` (default 10) |
+| `operational` | Sets the threshold so the number of alerts matches your inspection capacity | `capacity` (default 100 — max alerts per period) |
+| `precision_recall` | Picks the highest threshold that still maintains a minimum recall | `min_recall` (default 0.80) |
+
+```yaml
+evaluation:
+  threshold: 0.5            # ignored when calibration.enabled = true
+  calibration:
+    enabled: true
+    strategy: "cost_benefit"   # cost_benefit | operational | precision_recall
+    params:
+      cost_fp: 1
+      cost_fn: 10
+```
+
+> **Important:** The config key is **`calibration.strategy`**. Do not confuse it with **probability calibration** (`calibration.method`, values `isotonic`/`sigmoid`), which is a separate feature.
+
 !!! tip
     The evaluation report includes interactive threshold sliders that update all metrics in real-time. Use this to find the optimal threshold for your business context.
 
@@ -217,6 +240,29 @@ The report generates:
 
 !!! warning "Low sample segments"
     If a segment has very few samples, its metrics may be unreliable. The report highlights segments with low counts.
+
+### Segmented Evaluation (advanced)
+
+Beyond the simple `segment_columns` list above, `evaluation.segmented_evaluation` gives finer control — including **column combinations** (joined with `+`, e.g. `"zona+nivel_tension"`) and a per-segment **threshold mode**. This is the recommended path for production reports (it is what bumped the `train` schema to v2).
+
+!!! example "segmented_evaluation"
+    ```yaml
+    evaluation:
+      segmented_evaluation:
+        by: ["zona", "tipo_tarifa", "zona+nivel_tension"]  # columns and combos via "+"
+        min_samples: 30            # skip segments smaller than this
+        threshold_mode: "youden"   # global | youden | f1_optimal | recall_target
+        recall_target: 0.80        # only used when threshold_mode=recall_target
+    ```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `by` | `[]` | Columns or combinations (joined with `+`) to segment by |
+| `min_samples` | `30` | Minimum samples per segment; smaller segments are skipped |
+| `threshold_mode` | `"global"` | How the per-segment threshold is chosen: `global`, `youden`, `f1_optimal`, `recall_target` |
+| `recall_target` | `0.80` | Target recall, only used when `threshold_mode=recall_target` |
+
+> Per-segment thresholds are exported as `segment_thresholds_*.json` next to the trained model (a deployment artifact consumed at predict time). Override the export location with `segmented_evaluation.thresholds_output_dir`.
 
 ## Comparing Runs
 

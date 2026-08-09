@@ -11,7 +11,7 @@ This guide covers setting up a development environment for contributing to the E
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/EL-BID/energizados.git
+git clone https://github.com/EL-BID/Energizados.git
 cd energizados
 ```
 
@@ -132,7 +132,7 @@ energizados init mi_proyecto
 energizados run etl,train
 
 # Validate configuration
-energizados validate --config config/etl.yaml --config config/train.yaml
+energizados validate etl,train
 ```
 
 ## Working with Documentation
@@ -161,9 +161,9 @@ Documentation source files live in `docs/`. The site configuration is in `mkdocs
 ## See Also
 
 - [Contributing Guide](contributing.md) - Code quality standards and testing
-- [Extending Framework](extending/) - Customizing the framework
-- [User Guide](../user-guide/) - End-user documentation
+- [Extending Framework](extending/custom-etl.md) - Customizing the framework
+- [User Guide](../user-guide/project-structure.md) - End-user documentation
 
 ---
 
-← [Advanced Topics](../advanced/) | [Contributing](contributing.md) →
+← [Advanced Topics](architecture.md) | [Contributing](contributing.md) →

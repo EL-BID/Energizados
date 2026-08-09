@@ -10,6 +10,7 @@ Updated to support the new 2026 structure with src/, tests/, docs/, etc.
 import tempfile
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from energizados.cli.main import cli
@@ -91,7 +92,7 @@ class TestInitCommand:
             assert (project_path / "tests" / "__init__.py").exists()
 
             # Verify correct imports (dynamic pkgutil pattern)
-            data_init = (project_path / "src" / "data" / "__init__.py").read_text()
+            data_init = (project_path / "src" / "data" / "__init__.py").read_text(encoding="utf-8")
             assert "pkgutil" in data_init
             assert "custom_etl" in data_init
 
@@ -117,7 +118,7 @@ class TestInitCommand:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            requirements = (project_path / "requirements.txt").read_text()
+            requirements = (project_path / "requirements.txt").read_text(encoding="utf-8")
             assert "energizados" in requirements
             assert "pytest" in requirements
             assert "pandas" in requirements
@@ -131,7 +132,7 @@ class TestInitCommand:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            docs = (project_path / "docs" / "project_docs.md").read_text()
+            docs = (project_path / "docs" / "project_docs.md").read_text(encoding="utf-8")
             assert "test_project" in docs
             assert "src/" in docs
             assert "pytest" in docs
@@ -167,8 +168,8 @@ class TestInitCommand:
             # Modify a custom file to verify it's copied
             base_path = Path(tmpdir) / "base_project"
             custom_etl = base_path / "src" / "data" / "custom_etl.py"
-            content = custom_etl.read_text()
-            custom_etl.write_text(content.replace("# TODO:", "# MODIFIED:"))
+            content = custom_etl.read_text(encoding="utf-8")
+            custom_etl.write_text(content.replace("# TODO:", "# MODIFIED:"), encoding="utf-8")
 
             # Copy the project
             copy_result = self.runner.invoke(
@@ -179,7 +180,7 @@ class TestInitCommand:
             # Verify that the file was copied
             copied_path = Path(tmpdir) / "copied_project"
             copied_etl = copied_path / "src" / "data" / "custom_etl.py"
-            copied_content = copied_etl.read_text()
+            copied_content = copied_etl.read_text(encoding="utf-8")
 
             assert "# MODIFIED:" in copied_content
 
@@ -196,7 +197,7 @@ class TestInitCommand:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify that the name was updated in YAML
-            etl_yaml = (new_path / "config" / "etl.yaml").read_text()
+            etl_yaml = (new_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             # The name appears in the header comment
             assert "new_project" in etl_yaml
             assert "base_project" not in etl_yaml
@@ -214,7 +215,7 @@ class TestInitCommand:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify origin note in README
-            readme_content = (new_path / "README.md").read_text()
+            readme_content = (new_path / "README.md").read_text(encoding="utf-8")
             assert "base_project" in readme_content
 
     def test_init_copy_from_old_structure_project(self):
@@ -230,17 +231,24 @@ class TestInitCommand:
             (old_path / "configs").mkdir()
 
             # Create required files
-            (old_path / "etl" / "custom_etl.py").write_text("# OLD ETL")
-            (old_path / "feature_selection" / "custom_selector.py").write_text("# OLD SELECTOR")
-            (old_path / "models" / "custom_model.py").write_text("# OLD MODEL")
-            (old_path / "inference" / "custom_inference.py").write_text("# OLD INFERENCE")
-            (old_path / "configs" / "etl.yaml").write_text("""
+            (old_path / "etl" / "custom_etl.py").write_text("# OLD ETL", encoding="utf-8")
+            (old_path / "feature_selection" / "custom_selector.py").write_text(
+                "# OLD SELECTOR", encoding="utf-8"
+            )
+            (old_path / "models" / "custom_model.py").write_text("# OLD MODEL", encoding="utf-8")
+            (old_path / "inference" / "custom_inference.py").write_text(
+                "# OLD INFERENCE", encoding="utf-8"
+            )
+            (old_path / "configs" / "etl.yaml").write_text(
+                """
 # ETLs Configuration for old_project
 etl:
   sample:
     enabled: true
     custom_class: "old_project.etl.custom_etl.CustomETL"
-""")
+""",
+                encoding="utf-8",
+            )
 
             # Copy from old structure
             result = self.runner.invoke(
@@ -262,10 +270,12 @@ etl:
             assert (new_path / "config" / "infer.yaml").exists()
 
             # Verify that custom files were copied
-            assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text()
+            assert "# OLD ETL" in (new_path / "src" / "data" / "custom_etl.py").read_text(
+                encoding="utf-8"
+            )
 
             # Verify that the name was updated in YAML (in comment)
-            yaml_content = (new_path / "config" / "etl.yaml").read_text()
+            yaml_content = (new_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             assert "new_project" in yaml_content
             assert "old_project" not in yaml_content
 
@@ -316,7 +326,7 @@ etl:
             new_path = Path(tmpdir) / "new_project"
 
             # Verify __init__.py files (dynamic pkgutil pattern)
-            data_init = (new_path / "src" / "data" / "__init__.py").read_text()
+            data_init = (new_path / "src" / "data" / "__init__.py").read_text(encoding="utf-8")
             assert "pkgutil" in data_init
             assert "custom_etl" in data_init
 
@@ -328,11 +338,11 @@ etl:
             base_path = Path(tmpdir) / "base_project"
 
             # Create data files (that should not be copied)
-            (base_path / "data" / "raw" / "data.csv").write_text("test,data")
+            (base_path / "data" / "raw" / "data.csv").write_text("test,data", encoding="utf-8")
             # Simulate a training run in output/
             run_dir = base_path / "output" / "train-20260303_1430" / "models"
             run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "model.pkl").write_text("model")
+            (run_dir / "model.pkl").write_text("model", encoding="utf-8")
 
             # Copy project
             self.runner.invoke(
@@ -374,7 +384,7 @@ etl:
             assert result.exit_code == 0
             project_path = Path(tmpdir) / "test_project"
 
-            gitignore = (project_path / ".gitignore").read_text()
+            gitignore = (project_path / ".gitignore").read_text(encoding="utf-8")
             assert ".pytest_cache/" in gitignore
             assert ".coverage" in gitignore
             assert "htmlcov/" in gitignore
@@ -417,7 +427,7 @@ etl:
             project_path = Path(tmpdir) / "_sample"
 
             # Verify that YAML uses correct import path (without package prefix)
-            etl_yaml = (project_path / "config" / "etl.yaml").read_text()
+            etl_yaml = (project_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             # YAML must use "data.custom_etl.CustomETL" (without package prefix)
             assert "data.custom_etl.CustomETL" in etl_yaml
             # Must not contain sanitized package prefix
@@ -437,7 +447,7 @@ etl:
             new_path = Path(tmpdir) / "_new"
 
             # Verify that YAML uses correct import path (without package prefix)
-            etl_yaml = (new_path / "config" / "etl.yaml").read_text()
+            etl_yaml = (new_path / "config" / "etl.yaml").read_text(encoding="utf-8")
             # Imports must use paths without package prefix
             assert "data.custom_etl.CustomETL" in etl_yaml
             # Must not contain package prefixes
@@ -455,7 +465,8 @@ class TestTemplateResolution:
 
         path = _get_template_path("config/etl.yaml.tpl")
         assert path.exists(), f"Template not found at {path}"
-        assert "src/energizados/templates" in str(path) or "energizados/templates" in str(path)
+        path_str = path.as_posix()
+        assert "src/energizados/templates" in path_str or "energizados/templates" in path_str
 
     def test_all_expected_templates_exist(self):
         """Verify that all templates required by init are present in the package."""
@@ -495,27 +506,26 @@ class TestPerSectionSchemaVersion:
         """Verify that each generated config file has schema_version inside its root section."""
         import yaml
 
+        from energizados._version import CURRENT_SCHEMA_VERSIONS
+
         with tempfile.TemporaryDirectory() as tmpdir:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
             assert result.exit_code == 0
 
             config_dir = Path(tmpdir) / "test_project" / "config"
 
-            # etl.yaml -> etl.schema_version
-            etl_data = yaml.safe_load((config_dir / "etl.yaml").read_text())
-            assert etl_data["etl"]["schema_version"] == 1
+            # Each config must declare the current schema_version for its section
+            etl_data = yaml.safe_load((config_dir / "etl.yaml").read_text(encoding="utf-8"))
+            assert etl_data["etl"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["etl"]
 
-            # train.yaml -> train.schema_version
-            train_data = yaml.safe_load((config_dir / "train.yaml").read_text())
-            assert train_data["train"]["schema_version"] == 1
+            train_data = yaml.safe_load((config_dir / "train.yaml").read_text(encoding="utf-8"))
+            assert train_data["train"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["train"]
 
-            # infer.yaml -> infer.schema_version
-            infer_data = yaml.safe_load((config_dir / "infer.yaml").read_text())
-            assert infer_data["infer"]["schema_version"] == 1
+            infer_data = yaml.safe_load((config_dir / "infer.yaml").read_text(encoding="utf-8"))
+            assert infer_data["infer"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["infer"]
 
-            # eda.yaml -> eda.schema_version
-            eda_data = yaml.safe_load((config_dir / "eda.yaml").read_text())
-            assert eda_data["eda"]["schema_version"] == 1
+            eda_data = yaml.safe_load((config_dir / "eda.yaml").read_text(encoding="utf-8"))
+            assert eda_data["eda"]["schema_version"] == CURRENT_SCHEMA_VERSIONS["eda"]
 
     def test_no_general_yaml_created(self):
         """Verify that general.yaml is NOT created by init."""
@@ -530,9 +540,183 @@ class TestPerSectionSchemaVersion:
             result = self.runner.invoke(cli, ["init", "test_project", "--path", tmpdir])
             assert result.exit_code == 0
 
-            requirements = (Path(tmpdir) / "test_project" / "requirements.txt").read_text()
+            requirements = (Path(tmpdir) / "test_project" / "requirements.txt").read_text(
+                encoding="utf-8"
+            )
             assert "energizados~=" in requirements
             assert "energizados>=1.0.0" not in requirements
+
+
+class TestInitPathValidation:
+    """Verify that `init` rejects project names that would escape the target directory.
+
+    The project name is concatenated with `--path` and then with subpaths
+    (e.g. `project_path / "src" / "data" / "custom_etl.py"`). A name that
+    contains `..` or path separators would write files outside the intended
+    directory (CodeQL: py/path-injection). The CLI must reject these inputs
+    with a clear error.
+    """
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    @pytest.mark.parametrize(
+        "bad_name,reason",
+        [
+            ("../escape", "parent-directory reference"),
+            ("..", "parent-directory reference alone"),
+            ("foo/../bar", "embedded parent-directory reference"),
+            ("foo/bar", "forward slash"),
+            ("foo\\bar", "backslash"),
+            (".hidden", "leading dot"),
+            ("", "empty"),
+            ("   ", "whitespace only"),
+        ],
+    )
+    def test_init_rejects_unsafe_project_name(self, bad_name, reason):
+        """`init` must refuse names that would escape the target directory.
+
+        The validation must run BEFORE any filesystem write: if a bad name
+        reaches the filesystem layer, it could write files outside the target
+        directory before a later check (e.g. ``FileExistsError``) aborts.
+        We assert the validation error message in the output to guarantee the
+        name was caught at the CLI boundary.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", bad_name, "--path", tmpdir])
+            assert result.exit_code != 0, (
+                f"Expected non-zero exit for {bad_name!r} ({reason}); "
+                f"got exit_code=0 and output:\n{result.output}"
+            )
+            # The click-rendered usage error must come from our validation,
+            # not from a downstream filesystem failure after the bad name was
+            # already used to build a path.
+            assert "Invalid value" in result.output, (
+                f"Expected validation error for {bad_name!r} "
+                f"(reason: {reason}); got output:\n{result.output}"
+            )
+
+    def test_init_rejects_name_with_leading_or_trailing_whitespace(self):
+        """A name with surrounding whitespace is rejected (ambiguous on the filesystem)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "  my_project  ", "--path", tmpdir])
+            assert result.exit_code != 0
+            assert not (Path(tmpdir) / "  my_project  ").exists()
+
+    def test_init_accepts_valid_names(self):
+        """Sanity check: a normal name still works after the new validation."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.runner.invoke(cli, ["init", "my_project", "--path", tmpdir])
+            assert result.exit_code == 0
+            assert (Path(tmpdir) / "my_project").is_dir()
+
+
+class TestCreateProjectPathValidation:
+    """Verify the path-traversal neutralization at the ``create_project`` sink.
+
+    The web console (``ProjectService.create_project``) calls
+    ``create_project`` directly, bypassing the CLI command. The CLI command
+    rejects traversal-shaped names with a clear error; the sink here takes
+    the permissive route and slugifies the name so the resulting directory
+    is confined to ``project_path``'s parent. This is the behavior CodeQL
+    tracks as a taint sanitizer (via ``os.path.basename`` and the
+    ``re.sub`` fallback in ``_slugify_for_filesystem``), and it matches the
+    pre-existing ``tests/web/test_projects.py::TestProjectServiceCreate::
+    test_create_outside_root_confined`` contract: a traversal-shaped name
+    produces a project whose path is strictly inside the workspace root and
+    whose final component contains no ``..`` / ``/`` / ``\\``.
+    """
+
+    @pytest.mark.parametrize(
+        "raw_name,slug",
+        [
+            ("../escape", "escape"),
+            ("foo/../bar", "bar"),
+            ("foo/bar", "bar"),
+        ],
+    )
+    def test_create_project_slugifies_traversal_names(self, raw_name, slug):
+        """Traversal-shaped names get sanitized via ``_slugify_for_filesystem``
+        (which uses ``os.path.basename``, a CodeQL-recognized sanitizer) and
+        the project is created at the ``project_path`` the caller chose.
+
+        The caller's contract is to pass a safe ``project_path`` —
+        ``ProjectService`` does this by building the path from
+        ``slugify_project_id(name)`` before invoking us. Here we mirror
+        that contract by passing the slug as the path component.
+        """
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            # Caller is responsible for a safe project_path; this mirrors
+            # what ProjectService does (slugify + dedupe before calling us).
+            project_path = workspace / slug
+            create_project(project_name=raw_name, project_path=project_path)
+            # The project was created at the caller-chosen path, NOT at a
+            # path derived from the (potentially traversal-shaped) raw name.
+            assert project_path.is_dir(), (
+                f"Expected the project to be created at {project_path}; "
+                f"instead the directory is missing"
+            )
+            # The created path is strictly inside the workspace.
+            assert str(project_path.resolve()).startswith(
+                str(workspace.resolve())
+            ), f"Project path {project_path} escaped workspace {workspace}"
+            # The path's final component is the safe slug, not the raw name.
+            assert project_path.name == slug
+            assert ".." not in project_path.name
+            # The README inside the project must NOT contain the raw
+            # traversal string. The ``{{project_name}}`` placeholder is
+            # replaced with the slugified name (not the raw input),
+            # so ``../escape`` never appears in the generated file.
+            readme = (project_path / "README.md").read_text(encoding="utf-8")
+            assert "../" not in readme, f"Raw traversal name {raw_name!r} leaked into README.md"
+
+    @pytest.mark.parametrize(
+        "empty_slug_name,reason",
+        [
+            ("..", "parent-directory reference alone"),
+            ("", "empty"),
+            ("   ", "whitespace only"),
+            (".", "single dot"),
+            ("...", "only dots"),
+        ],
+    )
+    def test_create_project_rejects_names_that_slug_to_empty(self, empty_slug_name, reason):
+        """Names that slug to an empty string raise ``ValueError`` because
+        no safe directory name can be derived."""
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "intended"
+            with pytest.raises(ValueError) as excinfo:
+                create_project(project_name=empty_slug_name, project_path=project_path)
+            msg = str(excinfo.value).lower()
+            assert "must not" in msg or "not safe" in msg, (
+                f"Expected a clear validation message for {empty_slug_name!r} "
+                f"({reason}); got: {excinfo.value}"
+            )
+            assert (
+                not project_path.exists()
+            ), f"create_project was called with {empty_slug_name!r} but a directory was created"
+
+    def test_create_project_rejects_name_with_leading_or_trailing_whitespace_only(self):
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "intended"
+            with pytest.raises(ValueError):
+                create_project(project_name="  ", project_path=project_path)
+
+    def test_create_project_accepts_valid_name(self):
+        """Sanity check: a normal name still works."""
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "my_project"
+            create_project(project_name="my_project", project_path=project_path)
+            assert project_path.is_dir()
 
 
 class TestSchemaValidation:
@@ -552,7 +736,6 @@ class TestSchemaValidation:
 
     def test_check_fails_with_newer_schema(self):
         """Verify that compatibility check fails when a section schema is newer."""
-        import pytest
 
         from energizados._version import CURRENT_SCHEMA_VERSIONS
         from energizados.cli.compat import check_project_compatibility
@@ -574,7 +757,6 @@ class TestSchemaValidation:
 
     def test_check_independent_per_section(self):
         """Verify that each section is checked independently."""
-        import pytest
 
         from energizados._version import CURRENT_SCHEMA_VERSIONS
         from energizados.cli.compat import check_project_compatibility

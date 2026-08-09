@@ -61,10 +61,10 @@ The project includes scripts in the `src/run/` directory to run each stage:
 
 ```bash
 # Run a specific stage
-python src/run/01_etl.py          # ETLs
+python src/run/00_etl.py          # ETLs
+python src/run/01_eda.py          # EDA
 python src/run/02_training.py     # Training
-python src/run/03_evaluation.py   # Evaluation
-python src/run/04_inference.py    # Inference
+python src/run/03_inference.py    # Inference
 ```
 
 ### Run the full pipeline
@@ -147,6 +147,21 @@ training:
   test_size: 0.2
   val_size: 0.1
 
+  split:
+    method: "stratified"  # stratified | random | time_series | group_based | stratified_time
+    test_size: 0.2
+    val_size: 0.1
+    # Optional: inject unlabeled negatives as target=0 (reduces selection bias)
+    # unlabeled_negatives:
+    #   enabled: true
+    #   source_path: "data/external/unlabeled.parquet"
+    #   max_per_cutoff: 1500
+    # Optional: balance geographic representation in train set
+    # geo_stratify:
+    #   enabled: true
+    #   column: "geo_region"
+    #   strategy: "proportional"  # proportional | equal | capped
+
   feature_engineering:
     columns:
       actividad:
@@ -165,22 +180,39 @@ training:
       n_estimators: 100
 ```
 
-### 3. Customize ETL
+### 3. Configure Inference
+
+Edit `config/infer.yaml`:
+
+```yaml
+infer:
+  enabled: true
+  input_path: "data/processed/dataset_infer.parquet"
+  output_predictions_path: "output/predictions.csv"
+  threshold: 0.5
+  # Optional: apply per-segment thresholds from evaluation
+  # segment_thresholds:
+  #   enabled: true
+  #   path: "output/train-YYYYMMDD_HHMM/models/segment_thresholds_zona.json"
+  # Unknown segment values fall back to the global `threshold` above.
+```
+
+### 4. Customize ETL
 
 Edit `src/data/custom_etl.py` to implement your extraction,
 transformation and data loading logic.
 
-### 4. Customize Feature Engineering (optional)
+### 5. Customize Feature Engineering (optional)
 
 Edit the `feature_engineering` section in `config/training.yaml` or create
 `src/features/custom_selector.py` to implement your own feature pipeline.
 
-### 5. Customize Model
+### 6. Customize Model
 
 Edit `src/models/custom_model.py` to implement your own ML model,
 inheriting from `BaseModel`.
 
-### 6. Add Utilities
+### 7. Add Utilities
 
 Edit `src/utils/helpers.py` to add utility functions
 shared between modules.

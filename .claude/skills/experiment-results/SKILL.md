@@ -30,8 +30,14 @@ metadata:
 
 ### Input Discovery
 
-1. **Locate the experiments directory**: Look in `{project}/.projects/{name}/output/{version}/exp/`
-   - Fallback: standard framework output at `output/` (runs named `train-YYYYMMDD_HHMM/`)
+1. **Locate the experiments directory**: Each training run writes to its own directory under
+   `output/`, named `train-YYYYMMDD_HHMM/` (or a custom name passed via `energizados run -n`).
+   When experiments are grouped into a parent folder (e.g. `output/{version}/exp/` or any
+   project-specific layout), discover that directory first; otherwise scan `output/` directly.
+   - There is **no framework-mandated experiments folder name** — any grouping (`.projects/`,
+     `.proyects/`, a version subfolder, etc.) is a local/project convention, not a framework
+     one. Do not hardcode either spelling; resolve the directory from context instead.
+   - Each experiment subdir must contain `reports/evaluation/evaluation_report.json`.
 2. **Locate the roadmap**: Look for `_experiments.md` at the same level as the config
 3. **Read ALL `evaluation_report.json`** files from each experiment subdirectory
 

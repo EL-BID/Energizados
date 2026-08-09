@@ -289,7 +289,7 @@ src/energizados/
 │   │   └── utils.py
 │   └── utils/            # Internal utilities
 │       ├── import_utils.py   # Dynamic import with allowlist
-│       └── secure_pickle.py  # Pickle with SHA-256 verification
+│       └── integrity_pickle.py  # Pickle with SHA-256 verification
 │
 ├── eda/                   # Exploratory Data Analysis
 │   ├── base.py                # BaseExplorer: abstract class
@@ -335,23 +335,23 @@ src/energizados/
 │   ├── ensemble.py          # EnsembleModel: soft voting or stacking
 │   └── simple_models.py     # Baseline: simple rule-based models
 │
-└── preprocessing/         # Data transformers
+└── preprocessing/         # Data transformers (subclass sklearn BaseEstimator/TransformerMixin directly; no framework base class)
     ├── preprocessing.py     # ToDummy, TeEncoder, CardinalityReducer, etc.
-    ├── base.py              # BaseTransformer: abstract class
     └── transformers/        # Specific transformers (if structured separately)
 ```
 
 ### Extension Points
 
-The framework provides several base classes for extending functionality:
+The framework provides several base classes for extending functionality. All of them are **defined in `src/energizados/contracts.py`** — the single source of truth (since v0.2.7). The per-package `base.py` modules (`energizados.core.base`, `energizados.etl.base`, etc.) are backward-compatible **import shims** that re-export from `energizados.contracts`.
 
-| Base Class | Location | Purpose |
+| Base Class | Defined in | Purpose |
 |------------|----------|---------|
-| `BaseETL` | `src/energizados/etl/base.py` | Create custom ETLs |
-| `BaseFeatureEngineering` | `src/energizados/feature_engineering/base.py` | Custom feature engineering pipelines |
-| `BaseFeatureSelector` | `src/energizados/feature_selection/base.py` | Custom feature selection methods |
-| `BaseInference` | `src/energizados/inference/base.py` | Custom inference logic |
-| `BaseExplorer` | `src/energizados/eda/base.py` | Custom EDA phases |
+| `BaseModel` | `energizados.contracts` | Custom model implementations |
+| `BaseInference` | `energizados.contracts` | Custom inference logic |
+| `BaseETL` | `energizados.contracts` | Create custom ETLs |
+| `BaseFeatureEngineering` | `energizados.contracts` | Custom feature engineering pipelines |
+| `BaseFeatureSelector` | `energizados.contracts` | Custom feature selection methods |
+| `BaseExplorer` | `energizados.contracts` | Custom EDA phases |
 
 ## Continuous Integration
 
@@ -395,8 +395,7 @@ jobs:
 
       - name: Validate configs
         run: |
-          poetry run energizados validate --config config/etl.yaml
-          poetry run energizados validate --config config/train.yaml
+          poetry run energizados validate etl,train
 
       - name: Dry run pipeline
         run: |
@@ -470,10 +469,10 @@ git push origin v0.2.0
 ## Additional Resources
 
 - **[Development Setup](development-setup.md)** — Setting up your dev environment
-- **[Extending Framework](extending/)** — Creating custom components
-- **[User Guide](../user-guide/)** — End-user documentation
+- **[Extending Framework](extending/custom-etl.md)** — Creating custom components
+- **[User Guide](../user-guide/project-structure.md)** — End-user documentation
 - **`AGENTS.md`** — Rules for AI agents
 
 ---
 
-← [Development Setup](development-setup.md) | [Advanced Topics](../advanced/) →
+← [Development Setup](development-setup.md) | [Advanced Topics](architecture.md) →

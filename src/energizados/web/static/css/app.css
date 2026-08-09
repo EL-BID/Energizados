@@ -1,0 +1,535 @@
+/*
+ * Energizados Web Console — design-token layer + app shell styles.
+ *
+ * Foundation phase of the UI redesign: establishes the theming system
+ * (light default + dark) wired into Bootstrap 5.3 CSS variables, the app-shell
+ * layout (sidebar + topbar + main + footer), and preserves the legacy
+ * component classes (.job-card, .status-badge, .yaml-editor, ...) that page
+ * templates and HTMX fragments depend on.
+ *
+ * Loaded by templates/base.html AFTER the Bootstrap CDN so token overrides
+ * win. Self-hosting the font + Bootstrap is a tracked TODO (Rollout phase).
+ */
+
+/* ============================================================
+ * Design tokens — light (default)
+ * ============================================================ */
+:root,
+[data-bs-theme="light"],
+[data-theme="light"] {
+  /* Brand */
+  --app-primary: #6366f1;          /* indigo-500 */
+  --app-primary-400: #818cf8;
+  --app-primary-600: #4f46e5;
+  --app-primary-700: #4338ca;
+  --app-primary-rgb: 99, 102, 241;
+
+  /* Neutrals */
+  --app-bg: #f8fafc;               /* slate-50 */
+  --app-surface: #ffffff;
+  --app-surface-2: #f1f5f9;        /* slate-100 (subtle raised) */
+  --app-text: #0f172a;             /* slate-900 */
+  --app-muted: #64748b;            /* slate-500 */
+  --app-border: #e2e8f0;           /* slate-200 */
+
+  /* Semantic */
+  --app-success: #10b981;          /* emerald-500 */
+  --app-success-rgb: 16, 185, 129;
+  --app-warning: #f59e0b;          /* amber-500 */
+  --app-warning-rgb: 245, 158, 11;
+  --app-danger: #ef4444;           /* red-500 */
+  --app-danger-rgb: 239, 68, 68;
+
+  /* Spacing scale */
+  --app-space-1: 0.25rem;
+  --app-space-2: 0.5rem;
+  --app-space-3: 0.75rem;
+  --app-space-4: 1rem;
+  --app-space-5: 1.5rem;
+  --app-space-6: 2rem;
+
+  /* Radius */
+  --app-radius-sm: 0.25rem;
+  --app-radius-md: 0.5rem;
+  --app-radius-lg: 0.75rem;
+
+  /* Shadow */
+  --app-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --app-shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
+
+  /* Type */
+  --app-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --app-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* ---- Bootstrap wiring (runtime recolor, no Sass recompile) ---- */
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: var(--app-primary-rgb);
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-emphasis-color: var(--app-text);
+  --bs-secondary-color: var(--app-muted);
+  --bs-secondary-bg: var(--app-surface-2);
+  --bs-tertiary-bg: var(--app-surface);
+  --bs-border-color: var(--app-border);
+  --bs-heading-color: var(--app-text);
+  --bs-link-color: var(--app-primary-600);
+  --bs-link-hover-color: var(--app-primary-700);
+  --bs-font-sans-serif: var(--app-font-sans);
+  --bs-body-font-family: var(--app-font-sans);
+}
+
+/* ============================================================
+ * Design tokens — dark
+ * Bootstrap 5.3 already flips many component vars under
+ * [data-bs-theme="dark"]; we realign the palette to our tokens.
+ * ============================================================ */
+[data-bs-theme="dark"],
+[data-theme="dark"] {
+  --app-primary: #818cf8;          /* indigo-400 — brighter for dark bg */
+  --app-primary-400: #a5b4fc;
+  --app-primary-600: #6366f1;
+  --app-primary-700: #4f46e5;
+  --app-primary-rgb: 129, 140, 248;
+
+  --app-bg: #0f172a;               /* slate-900 */
+  --app-surface: #1e293b;          /* slate-800 */
+  --app-surface-2: #273449;        /* slate-750 */
+  --app-text: #e2e8f0;             /* slate-200 */
+  --app-muted: #94a3b8;            /* slate-400 */
+  --app-border: #334155;           /* slate-700 */
+
+  --app-success: #34d399;
+  --app-success-rgb: 52, 211, 153;
+  --app-warning: #fbbf24;
+  --app-warning-rgb: 251, 191, 36;
+  --app-danger: #f87171;
+  --app-danger-rgb: 248, 113, 113;
+
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --app-shadow-md: 0 6px 16px rgba(0, 0, 0, 0.5);
+
+  --bs-body-bg: var(--app-bg);
+  --bs-body-color: var(--app-text);
+  --bs-emphasis-color: var(--app-text);
+  --bs-secondary-color: var(--app-muted);
+  --bs-secondary-bg: var(--app-surface-2);
+  --bs-tertiary-bg: var(--app-surface);
+  --bs-border-color: var(--app-border);
+  --bs-heading-color: var(--app-text);
+  --bs-link-color: var(--app-primary);
+  --bs-link-hover-color: var(--app-primary-400);
+}
+
+/* ============================================================
+ * Base element defaults
+ * ============================================================ */
+html { scroll-behavior: smooth; }
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--app-font-sans);
+}
+code, pre, .font-mono, .yaml-editor { font-family: var(--app-font-mono); }
+a { color: var(--bs-link-color); }
+a:hover { color: var(--bs-link-hover-color); }
+
+/* ============================================================
+ * Bootstrap component recolor — primary becomes brand indigo.
+ * These per-component var overrides are the documented Bootstrap 5.3
+ * runtime theming path (no Sass recompile of the CDN build needed).
+ * ============================================================ */
+.btn-primary {
+  --bs-btn-bg: var(--app-primary);
+  --bs-btn-border-color: var(--app-primary);
+  --bs-btn-hover-bg: var(--app-primary-600);
+  --bs-btn-hover-border-color: var(--app-primary-600);
+  --bs-btn-active-bg: var(--app-primary-700);
+  --bs-btn-active-border-color: var(--app-primary-700);
+  --bs-btn-disabled-bg: var(--app-primary);
+  --bs-btn-disabled-border-color: var(--app-primary);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-color: #fff;
+  --bs-btn-disabled-color: #fff;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--app-primary);
+  --bs-btn-border-color: var(--app-primary);
+  --bs-btn-hover-bg: var(--app-primary);
+  --bs-btn-hover-border-color: var(--app-primary);
+  --bs-btn-active-bg: var(--app-primary);
+  --bs-btn-active-border-color: var(--app-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-color: #fff;
+}
+.text-primary { color: var(--app-primary) !important; }
+.border-primary { border-color: var(--app-primary) !important; }
+.bg-primary { background-color: var(--app-primary) !important; }
+.link-primary { color: var(--app-primary) !important; }
+.list-group-item.active { background-color: var(--app-primary); border-color: var(--app-primary); }
+
+/* ============================================================
+ * App shell layout — sidebar + topbar + main + footer
+ * ============================================================ */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--app-bg);
+}
+
+.app-sidebar {
+  width: 260px;
+  flex: 0 0 260px;
+  background-color: var(--app-surface);
+  border-right: 1px solid var(--app-border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.app-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-4);
+  border-bottom: 1px solid var(--app-border);
+  text-decoration: none;
+  color: var(--app-text);
+}
+.app-sidebar__brand:hover { color: var(--app-primary); }
+.app-sidebar__brand .app-logo {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--app-radius-md);
+  background: linear-gradient(135deg, var(--app-primary), var(--app-primary-700));
+  color: #fff;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.app-sidebar__brand-title { font-weight: 700; line-height: 1.1; }
+.app-sidebar__brand-sub { font-size: .72rem; color: var(--app-muted); }
+
+.app-nav { padding: var(--app-space-2) var(--app-space-3); flex: 1 1 auto; }
+.app-nav__section-label {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--app-muted);
+  padding: var(--app-space-3) var(--app-space-2) var(--app-space-1);
+}
+.app-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) var(--app-space-3);
+  border-radius: var(--app-radius-md);
+  color: var(--app-text);
+  text-decoration: none;
+  font-size: .9rem;
+  line-height: 1.25;
+}
+.app-nav__link:hover { background-color: var(--app-surface-2); color: var(--app-text); }
+.app-nav__link.is-active {
+  background-color: color-mix(in srgb, var(--app-primary) 14%, transparent);
+  color: var(--app-primary);
+  font-weight: 600;
+}
+.app-nav__icon { width: 18px; text-align: center; opacity: .85; flex: 0 0 auto; }
+.app-nav__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.app-sidebar__footer {
+  padding: var(--app-space-3);
+  border-top: 1px solid var(--app-border);
+  font-size: .72rem;
+  color: var(--app-muted);
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;                   /* allow inner content to shrink/wrap */
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background-color: color-mix(in srgb, var(--app-surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(8px);
+  -webkit-backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--app-border);
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  padding: var(--app-space-3) var(--app-space-5);
+}
+.app-topbar__title { font-size: 1rem; font-weight: 600; margin: 0; }
+.app-topbar__spacer { flex: 1 1 auto; }
+
+.app-content {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--app-space-5);
+}
+
+.app-footer {
+  border-top: 1px solid var(--app-border);
+  padding: var(--app-space-4) var(--app-space-5);
+  font-size: .8rem;
+  color: var(--app-muted);
+}
+.app-footer a { color: var(--app-muted); text-decoration: none; }
+.app-footer a:hover { color: var(--app-text); }
+.app-footer__legacy-label { margin-right: var(--app-space-2); }
+.app-footer__legacy { display: inline-flex; flex-wrap: wrap; gap: var(--app-space-3); }
+
+/* Theme toggle button */
+.app-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  background: transparent;
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  border-radius: var(--app-radius-md);
+  padding: var(--app-space-1) var(--app-space-3);
+  font-size: .85rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.app-theme-toggle:hover { background-color: var(--app-surface-2); }
+.app-theme-toggle__icon { font-size: 1rem; line-height: 1; }
+
+/* Mobile: sidebar collapses off-canvas (foundation minimal — full drawer in Rollout) */
+.app-sidebar-toggle { display: none; }
+@media (max-width: 767.98px) {
+  .app-sidebar { display: none; }
+  .app-sidebar.is-open {
+    display: flex;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1030;
+    width: 80vw;
+    max-width: 320px;
+    box-shadow: var(--app-shadow-md);
+  }
+  .app-sidebar-toggle { display: inline-flex; }
+}
+
+/* ============================================================
+ * Legacy component classes — preserved verbatim from the old base.html
+ * inline <style>, retokened. Kept so existing page templates and HTMX
+ * fragments render unchanged during the UI rollout. DO NOT remove until
+ * the Rollout phase has restyled every consumer.
+ * ============================================================ */
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: var(--app-surface);
+  padding: var(--app-space-5);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-sm);
+}
+.editor-section { margin-bottom: 30px; }
+.jobs-section { margin-top: 30px; }
+.status-badge {
+  padding: 4px 8px;
+  border-radius: var(--app-radius-sm);
+  font-size: .85em;
+  font-weight: 600;
+}
+.status-queued { background-color: var(--app-warning); color: #000; }
+.status-running { background-color: var(--app-primary); color: #fff; }
+.status-success { background-color: var(--app-success); color: #fff; }
+.status-partial { background-color: #fd7e14; color: #fff; }
+.status-failed { background-color: var(--app-danger); color: #fff; }
+.status-aborted { background-color: var(--app-muted); color: #fff; }
+.job-card {
+  margin-bottom: 15px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-md);
+  padding: 15px;
+  background-color: var(--app-surface);
+}
+.validation-errors {
+  background-color: color-mix(in srgb, var(--app-danger) 14%, transparent);
+  border: 1px solid var(--app-danger);
+  border-radius: var(--app-radius-md);
+  padding: 15px;
+  margin-bottom: 20px;
+}
+.yaml-editor {
+  font-family: var(--app-font-mono);
+  min-height: 300px;
+}
+
+/* ============================================================
+ * Project hero (project_detail.html) — token-grounded helpers
+ * Extends the .app-* shell vocabulary (not a parallel system).
+ * ============================================================ */
+.app-hero {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  padding: var(--app-space-5);
+  box-shadow: var(--app-shadow-sm);
+}
+.app-hero__title { font-size: 1.5rem; font-weight: 700; margin: 0; line-height: 1.15; }
+.app-hero__path {
+  display: block;
+  font-family: var(--app-font-mono);
+  font-size: .82rem;
+  color: var(--app-muted);
+  word-break: break-all;
+  margin-top: var(--app-space-1);
+}
+.app-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-5);
+  margin-top: var(--app-space-5);
+  padding-top: var(--app-space-4);
+  border-top: 1px solid var(--app-border);
+}
+.app-stat { display: flex; flex-direction: column; gap: var(--app-space-1); min-width: 120px; }
+.app-stat__value { font-size: 1.05rem; font-weight: 700; line-height: 1.1; }
+.app-stat__label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--app-muted);
+}
+
+.app-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  padding: var(--app-space-4) var(--app-space-5);
+  box-shadow: var(--app-shadow-sm);
+}
+.app-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--app-space-3);
+  margin-bottom: var(--app-space-3);
+}
+.app-card__title { font-size: 1.1rem; font-weight: 600; margin: 0; }
+.app-card__title--sm { font-size: .98rem; }
+.app-card__link { font-size: .85rem; }
+.app-card__count { font-size: .8rem; color: var(--app-muted); }
+.app-card__meta {
+  margin-top: var(--app-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.app-section-title {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--app-muted);
+  margin: 0 0 var(--app-space-3);
+}
+.app-subtitle {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--app-muted);
+  margin: 0 0 var(--app-space-2);
+}
+
+.app-metrics { display: flex; flex-wrap: wrap; gap: var(--app-space-4); }
+.app-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-1);
+  min-width: 92px;
+  padding: var(--app-space-3) var(--app-space-4);
+  background-color: var(--app-surface-2);
+  border-radius: var(--app-radius-md);
+}
+.app-metric__label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--app-muted);
+}
+.app-metric__value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-empty {
+  color: var(--app-muted);
+  font-size: .9rem;
+  padding: var(--app-space-3);
+  background-color: var(--app-surface-2);
+  border-radius: var(--app-radius-md);
+}
+.app-empty--inline { padding: var(--app-space-2) var(--app-space-3); }
+
+/* ============================================================
+ * Loading states — token-grounded spinner + region placeholder.
+ *
+ * HTMX-native wiring: pair .app-spinner.htmx-indicator with
+ * hx-disabled-elt="this" on the triggering element. htmx toggles the
+ * htmx-request class for the duration of an in-flight request, which
+ * flips the spinner from display:none to inline-block below. No JS.
+ * ============================================================ */
+.app-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  border: 2px solid color-mix(in srgb, var(--app-primary) 30%, transparent);
+  border-top-color: var(--app-primary);
+  border-radius: 50%;
+  animation: app-spin 0.65s linear infinite;
+}
+@keyframes app-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner { animation: none; }
+}
+
+/* Region placeholder: spinner + label for initial async loads
+   (e.g. the job list before its first HTMX fetch resolves). */
+.app-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  color: var(--app-muted);
+  font-size: .9rem;
+  padding: var(--app-space-3);
+  background-color: var(--app-surface-2);
+  border-radius: var(--app-radius-md);
+}
+
+/* A spinner carrying the htmx-indicator class is hidden until the owning
+   request is in flight. We toggle display (not the default opacity) so the
+   spinner reserves no layout space while idle. */
+.app-spinner.htmx-indicator { display: none; }
+.htmx-request .app-spinner.htmx-indicator,
+.app-spinner.htmx-indicator.htmx-request { display: inline-block; }
+
+/* Compact tables inside hero cards (Foundation density) */
+.app-card .table { --bs-table-bg: transparent; margin: 0; }
+.app-card .table th {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--app-muted);
+  font-weight: 600;
+}
+.app-card .table td { font-size: .88rem; }

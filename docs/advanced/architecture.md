@@ -20,15 +20,25 @@ The framework provides:
 
 ```
 src/energizados/
+├── contracts.py                # SINGLE HOME of all 8 framework base classes (BaseModel, BasePipeline, BaseEvaluator, BaseInference, BaseETL, BaseFeatureEngineering, BaseFeatureSelector, BaseExplorer) — since v0.2.7
+├── api/                        # Service-layer API: programmatic framework usage with structured returns, no stdout coupling
+│   ├── validate.py          # validate_dict(config, config_type) → ValidationResult
+│   ├── config.py            # doctor(), merge_configs(); DoctorReport, CheckResult
+│   ├── run_state.py         # RunManager, RunResult, RunMetadata (query run dirs)
+│   ├── progress.py          # ProgressEvent, console_progress() (streaming observability)
+│   ├── pipeline.py          # Pipeline re-export (from_dict, plan)
+│   └── exceptions.py        # format_error() standardized error envelopes
 ├── preprocessing/              # Data cleaning and feature engineering transformers
 │   ├── preprocessing.py      # Core transformers (ToDummy, TeEncoder, etc.)
 │   ├── geo_features.py      # GeoFeatures transformer + _IBGEGeocoder
-│   └── base.py             # BaseTransformer abstract class
+│   ├── group_features.py    # GroupRelativeConsumption, SeasonalAnomaly (pre-encoding transformers)
+│   └── isolation_forest_score.py  # IsolationForestScore anomaly scorer
 │
 ├── modeling/                   # Model implementations
-│   ├── supervised_models.py  # LGBMModel, CATModel, NNModel, LSTMNNModel
-│   ├── adapters.py          # LGBMModelAdapter, CATModelAdapter, NNModelAdapter, LSTMNNModelAdapter
+│   ├── supervised_models.py  # LGBMModel, CATModel, XGBModel, NNModel, LSTMNNModel
+│   ├── adapters.py          # Model adapters (LGBM/CAT/XGB/NN/LSTMNN + SimpleTrend/SimpleConstant)
 │   ├── ensemble.py          # EnsembleModel (soft voting and stacking)
+│   ├── registry.py          # ModelRegistry: maps model type names → adapter classes
 │   └── simple_models.py     # Rule-based baseline models
 │
 ├── feature_engineering/       # Combined preprocessing + feature selection
@@ -37,18 +47,25 @@ src/energizados/
 │
 ├── feature_selection/         # Feature selection methods
 │   ├── base.py             # BaseFeatureSelector abstract class
-│   └── methods.py          # BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector
+│   ├── methods.py          # BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector
+│   ├── column_resolver.py  # ColumnResolver: resolves column selectors → concrete column lists
+│   └── pipeline.py         # FeatureSelectionPipeline + SelectionStep: chains selectors in order
 │
 ├── evaluation/               # Model evaluation and reporting
 │   ├── evaluator.py        # DefaultEvaluator: runs full evaluation
 │   ├── metrics.py          # Metrics calculation (AUC, F1, etc.)
 │   ├── plots.py            # PlotGenerator: ROC, precision-recall, etc.
+│   ├── plots_interactive.py # EvalInteractivePlots: interactive Plotly charts (HTML strings)
+│   ├── calibration.py      # ThresholdCalibrator: optimal threshold search (youden/f1_optimal/recall_target)
+│   ├── comparative.py      # ComparativeEvaluator: cross-run metric comparison
 │   ├── report.py           # ReportGenerator: HTML + JSON
-│   └── index.py            # index.html: summary table of all runs
+│   ├── index.py            # index.html: summary table of all runs
+│   └── _html_templates.py  # Shared HTML/CSS/JS templates for reports and index
 │
 ├── inference/                # Inference implementations
 │   ├── base.py             # BaseInference abstract class
-│   └── default.py          # DefaultInference implementation
+│   ├── default.py          # DefaultInference implementation
+│   └── hierarchical.py     # HierarchicalInference: routes rows to per-route models by column-value conditions
 │
 ├── core/                     # Core framework components
 │   ├── base.py             # Base classes: Pipeline, Model, Inference
@@ -70,7 +87,7 @@ src/energizados/
 │   │   └── utils.py
 │   └── utils/              # Internal utilities
 │       ├── import_utils.py   # Dynamic import with allowlist
-│       └── secure_pickle.py  # SHA-256 verified pickle save/load
+│       └── integrity_pickle.py  # SHA-256 verified pickle save/load
 │
 ├── cli/                      # Command-line interface
 │   ├── main.py             # CLI commands
@@ -101,10 +118,19 @@ src/energizados/
 │   ├── __init__.py
 │   └── shap_explainer.py      # ShapExplainer (TreeExplainer + KernelExplainer)
 │
-└── etl/                       # ETL framework components
-    ├── base.py             # BaseETL abstract class
-    ├── pipeline.py         # SourceETL implementation
-    └── orchestrator.py     # ETLOrchestrator for dependency management
+├── etl/                       # ETL framework components
+│   ├── base.py             # BaseETL abstract class
+│   ├── pipeline.py         # SourceETL implementation
+│   └── orchestrator.py     # ETLOrchestrator for dependency management
+│
+└── web/                       # Web console & async job runner (multi-project workspace)
+    ├── app.py             # FastAPI application (HTMX UI)
+    ├── launcher.py        # energizados-web launcher (server + worker)
+    ├── store.py           # JobStore (SQLite persistence)
+    ├── runner.py          # JobRunner worker execution engine
+    ├── worker.py          # Worker CLI entrypoint
+    ├── projects.py        # Multi-project workspace management
+    └── models.py          # JobStatus enum, JobRow dataclass
 ```
 
 ### Generated Project Structure
@@ -139,7 +165,7 @@ mi_proyecto/
 | `core/base.py` | Provides base classes for Pipeline, Model, and Inference |
 | `core/steps/` | Implements pipeline steps (splitting, training) |
 | `core/utils/import_utils.py` | Dynamic class loading with security allowlist |
-| `core/utils/secure_pickle.py` | Pickle serialization with SHA-256 verification |
+| `core/utils/integrity_pickle.py` | Pickle serialization with SHA-256 verification |
 
 ### Configuration Schema Module
 
@@ -184,7 +210,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `StepBuilder` | `base.py` | Abstract base class that defines the interface for all pipeline step builders. Subclasses implement `build()` to construct specific pipeline steps. |
 | `RunManager` | `run_manager.py` | Handles run directory management: creates timestamped run directories, copies config files to the run directory, and regenerates the global `index.html` summary. |
 | `ETLBuilder` | `etl_builder.py` | Constructs ETL pipeline steps using `ETLOrchestrator` to execute ETLs with dependencies. |
-| `SplitBuilder` | `split_builder.py` | Constructs data splitting steps (stratified, random, or time-series split) from configuration. |
+| `SplitBuilder` | `split_builder.py` | Constructs data splitting steps (stratified, random, time-series, group-based, stratified-time, or no-holdout) from configuration. |
 | `TrainingBuilder` | `training_builder.py` | Constructs training steps that perform feature engineering and model training. Supports single models or ensembles. |
 | `EvaluationBuilder` | `evaluation_builder.py` | Constructs evaluation steps using `DefaultEvaluator` to generate metrics, plots, and reports. |
 | `InferenceBuilder` | `inference_builder.py` | Constructs inference steps for making predictions with trained models. |
@@ -210,7 +236,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | Module | Responsibility |
 |---------|---------------|
 | `etl/base.py` | `BaseETL` abstract class for custom ETL implementations |
-| `etl/pipeline.py` | `SourceETL` - supports concat (vertical) and merge (horizontal) modes |
+| `etl/pipeline.py` | `SourceETL` - supports concat (vertical), merge (horizontal), and incremental (record-level filtering) modes. Also includes `ClipOutliersETL` (clips extreme values in consumption columns), `CleanFilesETL` (deletes specified files), and `GeoFeaturesETL` (adds geographic features from lat/lon). |
 | `etl/orchestrator.py` | `ETLOrchestrator` - manages ETL execution order based on dependencies |
 
 ### Feature Engineering
@@ -221,15 +247,18 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `feature_engineering/default.py` | Default implementation combining preprocessing + feature selection |
 | `feature_selection/base.py` | `BaseFeatureSelector` abstract class for custom selectors |
 | `feature_selection/methods.py` | Built-in selectors: BorutaSelector, CorrelationSelector, ConstantSelector, CategoricalSelector, MutualInformationSelector |
-| `preprocessing/preprocessing.py` | Core transformers: ToDummy, TeEncoder, CardinalityReducer, etc. |
+| `feature_selection/column_resolver.py` | `ColumnResolver`: resolves column selectors (names/patterns/exclusions) to concrete column lists |
+| `feature_selection/pipeline.py` | `FeatureSelectionPipeline` + `SelectionStep`: chains multiple selectors in configured order |
+| `preprocessing/preprocessing.py` | Core transformers: ToDummy, TeEncoder, CardinalityReducer, etc. These subclass sklearn `BaseEstimator`/`TransformerMixin` directly — there is no framework preprocessing base class (`preprocessing/base.py` does not exist). |
 
 ### Modeling
 
 | Module | Responsibility |
 |---------|---------------|
-| `modeling/supervised_models.py` | LGBMModel, CATModel, NNModel, LSTMNNModel implementations |
-| `modeling/adapters.py` | Model adapters for framework integration |
+| `modeling/supervised_models.py` | LGBMModel, CATModel, XGBModel, NNModel, LSTMNNModel implementations |
+| `modeling/adapters.py` | Model adapters for framework integration: LGBMModelAdapter, CATModelAdapter, XGBModelAdapter, NNModelAdapter, LSTMNNModelAdapter |
 | `modeling/ensemble.py` | EnsembleModel: soft voting or stacking with meta-learner |
+| `modeling/registry.py` | `ModelRegistry`: maps model type names (e.g. `lightgbm`, `catboost`) to their adapter classes; default models auto-registered at import |
 | `modeling/simple_models.py` | Rule-based baseline models |
 
 ### Evaluation
@@ -241,6 +270,10 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | `evaluation/plots.py` | `PlotGenerator` - ROC, precision-recall, cumulative gains |
 | `evaluation/report.py` | `ReportGenerator` - HTML + JSON reports |
 | `evaluation/index.py` | Generates index.html summary of all training runs |
+| `evaluation/plots_interactive.py` | `EvalInteractivePlots` - interactive Plotly charts (HTML strings) |
+| `evaluation/calibration.py` | `ThresholdCalibrator` - optimal threshold search (youden, f1_optimal, recall_target) |
+| `evaluation/comparative.py` | `ComparativeEvaluator` - cross-run metric comparison |
+| `evaluation/_html_templates.py` | Shared HTML/CSS/JS templates for reports and index |
 
 ### Inference
 
@@ -248,6 +281,7 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 |---------|---------------|
 | `inference/base.py` | `BaseInference` abstract class for custom inference |
 | `inference/default.py` | `DefaultInference` - standard inference implementation |
+| `inference/hierarchical.py` | `HierarchicalInference` - routes rows to different models based on column-value conditions (multi-model inference with fallback) |
 
 ### EDA Module
 
@@ -270,6 +304,19 @@ The `core/builders/` module implements the **Builder pattern** for constructing 
 | Module | Responsibility |
 |---------|---------------|
 | `explainability/shap_explainer.py` | `ShapExplainer`: SHAP-based model explainability with TreeExplainer and KernelExplainer support |
+
+### Service Layer API
+
+| Module | Responsibility |
+|---------|---------------|
+| `api/validate.py` | `validate_dict(config, config_type)` → `ValidationResult` (no file I/O); the programmatic counterpart of the `validate` CLI command |
+| `api/config.py` | `doctor()` system health checks, `merge_configs()` deep merge; `DoctorReport`, `CheckResult` |
+| `api/run_state.py` | `RunManager` (query run directories), `RunResult`, `RunMetadata` |
+| `api/progress.py` | `ProgressEvent` + `console_progress()` for streaming progress to CLI/observability |
+| `api/pipeline.py` | `Pipeline` re-export (`Pipeline.from_dict`, `Pipeline.plan`) |
+| `api/exceptions.py` | `format_error()` standardized error envelopes with error codes |
+
+> The CLI delegates to this layer; every CLI command is a thin wrapper over `energizados.api`. Use `api` directly for programmatic/web/embedded usage — it returns structured objects and never couples to stdout.
 
 ### CLI
 
@@ -420,18 +467,20 @@ EDA is a standalone module that can be run independently of training.
 
 ## Extension Points
 
-The framework provides several base classes for extending functionality:
+The framework provides several base classes for extending functionality. Since v0.2.7, **all eight base classes are defined in a single module — `src/energizados/contracts.py` — which is the single source of truth.** The per-package `base.py` modules (`energizados.core.base`, `energizados.etl.base`, `energizados.feature_engineering.base`, `energizados.feature_selection.base`, `energizados.eda.base`, `energizados.inference.base`) are backward-compatible **import shims** that re-export from `energizados.contracts`, so existing import paths keep working.
 
-| Base Class | Location | Purpose |
+| Base Class | Defined in | Purpose |
 |------------|----------|---------|
-| `BaseETL` | `src/energizados/etl/base.py` | Create custom ETLs |
-| `BaseFeatureEngineering` | `src/energizados/feature_engineering/base.py` | Custom feature engineering pipelines |
-| `BaseFeatureSelector` | `src/energizados/feature_selection/base.py` | Custom feature selection methods |
-| `BaseModel` | `src/energizados/core/base.py` | Custom model implementations |
-| `BaseInference` | `src/energizados/inference/base.py` | Custom inference logic |
-| `BaseExplorer` | `src/energizados/eda/base.py` | Custom EDA phases |
+| `BaseModel` | `energizados.contracts` | Custom model implementations (`fit`, `predict`, `predict_proba`, `get_raw_model`) |
+| `BasePipeline` | `energizados.contracts` | User-defined pipelines implementing `run(context)` |
+| `BaseEvaluator` | `energizados.contracts` | Custom model evaluation (`evaluate(X, y, model, threshold=0.5)`) |
+| `BaseInference` | `energizados.contracts` | Custom inference logic (`predict`, `predict_proba`, `load_model`, `save_predictions`) |
+| `BaseETL` | `energizados.contracts` | Create custom ETLs (`extract`, `transform`, `load`) |
+| `BaseFeatureEngineering` | `energizados.contracts` | Custom feature engineering pipelines (`fit`, `transform`) |
+| `BaseFeatureSelector` | `energizados.contracts` | Custom feature selection methods (`fit`, `transform`) |
+| `BaseExplorer` | `energizados.contracts` | Custom EDA phases (`explore`) |
 
-For detailed guides on extending the framework, see [Extending Framework](extending/).
+For detailed guides on extending the framework, see [Extending Framework](extending/custom-etl.md).
 
 ## Data Format
 
@@ -479,7 +528,7 @@ train:
   target_column: "target"
 
   split:
-    method: "time_series"  # or "stratified", "random"
+    method: "time_series"  # stratified | random | time_series | group_based | stratified_time | none
     date_column: "fecha"
     train_period: ["2020-01-01", "2022-12-31"]
     val_period: ["2023-01-01", "2023-06-30"]
@@ -518,7 +567,7 @@ train:
     meta_learner:
       type: "logistic_regression"
       params: {}
-    use_val_as_oof: true  # or false for proper CV OOF
+    use_val_as_oof: false  # default; set true for blending (faster but leaky)
     cv: 5
 
   evaluation:
@@ -536,7 +585,7 @@ train:
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
+  output_predictions_path: "output/predictions.csv"
   model_path: "output/train-XXX/models/model.pkl"
   feature_engineering_path: "output/train-XXX/models/feature_engineering.pkl"
   custom_class: "energizados.inference.default.DefaultInference"  # or custom
@@ -545,10 +594,10 @@ infer:
 
 ## See Also
 
-- [Extending Framework](extending/) - Customizing the framework
-- [User Guide](../user-guide/) - End-user documentation
+- [Extending Framework](extending/custom-etl.md) - Customizing the framework
+- [User Guide](../user-guide/project-structure.md) - End-user documentation
 - [Contributing](contributing.md) - Development guidelines
 
 ---
 
-← [Advanced Topics](../advanced/) | [Extending Framework](extending/) →
+← [Advanced Topics](architecture.md) | [Extending Framework](extending/custom-etl.md) →

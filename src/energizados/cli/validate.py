@@ -209,8 +209,15 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> N
         if "input" not in etl_config:
             result.add_error(f"ETL '{etl_name}': required field 'input'")
 
+        # 'output' is optional: ETL_SCHEMA only requires 'input', and cleanup
+        # ETLs (e.g. CleanFilesETL) legitimately produce no output file. Warn for
+        # other classes to catch accidental omissions without blocking them.
         if "output" not in etl_config:
-            result.add_error(f"ETL '{etl_name}': required field 'output'")
+            custom_class = etl_config.get("custom_class", "")
+            if custom_class.endswith("CleanFilesETL"):
+                result.add_info(f"ETL '{etl_name}': no 'output' (ok for CleanFilesETL)")
+            else:
+                result.add_warning(f"ETL '{etl_name}': no 'output' defined")
 
         if "depends_on" not in etl_config:
             result.add_warning(f"ETL '{etl_name}': field 'depends_on' not found, using []")
@@ -231,7 +238,7 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
 
     Checks for required fields when inference is enabled:
     - input_path: Path to input data
-    - output_path: Path for output results
+    - output_predictions_path: Path for output results (output_path is a deprecated alias)
     - custom_class: Optional custom inference class
 
     Args:
@@ -251,8 +258,12 @@ def _validate_inference_section(config: Dict[str, Any], result: ValidationResult
         if "input_path" not in inf:
             result.add_warning("inference.input_path not defined")
 
-        if "output_path" not in inf:
-            result.add_warning("inference.output_path not defined")
+        has_new = "output_predictions_path" in inf
+        has_old = "output_path" in inf
+        if not has_new and not has_old:
+            result.add_warning("inference.output_predictions_path not defined")
+        elif has_old and not has_new:
+            result.add_warning("inference.output_path is deprecated; use output_predictions_path")
 
         if "custom_class" in inf:
             _validate_class_reference(inf["custom_class"], result)
@@ -285,6 +296,13 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
     if "model" in training:
         result.add_warning("train: 'model:' key is deprecated. Use 'models:' list format instead.")
 
+    # Check for legacy train.sampling (moved to train.models[].sampling)
+    if "sampling" in training:
+        result.add_warning(
+            "train: 'sampling' at train root is ignored. "
+            "Move it under 'train.models[].sampling' to apply to each model."
+        )
+
     # Check models list (new format)
     models = training.get("models", [])
     if not models:
@@ -296,17 +314,14 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
             result.add_error("training: 'models' must be a list")
             return
 
-        valid_models = [
-            "lightgbm",
-            "lgbm",
-            "catboost",
-            "cat",
-            "neural_network",
-            "nn",
-            "lstm",
-            "simple_trend",
-            "simple_constant",
-        ]
+        # Derive canonical model types from the JSON schema enum so this list
+        # cannot drift from ModelRegistry / MODEL_CONFIG_SCHEMA (previously a
+        # hardcoded literal that was missing "xgboost"/"xgb"). Aliases accepted
+        # by the training step are added explicitly (they are not in the enum).
+        from energizados.core.schemas.schemas import MODEL_CONFIG_SCHEMA
+
+        valid_models = list(MODEL_CONFIG_SCHEMA["properties"]["type"]["enum"])
+        valid_models.extend(["lgbm", "cat", "xgb", "nn"])
 
         for i, model_config in enumerate(models):
             if not isinstance(model_config, dict):
@@ -329,25 +344,32 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
             if has_custom:
                 _validate_class_reference(model_config["custom_class"], result)
 
-    # Check split parameters
-    if "test_size" in training:
-        test_size = training["test_size"]
-        if not 0 < test_size < 1:
-            result.add_warning(f"training.test_size must be between 0 and 1, got: {test_size}")
+    # Check split parameters (test_size/val_size live under train.split, not train)
+    split_config = training.get("split", {})
+    if isinstance(split_config, dict):
+        if "test_size" in split_config:
+            test_size = split_config["test_size"]
+            if not 0 < test_size < 1:
+                result.add_warning(
+                    f"train.split.test_size must be between 0 and 1, got: {test_size}"
+                )
 
-    if "val_size" in training:
-        val_size = training["val_size"]
-        if not 0 < val_size < 1:
-            result.add_warning(f"training.val_size must be between 0 and 1, got: {val_size}")
+        if "val_size" in split_config:
+            val_size = split_config["val_size"]
+            if not 0 < val_size < 1:
+                result.add_warning(f"train.split.val_size must be between 0 and 1, got: {val_size}")
 
-    # Check sampling
-    if "sampling" in training:
-        sampling = training["sampling"]
-        if isinstance(sampling, dict):
-            valid_methods = ["oversample", "undersample", "none"]
-            method = sampling.get("method")
-            if method and method not in valid_methods:
-                result.add_warning(f"training.sampling.method invalid: {method}")
+    # Check sampling (lives under train.models[].sampling, not train.sampling)
+    if isinstance(models, list):
+        valid_methods = ["oversample", "undersample", "smotetomek", "none"]
+        for i, model_config in enumerate(models):
+            if not isinstance(model_config, dict):
+                continue
+            sampling = model_config.get("sampling")
+            if isinstance(sampling, dict):
+                method = sampling.get("method")
+                if method and method not in valid_methods:
+                    result.add_warning(f"training.models[{i}].sampling.method invalid: {method}")
 
 
 def _validate_evaluation_section(config: Dict[str, Any], result: ValidationResult) -> None:

@@ -1,0 +1,125 @@
+<!-- HTMX fragment: Job detail -->
+{% from "components/status_badge.html" import status_badge %}
+<div class="job-card">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h6 class="mb-1">Job: <code>{{ job.job_id }}</code></h6>
+            <p class="small text-muted mb-2">
+                Type: {{ job.config_type|title }} |
+                Enqueued: {{ job.enqueued_at[:19] }} UTC
+            </p>
+        </div>
+        <div>{{ status_badge(job.status.value) }}</div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <h6 class="app-subtitle mb-2">Timeline</h6>
+            <ul class="list-unstyled small mb-0">
+                <li><strong>Enqueued:</strong> {{ job.enqueued_at[:19] }} UTC</li>
+                {% if job.started_at %}
+                <li><strong>Started:</strong> {{ job.started_at[:19] }} UTC</li>
+                {% endif %}
+                {% if job.finished_at %}
+                <li><strong>Finished:</strong> {{ job.finished_at[:19] }} UTC</li>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h6 class="app-subtitle mb-2">Execution</h6>
+            <ul class="list-unstyled small mb-0">
+                {% if project_id %}
+                <li><strong>Project:</strong> <a href="/projects/{{ project_id }}">{{ project_name }}</a></li>
+                {% elif project_path %}
+                <li><strong>Project:</strong> <code>{{ project_path }}</code> <span class="text-muted">(unregistered)</span></li>
+                {% endif %}
+                {% if job.run_id %}
+                <li><strong>Run ID:</strong> <code>{{ job.run_id }}</code></li>
+                {% endif %}
+                {% if job.run_dir %}
+                <li><strong>Run Dir:</strong> <code>{{ job.run_dir }}</code></li>
+                {% endif %}
+                {% if job.retried_from %}
+                <li><strong>Retried From:</strong> <code>{{ job.retried_from }}</code></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+    {% if job.error %}
+    <div class="mt-3">
+        <h6 class="app-subtitle text-danger mb-2">Error</h6>
+        <div class="alert alert-danger small mb-0">
+            <pre class="mb-0 font-mono">{{ job.error|tojson(indent=2) }}</pre>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if job.run_id %}
+    <div class="mt-3">
+        {% if project_id %}
+        <a href="/projects/{{ project_id }}/runs/{{ job.run_id }}" class="btn btn-sm btn-primary">
+            📊 View Run Results
+        </a>
+        {% else %}
+        <a href="/runs/{{ job.run_id }}" class="btn btn-sm btn-primary">
+            📊 View Run Results
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not job.is_terminal() %}
+    <div class="mt-3" id="live-progress-section">
+        <h6 class="app-subtitle mb-2">Live Progress</h6>
+        <ul id="progress-log" class="list-unstyled small text-muted"></ul>
+        <div id="progress-unsupported" class="alert alert-warning small d-none">
+            Live progress is not supported in this browser.
+        </div>
+    </div>
+    <script>
+      (function () {
+        var log = document.getElementById("progress-log");
+        if (typeof EventSource === "undefined") {
+            document.getElementById("progress-unsupported").classList.remove("d-none");
+            return;
+        }
+        var eventSource = new EventSource("/jobs/{{ job.job_id }}/progress");
+        function appendProgressLine(text, cls) {
+            var li = document.createElement("li");
+            li.className = cls || "";
+            li.textContent = text;
+            log.appendChild(li);
+        }
+        eventSource.addEventListener("connected", function (e) {
+            appendProgressLine("Connected — waiting for progress events…", "text-muted");
+        });
+        eventSource.onmessage = function (e) {
+            var ev = JSON.parse(e.data);
+            var pct = ev.percent != null ? (" (" + ev.percent + "%)") : "";
+            appendProgressLine(ev.step_name + " · " + ev.phase + pct + " — " + ev.message, "");
+        };
+        eventSource.addEventListener("terminal", function (e) {
+            appendProgressLine("Job finished.", "fw-bold");
+            eventSource.close();
+            // Refresh the detail view so terminal state + run link render server-side.
+            if (window.htmx) { htmx.ajax("GET", "/jobs/{{ job.job_id }}",
+                            {target: ".job-card", swap: "outerHTML"}); }
+            else { location.reload(); }
+        });
+        eventSource.onerror = function () {
+            // EventSource reconnects automatically; do not close. The terminal event
+            // or the server-side safety cap ends the stream when appropriate.
+        };
+      })();
+    </script>
+    {% endif %}
+
+    <div class="mt-3">
+        <h6 class="app-subtitle mb-2">Configuration</h6>
+        <details>
+            <summary class="small">View full config</summary>
+            <pre class="small bg-body-tertiary p-2 mt-2 mb-0 font-mono">{{ job.config|tojson(indent=2) }}</pre>
+        </details>
+    </div>
+</div>

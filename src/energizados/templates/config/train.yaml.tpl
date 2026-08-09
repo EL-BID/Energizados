@@ -21,6 +21,7 @@ train:
   # Output: each run generates output/train-YYYYMMDD_HHMM/
   # with subdirectories models/, reports/evaluation/ and config/.
   # output_base_dir: "output"  # optional override
+  # output_name: "my-experiment"  # optional run-dir NAME (same as CLI -n); default: train-<timestamp>
 
   # ============================================
   # Split Configuration
@@ -57,6 +58,36 @@ train:
     # Save splits for reproducibility
     save_splits: true
     splits_dir: "data/temp/splits/"
+
+    # -----------------------------------------------------------
+    # OPTIONAL: Unlabeled Negatives Injection (NEW in mejoras-3)
+    # -----------------------------------------------------------
+    # Inject external unlabeled contracts as negative samples (target=0)
+    # to reduce selection bias when labeled negatives are not representative.
+    #
+    # unlabeled_negatives:
+    #   enabled: true
+    #   source_path: "data/external/unlabeled_contracts.parquet"  # dataset WITHOUT target column
+    #   max_per_cutoff: 1500          # max rows to sample per cutoff
+    #   random_state: 42
+    #   date_column: "fecha_inspeccion"  # for time_series filtering
+    #   id_column: "contract_id"         # for dedup against val/test
+
+    # -----------------------------------------------------------
+    # OPTIONAL: Geo-Stratified Sampling (NEW in mejoras-3)
+    # -----------------------------------------------------------
+    # Balance geographic representation BEFORE model sampling.
+    # Applied ONLY to train set. Strategies:
+    #   - proportional: cap overrepresented strata to median size
+    #   - equal: reduce all strata to smallest size (WARNING: may drop >50% data)
+    #   - capped: cap each stratum at max_per_stratum
+    #
+    # geo_stratify:
+    #   enabled: true
+    #   column: "geo_region"            # geographic column to stratify by
+    #   strategy: "proportional"        # proportional | equal | capped
+    #   max_per_stratum: null           # required when strategy: capped
+    #   random_state: 42
 
   # ============================================
   # Feature Engineering Configuration
@@ -439,7 +470,7 @@ train:
   #     params:
   #       C: 1.0
   #       max_iter: 1000
-  #   use_val_as_oof: true        # true = blending (fast); false = proper CV OOF (expensive)
+  #   use_val_as_oof: false       # false (default) = proper CV OOF (slower, leakage-safe); true = blending (faster but leaky)
   #   cv: 5                       # used only when use_val_as_oof: false
 
   # Soft voting alternative:
@@ -496,3 +527,4 @@ train:
     #   min_samples: 30        # minimum samples per segment to compute metrics
     #   threshold_mode: "global"  # global | youden | f1_optimal | recall_target
     #   recall_target: 0.80    # used only when threshold_mode = "recall_target"
+    #   thresholds_output_dir: "data/exports/segment_thresholds"  # optional override; default = same dir as the trained model

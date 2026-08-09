@@ -41,6 +41,21 @@ If a custom name was provided:
 energizados run train -n {experiment_name}
 ```
 
+### Verbosity & Debugging
+
+`energizados run` accepts repeated `-v` flags to raise the log level — use these when a step fails, behaves unexpectedly, or you need framework internals:
+
+```bash
+energizados run etl -v        # INFO  — framework progress messages
+energizados run train -vv     # DEBUG — detailed step/adapter internals
+energizados run train -vvv    # DEBUG (same level as -vv; extra flags are harmless)
+```
+
+Behavior:
+- **Without `-v`**: only a one-line error is printed on failure.
+- **With `-v` / `-vv`**: the full exception traceback is printed on failure (`-vv` also shows local variables).
+- **In verbose mode** the run also auto-writes a `<run_dir>/run.log` file with the complete log trace.
+
 ## Step 5: Find and Surface Results
 
 After training completes, find the most recent run directory:

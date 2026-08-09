@@ -152,11 +152,13 @@ Edit `config/etl.yaml` to define your ETLs. See the Energizados documentation fo
 ### 2. Configure Training
 
 Edit `config/train.yaml` to:
-- Define the data split strategy (stratified, random, time_series)
+- Define the data split strategy (stratified, random, time_series, group_based, stratified_time)
 - Configure preprocessing (per-column transformers)
 - Configure feature selection
 - Configure the model and hyperparameter search
 - Configure evaluation
+- **Optional**: Inject unlabeled negatives (`split.unlabeled_negatives`) to reduce selection bias
+- **Optional**: Apply geo-stratified sampling (`split.geo_stratify`) to balance geographic representation
 
 ### 3. Customize ETL
 

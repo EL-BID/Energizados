@@ -9,6 +9,10 @@ ETL_SCHEMA = {
     "type": "object",
     "properties": {
         "schema_version": {"type": "integer"},
+        # ADR: top-level scalar keys under ``etl:`` are NOT ETL entries. They must be
+        # declared here so additionalProperties (which requires ``input``) skips them.
+        "output_base_dir": {"type": "string"},
+        "output_name": {"type": "string"},
     },
     "additionalProperties": {
         "type": "object",
@@ -39,7 +43,14 @@ SPLIT_SCHEMA = {
         "splits_dir": {"type": "string"},
         "method": {
             "type": "string",
-            "enum": ["stratified", "random", "time_series", "group_based", "stratified_time"],
+            "enum": [
+                "stratified",
+                "random",
+                "time_series",
+                "group_based",
+                "stratified_time",
+                "none",
+            ],
         },
         "group_column": {"type": "string"},
         "date_column": {"type": "string"},
@@ -51,6 +62,30 @@ SPLIT_SCHEMA = {
             "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]
         },
         "save_splits": {"type": "boolean"},
+        "unlabeled_negatives": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "source_path": {"type": ["string", "null"]},
+                "max_per_cutoff": {"type": "integer", "default": 1500},
+                "random_state": {"type": "integer", "default": 42},
+                "date_column": {"type": ["string", "null"]},
+                "id_column": {"type": ["string", "null"]},
+            },
+        },
+        "geo_stratify": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "column": {"type": ["string", "null"]},
+                "strategy": {
+                    "type": "string",
+                    "enum": ["proportional", "equal", "capped"],
+                },
+                "max_per_stratum": {"type": ["integer", "null"]},
+                "random_state": {"type": "integer", "default": 42},
+            },
+        },
     },
     "if": {"properties": {"method": {"const": "group_based"}}, "required": ["method"]},
     "then": {"required": ["group_column"]},
@@ -216,6 +251,7 @@ TRAINING_SCHEMA = {
         "target_column": {"type": "string"},
         "output_dir": {"type": "string"},
         "output_base_dir": {"type": "string"},
+        "output_name": {"type": "string"},
         "split": SPLIT_SCHEMA,
         "feature_engineering": FEATURE_ENGINEERING_SCHEMA,
         "feature_selection": FEATURE_SELECTION_SCHEMA,
@@ -237,6 +273,7 @@ TRAINING_SCHEMA = {
                 "calibration": {
                     "type": "object",
                     "properties": {
+                        "enabled": {"type": "boolean", "default": False},
                         "strategy": {
                             "type": "string",
                             "enum": ["cost_benefit", "operational", "precision_recall"],
@@ -248,6 +285,46 @@ TRAINING_SCHEMA = {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Column names to compute per-segment evaluation metrics",
+                },
+                "segmented_evaluation": {
+                    "type": "object",
+                    "description": "Per-segment evaluation with column combos and configurable threshold modes",
+                    "properties": {
+                        "enabled": {"type": "boolean", "default": False},
+                        "by": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": [],
+                            "description": "Columns or combos (use '+' to combine, e.g. 'zona+region')",
+                        },
+                        "min_samples": {"type": "integer", "minimum": 0, "default": 30},
+                        "threshold_mode": {
+                            "type": "string",
+                            "enum": [
+                                "global",
+                                "youden",
+                                "f1_optimal",
+                                "recall_target",
+                                "segment",
+                            ],
+                            "default": "global",
+                        },
+                        "recall_target": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "default": 0.8,
+                        },
+                        "thresholds_output_dir": {
+                            "type": "string",
+                            "description": (
+                                "Directory where segment_thresholds_*.json "
+                                "files are written. Defaults to the trained "
+                                "model's directory (models/). Set an explicit "
+                                "path to override."
+                            ),
+                        },
+                    },
                 },
                 "shap": {
                     "type": "object",
@@ -304,6 +381,7 @@ EVALUATION_SCHEMA = {
         "calibration": {
             "type": "object",
             "properties": {
+                "enabled": {"type": "boolean", "default": False},
                 "strategy": {
                     "type": "string",
                     "enum": ["cost_benefit", "operational", "precision_recall"],
@@ -357,7 +435,11 @@ INFERENCE_SCHEMA = {
     "properties": {
         "enabled": {"type": "boolean"},
         "input_path": {"type": "string"},
-        "output_path": {"type": "string"},
+        "output_predictions_path": {"type": "string"},
+        "output_path": {
+            "type": "string",
+            "description": "DEPRECATED alias for output_predictions_path.",
+        },
         "model_path": {"type": "string"},
         "feature_engineering_path": {"type": "string"},
         "output_include_input": {"type": "boolean"},
@@ -365,6 +447,94 @@ INFERENCE_SCHEMA = {
         "threshold": {"type": "number", "minimum": 0, "maximum": 1},
         "custom_class": {"type": "string"},
         "params": {"type": "object"},
+        "columns_filter": {
+            "type": "object",
+            "description": "Row-level filtering before feature engineering. Maps column -> scalar | list | {operator: value}, plus optional '_expr' pandas query string.",
+        },
+        "output_columns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                "Authoritative, self-sufficient final column selection for the output "
+                "file, applied over the combined [input + prediction + probability + "
+                "rule_*] frame. Input columns named here are included automatically "
+                "(no output_include_input needed); unlisted columns are dropped (so "
+                "omitting 'prediction' excludes it). If absent, ALL columns are "
+                "written (input + prediction + probability + rule_*); the deprecated "
+                "output_include_input flag is now a redundant no-op."
+            ),
+        },
+        "output_base_dir": {"type": "string"},
+        "output_name": {"type": "string"},
+        "sort_by_probability": {"type": "boolean", "default": True},
+        "segment_thresholds": {
+            "type": "object",
+            "description": (
+                "Per-segment thresholds. Unknown segment values fall back to the "
+                "global `threshold`. The legacy `fallback_threshold` key is "
+                "deprecated and ignored (use the top-level `threshold` instead)."
+            ),
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "path": {"type": ["string", "null"]},
+            },
+        },
+        "business_rules": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "default": False},
+                "apply_to": {
+                    "type": "object",
+                    "properties": {
+                        "column": {
+                            "type": "string",
+                            "default": "geo_region",
+                            "description": "Column used to filter eligible rows. Defaults to 'geo_region'.",
+                        },
+                        "regions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Only rows whose apply_to.column value is in this list are eligible for rules. If omitted, rules apply to ALL rows.",
+                        },
+                    },
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "condition": {
+                                "type": "string",
+                                "description": "Pandas query/eval expression. Must return a boolean Series. Use backticks for column names starting with digits (e.g. `3_anterior`). Use 'False' for stub rules that never trigger.",
+                            },
+                            "action": {
+                                "type": "string",
+                                "enum": ["flag", "override", "score_boost"],
+                                "default": "flag",
+                            },
+                            "value": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "For score_boost: amount to add to probability (clipped to [0,1]). For override: probability is set to 1.0 (value ignored). For flag: ignored.",
+                            },
+                        },
+                        "required": ["name", "condition", "action"],
+                    },
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "add_rule_columns": {
+                            "type": "boolean",
+                            "default": True,
+                            "description": "If True, add rule_<name> (bool) and rule_<name>_value (float) columns to the output.",
+                        },
+                    },
+                },
+            },
+        },
     },
 }
 

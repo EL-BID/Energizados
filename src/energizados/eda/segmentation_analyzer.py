@@ -87,7 +87,7 @@ class SegmentationAnalyzer(BaseExplorer):
             if col not in df.columns:
                 continue
 
-            for segment_value, group in df.groupby(col):
+            for segment_value, group in df.groupby(col, observed=True):
                 segment_size = len(group)
                 segment_rate = group[target_col].mean()
 

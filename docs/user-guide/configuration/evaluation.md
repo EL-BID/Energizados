@@ -21,7 +21,7 @@ evaluation:
   # Automatic threshold calibration (optional)
   calibration:
     enabled: false
-    method: "cost_benefit"
+    strategy: "cost_benefit"
     params:
       # Calibration method parameters
 
@@ -82,6 +82,7 @@ This generates a segment comparison table and interactive chart in the HTML repo
 ## Segmented Evaluation (Extended)
 
 The `segmented_evaluation` section provides advanced per-segment analysis with support for:
+
 - **Column combinations**: evaluate by `"zona+region"` to see metrics for each zone×region pair
 - **Configurable threshold modes**: global, per-segment optimized, or target-based
 - **Detailed logging**: each segment's metrics are logged with n_samples, n_positives, AUC, threshold
@@ -112,7 +113,7 @@ evaluation:
 | Mode | Description |
 |------|-------------|
 | `global` | Uses the same threshold for all segments (from `evaluation.threshold` or calibration) |
-| `youden` | Finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1) |
+| `youden` | Finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1). The string `"segment"` is accepted as a friendly alias for `"youden"` (resolved before the segment loop to avoid parameter mutation). |
 | `f1_optimal` | Maximizes F1 score independently per segment |
 | `recall_target` | Finds threshold that achieves target recall per segment |
 
@@ -121,6 +122,7 @@ evaluation:
 When enabled, segmented evaluation generates:
 
 1. **Logs**: Detailed INFO logging per segment:
+
    ```
    SEGMENTED METRICS — zona
    zona=Norte  n=150  pos=25  AUC=0.82  thresh=0.50 (global)
@@ -128,6 +130,7 @@ When enabled, segmented evaluation generates:
    ```
 
 2. **JSON report**: Under `segmented_metrics` key:
+
    ```json
    {
      "zona": {
@@ -147,11 +150,50 @@ When enabled, segmented evaluation generates:
        "Norte|Leste": { ... }
      }
    }
-   ```
+    ```
 
 3. **HTML report**: New "Segmented Evaluation" section with:
    - Heatmap-colored table (green ≥0.7, yellow ≥0.4, red <0.4)
    - Columns: Segment, N Samples, N Positives, Positive Rate, Threshold, AUC, Precision, Recall, F1
+
+### Exporting per-segment thresholds
+
+When `segmented_evaluation.by` is set, evaluation exports `segment_thresholds_{column}.json` per segment column (one file per column in the `by` list). These JSON files include `threshold_mode`, `default_threshold`, and per-segment `threshold`, `auc`, and `n_samples` values. The files are consumed by inference `segment_thresholds` to apply per-row thresholds during prediction. See the [Inference configuration](infer.md) for usage.
+
+> **Deployment artifact, not a report.** The JSON describes the operating
+> point per segment, which the inference step reads at predict time to apply
+> per-row thresholds — the same way it reads the model. By default it is
+> therefore exported to the trained model's directory
+> (`output/train-YYYYMMDD_HHMM/models/segment_thresholds_{column}.json`)
+> so a deployment can ship `models/` as a single bundle. The legacy
+> `output/train-.../reports/evaluation/` location is no longer used.
+
+If you need a different destination, set `segmented_evaluation.thresholds_output_dir`:
+
+```yaml
+evaluation:
+  segmented_evaluation:
+    enabled: true
+    by: ["zona"]
+    thresholds_output_dir: "data/exports/segment_thresholds"
+```
+
+The directory is created on demand (`mkdir(parents=True, exist_ok=True)`).
+Set it to a shared path to share thresholds across multiple training runs.
+
+Example structure:
+
+```json
+{
+  "segment_column": "zona",
+  "threshold_mode": "youden",
+  "default_threshold": 0.5,
+  "segments": {
+    "Norte": { "threshold": 0.42, "auc": 0.82, "n_samples": 150 },
+    "Sur": { "threshold": 0.48, "auc": 0.78, "n_samples": 180 }
+  }
+}
+```
 
 ---
 
@@ -233,6 +275,7 @@ A machine-readable JSON file containing all metrics and metadata:
 ```
 
 Use this for:
+
 - Programmatic access to metrics
 - Integration with CI/CD pipelines
 - Custom dashboard visualizations
@@ -277,7 +320,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
+    strategy: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
     params:
       # Method-specific parameters
 ```
@@ -293,7 +336,7 @@ Minimizes total cost = (FP × cost_fp) + (FN × cost_fn).
 ```yaml
 calibration:
   enabled: true
-  method: "cost_benefit"
+  strategy: "cost_benefit"
   params:
     cost_fp: 1     # Cost of inspecting a legitimate user (relative units)
     cost_fn: 10    # Cost of missing a fraud (relative units)
@@ -317,7 +360,7 @@ Ensures the number of alerts matches your inspection capacity.
 ```yaml
 calibration:
   enabled: true
-  method: "operational"
+  strategy: "operational"
   params:
     capacity: 200   # Maximum alerts per period
 ```
@@ -339,7 +382,7 @@ Guarantees a minimum recall rate (fraud detection rate).
 ```yaml
 calibration:
   enabled: true
-  method: "precision_recall"
+  strategy: "precision_recall"
   params:
     min_recall: 0.80   # Ensure at least 80% of fraud is caught
 ```
@@ -375,7 +418,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "cost_benefit"
+    strategy: "cost_benefit"
     params:
       cost_fp: 1
       cost_fn: 10
@@ -408,6 +451,7 @@ It helps answer "which features drove this prediction?" — critical for regulat
 ### Output
 
 SHAP generates two plots in the evaluation report:
+
 - **Summary Plot (beeswarm)**: Shows feature impact on predictions, colored by feature value
 - **Bar Plot**: Mean absolute SHAP value per feature (feature importance)
 
@@ -441,7 +485,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "cost_benefit"
+    strategy: "cost_benefit"
     params:
       cost_fp: 1    # Inspecting a legitimate user costs $10
       cost_fn: 50   # Missing a fraud costs $500
@@ -459,7 +503,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "operational"
+    strategy: "operational"
     params:
       capacity: 200   # Can only inspect 200 customers per month
 ```
@@ -476,7 +520,7 @@ evaluation:
 
   calibration:
     enabled: true
-    method: "precision_recall"
+    strategy: "precision_recall"
     params:
       min_recall: 0.80   # Must catch at least 80% of fraud
 ```

@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
 from energizados.core.builders.base import StepBuilder
-from energizados.etl.orchestrator import ETLOrchestrator
 
 
 class ETLBuilder(StepBuilder):
@@ -32,6 +31,9 @@ class ETLBuilder(StepBuilder):
         if not etl_configs:
             return None
 
+        # Lazy import to avoid module-level cycle
+        from energizados.etl.orchestrator import ETLOrchestrator
+
         orchestrator = ETLOrchestrator(etl_configs)
 
         # Get enabled ETL names for phase tracking (use orchestrator's filtered configs)
@@ -42,7 +44,7 @@ class ETLBuilder(StepBuilder):
         class ETLStep(PipelineStep):
             """Pipeline step that executes multiple ETLs."""
 
-            def __init__(self, orchestrator: ETLOrchestrator, etl_names: List[str]):
+            def __init__(self, orchestrator: "ETLOrchestrator", etl_names: List[str]):
                 self.orchestrator = orchestrator
                 self.etl_names = etl_names
 
@@ -78,9 +80,9 @@ class ETLBuilder(StepBuilder):
                         # For ETLs, phase is the ETL name and we pass total as metadata
                         phase_callback("ETLStep", name, 0, len(self.etl_names))
 
-                def on_etl_complete(name, rows):
+                def on_etl_complete(name, rows, metrics=None):
                     if phase_callback:
-                        phase_callback("ETLStep", name, 100, len(self.etl_names))
+                        phase_callback("ETLStep", name, 100, len(self.etl_names), metrics=metrics)
 
                 def on_etl_error(name, err):
                     if phase_callback:
@@ -91,6 +93,9 @@ class ETLBuilder(StepBuilder):
                 self.orchestrator.on_etl_error = on_etl_error
 
                 # Execute all ETLs in topological order
+                # Propagate the profiling flag so each ETL is sampled.
+                self.orchestrator.profile_memory = context.get("_profile_memory", False)
+
                 results = self.orchestrator.run()
 
                 # Pass the output of the last ETL to context
@@ -99,6 +104,16 @@ class ETLBuilder(StepBuilder):
                     context["data"] = results[last_etl]
 
                 context["etl_results"] = results
+                # ADR-0001: surface configured output paths so run-metadata can
+                # reference the dataset (the dataset itself stays at its
+                # configured path — not relocated).
+                etl_output_paths = {
+                    name: cfg["output"]
+                    for name, cfg in self.orchestrator.etl_configs.items()
+                    if cfg.get("output")
+                }
+                if etl_output_paths:
+                    context["etl_output_paths"] = etl_output_paths
                 return context
 
             def get_required_keys(self) -> List[str]:

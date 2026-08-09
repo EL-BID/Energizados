@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from energizados.core.base import BaseModel
+from energizados.core.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,9 @@ class EnsembleModel(BaseModel):
             Keys: "type" (default "logistic_regression"), "params" (dict).
         weights: Per-model weights for soft voting. None means equal weights.
         use_val_as_oof: When True (blending), use val set predictions as stack
-            features for the meta-learner. When False, generate proper K-fold OOF
-            predictions on the training set (expensive).
+            features for the meta-learner. When False (default), generate proper
+            K-fold OOF predictions on the training set (expensive but
+            leakage-safe).
         cv: Number of folds used when use_val_as_oof=False.
         skip_base_fit: When True, base models are assumed already fitted and
             EnsembleModel.fit() only trains the meta-learner.
@@ -45,6 +47,10 @@ class EnsembleModel(BaseModel):
         is trained on predictions that are not truly out-of-fold.  For production-
         grade evaluation, set ``use_val_as_oof=False`` to generate proper K-fold OOF
         predictions, or reserve a separate hold-out set for the meta-learner.
+
+        Because of this tradeoff the default is ``use_val_as_oof=False`` and a
+        ``logger.warning`` is emitted from ``fit()`` whenever blending is
+        explicitly enabled.
     """
 
     def __init__(
@@ -55,7 +61,7 @@ class EnsembleModel(BaseModel):
         method: str = "soft_voting",
         meta_learner_config: Optional[Dict] = None,
         weights: Optional[List[float]] = None,
-        use_val_as_oof: bool = True,
+        use_val_as_oof: bool = False,
         cv: int = 5,
         skip_base_fit: bool = False,
         threshold: float = 0.5,
@@ -96,6 +102,16 @@ class EnsembleModel(BaseModel):
         Returns:
             self: The fitted ensemble.
         """
+        if self.method == "stacking" and self.use_val_as_oof:
+            logger.warning(
+                "Ensemble is using blending (use_val_as_oof=True): the "
+                "meta-learner is trained on val-set predictions where base "
+                "models early-stopped on the same val, which is not truly "
+                "out-of-fold. For production-grade evaluation set "
+                "use_val_as_oof=False (proper K-fold OOF, slower but "
+                "leakage-safe)."
+            )
+
         if not self.skip_base_fit:
             logger.info("Fitting base models inside EnsembleModel...")
             for name, model in zip(self.model_names, self.base_models):
@@ -118,7 +134,12 @@ class EnsembleModel(BaseModel):
         """Train the meta-learner on stacked predictions."""
         if self.use_val_as_oof:
             if X_val is None or y_val is None:
-                raise ValueError("use_val_as_oof=True requires X_val and y_val.")
+                raise ConfigurationError(
+                    "Ensemble blending (use_val_as_oof=True) requires a validation split, "
+                    "but X_val is None. Options: (a) provide X_val and y_val, "
+                    "(b) switch to use_val_as_oof=False (K-fold OOF stacking), or "
+                    "(c) use method='soft_voting'."
+                )
             logger.info("Stacking: using val set as blending data for meta-learner.")
             stack_X = self._stack_predictions(X_val)
             stack_y = y_val
@@ -206,11 +227,17 @@ class EnsembleModel(BaseModel):
 
             return LogisticRegression(**params)
 
-        # Delegate to ModelRegistry for other types (lightgbm, catboost, etc.)
-        from energizados.modeling.registry import ModelRegistry
+        # Delegate to model_registry for other types (lightgbm, catboost, etc.)
+        from energizados.core.registry import model_registry
 
-        cls = ModelRegistry.get(meta_type)
-        return cls(**params)
+        cls = model_registry.get(meta_type)
+        meta = cls(**params)
+
+        # Wrap adapters with _SklearnCalibWrapper to provide 2D predict_proba
+        # (adapters expose 1D predict_proba, but sklearn stacking expects 2D)
+        from energizados.core.steps.training import _SklearnCalibWrapper
+
+        return _SklearnCalibWrapper(meta)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """

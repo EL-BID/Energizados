@@ -69,7 +69,7 @@ etl:
     description: "Procesa dataset de ejemplo (elimina filas con NULL)"
     input: "data/raw/sample_dataset.parquet"
     output: "data/processed/sample_dataset.parquet"
-    custom_class: "data.custom_etl.CustomETL"
+    custom_class: "src.data.custom_etl.CustomETL"
     params:
       mode: "concat"  # 'concat' (default) or 'merge'
     depends_on: []
@@ -206,7 +206,7 @@ energizados run infer
 
 Make sure `config/infer.yaml` is configured with:
 - `input_path`: Path to your new data
-- `output_path`: Where to save predictions
+- `output_predictions_path`: Where to save predictions
 - `model_path`: Path to the trained model
 - `feature_engineering_path`: Path to the feature engineering pipeline
 

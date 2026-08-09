@@ -75,7 +75,7 @@ class ConfigValidator:
             raise ConfigurationError(f"Configuration file not found: {path}", path)
 
         try:
-            with open(path, "r") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise ConfigurationError(f"Error parsing YAML: {e}", path) from e
@@ -273,6 +273,16 @@ class ConfigValidator:
                 errors.append(
                     ValidationError(
                         "infer.output_include_input", "output_include_input must be a boolean"
+                    )
+                )
+
+        # Validate output_columns if present (must be a list of strings)
+        if "output_columns" in inf_config:
+            cols = inf_config["output_columns"]
+            if not isinstance(cols, list) or not all(isinstance(c, str) for c in cols):
+                errors.append(
+                    ValidationError(
+                        "infer.output_columns", "output_columns must be a list of strings"
                     )
                 )
 

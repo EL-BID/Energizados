@@ -15,6 +15,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+# Register test prefix for fixtures that dynamically import test classes
+# This allows test fixtures to import classes with "tests." prefix while keeping
+# the production default narrow (only "energizados." and "src.")
+from energizados.core.utils.import_utils import register_allowed_prefix
+
 
 @pytest.fixture
 def synthetic_classification_data():
@@ -215,3 +220,7 @@ def e2e_project_dir(tmp_path, e2e_synthetic_dataset):
     e2e_synthetic_dataset.to_parquet(tmp_path / "data/raw/test_dataset.parquet", index=False)
 
     return tmp_path
+
+
+# Register test prefix at import time
+register_allowed_prefix("tests")

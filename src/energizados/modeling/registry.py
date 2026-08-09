@@ -1,88 +1,57 @@
 """
 Model Registry for Energizados Framework.
 
-Maintains a centralized registry of available models
-for use in the framework pipeline.
+**BACKWARD-COMPATIBLE ALIAS** (Design Decision 5 from unified-registry SDD):
+
+This module now provides a silent alias to the unified `model_registry` from
+`energizados.core.registry`. All public methods delegate to the centralized
+registry, allowing existing code to continue using `ModelRegistry` without
+changes while internally using the unified pattern.
+
+No deprecation warning in this release (public extension point must remain stable).
 """
 
-from typing import Any, Dict
+from typing import Any
+
+# Import the unified registry
+from energizados.core.registry import model_registry
 
 
 class ModelRegistry:
     """
-    Centralized registry of available models.
+    **Silent backward-compatible alias** to the unified model_registry.
 
-    Allows registering and retrieving models by name.
+    This class delegates all method calls to the centralized `model_registry`
+    instance from `energizados.core.registry`. Existing code using
+    `from energizados.modeling.registry import ModelRegistry` continues to work
+    without changes.
+
+    No deprecation warning — this is a permanent alias, not transitional.
     """
-
-    _registry: Dict[str, type] = {}
 
     @classmethod
     def register(cls, name: str, model_class: type) -> None:
-        """
-        Register a model with a name.
-
-        Args:
-            name: Model name.
-            model_class: Model class (must inherit from BaseModel).
-        """
-        cls._registry[name.lower()] = model_class
+        """Register a model with a name (delegates to model_registry)."""
+        model_registry.register(name, model_class)
 
     @classmethod
     def get(cls, name: str) -> type:
-        """
-        Get a model class by name.
-
-        Args:
-            name: Model name.
-
-        Returns:
-            type: Model class.
-
-        Raises:
-            KeyError: If the model is not registered.
-        """
-        name_lower = name.lower()
-        if name_lower not in cls._registry:
-            available = ", ".join(cls._registry.keys())
-            raise KeyError(f"Model '{name}' not found. Available models: {available}")
-        return cls._registry[name_lower]
+        """Get a model class by name (delegates to model_registry)."""
+        return model_registry.get(name)
 
     @classmethod
     def list_models(cls) -> list:
-        """
-        Return the list of registered models.
-
-        Returns:
-            list: Names of registered models.
-        """
-        return list(cls._registry.keys())
+        """Return the list of registered models (delegates to model_registry)."""
+        return model_registry.list_registered()
 
     @classmethod
     def is_registered(cls, name: str) -> bool:
-        """
-        Check if a model is registered.
-
-        Args:
-            name: Model name.
-
-        Returns:
-            bool: True if the model is registered.
-        """
-        return name.lower() in cls._registry
+        """Check if a model is registered (delegates to model_registry)."""
+        return model_registry.is_registered(name)
 
     @classmethod
     def create(cls, name: str, **kwargs) -> Any:
-        """
-        Create a model instance.
-
-        Args:
-            name: Model name.
-            **kwargs: Arguments to pass to the model constructor.
-
-        Returns:
-            Model instance.
-        """
+        """Create a model instance (delegates to model_registry)."""
         model_class = cls.get(name)
         return model_class(**kwargs)
 
@@ -93,6 +62,8 @@ def _register_default_models():
     Register the framework's default models.
 
     This function is called automatically when importing the module.
+    Models are now registered in the unified model_registry from
+    energizados.core.registry.
     """
     try:
         from energizados.modeling.adapters import (
@@ -106,24 +77,25 @@ def _register_default_models():
         )
 
         # Supervised models (adapters that implement BaseModel)
-        ModelRegistry.register("lightgbm", LGBMModelAdapter)
-        ModelRegistry.register("lgbm", LGBMModelAdapter)
-        ModelRegistry.register("catboost", CATModelAdapter)
-        ModelRegistry.register("cat", CATModelAdapter)
-        ModelRegistry.register("xgboost", XGBModelAdapter)
-        ModelRegistry.register("xgb", XGBModelAdapter)
-        ModelRegistry.register("neural_network", NNModelAdapter)
-        ModelRegistry.register("nn", NNModelAdapter)
-        ModelRegistry.register("lstm", LSTMNNModelAdapter)
+        # Now using unified model_registry instead of ModelRegistry._registry
+        model_registry.register("lightgbm", LGBMModelAdapter)
+        model_registry.register("lgbm", LGBMModelAdapter)
+        model_registry.register("catboost", CATModelAdapter)
+        model_registry.register("cat", CATModelAdapter)
+        model_registry.register("xgboost", XGBModelAdapter)
+        model_registry.register("xgb", XGBModelAdapter)
+        model_registry.register("neural_network", NNModelAdapter)
+        model_registry.register("nn", NNModelAdapter)
+        model_registry.register("lstm", LSTMNNModelAdapter)
 
         # Simple models (baseline)
-        ModelRegistry.register("simple_trend", SimpleTrendAdapter)
-        ModelRegistry.register("simple_constant", SimpleConstantAdapter)
+        model_registry.register("simple_trend", SimpleTrendAdapter)
+        model_registry.register("simple_constant", SimpleConstantAdapter)
 
-        # Ensemble model
-        from energizados.modeling.ensemble import EnsembleModel
-
-        ModelRegistry.register("ensemble", EnsembleModel)
+        # NOTE: EnsembleModel is intentionally NOT registered here. It cannot be
+        # created through the registry (its __init__ requires base_models /
+        # model_types / model_names) and MODEL_CONFIG_SCHEMA.type.enum does not
+        # include "ensemble". It is built directly in TrainingStep._train_ensemble.
 
     except ImportError as e:
         # Models may not be available if dependencies are missing
@@ -134,105 +106,3 @@ def _register_default_models():
 
 # Register models on import
 _register_default_models()
-
-
-class InferenceRegistry:
-    """
-    Centralized registry of available inference classes.
-
-    Allows registering and retrieving inference classes by name.
-    """
-
-    _registry: Dict[str, type] = {}
-
-    @classmethod
-    def register(cls, name: str, inference_class: type) -> None:
-        """
-        Register an inference class with a name.
-
-        Args:
-            name: Inference class name.
-            inference_class: Inference class (must inherit from BaseInference).
-        """
-        cls._registry[name.lower()] = inference_class
-
-    @classmethod
-    def get(cls, name: str) -> type:
-        """
-        Get an inference class by name.
-
-        Args:
-            name: Inference class name.
-
-        Returns:
-            type: Inference class.
-
-        Raises:
-            KeyError: If the inference class is not registered.
-        """
-        name_lower = name.lower()
-        if name_lower not in cls._registry:
-            available = ", ".join(cls._registry.keys())
-            raise KeyError(f"Inference class '{name}' not found. Available classes: {available}")
-        return cls._registry[name_lower]
-
-    @classmethod
-    def list_inference(cls) -> list:
-        """
-        Return the list of registered inference classes.
-
-        Returns:
-            list: Names of registered inference classes.
-        """
-        return list(cls._registry.keys())
-
-    @classmethod
-    def is_registered(cls, name: str) -> bool:
-        """
-        Check if an inference class is registered.
-
-        Args:
-            name: Inference class name.
-
-        Returns:
-            bool: True if the inference class is registered.
-        """
-        return name.lower() in cls._registry
-
-    @classmethod
-    def create(cls, name: str, **kwargs) -> Any:
-        """
-        Create an inference class instance.
-
-        Args:
-            name: Inference class name.
-            **kwargs: Arguments to pass to the constructor.
-
-        Returns:
-            Inference class instance.
-        """
-        inference_class = cls.get(name)
-        return inference_class(**kwargs)
-
-
-# Registration of available inference classes
-def _register_default_inference():
-    """
-    Register the framework's default inference classes.
-
-    This function is called automatically when importing the module.
-    """
-    try:
-        from energizados.inference import DefaultInference
-
-        InferenceRegistry.register("default", DefaultInference)
-
-    except ImportError as e:
-        # Inference classes may not be available if dependencies are missing
-        import warnings
-
-        warnings.warn(f"Could not register all inference classes: {e}")
-
-
-# Register inference classes on import
-_register_default_inference()

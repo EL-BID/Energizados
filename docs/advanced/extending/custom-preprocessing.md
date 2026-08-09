@@ -44,7 +44,7 @@ train:
     preprocessing:
       columns:
         column_name:
-          - custom_class: "preprocessing.CustomColumnTransformer"
+          - custom_class: "src.preprocessing.CustomColumnTransformer"
             params:
               param1: value1
               param2: value2
@@ -130,7 +130,7 @@ train:
         # ... column-level preprocessing
 
       global_transformers:
-        - custom_class: "preprocessing.interaction_transformer.CustomInteractionTransformer"
+        - custom_class: "src.preprocessing.interaction_transformer.CustomInteractionTransformer"
           params:
             interactions:
               - ["consumption_mean", "consumption_std", "*"]
@@ -183,50 +183,44 @@ The `import_class` function in `src/energizados/core/utils/import_utils.py`:
 
 ### What Paths Are Allowed by Default
 
+The default allowlist was **narrowed for security** to the two framework-owned prefixes:
+
 ```python
-ALLOWED_PREFIXES = [
+# src/energizados/core/utils/import_utils.py
+ALLOWED_PREFIXES = {
     "energizados.",      # Framework modules
     "src.",              # Generated project src/ directory
-    "data.",             # Custom data modules
-    "features.",          # Custom feature modules
-    "models.",           # Custom model modules
-    "inference.",         # Custom inference modules
-    "preprocessing.",     # Custom preprocessing modules
-    "etl.",              # Custom ETL modules
-    "tests.",             # Test modules
-]
+}
 ```
+
+Previously broader prefixes (`data.`, `features.`, `models.`, `inference.`, `preprocessing.`, `etl.`, `tests.`) are **no longer allowed by default**. If your project uses custom module prefixes, register them explicitly as shown below.
 
 ### How to Add New Paths
 
-If you need to add new module prefixes, edit `src/energizados/core/utils/import_utils.py`:
+Do **not** edit `import_utils.py`. Register custom prefixes at runtime with `register_allowed_prefix()`, before any framework usage (it is not thread-safe):
 
 ```python
-ALLOWED_PREFIXES = [
-    "energizados.",
-    "src.",
-    "data.",
-    "features.",
-    "models.",
-    "inference.",
-    "preprocessing.",
-    "etl.",
-    "tests.",
-    "my_custom_prefix.",  # Add your custom prefix here
-]
+from energizados.core.utils.import_utils import register_allowed_prefix
+
+# Register each custom prefix you need (the trailing dot is added automatically)
+register_allowed_prefix("data")          # → allows "data.CustomETL"
+register_allowed_prefix("features")      # → allows "features.CustomSelector"
+register_allowed_prefix("models")        # → allows "models.CustomModel"
+register_allowed_prefix("ml_models")     # → any prefix you control
 ```
+
+> **Migration note:** If you are upgrading from an older version where prefixes like `data.`, `features.`, or `models.` were allowed by default, add the matching `register_allowed_prefix(...)` calls during your project setup (before importing/using the framework) — the built-in allowlist now contains only `energizados.` and `src.`.
 
 !!! warning "Security Warning"
 
-    Only add module prefixes that you control or trust. Never add wildcards or overly broad prefixes.
+    Only register module prefixes that you control or trust. Never add wildcards or overly broad prefixes.
 
 ### What Happens When a Class Is Not in the Allowlist
 
-You'll get an `ImportError` with a clear message:
+You'll get a `ConfigurationError` (an `EnergizadosError` subclass) with a clear message:
 
 ```
-ImportError: Class 'malicious.package.Attacker' is not in the allowed module prefixes.
-Allowed prefixes: ['energizados.', 'src.', 'data.', 'features.', 'models.', 'inference.', 'preprocessing.', 'etl.', 'tests.']
+ConfigurationError: Class 'malicious.package.Attacker' is not in the allowed module prefixes. Allowed: ['energizados.', 'src.']
 ```
 
 ## Testing Custom Transformers
@@ -236,7 +230,7 @@ Allowed prefixes: ['energizados.', 'src.', 'data.', 'features.', 'models.', 'inf
 import pytest
 import pandas as pd
 
-from preprocessing.interaction_transformer import CustomInteractionTransformer
+from src.preprocessing.interaction_transformer import CustomInteractionTransformer
 
 
 @pytest.fixture
@@ -275,7 +269,7 @@ pytest tests/test_custom_transformers.py -v
 
 - [Custom Feature Engineering](custom-feature-engineering.md) - Full pipeline customization
 - [Custom ETLs](custom-etl.md) - ETL implementations
-- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering) - Available transformations
+- [Feature Engineering Guide](../../user-guide/configuration/train.md#feature-engineering-configuration) - Available transformations
 
 ---
 

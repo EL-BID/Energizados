@@ -4,20 +4,24 @@ Pipeline Orchestrator for the Energizados Framework.
 This module contains the classes that orchestrate the execution of the ML workflow,
 coordinating the different pipeline steps.
 
-Note: The ConfigPipelineBuilder class has been refactored into the builders module.
-This file now contains only the core Pipeline class and a backwards-compatible
-ConfigPipelineBuilder that delegates to the new PipelineDirector.
+Note: ConfigPipelineBuilder is the primary pipeline entry point (used by the CLI
+and the generated run scripts). It delegates to PipelineDirector internally;
+this file holds the core Pipeline class plus that entry-point builder.
 """
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from energizados.core.base import PipelineStep
 from energizados.core.exceptions import (
+    EnergizadosError,
+    ETLDependencyError,
     PipelineError,
     StepValidationError,
 )
+from energizados.core.utils.memory_sampler import MemorySampler
 from energizados.core.utils.yaml_utils import load_yaml_config
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 def _load_yaml_config(path: str) -> Dict:
     return load_yaml_config(path)
+
+
+@dataclass
+class ExecutionPlan:
+    """Execution plan returned by Pipeline.plan()."""
+
+    steps: List[str]
+    dependencies: Dict[str, List[str]]
+    estimated_duration: Optional[float] = None
 
 
 class Pipeline:
@@ -49,13 +62,21 @@ class Pipeline:
         >>> results = pipeline.run()
     """
 
-    def __init__(self, config_path: str = None, config: Dict = None):
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        config: Optional[Dict] = None,
+        profile_memory: bool = False,
+    ):
         """
         Initialize the pipeline.
 
         Args:
             config_path: Path to the YAML configuration file
             config: Configuration dictionary (optional)
+            profile_memory: When True, sample RSS around each step's ``execute``
+                and surface the stats via ``on_step_complete(..., metrics=...)`` and
+                ``self.memory_metrics``. The CLI enables it under ``-vv``.
         """
         if config is not None:
             self.config = config
@@ -66,12 +87,99 @@ class Pipeline:
 
         self.context: Dict[str, Any] = {}
         self.steps: List[PipelineStep] = []
+        self.profile_memory = profile_memory
+        self.memory_metrics: Dict[str, Dict[str, int]] = {}
 
-        # Optional callbacks for progress tracking
-        self.on_step_start = None  # callable(name, index, total)
-        self.on_step_complete = None  # callable(name, index, total)
-        self.on_step_error = None  # callable(name, error)
-        self.on_phase_update = None  # callable(step_name, phase_name, progress_pct, total_phases)
+        # Optional callbacks for progress tracking. Typed as Optional[Callable]
+        # so callers (e.g. cli/run.py) can assign concrete closures without
+        # tripping the type checker (a bare ``= None`` infers type ``None``).
+        # Callable[..., None] keeps the legacy contract: callbacks may be
+        # defined with or without a trailing ``metrics`` kwarg (see the
+        # _phase_adapter below).
+        self.on_step_start: Optional[Callable[..., None]] = None
+        self.on_step_complete: Optional[Callable[..., None]] = None
+        self.on_step_error: Optional[Callable[..., None]] = None
+        self.on_phase_update: Optional[Callable[..., None]] = None
+
+    @classmethod
+    def from_dict(
+        cls, config: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> "Pipeline":
+        """Create Pipeline from dict config (explicit factory).
+
+        This is the programmatic API entry point. Equivalent to:
+            Pipeline(config=config_dict)
+
+        Args:
+            config: Configuration dictionary
+            context: Optional initial context (not used in Pipeline, reserved for future)
+
+        Returns:
+            Configured Pipeline instance
+        """
+        return cls(config=config)
+
+    def plan(self) -> ExecutionPlan:
+        """Return execution plan without running.
+
+        Builds step list from config and validates ETL dependencies using
+        existing ETLOrchestrator cycle detection.
+
+        Returns:
+            ExecutionPlan with steps, dependencies, and estimated_duration
+
+        Raises:
+            ETLDependencyError: If circular dependencies are detected
+        """
+        from energizados.etl.orchestrator import ETLOrchestrator
+
+        # Extract ETL config if present
+        etl_config = self.config.get("etl", {})
+
+        if etl_config:
+            # Build dependencies dict from config for enabled ETLs only
+            enabled_etls = {}
+            for etl_name, etl_config_item in etl_config.items():
+                if etl_config_item.get("enabled", True):
+                    enabled_etls[etl_name] = etl_config_item
+
+            # Use ETLOrchestrator to validate dependencies and detect cycles
+            try:
+                orchestrator = ETLOrchestrator(enabled_etls)
+                # Explicitly validate dependencies (includes cycle detection)
+                orchestrator.validate_dependencies()
+                # Get execution order
+                execution_order = orchestrator.build_execution_order()
+
+                # Build dependencies dict from config
+                dependencies = {
+                    etl_name: etl_config_item.get("depends_on", [])
+                    for etl_name, etl_config_item in enabled_etls.items()
+                }
+
+                return ExecutionPlan(
+                    steps=execution_order,  # Use the validated execution order
+                    dependencies=dependencies,
+                    estimated_duration=None,  # Could be estimated based on historical runs
+                )
+
+            except ETLDependencyError:
+                # Re-raise with proper error code
+                raise
+            except Exception:
+                # If there's any other error, return a basic plan
+                dependencies = {
+                    etl_name: etl_config_item.get("depends_on", [])
+                    for etl_name, etl_config_item in enabled_etls.items()
+                }
+                return ExecutionPlan(
+                    steps=list(enabled_etls.keys()),
+                    dependencies=dependencies,
+                    estimated_duration=None,
+                )
+        else:
+            # No ETL config - return empty plan
+            return ExecutionPlan(steps=[], dependencies={}, estimated_duration=None)
 
     def _load_config(self, path: str) -> Dict:
         """
@@ -101,9 +209,13 @@ class Pipeline:
         self.steps.append(step)
         return self
 
-    def run(self) -> Dict[str, Any]:
+    def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """
         Execute all pipeline steps.
+
+        Args:
+            progress_callback: Optional callback for progress events.
+                            Receives ProgressEvent objects.
 
         Returns:
             Dict: Final context with results
@@ -117,6 +229,20 @@ class Pipeline:
 
         total_steps = len(self.steps)
 
+        # Lazy import to avoid circular dependency
+        try:
+            from energizados.api.progress import ProgressEvent
+        except ImportError:
+            ProgressEvent = None
+
+        def safe_emit(event):
+            """Emit progress event with error isolation."""
+            if progress_callback and ProgressEvent:
+                try:
+                    progress_callback(event)
+                except Exception:
+                    logger.exception("Progress callback error (ignored)")
+
         for i, step in enumerate(self.steps, 1):
             step_name = step.__class__.__name__
 
@@ -124,7 +250,19 @@ class Pipeline:
             logger.info(f"STEP {i}/{total_steps}: {step_name}")
             logger.info(f"{'=' * 60}")
 
-            # Notify step start
+            # Emit start event
+            safe_emit(
+                ProgressEvent(
+                    run_id="unknown",
+                    step_name=step_name,
+                    phase="start",
+                    message=f"Starting step {step_name}",
+                )
+                if ProgressEvent
+                else None
+            )
+
+            # Notify step start (legacy callback)
             if self.on_step_start:
                 self.on_step_start(step_name, i, total_steps)
 
@@ -137,25 +275,74 @@ class Pipeline:
                     missing_keys=missing_keys,
                 )
 
+            # Propagate profiling flag to sub-runners (e.g. ETLStep ->
+            # ETLOrchestrator) so per-ETL sampling can be enabled.
+            self.context["_profile_memory"] = self.profile_memory
+
             # Execute step
             try:
                 if self.on_phase_update:
                     callback = self.on_phase_update
 
-                    def _phase_adapter(step, phase, pct, total_phases=None):
-                        callback(step, phase, pct, total_phases)
+                    def _phase_adapter(step, phase, pct, total_phases=None, metrics=None):
+                        # Only forward the metrics kwarg when present, so legacy
+                        # callbacks defined as (step, phase, pct, total_phases)
+                        # keep working unchanged.
+                        if metrics is not None:
+                            callback(step, phase, pct, total_phases, metrics=metrics)
+                        else:
+                            callback(step, phase, pct, total_phases)
 
                     self.context["_on_phase_update"] = _phase_adapter
-                self.context = step.execute(self.context)
+
+                step_metrics = None
+                if self.profile_memory:
+                    with MemorySampler() as sampler:
+                        self.context = step.execute(self.context)
+                    step_metrics = sampler.stats
+                    self.memory_metrics[step_name] = step_metrics
+                else:
+                    self.context = step.execute(self.context)
                 logger.info(f"✓ Step {step_name} completed")
 
-                # Notify step complete
+                # Emit complete event
+                safe_emit(
+                    ProgressEvent(
+                        run_id="unknown",
+                        step_name=step_name,
+                        phase="complete",
+                        message=f"Completed step {step_name}",
+                    )
+                    if ProgressEvent
+                    else None
+                )
+
+                # Notify step complete (callback receives metrics when profiling)
                 if self.on_step_complete:
-                    self.on_step_complete(step_name, i, total_steps)
+                    if self.profile_memory:
+                        self.on_step_complete(step_name, i, total_steps, metrics=step_metrics)
+                    else:
+                        self.on_step_complete(step_name, i, total_steps)
             except Exception as e:
-                # Notify step error
+                # Emit error event
+                safe_emit(
+                    ProgressEvent(
+                        run_id="unknown",
+                        step_name=step_name,
+                        phase="error",
+                        message=f"Error in step {step_name}: {e}",
+                    )
+                    if ProgressEvent
+                    else None
+                )
+
+                # Notify step error — callback fires for BOTH paths
                 if self.on_step_error:
                     self.on_step_error(step_name, e)
+                # Framework exceptions propagate unchanged (type/attributes
+                # preserved); only unexpected errors are wrapped as PipelineError.
+                if isinstance(e, EnergizadosError):
+                    raise
                 raise PipelineError(f"Error executing step {step_name}: {e}", step=step_name) from e
 
         return self.context
@@ -175,16 +362,17 @@ class Pipeline:
         self.steps = []
 
 
-# Backwards-compatible ConfigPipelineBuilder that uses the new PipelineDirector
-# This class is kept for backwards compatibility but delegates to the new architecture
+# ConfigPipelineBuilder is the primary pipeline entry point used by the CLI
+# (cli/run.py) and the generated src/run/*.py scripts. It delegates to
+# PipelineDirector internally.
 class ConfigPipelineBuilder:
     """
     Pipeline builder from YAML configuration.
 
-    DEPRECATED: This class is maintained for backwards compatibility.
-    New code should use PipelineDirector from energizados.core.builders.
-
-    This class now delegates to PipelineDirector internally.
+    This is the main entry point for building and running a pipeline from YAML
+    configuration. It is used directly by the CLI (``energizados run``) and by
+    the generated ``src/run/*.py`` scripts. Internally it delegates to
+    ``PipelineDirector`` (``energizados.core.builders``).
 
     Args:
         config_path: Path to the YAML configuration file
@@ -197,11 +385,12 @@ class ConfigPipelineBuilder:
 
     def __init__(
         self,
-        config_path: str = None,
-        config: Dict = None,
-        config_paths: List[str] = None,
+        config_path: Optional[str] = None,
+        config: Optional[Dict] = None,
+        config_paths: Optional[List[str]] = None,
         run_name: Optional[str] = None,
         overwrite: bool = False,
+        derived_from: Optional[str] = None,
     ):
         """
         Initialize the builder.
@@ -212,6 +401,9 @@ class ConfigPipelineBuilder:
             config_paths: List of all config files used (for copying to run dir)
             run_name: Optional custom run directory name
             overwrite: If True, overwrite existing run directory
+            derived_from: ADR-0003 optional source run_id for retrain lineage.
+                ``run_type`` is NOT a constructor param — it is derived from the
+                config by the director.
         """
         # Store config paths for backwards compatibility
         self.config_paths: List[str] = config_paths or ([config_path] if config_path else [])
@@ -225,6 +417,7 @@ class ConfigPipelineBuilder:
             config_paths=self.config_paths,
             run_name=run_name,
             overwrite=overwrite,
+            derived_from=derived_from,
         )
 
     def _load_config(self, path: str) -> Dict:
@@ -241,17 +434,26 @@ class ConfigPipelineBuilder:
         self._director.run_manager.copy_configs_to_run_dir()
 
     def generate_index_html(self):
-        """Generate index HTML."""
-        self._director.run_manager.generate_index_html()
+        """Generate index HTML.
 
-    def run(self) -> Dict[str, Any]:
+        Returns the Path to the generated index.html, or None when it was not
+        generated (e.g. non-training run types that have no evaluation reports).
+        """
+        return self._director.run_manager.generate_index_html()
+
+    def run(self, progress_callback: Optional[Any] = None) -> Dict[str, Any]:
         """
         Convenience method: builds and runs the pipeline, then performs post-run tasks.
+
+        Args:
+            progress_callback: Optional callback invoked with ProgressEvent objects,
+                forwarded to PipelineDirector.run → Pipeline.run. Used by the web
+                worker to stream live job progress to the SSE endpoint.
 
         Returns:
             Dict: Final context with pipeline results
         """
-        return self._director.run()
+        return self._director.run(progress_callback=progress_callback)
 
     def build(self) -> Pipeline:
         """

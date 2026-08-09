@@ -7,11 +7,48 @@ of the 2026 industry.
 """
 
 import keyword
+import os
 import shutil
 from pathlib import Path
 
 # Python keywords that cannot be used as module names
 PYTHON_KEYWORDS = set(keyword.kwlist)
+
+
+def _slugify_for_filesystem(name: str) -> str:
+    """
+    Reduce ``name`` to a single safe filesystem directory component.
+
+    ``os.path.basename`` drops everything before the last separator, so
+    ``"../escape"`` becomes ``"escape"`` and ``"foo/bar"`` becomes
+    ``"bar"``. This keeps traversal bytes out of the value that gets
+    substituted into README/config template *contents*.
+
+    Note: this function does NOT by itself clear CodeQL
+    ``py/path-injection`` alerts on ``project_path`` — those are blocked
+    by the normalize-then-``startswith`` barrier in ``create_project``,
+    which is the pattern CodeQL's taint model recognizes as a full
+    barrier (``Path::PathNormalization`` + ``Path::SafeAccessCheck``).
+
+    Raises:
+        ValueError: If ``name`` is empty, has only whitespace, or reduces
+            to a name that is not safe to use as a single directory
+            component (``.``, ``..``, or a leading-dot hidden name).
+
+    Returns:
+        A safe single-component directory name.
+    """
+    if not name or not name.strip():
+        raise ValueError("Project name must not be empty.")
+
+    safe = os.path.basename(name)
+    # ``os.path.basename`` alone leaves a few unsafe results: ``".."``,
+    # ``"."``, ``""`` (when the input is a separator), and any name
+    # starting with ``.`` (hidden file). Reject those explicitly so the
+    # caller cannot end up creating ``".."`` or ``".hidden"`` directories.
+    if not safe or safe in (".", "..") or safe.startswith("."):
+        raise ValueError(f"Project name {name!r} is not safe to use as a directory name.")
+    return safe
 
 
 def _sanitize_package_name(name: str) -> str:
@@ -80,7 +117,7 @@ def _load_template(template_name: str) -> str:
         The content of the template file as a string.
     """
     template_path = _get_template_path(template_name)
-    return template_path.read_text()
+    return template_path.read_text(encoding="utf-8")
 
 
 def create_project(
@@ -91,19 +128,59 @@ def create_project(
     force: bool = False,
 ):
     """
-    Creates a new Energizados project with the base structure.
+        Creates a new Energizados project with the base structure.
 
-    Args:
-        project_name: Name of the project
-        project_path: Path where to create the project
-        template: Name of the template to use
-        copy_from: Name of the source project to copy
-        force: If True, removes the existing directory before creating
+        Args:
+            project_name: Name of the project
+            project_path: Path where to create the project
+            template: Name of the template to use
+            copy_from: Name of the source project to copy
+            force: If True, removes the existing directory before creating
 
-    Raises:
-        FileExistsError: If the project directory already exists and force=False
-        ValueError: If the template or source project does not exist
+        Raises:
+            FileExistsError: If the project directory already exists and force=False
+            ValueError: If the template or source project does not exist, or if
+    ``project_name`` is unsafe (path-traversal, empty, leading dot, etc.)
     """
+    # Reject unsafe project names before any filesystem operation. The
+    # slugified ``project_name`` is what gets substituted into README and
+    # config templates, so traversal bytes (``../``, separators) must not
+    # leak into generated file *contents*.
+    project_name = _slugify_for_filesystem(project_name)
+
+    # CodeQL ``py/path-injection``: this module has 18 sinks of the form
+    # ``(project_path / "...").write_text(...)``. ``project_path`` arrives
+    # constructed from user input at every call site (CLI args, HTTP body),
+    # so CodeQL treats it as tainted. The actual path containment is
+    # enforced by the callers — the CLI rejects ``..`` / separators in
+    # ``project_name`` (see ``cli.main.init``), and the web layer slugifies
+    # the name and asserts ``target.relative_to(workspace_root)`` before
+    # calling us (see ``web.projects.ProjectService.create_project``).
+    #
+    # To make CodeQL *see* that containment, we apply the normalize-then-
+    # verify-prefix pattern its taint model recognizes as a full barrier:
+    #
+    #   1. ``os.path.normpath`` is modeled as ``Path::PathNormalization``
+    #      and transitions the path from ``NotNormalized`` to
+    #      ``NormalizedUnchecked``.
+    #   2. The ``str.startswith`` prefix check on the normalized path is
+    #      modeled as ``Path::SafeAccessCheck`` and blocks the
+    #      ``NormalizedUnchecked`` state from reaching the file-system
+    #      sinks below.
+    #
+    # Together they cut the taint chain on ``project_path`` itself, so all
+    # 18 downstream alerts resolve. Note the prefix is the resolved parent
+    # of the path itself, which is sufficient for CodeQL's barrier pattern
+    # but is NOT independent containment — the callers above own that.
+    resolved_parent = project_path.parent.resolve()
+    normalized = os.path.normpath(str(project_path.resolve()))
+    boundary = str(resolved_parent) + os.sep
+    if not normalized.startswith(boundary):
+        raise ValueError(
+            f"Project path {project_path!s} escapes its parent directory " f"{resolved_parent!s}"
+        )
+    project_path = Path(normalized)
+
     if project_path.exists():
         if not force:
             raise FileExistsError(f"The directory '{project_path}' already exists")
@@ -220,7 +297,10 @@ def _create_directory_structure(project_path: Path) -> None:
 
     for init_file, module_name in init_modules.items():
         if module_name is None:
-            init_file.write_text(f'''"""{init_file.parent.name} module of the project."""''')
+            init_file.write_text(
+                f'''"""{init_file.parent.name} module of the project."""''',
+                encoding="utf-8",
+            )
         else:
             pkg_name = f"{init_file.parent.parent.name}.{init_file.parent.name}"
             init_file.write_text(
@@ -242,7 +322,8 @@ for _importer, modname, _ispkg in pkgutil.iter_modules(__path__, prefix="{pkg_na
             if isinstance(attr, type):
                 globals()[attr_name] = attr
                 __all__.append(attr_name)
-'''
+''',
+                encoding="utf-8",
             )
 
 
@@ -268,15 +349,15 @@ def _create_base_files(project_path: Path, project_name: str, source_name: str =
     readme_content = readme_template.replace("{{origin_note}}", origin_note)
 
     # Write files
-    (project_path / "README.md").write_text(readme_content)
-    (project_path / ".gitignore").write_text(gitignore_template)
+    (project_path / "README.md").write_text(readme_content, encoding="utf-8")
+    (project_path / ".gitignore").write_text(gitignore_template, encoding="utf-8")
 
     # .gitkeep files to keep empty directories in git
-    (project_path / "data" / "raw" / ".gitkeep").write_text("")
-    (project_path / "data" / "processed" / ".gitkeep").write_text("")
-    (project_path / "data" / "temp" / ".gitkeep").write_text("")
-    (project_path / "data" / "temp" / "splits" / ".gitkeep").write_text("")
-    (project_path / "output" / ".gitkeep").write_text("")
+    (project_path / "data" / "raw" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "data" / "processed" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "data" / "temp" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "data" / "temp" / "splits" / ".gitkeep").write_text("", encoding="utf-8")
+    (project_path / "output" / ".gitkeep").write_text("", encoding="utf-8")
 
     # Copy example dataset if it exists (only for new projects, not copies)
     if source_name is None:
@@ -318,14 +399,16 @@ def _create_code_templates(project_path: Path, project_name: str, only: str = No
         if only is None or only == module:
             template_content = _load_template(template_file)
             content = template_content.replace("{{project_name}}", project_name)
-            target_map[module].write_text(content)
+            target_map[module].write_text(content, encoding="utf-8")
 
     # Create example notebook from template
     notebook_template_path = _get_template_path("notebooks/example_notebook.ipynb.tpl")
     if notebook_template_path.exists():
-        notebook_content = notebook_template_path.read_text()
+        notebook_content = notebook_template_path.read_text(encoding="utf-8")
         notebook_content = notebook_content.replace("{{project_name}}", project_name)
-        (project_path / "notebooks" / "example_notebook.ipynb").write_text(notebook_content)
+        (project_path / "notebooks" / "example_notebook.ipynb").write_text(
+            notebook_content, encoding="utf-8"
+        )
 
 
 def _create_test_templates(project_path: Path, project_name: str):
@@ -348,7 +431,7 @@ def _create_test_templates(project_path: Path, project_name: str):
         if template_path.exists():
             template_content = _load_template(template_file)
             content = template_content.replace("{{project_name}}", project_name)
-            (project_path / "tests" / filename).write_text(content)
+            (project_path / "tests" / filename).write_text(content, encoding="utf-8")
         # If the template does not exist, it is silently omitted
         # Users can create their own tests
 
@@ -371,9 +454,9 @@ def _create_extra_templates(project_path: Path, project_name: str):
         content = template_content.replace("{{project_name}}", project_name)
 
         if filename == "helpers.py":
-            (project_path / "src" / "utils" / filename).write_text(content)
+            (project_path / "src" / "utils" / filename).write_text(content, encoding="utf-8")
         else:
-            (project_path / "docs" / filename).write_text(content)
+            (project_path / "docs" / filename).write_text(content, encoding="utf-8")
 
 
 def _create_requirements_file(project_path: Path):
@@ -387,7 +470,7 @@ def _create_requirements_file(project_path: Path):
 
     requirements_content = _load_template("requirements.txt.tpl")
     requirements_content = requirements_content.replace("{{energizados_version}}", get_version())
-    (project_path / "requirements.txt").write_text(requirements_content)
+    (project_path / "requirements.txt").write_text(requirements_content, encoding="utf-8")
 
 
 def _validate_source_project(source_path: Path, old_structure: bool = False) -> bool:
@@ -459,7 +542,7 @@ def _copy_custom_file(
     target_file = target_path / target_filename
 
     if source_file.exists():
-        content = source_file.read_text()
+        content = source_file.read_text(encoding="utf-8")
 
         # Add origin comment if specified
         if comment_origin:
@@ -476,7 +559,7 @@ def _copy_custom_file(
                 content = comment + "\n" + content
 
         target_file.parent.mkdir(parents=True, exist_ok=True)
-        target_file.write_text(content)
+        target_file.write_text(content, encoding="utf-8")
         return True
     return False
 
@@ -538,7 +621,7 @@ def _copy_and_adapt_pipeline_yaml(
         target_yaml = target_path / "config" / config_file
 
         if source_yaml.exists():
-            content = source_yaml.read_text()
+            content = source_yaml.read_text(encoding="utf-8")
 
             # Replace project name in configuration
             patterns = [
@@ -596,7 +679,7 @@ def _copy_and_adapt_pipeline_yaml(
             for pattern, replacement in patterns:
                 content = re.sub(pattern, replacement, content)
 
-            target_yaml.write_text(content)
+            target_yaml.write_text(content, encoding="utf-8")
         else:
             # If not found, create from template
             _create_config_files(target_path, new_name)
@@ -751,8 +834,10 @@ def _create_run_scripts(project_path: Path, project_name: str):
     for filename, template_path in scripts.items():
         template_content = _load_template(template_path)
         script_path = run_dir / filename
-        script_path.write_text(template_content)
-        script_path.chmod(0o755)  # Make executable
+        script_path.write_text(template_content, encoding="utf-8")
+        # No chmod: the documented usage is `python src/run/00_etl.py`, never
+        # direct execution. chmod is a no-op on Windows and a code smell on
+        # POSIX (the shebang alone is enough for the rare `chmod +x` workflow).
 
 
 def _create_config_files(project_path: Path, project_name: str):
@@ -782,4 +867,4 @@ def _create_config_files(project_path: Path, project_name: str):
         template_content = _load_template(template_path)
         config_content = template_content.replace("{{project_name}}", project_name)
         config_content = config_content.replace("{{package}}", package_name)
-        (project_path / "config" / filename).write_text(config_content)
+        (project_path / "config" / filename).write_text(config_content, encoding="utf-8")

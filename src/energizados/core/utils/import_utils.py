@@ -7,26 +7,47 @@ allowlist to prevent arbitrary code execution from untrusted configurations.
 
 import sys
 from pathlib import Path
+from typing import Set
 
 # Allowlist of permitted module prefixes for dynamic class imports.
 # Prevents arbitrary code execution via malicious YAML class references.
-ALLOWED_PREFIXES = [
+# Narrowed from previous broad list to minimal secure defaults.
+ALLOWED_PREFIXES: Set[str] = {
     "energizados.",
     "src.",
-    "data.",
-    "features.",
-    "models.",
-    "inference.",
-    "preprocessing.",
-    "etl.",
-    "tests.",
-]
-"""List[str]: Allowed module prefixes for dynamic class imports.
+}
+"""Set[str]: Allowed module prefixes for dynamic class imports.
 
 This allowlist is used to prevent arbitrary code execution when importing
 classes dynamically from configuration files. Only classes from modules
 starting with these prefixes can be imported.
+
+Migration note: If your project uses custom classes from 'data.' or 'features.'
+prefixes, call register_allowed_prefix() before framework usage:
+    from energizados.core.utils.import_utils import register_allowed_prefix
+    register_allowed_prefix("data")
+    register_allowed_prefix("features")
 """
+
+
+def register_allowed_prefix(prefix: str) -> None:
+    """Register a custom allowed prefix for dynamic imports.
+
+    Args:
+        prefix: Module prefix to allow (e.g., "ml_models")
+
+    Note:
+        Not thread-safe. Call during initial setup before any framework usage.
+        The trailing dot is added automatically if omitted.
+
+    Example:
+        >>> register_allowed_prefix("data")
+        >>> register_allowed_prefix("ml_models")
+        >>> import_class("data.CustomClass")  # Now allowed
+    """
+    if not prefix.endswith("."):
+        prefix = prefix + "."
+    ALLOWED_PREFIXES.add(prefix)
 
 
 def import_class(class_path: str) -> type:
@@ -44,12 +65,17 @@ def import_class(class_path: str) -> type:
         Imported class
 
     Raises:
-        ImportError: If the class cannot be imported or not in the allowlist.
+        ConfigurationError: If the class is not in the allowed module prefixes
+        ImportError: If the class cannot be imported despite valid prefix
     """
     if not any(class_path.startswith(prefix) for prefix in ALLOWED_PREFIXES):
-        raise ImportError(
+        from energizados.core.exceptions import ConfigurationError
+
+        sorted_prefixes = sorted(list(ALLOWED_PREFIXES))
+        raise ConfigurationError(
             f"Class '{class_path}' is not in the allowed module prefixes. "
-            f"Allowed prefixes: {ALLOWED_PREFIXES}"
+            f"Allowed: {sorted_prefixes}",
+            error_code="CONFIG_INVALID_CLASS_PREFIX",
         )
 
     try:

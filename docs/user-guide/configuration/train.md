@@ -12,6 +12,17 @@ The training configuration file controls the entire training pipeline with five 
 - **`ensemble`**: Ensemble configuration (optional, required when multiple models)
 - **`evaluation`**: Metrics, reports, and threshold settings
 
+**In this page:**
+
+| Section | Covers |
+|---------|--------|
+| [Split Configuration](#split-configuration) | train/val/test splits, `none` no-holdout, time-series, group-based, geo-stratify |
+| [Feature Engineering](#feature-engineering-configuration) | preprocessing, global transformers, feature selection |
+| [Model Configuration](#model-configuration) | single model, sampling, hyperparams, hyperparam search |
+| [Ensemble Configuration](#ensemble-configuration) | soft voting, stacking, blending vs OOF |
+| [Evaluation Configuration](#evaluation-configuration) | metrics, threshold calibration, segmented evaluation |
+| [Complete Example](#complete-example) | full annotated `train.yaml` |
+
 ## File Structure
 
 ```yaml
@@ -167,6 +178,135 @@ split:
 
 **Class imbalance warning:** A `WARNING` is logged if any split's positive-class rate falls below 10% or exceeds 90%, since group-based splits cannot guarantee stratification.
 
+#### Stratified Time Split
+
+Temporal split within each geographic cluster. Requires the `geo_cluster` column produced by `GeoFeaturesETL`. Performs a time-based split separately for each cluster, maintaining geographic representation across train/val/test sets.
+
+```yaml
+split:
+  method: "stratified_time"
+  date_column: "fecha_inspeccion"
+  cluster_column: "geo_cluster"   # requires GeoFeaturesETL run beforehand
+  test_size: 0.15
+  val_size: 0.15
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `method` | string | - | Must be `"stratified_time"` |
+| `date_column` | string | - | Date column for temporal ordering (required) |
+| `cluster_column` | string | - | Column containing cluster IDs (e.g., `geo_cluster` from GeoFeaturesETL) (required) |
+| `test_size` | float | `0.15` | Proportion of data for test set |
+| `val_size` | float | `0.15` | Proportion of data for validation set |
+
+**Important:** Requires `GeoFeaturesETL` to be executed before training to generate the `cluster_column` (e.g., `geo_cluster`). Each cluster is split independently using time-based logic, then the splits are combined.
+
+#### No-Holdout Training (`none`)
+
+Trains on the **full dataset** without reserving a validation or test split. Use this for production model training once offline evaluation is complete and you want to maximize the signal from all available data.
+
+```yaml
+split:
+  method: "none"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `method` | string | - | Must be `"none"` |
+
+**What changes under the hood:**
+
+- `SplitStep` writes only `train.parquet`; `val_path` and `test_path` remain `None`.
+- `TrainingStep` accepts `val_path=None` and internally reserves 10% of the data for early stopping only.
+- Metrics that require holdout data (`val_auc`, `val_f1`) return `None` honestly instead of fabricated numbers.
+- A new `holdout_mode` field is exposed in the run context: `"none"` or `"standard"`.
+- The evaluation step is auto-skipped by the director with a `WARNING`; `DefaultEvaluator` returns `skipped=True` defensively.
+
+**Interactions to be aware of:**
+
+- **Probability calibration** is skipped with a `WARNING` (it needs validation data).
+- **Ensemble blending** (`use_val_as_oof: true`) raises a `ConfigurationError`. Three alternatives: (1) provide a `split.method` with a holdout, (2) switch to `use_val_as_oof: false` (K-fold OOF stacking), or (3) use `method: "soft_voting"`.
+- **Soft-voting ensembles** and **K-fold OOF stacking** work without validation data.
+
+> **Available since v0.3.3.** Every other `split.method` (`stratified`, `random`, `time_series`, `group_based`, `stratified_time`) remains byte-identical.
+
+#### Unlabeled Negatives (Optional)
+
+Injects unlabeled contracts as `target=0` samples into the train split to reduce selection bias. Useful when the labeled dataset is biased toward inspected contracts (e.g., only high-risk or region-specific inspections).
+
+```yaml
+split:
+  method: "time_series"
+  date_column: "fecha_inspeccion"
+  train_period: ["2010-01-01", "2017-08-01"]
+  val_period: ["2017-09-01", "2017-12-31"]
+  test_period: ["2018-01-01"]
+
+  # Optional: inject unlabeled negatives as target=0 (reduces selection bias)
+  unlabeled_negatives:
+    enabled: true
+    source_path: "data/external/unlabeled.parquet"
+    max_per_cutoff: 1500
+    random_state: 42
+    date_column: "fecha_inspeccion"
+    id_column: "contract_id"
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Whether to inject unlabeled negatives |
+| `source_path` | string | - | Path to external parquet file with unlabeled contracts (required when enabled) |
+| `max_per_cutoff` | int | `1500` | Maximum number of unlabeled negatives to sample per cutoff period |
+| `random_state` | int | `42` | Random seed for reproducibility |
+| `date_column` | string | - | Date column for time-based filtering and deduplication |
+| `id_column` | string | - | Contract ID column for deduplication (excludes contracts already in val/test) |
+
+**Important:** Unlabeled negatives are added to the **train split only**. Contracts present in val/test sets are excluded via deduplication on `id_column`.
+
+#### Geo-Stratify (Optional)
+
+Balances geographic representation in the train set by limiting samples per stratum. Useful when some regions are overrepresented and you want a more balanced training distribution.
+
+```yaml
+split:
+  method: "stratified"
+  test_size: 0.2
+  val_size: 0.1
+  random_state: 42
+
+  # Optional: balance geographic representation in train set
+  geo_stratify:
+    enabled: true
+    column: "geo_region"
+    strategy: "proportional"  # proportional | equal | capped
+    max_per_stratum: null     # required when strategy: capped
+    random_state: 42
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Whether to apply geo-stratification |
+| `column` | string | - | Column defining geographic strata (required when enabled) |
+| `strategy` | string | - | Strategy: `proportional` (cap to median), `equal` (reduce to min), or `capped` (cap at max_per_stratum) |
+| `max_per_stratum` | int | - | Maximum samples per stratum (required when `strategy="capped"`) |
+| `random_state` | int | `42` | Random seed for reproducibility |
+
+**Strategies:**
+
+- `proportional`: Caps each stratum to the median count (reduces overrepresented regions proportionally)
+- `equal`: Reduces all strata to the minimum count (aggressive balancing)
+- `capped`: Caps each stratum to `max_per_stratum` (manual control)
+
+**Warning:** A `WARNING` is logged if geo-stratification would remove more than 50% of training data. This is a guardrail against aggressive downsampling.
+
 ---
 
 ## Feature Engineering Configuration
@@ -179,6 +319,8 @@ feature_engineering:
   preprocessing:
     enabled: true
     drop_columns: ["index", "fecha_inspeccion"]
+    # columns_filter: Optional row-level filter applied to train/val/test BEFORE
+    #   feature engineering. See "Row-level filtering (columns_filter)" below.
     # output_parquet: "data/processed/preprocessing.parquet"  # optional
 
     columns:
@@ -193,6 +335,35 @@ feature_engineering:
     steps:
       # Feature selection steps
 ```
+
+### Row-level filtering (`columns_filter`)
+
+`columns_filter` removes rows from the dataset **before** feature engineering. It applies independently to each split (train, val, test), keeping `X` and `y` aligned by index. Useful when you want to train a region-specific model without splitting the ETL into separate outputs.
+
+> **Tip:** For a single-region training run, `columns_filter` is simpler than adding a custom ETL. For multi-region experiments, consider running separate training configs (one per region) so each run has its own model and metadata.
+
+```yaml
+preprocessing:
+  columns_filter:
+    # Simple equality (single value or list)
+    geo_region: "FLORIANOPOLIS"
+    zona: ["NORTE", "SUL"]
+
+    # Comparison operators (column: {">": 250, "<=": 500})
+    consumo: {">": 100, "<=": 50000}
+
+    # Pandas query expression (applied first, before per-column filters)
+    _expr: "(zona != 'A') & (consumo > 200)"
+```
+
+**Supported operators:** `>`, `<`, `>=`, `<=`, `!=`, `==`, `like` (case-insensitive substring via `str.contains`).
+
+**Important behavior:**
+
+- The filter is applied to **all splits** (train, val, test) so that evaluation stays consistent. If your goal is to only filter the training set, keep the unfiltered val/test in your splits and rely on the model's generalization.
+- Filtering happens before `drop_columns` and before any column encoding — the filter columns don't need to be in the `columns:` config.
+- The number of rows removed from each split is logged at INFO level.
+- If a referenced column is missing from the data, a WARNING is logged and the filter is skipped for that column.
 
 ### Preprocessing Transformations
 
@@ -354,8 +525,13 @@ Domain-specific fraud detection features derived from the consumption time serie
 | `enable_consistency` | bool | `true` | Enable consistency score feature |
 | `enable_drastic_changes` | bool | `true` | Enable drastic changes count feature |
 | `drastic_threshold` | float | `0.5` | Threshold for drastic changes (0.5 = 50%) |
+| `enable_last_period_zscore` | bool | `false` | Enable z-score of last period vs client's own mean/std (adds `zscore_last_vs_history_N`) |
+| `enable_autocorr_lag1` | bool | `false` | Enable lag-1 autocorrelation (adds `autocorr_lag1_N`) — low values signal manipulation |
+| `enable_seasonal_ratio` | bool | `false` | Enable summer/winter seasonal ratio (adds `seasonal_ratio_N`) — southern hemisphere context |
+| `date_column` | str | `null` | Inspection date column (required when `enable_seasonal_ratio=true`) |
 
 **Generated features (when enabled):**
+
 - `diff_X_Y`: Ratio of change between consecutive periods
 - `min_max_ratio_X`: Ratio of min/max consumption
 - `zscore_mean_X`: Z-score of mean consumption
@@ -363,6 +539,9 @@ Domain-specific fraud detection features derived from the consumption time serie
 - `slope_normalized_X`: Slope normalized by mean
 - `consistency_score_X`: Consistency score (low variability = suspicious)
 - `drastic_changes_count_X`: Count of changes exceeding threshold
+- `zscore_last_vs_history_N`: Z-score of last period vs client's own mean/std (when `enable_last_period_zscore=true`)
+- `autocorr_lag1_N`: Lag-1 autocorrelation (when `enable_autocorr_lag1=true`)
+- `seasonal_ratio_N`: Summer/winter mean ratio (when `enable_seasonal_ratio=true`, southern hemisphere)
 
 #### group_relative_consumption
 
@@ -418,13 +597,11 @@ For each consumption month, computes a z-score relative to the group's historica
 
 > **Anti-leakage note:** Group monthly statistics are learned from the training data passed to `fit()`. Ensure temporal ordering is respected.
 
-#### geo_features (moved to ETL)
+#### geo_features
 
-Geographic features (hierarchy, distances, clustering) are now configured as an ETL step
-using `GeoFeaturesETL` in `etl.yaml`. See [ETL configuration → GeoFeaturesETL](etl.md#geofeaturesletl).
+Geographic features — clustering (`geo_cluster`), IBGE hierarchy, and distances — are owned by the `GeoFeatures` transformer (`preprocessing/geo_features.py`). The convenient path is `GeoFeaturesETL` in `etl.yaml` (a thin wrapper that handles file I/O and the train/infer model hand-off via `geo_model_path`). See [ETL configuration → GeoFeaturesETL](etl.md#geofeaturesetl).
 
-To apply **target encoding** of geographic columns (e.g. `geo_estado_prob`), use
-`GeoFeatures` directly via `custom_class` in `global_transformers`.
+You can also use `GeoFeatures` directly via `custom_class` in `global_transformers`: it supports `include_cluster: true` (clustering), hierarchy, distances, and — for target encoding of geographic columns (e.g. `geo_estado_prob`) — `include_target_encoding: true`.
 
 #### if_score
 
@@ -455,6 +632,7 @@ Isolation Forest anomaly score — generates an `if_score` column where **higher
 | `periods_suffix` | str | `"_anterior"` | Suffix for auto-detecting consumption columns |
 
 **Tips:**
+
 - Set `contamination_from_target: true` to automatically use the fraud rate as the expected anomaly proportion
 - Run `clip_outliers` **before** `if_score` to avoid extreme values distorting anomaly detection
 - The score is inverted from sklearn's `score_samples()` so that higher = more anomalous (more intuitive for fraud detection)
@@ -462,7 +640,7 @@ Isolation Forest anomaly score — generates an `if_score` column where **higher
 #### Custom Global Transformer
 
 ```yaml
-- custom_class: "preprocessing.CustomGlobalTransformer"
+- custom_class: "src.preprocessing.CustomGlobalTransformer"
   params:
     custom_param: value
 ```
@@ -577,7 +755,7 @@ feature_selection:
 
 ### Available Model Types
 
-Energizados supports eight model types:
+Energizados supports seven model types:
 
 | Type | Aliases | Description | Requires Preprocessing |
 |------|---------|-------------|----------------------|
@@ -711,6 +889,7 @@ models:
 ```
 
 **Neural Network Notes:**
+
 - Architecture: Dense(512) → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid)
 - Uses early stopping with patience=50 on validation PR-AUC
 - Automatically scales features using MinMaxScaler
@@ -726,6 +905,7 @@ models:
 ```
 
 **LSTM Notes:**
+
 - Architecture: LSTM(128) → Concatenate with features → Dense(64) → Dense(32) → Dense(16) → Dense(1, sigmoid)
 - Uses early stopping with patience=50 on validation PR-AUC
 - Requires consumption columns in format: `12_anterior`, `11_anterior`, ..., `1_anterior`
@@ -749,6 +929,7 @@ models:
 | `last_eval_value` | int | `3` | Number of recent periods for evaluation |
 
 **How it works:**
+
 - Computes: `trend_perc = 100 * mean(recent_periods) / mean(base_periods)`
 - Flags as fraud if: `100 - trend_perc > threshold`
 - Does NOT require preprocessing — uses raw consumption columns
@@ -768,6 +949,7 @@ models:
 | `min_count_constante` | int | `3` | Minimum consecutive identical values to flag as fraud |
 
 **How it works:**
+
 - Detects runs of consecutive identical consumption values
 - Flags as fraud if any run length >= min_count_constante
 - Does NOT require preprocessing — uses raw consumption columns
@@ -817,6 +999,7 @@ ensemble:
 | `meta_learner.params` | dict | - | Meta-learner hyperparameters |
 | `use_val_as_oof` | boolean | `true` | Use validation set for OOF (blending) |
 | `cv` | int | `5` | Number of CV folds (only when `use_val_as_oof=false`) |
+| `skip_base_fit` | boolean | - | Internal to EnsembleModel API; not a user-facing YAML config. The built-in training flow always pre-fits base models and sets this internally when training the ensemble. |
 
 **Ensemble Methods:**
 
@@ -840,7 +1023,7 @@ evaluation:
   # Automatic threshold calibration (optional)
   calibration:
     enabled: false
-    method: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
+    strategy: "cost_benefit"   # Options: cost_benefit | operational | precision_recall
     params:
       # For cost_benefit (minimizes total FP/FN cost):
       cost_fp: 1    # cost of inspecting a legitimate user
@@ -932,6 +1115,7 @@ evaluation:
 ```
 
 **Threshold modes:**
+
 - `global`: uses the global threshold for all segments
 - `youden`: finds optimal threshold per segment using Youden's J statistic (maximizes sensitivity + specificity - 1)
 - `f1_optimal`: maximizes F1 score per segment

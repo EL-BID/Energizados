@@ -4,6 +4,7 @@ Evaluator Module for Energizados Framework.
 Evaluates ML models using metrics, visualizations and reports.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -11,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from energizados.core.base import PipelineStep
+from energizados.contracts import BaseEvaluator
 from energizados.evaluation.calibration import ThresholdCalibrator
 from energizados.evaluation.metrics import Metrics
 from energizados.evaluation.plots import PlotGenerator
@@ -20,7 +21,7 @@ from energizados.evaluation.report import ReportGenerator
 logger = logging.getLogger(__name__)
 
 
-class DefaultEvaluator(PipelineStep):
+class DefaultEvaluator(BaseEvaluator):
     """
     Default evaluator for framework models.
 
@@ -52,7 +53,7 @@ class DefaultEvaluator(PipelineStep):
     def __init__(
         self,
         input_path: Optional[str] = None,
-        model_path: str = "output/models/model.pkl",
+        model_path: Optional[str] = "output/models/model.pkl",
         feature_engineering_path: Optional[str] = None,
         output_dir: str = "output/reports/evaluation/",
         target_column: str = "target",
@@ -67,6 +68,7 @@ class DefaultEvaluator(PipelineStep):
         shap_config: Optional[Dict] = None,
         experiment_description: Optional[str] = None,
         segmented_evaluation: Optional[Dict] = None,
+        thresholds_output_dir: Optional[str] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -93,6 +95,11 @@ class DefaultEvaluator(PipelineStep):
         self._shap_config = shap_config
         self.experiment_description = experiment_description
         self.segmented_evaluation = segmented_evaluation or {}
+        # Export target for segment_thresholds_*.json. None ⇒ default to
+        # the trained model's directory at execute() time. The JSON is a
+        # deployment artifact consumed by inference, so it belongs next
+        # to the model, not next to the reports.
+        self.thresholds_output_dir = thresholds_output_dir
 
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
@@ -133,7 +140,18 @@ class DefaultEvaluator(PipelineStep):
 
         # Validate inputs before loading (MEJORAS P1-4)
         if not input_path:
-            raise ValueError("No input_path provided and 'test_path' not found in context.")
+            logger.warning(
+                "No test_path available in context — skipping evaluation. "
+                "(This is expected in no-holdout training mode.)"
+            )
+            return {
+                **ctx,
+                "metrics": {},
+                "plots": {},
+                "reports": {},
+                "evaluation_dir": str(self.output_dir),
+                "skipped": True,
+            }
         if not Path(input_path).exists():
             raise FileNotFoundError(f"Test dataset not found: {input_path}")
 
@@ -178,7 +196,7 @@ class DefaultEvaluator(PipelineStep):
             if val_path and Path(val_path).exists():
                 val_df = pd.read_parquet(val_path)
                 calibrator = ThresholdCalibrator(
-                    method=self.calibration_config.get("method", "cost_benefit"),
+                    method=self.calibration_config.get("strategy", "cost_benefit"),
                     **self.calibration_config.get("params", {}),
                 )
                 calibration_result = calibrator.calibrate(
@@ -330,6 +348,42 @@ class DefaultEvaluator(PipelineStep):
             metrics_results["segment_metrics"] = segment_metrics
         if segmented_metrics:
             metrics_results["segmented_metrics"] = segmented_metrics
+
+        # 6d2. Export segment thresholds to JSON (mejoras-3 T-F2a)
+        if self.segmented_evaluation.get("enabled", False) and segmented_metrics:
+            seg_config = self.segmented_evaluation
+            threshold_mode = seg_config.get("threshold_mode", "global")
+            # The export is a deployment artifact, not a report. Resolve
+            # the target dir at the call site (default = model dir) so
+            # _export_segment_thresholds can keep its existing signature
+            # and the legacy direct-call tests keep working unchanged.
+            thresholds_dir = self._resolve_thresholds_output_dir(model_path)
+            self._export_segment_thresholds(
+                segmented_metrics=segmented_metrics,
+                output_dir=thresholds_dir,
+                global_threshold=threshold,
+                threshold_mode=threshold_mode,
+            )
+
+            # 6d3. Reconcile headline metrics with per-segment operating point.
+            #
+            # When segmented_evaluation uses per-segment thresholds (youden,
+            # f1_optimal, recall_target), the headline /metrics/* previously
+            # reported global-threshold numbers, causing downstream docs to
+            # over-report operational recall. This step replaces the headline
+            # with the per-segment aggregate (each row predicted using its own
+            # segment's threshold) and preserves the global numbers under
+            # /metrics/global_threshold_metrics/. (evaluator-fix)
+            if threshold_mode != "global":
+                metrics_results = self._reconcile_headline_with_segments(
+                    metrics_results=metrics_results,
+                    y_true=y_test.to_numpy(),
+                    y_proba=y_proba,
+                    test_df=test_df,
+                    seg_config=seg_config,
+                    segmented_metrics=segmented_metrics,
+                    global_threshold=threshold,
+                )
 
         # 6e. Threshold sweep metrics
         logger.info("Calculating threshold sweep metrics...")
@@ -566,6 +620,42 @@ class DefaultEvaluator(PipelineStep):
             "evaluation_dir": str(self.output_dir),
         }
 
+    def evaluate(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model: Any,
+        threshold: float = 0.5,
+        **kwargs: Any,
+    ) -> Dict[str, float]:
+        """Compute evaluation metrics.
+
+        Args:
+            X: Feature DataFrame.
+            y: True target values.
+            model: Trained model (must have predict_proba).
+            threshold: Decision threshold for binary predictions.
+            **kwargs: Additional evaluator-specific parameters.
+
+        Returns:
+            Dict[str, float]: Metric name -> value (e.g., {'auc': 0.85, 'f1': 0.82}).
+
+        Raises:
+            ValueError: If inputs are invalid.
+        """
+        # Get predictions
+        y_proba = model.predict_proba(X)
+        y_pred = (y_proba >= threshold).astype(int)
+
+        # Calculate metrics
+        metrics_calculator = Metrics(y, y_pred, y_proba, threshold)
+        metrics_results = metrics_calculator.calculate_all(self.metrics)
+
+        # Add threshold to results
+        metrics_results["threshold"] = threshold
+
+        return metrics_results
+
     def validate_input(self, context: Dict[str, Any]) -> bool:
         """Validates that necessary inputs exist."""
         if self.model_path and not Path(self.model_path).exists():
@@ -589,21 +679,47 @@ class DefaultEvaluator(PipelineStep):
 
     def _load_model(self, model_path: Optional[str] = None):
         """Loads the trained model from the given path."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         path = model_path or self.model_path
         logger.info(f"Loading model from: {path}")
-        return secure_load(path)
+        return load(path)
 
     def _load_feature_engineering(self, feature_engineering_path: Optional[str] = None):
         """Loads feature engineering if the path exists."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         path = feature_engineering_path or self.feature_engineering_path
         if path and Path(path).exists():
             logger.info(f"Loading feature engineering from: {path}")
-            return secure_load(path)
+            return load(path)
         return None
+
+    def _resolve_thresholds_output_dir(self, model_path: Optional[str]) -> Path:
+        """Resolve where ``segment_thresholds_*.json`` should be written.
+
+        The JSON is a deployment artifact consumed by inference, so its
+        default location follows the trained model (``Path(model_path).parent``).
+        Resolution order:
+
+        1. ``self.thresholds_output_dir`` (explicit override) — used as-is.
+        2. ``Path(model_path).parent`` (model directory) — used when the
+           evaluator has a resolved ``model_path``.
+        3. ``self.output_dir`` (legacy reports dir) — fallback for
+           standalone evaluator calls without a model.
+
+        The returned path is created on disk (``mkdir(parents=True,
+        exist_ok=True)``) so callers can hand it straight to
+        ``_export_segment_thresholds`` without further setup.
+        """
+        if self.thresholds_output_dir:
+            resolved = Path(self.thresholds_output_dir)
+        elif model_path:
+            resolved = Path(model_path).parent
+        else:
+            resolved = self.output_dir
+        resolved.mkdir(parents=True, exist_ok=True)
+        return resolved
 
     def _execute_comparison_mode(
         self,
@@ -613,7 +729,7 @@ class DefaultEvaluator(PipelineStep):
         model_paths: Dict[str, str],
     ) -> Dict[str, Any]:
         """Execute evaluation in comparison mode (multiple models)."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
 
         logger.info("Comparison mode detected - evaluating each model independently...")
 
@@ -658,7 +774,7 @@ class DefaultEvaluator(PipelineStep):
 
             # Load model
             logger.info(f"Loading model from: {model_path}")
-            model = secure_load(model_path)
+            model = load(model_path)
 
             # Determine if model uses raw or transformed data
             model_config = getattr(model, "config", {}) or {}
@@ -1141,3 +1257,184 @@ class DefaultEvaluator(PipelineStep):
                 info["n_estimators"] = inner.num_trees()
 
         return info
+
+    def _reconcile_headline_with_segments(
+        self,
+        metrics_results: Dict[str, Any],
+        y_true: np.ndarray,
+        y_proba: np.ndarray,
+        test_df: pd.DataFrame,
+        seg_config: Dict,
+        segmented_metrics: Dict[str, Dict],
+        global_threshold: float,
+    ) -> Dict[str, Any]:
+        """Reconcile headline metrics with the per-segment operating point.
+
+        When ``segmented_evaluation`` is enabled with a per-segment threshold
+        mode (youden, f1_optimal, recall_target), the headline ``/metrics/*``
+        previously reported global-threshold numbers. This method replaces
+        them with the per-segment aggregate (each row predicted positive iff
+        ``probability >= its_own_segment_threshold``), while preserving the
+        global-threshold numbers under ``/metrics/global_threshold_metrics/``.
+
+        Uses the first segment definition in ``by`` as the primary
+        segmentation (matching the deployed ``segment_thresholds_*.json``).
+
+        Args:
+            metrics_results: Current headline metrics dict (global threshold).
+            y_true: True binary labels for the test set.
+            y_proba: Predicted probabilities for the test set.
+            test_df: Full test DataFrame (with segment columns).
+            seg_config: The ``segmented_evaluation`` config dict.
+            segmented_metrics: Computed per-segment metrics dict.
+            global_threshold: The global threshold used for the original headline.
+
+        Returns:
+            Updated ``metrics_results`` with per-segment headline and preserved
+            global-threshold metrics.
+        """
+        seg_by = seg_config.get("by", [])
+        if not seg_by:
+            return metrics_results
+
+        # Use the first segment definition as the primary segmentation
+        primary_seg = seg_by[0]
+
+        # Build per-row segment values (same logic as in execute())
+        if "+" in primary_seg:
+            cols = [c.strip() for c in primary_seg.split("+")]
+            missing = [c for c in cols if c not in test_df.columns]
+            if missing:
+                logger.warning(
+                    "Primary segment '%s' has missing columns %s; "
+                    "cannot reconcile headline. Keeping global-threshold metrics.",
+                    primary_seg,
+                    missing,
+                )
+                return metrics_results
+            segment_values = test_df[cols[0]].astype(str).to_numpy()
+            for c in cols[1:]:
+                segment_values = segment_values + "|" + test_df[c].astype(str).to_numpy()
+            display_name = f"{primary_seg} (combined)"
+        else:
+            if primary_seg not in test_df.columns:
+                logger.warning(
+                    "Primary segment '%s' not found in test data; "
+                    "cannot reconcile headline. Keeping global-threshold metrics.",
+                    primary_seg,
+                )
+                return metrics_results
+            segment_values = test_df[primary_seg].astype(str).to_numpy()
+            display_name = primary_seg
+
+        seg_results = segmented_metrics.get(display_name)
+        if not seg_results:
+            logger.warning(
+                "No segmented metrics found for '%s'; "
+                "cannot reconcile headline. Keeping global-threshold metrics.",
+                display_name,
+            )
+            return metrics_results
+
+        # Build per-row threshold from segment thresholds
+        threshold_map = {k: v["threshold"] for k, v in seg_results.items()}
+        per_row_threshold = np.array(
+            [threshold_map.get(sv, global_threshold) for sv in segment_values]
+        )
+
+        # Predict using each row's own segment threshold
+        y_pred_segmented = (y_proba >= per_row_threshold).astype(int)
+
+        # Preserve global-threshold metrics before overwriting
+        global_metrics = {
+            "threshold": metrics_results.get("threshold"),
+            "recall": metrics_results.get("recall"),
+            "precision": metrics_results.get("precision"),
+            "f1": metrics_results.get("f1"),
+            "confusion_matrix": metrics_results.get("confusion_matrix"),
+        }
+
+        # Compute new headline from per-segment predictions
+        seg_threshold_mode = seg_config.get("threshold_mode", "youden")
+        seg_calc = Metrics(y_true, y_pred_segmented, y_proba, threshold=global_threshold)
+        new_metrics = seg_calc.calculate_all(self.metrics)
+
+        metrics_results["global_threshold_metrics"] = global_metrics
+        metrics_results["threshold"] = None  # no single threshold (segment-based)
+        metrics_results["threshold_mode"] = f"segment_{seg_threshold_mode}"
+
+        # Update headline operating-point metrics
+        for key in ("recall", "precision", "f1", "confusion_matrix"):
+            if key in new_metrics:
+                metrics_results[key] = new_metrics[key]
+
+        logger.info(
+            "\n%s\nHEADLINE RECONCILED WITH SEGMENTED EVALUATION\n%s\n"
+            "Headline now reflects per-segment aggregate (mode=%s).\n"
+            "  Segment headline: recall=%.4f  precision=%.4f  f1=%.4f\n"
+            "  Global (preserved): recall=%.4f  precision=%.4f  f1=%.4f  thr=%.4f\n%s",
+            "=" * 60,
+            "=" * 60,
+            seg_threshold_mode,
+            metrics_results.get("recall", 0),
+            metrics_results.get("precision", 0),
+            metrics_results.get("f1", 0),
+            global_metrics.get("recall", 0),
+            global_metrics.get("precision", 0),
+            global_metrics.get("f1", 0),
+            global_threshold,
+            "=" * 60,
+        )
+
+        return metrics_results
+
+    def _export_segment_thresholds(
+        self,
+        segmented_metrics: Dict,
+        output_dir: Path,
+        global_threshold: float,
+        threshold_mode: str,
+    ) -> List[Path]:
+        """Export segment threshold information to JSON files.
+
+        For each segment column in segmented_metrics, creates a JSON file with
+        the threshold configuration and per-segment metrics.
+
+        Args:
+            segmented_metrics: Dict mapping segment column names to their
+                segment values and metrics. Each segment value contains
+                threshold, threshold_mode, auc, n_samples, etc.
+            output_dir: Directory where JSON files will be written
+            global_threshold: The default/global threshold used for evaluation
+            threshold_mode: The threshold mode used (e.g., "youden", "global")
+
+        Returns:
+            List of Path objects for the written JSON files
+        """
+        written_files: List[Path] = []
+
+        if not segmented_metrics:
+            logger.debug("No segmented metrics to export")
+            return written_files
+
+        # Resolve threshold alias for export consistency
+        effective_mode = "youden" if threshold_mode == "segment" else threshold_mode
+
+        for segment_column, segment_data in segmented_metrics.items():
+            # Build the export structure
+            export_data = {
+                "segment_column": segment_column,
+                "threshold_mode": effective_mode,
+                "default_threshold": global_threshold,
+                "segments": segment_data,
+            }
+
+            # Write to JSON file
+            json_path = output_dir / f"segment_thresholds_{segment_column}.json"
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, indent=2)
+
+            logger.info(f"Exported segment thresholds to: {json_path}")
+            written_files.append(json_path)
+
+        return written_files

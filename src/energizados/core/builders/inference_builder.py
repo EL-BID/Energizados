@@ -6,6 +6,7 @@ This module constructs inference pipeline steps from configuration.
 
 import json
 import logging
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -16,7 +17,6 @@ import pandas as pd
 from energizados.core.base import PipelineStep
 from energizados.core.builders.base import StepBuilder
 from energizados.core.utils import import_class
-from energizados.inference.default import DefaultInference
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,16 @@ class InferenceBuilder(StepBuilder):
 
     Constructs a step that makes predictions with trained models
     based on the 'inference' section of the configuration.
+
+    ADR-0001: when ``run_dir`` is provided (typed inference run) and no explicit
+    ``output_path`` is configured, predictions are written into the run dir
+    (``<run_dir>/predictions.<ext>``) and the path is pushed to context as
+    ``inference_output_path`` for run-metadata bookkeeping.
     """
+
+    def __init__(self, config: Dict[str, Any], run_dir: Optional[Any] = None):
+        super().__init__(config)
+        self._run_dir = run_dir
 
     def build(self) -> Optional[PipelineStep]:
         """
@@ -48,9 +57,22 @@ class InferenceBuilder(StepBuilder):
         if custom_class:
             InferenceClass = import_class(custom_class)
         else:
+            # Lazy import to avoid module-level cycle
+            from energizados.inference.default import DefaultInference
+
             InferenceClass = DefaultInference
 
-        inference = InferenceClass(threshold=threshold)
+        # Build kwargs for inference constructor.
+        # HierarchicalInference accepts routes, default_model_path, etc.
+        inference_kwargs = {"threshold": threshold}
+        for key in ("routes", "default_model_path", "feature_engineering_paths"):
+            if key in inference_config:
+                inference_kwargs[key] = inference_config[key]
+
+        inference = InferenceClass(**inference_kwargs)
+
+        # Detect hierarchical inference to skip single-model auto-detection
+        is_hierarchical = hasattr(inference, "routes")
 
         # Read additional filtering configuration
         columns_filter = inference_config.get("columns_filter")
@@ -60,7 +82,7 @@ class InferenceBuilder(StepBuilder):
         model_path = inference_config.get("model_path")
         feature_engineering_path = inference_config.get("feature_engineering_path")
 
-        if not model_path:
+        if not model_path and not is_hierarchical:
             # Try to auto-detect from latest training run
             model_path = self._auto_detect_latest_run(
                 inference_config.get("output_base_dir", "output")
@@ -98,13 +120,23 @@ class InferenceBuilder(StepBuilder):
             def validate_input(self, context: Dict[str, Any]) -> bool:
                 """Validate that a model is available — either from config path or context.
 
+                Hierarchical inference loads its own models, so it always passes
+                validation if routes are configured.
+
                 Args:
                     context: Pipeline context dict.
 
                 Returns:
                     bool: True if model is available via config path or context.
                 """
-                if self.config.get("model_path"):
+                # Hierarchical inference loads models internally
+                if hasattr(self.inference, "routes") and self.inference.routes:
+                    return True
+                # Mirror execute(): an auto-detected path is stored under
+                # ``_resolved_model_path`` and is just as valid as an explicit
+                # ``model_path``. Without this, standalone inference runs that
+                # rely on auto-detection are wrongly rejected before execution.
+                if self.config.get("_resolved_model_path") or self.config.get("model_path"):
                     return True
                 return "model" in context and context["model"] is not None
 
@@ -112,9 +144,10 @@ class InferenceBuilder(StepBuilder):
                 """Run inference and store predictions in context.
 
                 Uses a config-first resolution chain:
-                1. Load model from config ``model_path`` via ``secure_load``
+                1. Load model from config ``model_path`` via ``load``
                 2. Fall back to ``context["model"]``
-                3. Raise ``ValueError`` if neither is available
+                3. For hierarchical inference, load models via ``inference.load_model()``
+                4. Raise ``ValueError`` if neither is available
 
                 Same pattern for feature_engineering.
 
@@ -128,52 +161,68 @@ class InferenceBuilder(StepBuilder):
                 Returns:
                     Dict: Updated context with ``predictions`` and ``prediction_probas``.
                 """
-                from energizados.core.utils.secure_pickle import secure_load
+                from energizados.core.utils.integrity_pickle import load
 
-                # --- Model resolution: resolved → config → context → error ---
-                _model_path = self.config.get("_resolved_model_path") or self.config.get(
-                    "model_path"
-                )
-                if _model_path:
-                    model = secure_load(_model_path)
-                    logger.info(f"Loaded model from: {_model_path}")
-                elif context.get("model"):
-                    model = context["model"]
-                    logger.info("Using model from context")
-                else:
-                    raise ValueError(
-                        "No model available. Set model_path in infer.yaml or run training first."
-                    )
+                # ``_model_path`` is reused by the metadata sidecar below.
+                # Hierarchical inference loads its own route models, so there is
+                # no single on-disk model path — default to None and let the
+                # non-hierarchical branch reassign it. Without this default the
+                # sidecar call raised NameError under hierarchical inference.
+                _model_path: Optional[str] = None
 
-                # --- Feature engineering resolution: resolved → config → context → None ---
-                _fe_path = self.config.get("_resolved_feature_engineering_path") or self.config.get(
-                    "feature_engineering_path"
-                )
-                if _fe_path:
-                    feature_engineering = secure_load(_fe_path)
-                    logger.info(f"Loaded feature engineering from: {_fe_path}")
-                elif context.get("feature_engineering"):
-                    feature_engineering = context["feature_engineering"]
-                    logger.info("Using feature engineering from context")
-                else:
+                # --- Hierarchical inference: loads its own models ---
+                if hasattr(self.inference, "routes") and self.inference.routes:
+                    model = self.inference.load_model()
+                    logger.info("Using hierarchical inference with loaded route models")
                     feature_engineering = None
-                    logger.warning("No feature engineering pipeline found. Using raw features.")
+                else:
+                    # --- Model resolution: resolved → config → context → error ---
+                    _model_path = self.config.get("_resolved_model_path") or self.config.get(
+                        "model_path"
+                    )
+                    if _model_path:
+                        model = load(_model_path)
+                        logger.info(f"Loaded model from: {_model_path}")
+                    elif context.get("model"):
+                        model = context["model"]
+                        logger.info("Using model from context")
+                    else:
+                        raise ValueError(
+                            "No model available. Set model_path in infer.yaml or run training first."
+                        )
+
+                    # --- Feature engineering resolution: resolved → config → context → None ---
+                    _fe_path = self.config.get(
+                        "_resolved_feature_engineering_path"
+                    ) or self.config.get("feature_engineering_path")
+                    if _fe_path:
+                        feature_engineering = load(_fe_path)
+                        logger.info(f"Loaded feature engineering from: {_fe_path}")
+                    elif context.get("feature_engineering"):
+                        feature_engineering = context["feature_engineering"]
+                        logger.info("Using feature engineering from context")
+                    else:
+                        feature_engineering = None
+                        logger.warning("No feature engineering pipeline found. Using raw features.")
 
                 # --- Load inference data ---
                 _input_path = self.config.get("input_path")
-                _output_path = self.config.get("output_path")
+                # ADR-0001: prefer the resolved output path (run-dir relocation)
+                # over a raw config value. `output_predictions_path` is the
+                # current key; `output_path` is a deprecated alias.
+                _output_path = (
+                    self.config.get("_resolved_output_path")
+                    or self.config.get("output_predictions_path")
+                    or self.config.get("output_path")
+                )
                 if _input_path:
                     data = pd.read_parquet(_input_path)
-                    # Keep original input for enrichment
-                    original_data = data.copy()
                     logger.info(f"Loaded inference data: {len(data):,} records")
                 elif "inference_data" in context:
                     data = context["inference_data"]
-                    original_data = data.copy()
                     logger.info(f"Using inference_data from context: {len(data):,} records")
                 elif "X_test" in context:
                     data = context["X_test"]
-                    original_data = data.copy()
                     logger.info(f"Using X_test from context: {len(data):,} records")
                 else:
                     raise ValueError("No inference data found")
@@ -185,13 +234,97 @@ class InferenceBuilder(StepBuilder):
                         f"  • columns_filter: removed {filtered_count:,} rows, {len(data):,} remaining"
                     )
 
+                # Keep the POST-filter input for enriched output. Captured AFTER
+                # columns_filter so output_include_input aligns with the predicted rows;
+                # capturing it pre-filter padded filtered-out rows with NaN predictions.
+                original_data = data.copy()
+
+                # --- Capture RAW data BEFORE feature engineering for business_rules ---
+                # Business rules evaluate pandas expressions against original
+                # column names (e.g. `3_anterior`, `geo_region`) which FE may
+                # encode, drop, or rename. Capture a copy of the post-filter,
+                # pre-FE data so rule conditions see the raw values.
+                business_rules_config = self.config.get("business_rules", {})
+                br_enabled = bool(business_rules_config) and business_rules_config.get("enabled")
+                raw_data_for_rules = data.copy() if br_enabled else None
+
+                # --- Capture RAW segment column BEFORE feature engineering ---
+                # FE may encode or drop the segment column (e.g. ordinal/target
+                # encoding turns "Norte" into 0.0), which breaks segment_thresholds
+                # matching because the JSON keys are raw values. Capture the raw
+                # values here (aligned to the filtered rows) and re-inject them at
+                # threshold-application time, after prediction.
+                segment_thresholds_config = self.config.get("segment_thresholds", {})
+                segment_enabled = bool(segment_thresholds_config) and segment_thresholds_config.get(
+                    "enabled"
+                )
+                raw_segment_frame = None
+                if segment_enabled:
+                    try:
+                        seg_meta = self._load_segment_thresholds(segment_thresholds_config["path"])
+                        seg_col = seg_meta.get("segment_column")
+                        if seg_col and seg_col in data.columns:
+                            raw_segment_frame = pd.DataFrame(
+                                {seg_col: data[seg_col].reset_index(drop=True)}
+                            )
+                            logger.info(
+                                f"  • Captured raw segment column '{seg_col}' for "
+                                "thresholds (pre-FE)"
+                            )
+                        else:
+                            logger.warning(
+                                f"Segment column '{seg_col}' not found in pre-FE "
+                                "data; segment thresholds will not apply."
+                            )
+                            segment_enabled = False
+                    except (FileNotFoundError, ValueError, KeyError) as exc:
+                        logger.warning(
+                            f"Could not load segment thresholds config ({exc}). "
+                            "Falling back to global threshold."
+                        )
+                        segment_enabled = False
+
                 # --- Apply feature engineering if available ---
                 if feature_engineering is not None:
                     data = feature_engineering.transform(data)
 
                 # --- Make predictions ---
-                predictions = self.inference.predict(model, data)
                 probas = self.inference.predict_proba(model, data)
+
+                # --- Apply thresholds (segment-aware if enabled, else global) ---
+                if segment_enabled and raw_segment_frame is not None:
+                    # Apply per-row segment thresholds using the RAW pre-FE values
+                    predictions = self._apply_segment_thresholds(
+                        probas, raw_segment_frame, segment_thresholds_config
+                    )
+                else:
+                    # Use global threshold (backward compatible)
+                    predictions = (probas >= self.inference.threshold).astype(int)
+
+                # --- Apply business rules (after segment_thresholds) ---
+                # Rules evaluate against the raw pre-FE data and modify probas
+                # (score_boost / override) or just record triggers (flag).
+                # After modification, predictions are re-derived from the
+                # (possibly boosted) probas so segment_thresholds are respected.
+                rules_df = None
+                if br_enabled and raw_data_for_rules is not None:
+                    from energizados.inference.default import apply_business_rules
+
+                    probas, rules_df, probas_modified = apply_business_rules(
+                        probas, raw_data_for_rules, business_rules_config
+                    )
+
+                    if probas_modified:
+                        # Re-derive predictions from modified probas.
+                        # segment_thresholds re-applied so score_boost respects
+                        # per-region thresholds; override sets proba=1.0 which
+                        # naturally yields prediction=1 under any threshold <= 1.0.
+                        if segment_enabled and raw_segment_frame is not None:
+                            predictions = self._apply_segment_thresholds(
+                                probas, raw_segment_frame, segment_thresholds_config
+                            )
+                        else:
+                            predictions = (probas >= self.inference.threshold).astype(int)
 
                 # --- Save to context ---
                 context["predictions"] = predictions
@@ -202,6 +335,30 @@ class InferenceBuilder(StepBuilder):
                     _include_input = self.config.get("output_include_input", False)
                     _fmt = self.config.get("output_format", "csv")
 
+                    # output_columns is the self-sufficient, forward-looking
+                    # selector. When it is absent, ALL input columns are now
+                    # included by default, so output_include_input is fully
+                    # redundant — warn so users migrate, but keep it harmless.
+                    if _include_input:
+                        if self.output_columns:
+                            warnings.warn(
+                                "`infer.output_include_input` is ignored because "
+                                "`output_columns` is set; output_columns selects the "
+                                "output columns (input columns are included automatically "
+                                "when named in the list).",
+                                DeprecationWarning,
+                                stacklevel=2,
+                            )
+                        else:
+                            warnings.warn(
+                                "`infer.output_include_input` is now a no-op: when "
+                                "`output_columns` is not set, ALL input columns are "
+                                "included by default. You can remove this key; use "
+                                "`output_columns` to select a subset explicitly.",
+                                DeprecationWarning,
+                                stacklevel=2,
+                            )
+
                     self._save_output(
                         original_data,
                         predictions,
@@ -209,6 +366,7 @@ class InferenceBuilder(StepBuilder):
                         _output_path,
                         _include_input,
                         _fmt,
+                        rules_df=rules_df,
                     )
                     self._write_metadata_sidecar(
                         _output_path,
@@ -216,18 +374,18 @@ class InferenceBuilder(StepBuilder):
                         predictions,
                         _fmt,
                         _include_input,
+                        self.output_columns,
                     )
                     logger.info(f"Predictions saved to: {_output_path}")
+                    # ADR-0001: surface predictions path for run-metadata output_paths.
+                    context["inference_output_path"] = _output_path
 
                 return context
 
             def _apply_columns_filter(self, data: pd.DataFrame) -> tuple:
                 """Apply columns_filter to data before feature engineering.
 
-                Supports three filter modes:
-                1. Simple equality: column: [values] (existing behavior)
-                2. Operators: column: {">": value, "<=": value, "!=": value, "like": pattern}
-                3. Pandas expression: _expr: " (pandas query) "
+                Delegates to the shared ``apply_columns_filter`` utility.
 
                 Args:
                     data: Input DataFrame
@@ -235,84 +393,9 @@ class InferenceBuilder(StepBuilder):
                 Returns:
                     Tuple of (filtered DataFrame, number of rows removed)
                 """
-                if not self.columns_filter:
-                    return data, 0
+                from energizados.core.utils.columns_filter import apply_columns_filter
 
-                original_count = len(data)
-                filtered_data = data.copy()
-
-                # --- Level 2: Pandas query expression ---
-                # Must be applied first so it can use any column
-                if "_expr" in self.columns_filter:
-                    expr = self.columns_filter["_expr"]
-                    try:
-                        before_expr = len(filtered_data)
-                        filtered_data = filtered_data.query(expr)
-                        after_expr = len(filtered_data)
-                        logger.info(
-                            f"  • columns_filter._expr: filtered to {after_expr:,} records "
-                            f"(removed {before_expr - after_expr:,})"
-                        )
-                    except Exception as e:
-                        logger.error(f"  • columns_filter._expr: invalid expression '{expr}': {e}")
-                    # Remove _expr so it's not processed as a column filter
-                    columns_filter_clean = {
-                        k: v for k, v in self.columns_filter.items() if k != "_expr"
-                    }
-                else:
-                    columns_filter_clean = self.columns_filter
-
-                # --- Level 1: Simple equality + Operators ---
-                for col_name, filter_value in columns_filter_clean.items():
-                    if col_name not in filtered_data.columns:
-                        logger.warning(
-                            f"  • columns_filter: column '{col_name}' not found, skipping"
-                        )
-                        continue
-
-                    # Skip special keys if any remain
-                    if col_name.startswith("_"):
-                        continue
-
-                    # === CASE 1: Operator dictionary (Level 1: >, <, >=, <=, !=, like) ===
-                    if isinstance(filter_value, dict):
-                        for op, op_value in filter_value.items():
-                            if op == ">":
-                                filtered_data = filtered_data[filtered_data[col_name] > op_value]
-                            elif op == "<":
-                                filtered_data = filtered_data[filtered_data[col_name] < op_value]
-                            elif op == ">=":
-                                filtered_data = filtered_data[filtered_data[col_name] >= op_value]
-                            elif op == "<=":
-                                filtered_data = filtered_data[filtered_data[col_name] <= op_value]
-                            elif op == "!=":
-                                filtered_data = filtered_data[filtered_data[col_name] != op_value]
-                            elif op == "==":
-                                filtered_data = filtered_data[filtered_data[col_name] == op_value]
-                            elif op == "like":
-                                # Case-insensitive substring match
-                                filtered_data = filtered_data[
-                                    filtered_data[col_name]
-                                    .astype(str)
-                                    .str.contains(op_value, case=False, na=False)
-                                ]
-                            else:
-                                logger.warning(
-                                    f"  • columns_filter.{col_name}: unknown operator '{op}', skipping"
-                                )
-                        logger.info(f"  • columns_filter.{col_name}: operators applied")
-                        continue
-
-                    # === CASE 2: Simple equality (list of values) ===
-                    # Convert single value to list if needed
-                    if not isinstance(filter_value, list):
-                        filter_value = [filter_value]
-
-                    # Filter to only rows where column value is in allowed_values
-                    filtered_data = filtered_data[filtered_data[col_name].isin(filter_value)]
-
-                removed = original_count - len(filtered_data)
-                return filtered_data, removed
+                return apply_columns_filter(data, self.columns_filter)
 
             def _save_output(
                 self,
@@ -322,6 +405,7 @@ class InferenceBuilder(StepBuilder):
                 output_path: str,
                 include_input: bool,
                 output_format: str,
+                rules_df: Optional[pd.DataFrame] = None,
             ) -> None:
                 """Save predictions in enriched or minimal format.
 
@@ -332,6 +416,9 @@ class InferenceBuilder(StepBuilder):
                     output_path: File path for output.
                     include_input: If True, prepend original columns.
                     output_format: "csv" or "parquet".
+                    rules_df: Optional DataFrame of business rule trigger columns
+                        (``rule_<name>`` and ``rule_<name>_value``) to append after
+                        prediction/probability. None if no business rules.
                 """
                 result = pd.DataFrame(
                     {
@@ -340,18 +427,57 @@ class InferenceBuilder(StepBuilder):
                     }
                 )
 
-                # Apply output_columns filter if specified
+                # Append business rule trigger columns (after prediction/probability)
+                if rules_df is not None and not rules_df.empty:
+                    result = pd.concat([result, rules_df.reset_index(drop=True)], axis=1)
+
+                input_columns = set(original_data.columns)
+
                 if self.output_columns:
-                    available_cols = list(result.columns)
+                    # output_columns is SELF-SUFFICIENT: it is the authoritative
+                    # final selector over [input + prediction + probability +
+                    # rule_*]. Input columns named in it are included
+                    # automatically — no output_include_input needed. Make the
+                    # input frame available when any requested column is an input
+                    # column, then select exactly the listed columns in order.
+                    if any(c in input_columns for c in self.output_columns):
+                        result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
+
+                    available_cols = set(result.columns)
                     valid_cols = [c for c in self.output_columns if c in available_cols]
+                    missing = [c for c in self.output_columns if c not in available_cols]
+                    if missing:
+                        logger.warning(
+                            f"output_columns: {len(missing)} column(s) not found in "
+                            f"output and skipped: {missing}."
+                        )
                     if valid_cols:
                         result = result[valid_cols]
                         logger.info(
                             f"  • output_columns: selected {len(valid_cols)} columns: {valid_cols}"
                         )
-
-                if include_input:
+                    else:
+                        logger.warning(
+                            "output_columns: no requested column matched the output; "
+                            "writing all available columns."
+                        )
+                else:
+                    # No output_columns specified → return ALL columns (input +
+                    # prediction + probability + rule_*). The legacy
+                    # output_include_input flag is now a redundant no-op kept
+                    # for backwards compatibility (a DeprecationWarning is
+                    # emitted upstream when it is explicitly set).
                     result = pd.concat([original_data.reset_index(drop=True), result], axis=1)
+
+                # Sort by probability descending (default: on). Applied AFTER
+                # output_columns selection on the final frame, so input columns
+                # reorder with their probability. Set sort_by_probability: false
+                # to preserve input order.
+                _sort_by_proba = self.config.get("sort_by_probability", True)
+                if _sort_by_proba and "probability" in result.columns:
+                    result = result.sort_values("probability", ascending=False).reset_index(
+                        drop=True
+                    )
 
                 Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -360,6 +486,11 @@ class InferenceBuilder(StepBuilder):
                 else:
                     result.to_csv(output_path, index=False)
 
+                logger.info(
+                    f"  • Predictions output columns ({len(result.columns)}): "
+                    f"{list(result.columns)}"
+                )
+
             def _write_metadata_sidecar(
                 self,
                 output_path: str,
@@ -367,6 +498,7 @@ class InferenceBuilder(StepBuilder):
                 predictions,
                 output_format: str,
                 include_input: bool,
+                output_columns: Optional[List[str]] = None,
             ) -> None:
                 """Write a .metadata.json sidecar next to the output file.
 
@@ -376,13 +508,16 @@ class InferenceBuilder(StepBuilder):
                     predictions: Predictions array (used for row count).
                     output_format: "csv" or "parquet".
                     include_input: Whether input columns were included.
+                    output_columns: Authoritative final column selection applied
+                        to the output (None = default columns kept). Recorded for
+                        auditability.
                 """
                 # Read model hash from .sig file if available
                 model_hash = None
                 if model_path:
                     sig_path = Path(str(model_path) + ".sig")
                     if sig_path.exists():
-                        model_hash = sig_path.read_text().strip()
+                        model_hash = sig_path.read_text(encoding="utf-8").strip()
 
                 metadata = {
                     "model_hash": model_hash,
@@ -391,10 +526,117 @@ class InferenceBuilder(StepBuilder):
                     "row_count": len(predictions),
                     "output_format": output_format,
                     "include_input": include_input,
+                    "output_columns": output_columns,
                 }
 
                 metadata_path = Path(str(output_path) + ".metadata.json")
-                metadata_path.write_text(json.dumps(metadata, indent=2))
+                metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+            def _load_segment_thresholds(self, path: str) -> Dict:
+                """Load and validate segment thresholds from JSON file.
+
+                Args:
+                    path: Path to the segment_thresholds JSON file.
+
+                Returns:
+                    Dict: Parsed JSON content with segment thresholds configuration.
+
+                Raises:
+                    ValueError: If the JSON file is missing required fields.
+                """
+                with open(path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+                if "segment_column" not in config:
+                    raise ValueError(
+                        f"Segment thresholds JSON missing required field 'segment_column': {path}"
+                    )
+
+                return config
+
+            def _apply_segment_thresholds(
+                self,
+                probas: np.ndarray,
+                data: pd.DataFrame,
+                segment_config: Dict,
+            ) -> np.ndarray:
+                """Apply per-row segment thresholds to probability predictions.
+
+                Loads the segment thresholds JSON, maps each row's segment value
+                to its threshold, and returns binary predictions.
+
+                Args:
+                    probas: Array of predicted probabilities.
+                    data: DataFrame containing the segment column.
+                    segment_config: Configuration with 'path'. Unknown segment
+                        values fall back to the global inference ``threshold``.
+
+                Returns:
+                    np.ndarray: Binary predictions using per-row thresholds.
+
+                Raises:
+                    ValueError: If the segment column is not found in data.
+                """
+                from energizados.inference.default import apply_segment_thresholds
+
+                # Load the JSON configuration
+                json_path = segment_config["path"]
+                thresholds_data = self._load_segment_thresholds(json_path)
+
+                segment_column = thresholds_data["segment_column"]
+
+                # Validate that segment column exists in data
+                if segment_column not in data.columns:
+                    raise ValueError(
+                        f"Segment column '{segment_column}' not found in data. "
+                        f"Available columns: {list(data.columns)}"
+                    )
+
+                # Extract thresholds from nested structure: segments.{value}.threshold
+                segments = thresholds_data.get("segments", {})
+                thresholds_dict = {
+                    segment_value: segment_info.get("threshold", 0.5)
+                    for segment_value, segment_info in segments.items()
+                }
+
+                # Determine fallback threshold.
+                # The fallback for unknown segments is the global inference
+                # ``threshold``. The legacy ``fallback_threshold`` config key is
+                # deprecated and ignored — warn so users migrate to ``threshold``.
+                if "fallback_threshold" in segment_config:
+                    logger.warning(
+                        "`segment_thresholds.fallback_threshold` is deprecated and "
+                        "ignored; using the global `threshold` (%s) as the fallback "
+                        "for unknown segments. Remove `fallback_threshold` from your "
+                        "config and set `threshold` instead.",
+                        self.inference.threshold,
+                    )
+                fallback = self.inference.threshold
+
+                # Get segment values for each row
+                segment_values = data[segment_column]
+
+                # Count statistics for logging
+                total_rows = len(data)
+                matched_segments = set(segment_values.unique()) & set(thresholds_dict.keys())
+                rows_with_segment_threshold = data[
+                    segment_values.isin(thresholds_dict.keys())
+                ].shape[0]
+                rows_with_fallback = total_rows - rows_with_segment_threshold
+
+                logger.info(
+                    f"Applying segment thresholds: total={total_rows} rows, "
+                    f"{len(matched_segments)} segments matched, "
+                    f"{rows_with_segment_threshold} rows use segment thresholds, "
+                    f"{rows_with_fallback} rows use fallback ({fallback})"
+                )
+
+                # Apply per-row thresholds
+                predictions = apply_segment_thresholds(
+                    probas, segment_values, thresholds_dict, fallback
+                )
+
+                return predictions
 
             def get_required_keys(self) -> List[str]:
                 """Return the required context keys for inference.
@@ -416,6 +658,41 @@ class InferenceBuilder(StepBuilder):
         inference_config_filtered = inference_config.copy()
         inference_config_filtered["_resolved_model_path"] = model_path
         inference_config_filtered["_resolved_feature_engineering_path"] = feature_engineering_path
+
+        # ADR-0001: relocate predictions into the run dir when no explicit
+        # output path is configured. The models still live in training runs
+        # (auto-detection globs train-*), only the PREDICTIONS output relocates.
+        #
+        # Prefer `output_predictions_path`; `output_path` is a deprecated alias
+        # (warn when used). If both are set, the new key wins and the old one is
+        # ignored with a warning.
+        new_path = inference_config.get("output_predictions_path")
+        old_path = inference_config.get("output_path")
+        if new_path and old_path:
+            warnings.warn(
+                "Both `output_predictions_path` and `output_path` are set in the "
+                "inference config; using `output_predictions_path` and ignoring "
+                "`output_path`. Remove `output_path` (it is deprecated).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            resolved_output_path = new_path
+        elif new_path:
+            resolved_output_path = new_path
+        elif old_path:
+            warnings.warn(
+                "`infer.output_path` is deprecated; use `output_predictions_path`. "
+                "The value is still used.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            resolved_output_path = old_path
+        else:
+            resolved_output_path = None
+        if not resolved_output_path and self._run_dir is not None:
+            _fmt = inference_config.get("output_format", "csv")
+            resolved_output_path = str(Path(self._run_dir) / f"predictions.{_fmt}")
+        inference_config_filtered["_resolved_output_path"] = resolved_output_path
 
         return InferenceStep(
             inference,

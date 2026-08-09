@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Runs{% endblock %}
+
+{% block content %}
+<h1 class="app-hero__title mb-3">📊 Compare Runs</h1>
+
+<div class="mb-3">
+    <a href="/runs" class="btn btn-outline-secondary">← Back to Runs</a>
+    {% if run_type == "training" and not mixed_types %}
+    <button id="download-csv" class="btn btn-success float-end">Download CSV</button>
+    {% endif %}
+</div>
+
+{% if mixed_types %}
+{# ADR-0001: cross-type Compare is rejected with a typed empty-state. The runs
+   exist but are not comparable; list each run with its type so the user can
+   re-select a same-type set. No metrics/metadata table renders here. #}
+<section class="app-card">
+    <div class="alert alert-warning mb-0">
+        <strong>Runs are of different types and cannot be compared.</strong>
+        <p class="mb-1 mt-2">
+            Compare scopes runs of a single type (training, etl, eda, or inference).
+            Select runs of the same type to compare them side by side.
+        </p>
+        <ul class="mb-0">
+            {% for run_id, rt in run_types.items() %}
+            <li><a href="/runs/{{ run_id }}"><strong>{{ run_id }}</strong></a> — {{ rt }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+{% elif run_type == "training" %}
+{# Server-rendered comparison table (values must appear in the HTML response,
+   not injected by client-side JS, so the page is usable without JS and
+   testable via the response body). #}
+<section class="app-card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="comparison-table">
+            <thead>
+                <tr>
+                    <th>Run ID</th>
+                    <th>Model(s)</th>
+                    <th>AUC</th>
+                    <th>F1</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>Threshold</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                {% set metrics = (run.evaluation or {}).get("metrics") or {} %}
+                {% set is_multi = run.is_multi %}
+                <tr>
+                    <td><strong><a href="/runs/{{ run.run_id }}">{{ run.run_id }}</a></strong></td>
+                    <td>
+                        {% if is_multi and run.evaluation.ranking %}
+                            <span title="Ensemble">Ensemble ({{ run.evaluation.ranking | length }} models)</span>
+                        {% else %}
+                            Single Model
+                        {% endif %}
+                    </td>
+                    <td>{{ format_metric(metrics.get("auc"), best.auc, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("f1"), best.f1, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("precision"), best.precision, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("recall"), best.recall, run.run_id) }}</td>
+                    <td>{{ format_metric(metrics.get("threshold"), None, run.run_id) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{# Per-run ensemble ranking tables (multi-model runs only). #}
+{% for run in runs %}
+{% if run.is_multi and run.evaluation.ranking %}
+<section class="app-card mt-4">
+    <div class="app-card__header">
+        <h3 class="app-card__title app-card__title--sm">Ensemble Ranking: {{ run.run_id }}</h3>
+    </div>
+    <table class="table table-sm mb-0">
+        <thead>
+            <tr><th>Rank</th><th>Model</th><th>AUC</th><th>F1</th></tr>
+        </thead>
+        <tbody>
+            {% for model in run.evaluation.ranking %}
+            {% set mm = model.metrics or {} %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ model.name }}</td>
+                <td>{{ format_metric(mm.get("auc"), None, run.run_id) }}</td>
+                <td>{{ format_metric(mm.get("f1"), None, run.run_id) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% endfor %}
+
+{# JSON data island for client-side CSV export (table itself is server-rendered). #}
+<script id="comparison-data" type="application/json">{{ comparison_json | safe }}</script>
+
+<script>
+document.getElementById('download-csv').addEventListener('click', function() {
+    const data = JSON.parse(document.getElementById('comparison-data').textContent);
+    const rows = [['Run ID', 'Model Type', 'AUC', 'F1', 'Precision', 'Recall', 'Threshold']];
+    data.forEach(function(run) {
+        if (run.is_multi) {
+            const n = (run.evaluation.ranking || []).length;
+            rows.push([run.run_id, 'Ensemble (' + n + ' models)', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']);
+            (run.evaluation.ranking || []).forEach(function(model, i) {
+                const mm = model.metrics || {};
+                rows.push([
+                    '  ' + (i + 1) + '. ' + (model.name || ''),
+                    'Base Model',
+                    mm.auc != null ? mm.auc.toFixed(4) : 'N/A',
+                    mm.f1 != null ? mm.f1.toFixed(4) : 'N/A',
+                    mm.precision != null ? mm.precision.toFixed(4) : 'N/A',
+                    mm.recall != null ? mm.recall.toFixed(4) : 'N/A',
+                    'N/A'
+                ]);
+            });
+        } else {
+            const m = (run.evaluation || {}).metrics || {};
+            rows.push([
+                run.run_id,
+                'Single Model',
+                m.auc != null ? m.auc.toFixed(4) : 'N/A',
+                m.f1 != null ? m.f1.toFixed(4) : 'N/A',
+                m.precision != null ? m.precision.toFixed(4) : 'N/A',
+                m.recall != null ? m.recall.toFixed(4) : 'N/A',
+                m.threshold != null ? m.threshold.toFixed(4) : 'N/A'
+            ]);
+        }
+    });
+    const csv = rows.map(function(r) { return r.join(','); }).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'comparison.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+});
+</script>
+{% else %}
+{# ADR-0001: homogeneous non-training compare renders a metadata table. These
+   run types (etl/eda/inference) do not carry training metrics, so we surface
+   timestamp/duration/status/output_paths/feature_count instead. #}
+<section class="app-card">
+    <div class="alert alert-info">
+        <strong>Scope:</strong> comparing <strong>{{ run_type }}</strong> runs.
+        Training metrics (AUC, F1, precision, recall) are not produced for this run type.
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="comparison-metadata-table">
+            <thead>
+                <tr>
+                    <th>Run ID</th>
+                    <th>Timestamp</th>
+                    <th>Duration (s)</th>
+                    <th>Status</th>
+                    <th>Feature count</th>
+                    <th>Outputs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in meta_runs %}
+                {% set meta = entry.metadata or {} %}
+                {% set outputs = meta.get("output_paths") or {} %}
+                <tr>
+                    <td><strong><a href="/runs/{{ entry.run_id }}">{{ entry.run_id }}</a></strong></td>
+                    <td>{{ meta.get("timestamp") or "—" }}</td>
+                    <td>{{ meta.get("duration_seconds") if meta.get("duration_seconds") is not none else "—" }}</td>
+                    <td>{{ meta.get("status") or "—" }}</td>
+                    <td>{{ meta.get("feature_count") if meta.get("feature_count") is not none else "—" }}</td>
+                    <td>
+                        {% if outputs %}
+                        <ul class="mb-0">
+                            {% for key, path in outputs.items() %}
+                            <li><code>{{ key }}</code>: {{ path }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

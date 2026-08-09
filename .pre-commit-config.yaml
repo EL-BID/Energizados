@@ -1,15 +1,25 @@
 default_language_version:
-  python: python3.10
+  # Use the Python version the CI matrix installs (currently 3.10-3.12);
+  # previously `python3.10` failed in 3.11/3.12 jobs with
+  # "failed to find interpreter for Builtin discover of python_spec='python3.10'".
+  python: python3
 
 repos:
   - repo: https://github.com/pycqa/isort
-    rev: 8.0.1
+    rev: 9.0.0a3
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
+        # Templates are user-editable skeletons, not source files imported by
+        # the framework. isort's first-party detection heuristic classifies
+        # `from energizados...` differently depending on the file's path and
+        # the host OS, which produces spurious "Fixing ..." failures on
+        # Windows CI. Black and flake8 still lint .tpl files; only isort is
+        # excluded here.
+        exclude: \.tpl$
 
   - repo: https://github.com/psf/black
-    rev: 26.3.1
+    rev: 26.5.1
     hooks:
       - id: black
 
@@ -34,3 +44,9 @@ repos:
     hooks:
       - id: prettier
         types: [yaml]
+        # `yaml-skeleton.yaml` is a user-editable template that uses `{...}`
+        # placeholders, which prettier-yaml mis-parses as flow mappings
+        # (SyntaxError: Map comment with trailing content). Templates are not
+        # source files imported by the framework, so excluding them is
+        # consistent with the isort `.tpl` exclusion above.
+        exclude: '(^|/)yaml-skeleton\.yaml$'

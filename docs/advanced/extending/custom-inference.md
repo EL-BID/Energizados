@@ -47,6 +47,30 @@ class BaseInference(ABC):
             np.ndarray: Probabilities of the positive class
         """
         pass
+
+    @abstractmethod
+    def load_model(self, model_path: str):
+        """
+        Load a trained model from disk.
+
+        Args:
+            model_path: Path to the model file
+
+        Returns:
+            The loaded model (must satisfy predict/predict_proba)
+        """
+        pass
+
+    @abstractmethod
+    def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
+        """
+        Save predictions to file.
+
+        Args:
+            predictions: Predictions to save
+            output_path: Output path
+        """
+        pass
 ```
 
 ## Minimal Example: DefaultInference Wrapper
@@ -136,8 +160,8 @@ class ThresholdedInference(BaseInference):
 infer:
   enabled: true
   input_path: "data/processed/new_data.parquet"
-  output_path: "output/predictions.csv"
-  custom_class: "inference.thresholded_inference.ThresholdedInference"
+  output_predictions_path: "output/predictions.csv"
+  custom_class: "src.inference.thresholded_inference.ThresholdedInference"
   params:
     threshold: 0.7
     min_consumption: 10.0
@@ -173,9 +197,9 @@ class BatchInference(BaseInference):
 
     def load_model(self, model_path: str) -> BaseModel:
         """Load model from pickle file."""
-        from energizados.core.utils.secure_pickle import secure_load
+        from energizados.core.utils.integrity_pickle import load
         logger.info(f"Loading model from {model_path}")
-        return secure_load(model_path)
+        return load(model_path)
 
     def save_predictions(self, predictions: np.ndarray, output_path: str) -> None:
         """Save predictions to CSV with index."""
@@ -215,7 +239,7 @@ class BatchInference(BaseInference):
 
 ```python
 # src/run/batch_inference_script.py
-from inference.batch_inference import BatchInference
+from src.inference.batch_inference import BatchInference
 import pandas as pd
 
 # Initialize custom inference
@@ -243,7 +267,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from inference.thresholded_inference import ThresholdedInference
+from src.inference.thresholded_inference import ThresholdedInference
 from energizados.modeling.adapters import LGBMModelAdapter
 
 
@@ -310,11 +334,26 @@ pytest tests/test_custom_inference.py -v
 
 ## Available Built-in Inference
 
-The framework includes a built-in inference implementation:
+The framework includes built-in inference implementations:
 
 | Class | Description | Location |
 |-------|-------------|----------|
-| `DefaultInference` | Standard inference using model's predict methods | `src/energizados/inference/default.py` |
+| `DefaultInference` | Standard inference using model's predict methods. Supports per-segment thresholds and business rules overlays via `infer.yaml` configuration. | `src/energizados/inference/default.py` |
+| `HierarchicalInference` | Route-based multi-model inference: routes rows to different models based on column-value conditions, with a fallback default model. Loaded via `routes`/`default_model_path` in `infer.yaml` — no custom code needed. | `src/energizados/inference/hierarchical.py` |
+
+### Before Writing a Custom Inference Class
+
+Before reaching for a custom `BaseInference` subclass, check whether the native post-processing layers already cover your need:
+
+- **Per-segment thresholds**: Use `segment_thresholds` in `infer.yaml` to apply different operating points per region, zone, or any segment column. The JSON file is exported automatically by evaluation when `evaluation.segment_columns` is configured in `train.yaml`. See [Inference Guide](../../user-guide/configuration/infer.md#segment-thresholds).
+
+- **Business rules overlay**: Use `business_rules` in `infer.yaml` to apply rule-based modifications to predictions after segment thresholds. Rules evaluate pandas expressions against raw pre-FE data and can `flag`, `override`, or boost scores. See [Inference Guide](../../user-guide/configuration/infer.md#business-rules-overlay).
+
+- **Hierarchical routing**: Use `routes` in `infer.yaml` to route rows to different models based on column-value conditions (e.g., per-region models). `HierarchicalInference` loads route models automatically — no custom code needed. See [Inference Guide](../../user-guide/configuration/infer.md#hierarchical-route-based-inference).
+
+All three features are configured in `infer.yaml` and require no custom Python code. They also preserve the inference pipeline order: model → segment thresholds → business rules → final predictions.
+
+When these native features are insufficient (e.g., you need custom external API calls, complex stateful logic, or integration with other systems), then implement a custom inference class.
 
 ## See Also
 
@@ -324,4 +363,4 @@ The framework includes a built-in inference implementation:
 
 ---
 
-← [Custom Preprocessing](custom-preprocessing.md) | [Extending Framework](../extending/) →
+← [Custom Preprocessing](custom-preprocessing.md) | [Extending Framework](custom-etl.md) →

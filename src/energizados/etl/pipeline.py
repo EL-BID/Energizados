@@ -320,7 +320,7 @@ class SourceETL(BaseETL):
             raise ETLError(f"SourceETL '{self.name}': input_paths is empty")
 
         # Read all files
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         dataframes = []
         for path in self.input_paths:
@@ -367,7 +367,7 @@ class SourceETL(BaseETL):
         """Extract data in incremental mode - only process pending files."""
         import re
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         # Validate glob pattern to prevent directory traversal
         # Only allow safe patterns: alphanumeric, _, -, /, *, ?, and []
@@ -739,7 +739,7 @@ class SourceETL(BaseETL):
         actual_output = output_path or self.output_path or ""
         import re
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         # Determine input files
         if self.raw_glob:
@@ -887,7 +887,7 @@ class SourceETL(BaseETL):
 
         def _is_stale(path: Path) -> bool:
             try:
-                data = json.loads(path.read_text())
+                data = json.loads(path.read_text(encoding="utf-8"))
                 pid = data.get("pid")
                 if pid is None:
                     # Old-style empty lock file — treat as stale
@@ -941,7 +941,7 @@ class SourceETL(BaseETL):
         """Load state from state_file."""
         import json
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         if not self.state_file:
             return
@@ -960,7 +960,7 @@ class SourceETL(BaseETL):
 
         if state_path.exists():
             try:
-                with open(state_path, "r") as f:
+                with open(state_path, "r", encoding="utf-8") as f:
                     self._state = json.load(f)
                 processed_count = len(self._state.get("processed_files", []))
                 last_val = self._state.get("last_processed_value")
@@ -1030,7 +1030,7 @@ class SourceETL(BaseETL):
             # Atomic write: write to .tmp then rename
             tmp_path = state_path.with_suffix(".json.tmp")
             try:
-                with open(tmp_path, "w") as f:
+                with open(tmp_path, "w", encoding="utf-8") as f:
                     json.dump(state_data, f, indent=2)
                 os.replace(tmp_path, state_path)
                 logger.debug(f"  • State saved to '{self.state_file}'")
@@ -1197,7 +1197,7 @@ class SourceETL(BaseETL):
             ETLError: If data cannot be saved
         """
         try:
-            from energizados.core.utils.secure_pickle import validate_no_traversal
+            from energizados.core.utils.integrity_pickle import validate_no_traversal
 
             validate_no_traversal(path, label=f"ETL '{self.name}' output")
             output_path = Path(path)
@@ -1276,12 +1276,12 @@ class SourceETL(BaseETL):
             else:
                 partition_parts = [f"{self.partition_by[0]}={partition_values}"]
 
-            partition_path = "/".join([base_path.rstrip("/")] + partition_parts)
-            partition_dir = Path(partition_path)
+            # Use pathlib for cross-platform path joining (handles Windows backslashes)
+            partition_dir = Path(base_path).joinpath(*partition_parts)
             partition_dir.mkdir(parents=True, exist_ok=True)
 
             # Determine output file within partition
-            output_file = Path(partition_path) / "data.parquet"
+            output_file = partition_dir / "data.parquet"
             group_df.drop(columns=self.partition_by, inplace=True)
 
             # Handle existing partition file based on write_mode setting
@@ -1368,7 +1368,7 @@ class ClipOutliersETL(BaseETL):
         if not self.input_paths:
             raise ETLError(f"ClipOutliersETL '{self.name}': input_paths is empty")
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         path = self.input_paths[0]
         validate_no_traversal(path, label=f"ETL '{self.name}' input")
@@ -1417,7 +1417,7 @@ class ClipOutliersETL(BaseETL):
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """Save clipped dataset."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(path, label=f"ETL '{self.name}' output")
         output_path = Path(path)
@@ -1491,7 +1491,12 @@ class CleanFilesETL(BaseETL):
 
     def run(self, output_path: Optional[str] = None) -> pd.DataFrame:  # type: ignore[override]
         """Delete all files in input_paths and return an empty DataFrame."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        # Delegate to noop_load which contains the deletion logic.
+        return self.noop_load()
+
+    def noop_load(self) -> pd.DataFrame:
+        """Delete files and return empty DataFrame (BaseETL noop override)."""
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         deleted, skipped, failed = 0, 0, []
 
@@ -1552,6 +1557,8 @@ class GeoFeaturesETL(BaseETL):
         lat_col: Latitude column name (default: ``"latitud"``).
         lon_col: Longitude column name (default: ``"longitud"``).
         n_clusters: Number of geographic KMeans clusters (default: ``10``).
+        include_cluster: Add ``geo_cluster`` column via KMeans clustering (default: ``True``).
+            Set to ``False`` to skip clustering and keep only hierarchy/distances features.
         random_state: Random seed for KMeans (default: ``42``).
         include_hierarchy: Add hierarchy columns via IBGE spatial join (default: ``True``).
             Accepts a bool (``True`` = all three levels, ``False`` = none) or a list
@@ -1597,6 +1604,7 @@ class GeoFeaturesETL(BaseETL):
             lat_col: "latitude"
             lon_col: "longitude"
             n_clusters: 10
+            include_cluster: true   # set to false to skip geo_cluster (KMeans)
             include_hierarchy: true
             # include_hierarchy:               # or pick specific levels
             #   - estado
@@ -1619,6 +1627,7 @@ class GeoFeaturesETL(BaseETL):
         lat_col: str = "latitud",
         lon_col: str = "longitud",
         n_clusters: int = 10,
+        include_cluster: bool = True,
         random_state: int = 42,
         include_hierarchy: Union[bool, List[str]] = True,
         include_distances: bool = True,
@@ -1627,6 +1636,7 @@ class GeoFeaturesETL(BaseETL):
         cache_dir: Optional[str] = None,
         region_cities: Optional[List[str]] = None,
         regions_file: Optional[str] = None,
+        geo_model_path: Optional[str] = None,
         **kwargs,
     ):
         self.name = name
@@ -1635,6 +1645,7 @@ class GeoFeaturesETL(BaseETL):
         self.lat_col = lat_col
         self.lon_col = lon_col
         self.n_clusters = n_clusters
+        self.include_cluster = include_cluster
         self.random_state = random_state
         self.include_hierarchy = include_hierarchy
         self.include_distances = include_distances
@@ -1643,6 +1654,7 @@ class GeoFeaturesETL(BaseETL):
         self.cache_dir = cache_dir
         self.region_cities = region_cities
         self.regions_file = regions_file
+        self.geo_model_path = geo_model_path
         self.kwargs = kwargs
 
     def extract(self) -> pd.DataFrame:
@@ -1650,7 +1662,7 @@ class GeoFeaturesETL(BaseETL):
         if not self.input_paths:
             raise ETLError(f"GeoFeaturesETL '{self.name}': input_paths is empty")
 
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         path = self.input_paths[0]
         validate_no_traversal(path, label=f"ETL '{self.name}' input")
@@ -1670,12 +1682,23 @@ class GeoFeaturesETL(BaseETL):
         return df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Append geo_cluster and optional geographic feature columns."""
-        import numpy as np
-        from sklearn.cluster import KMeans
-        from sklearn.preprocessing import StandardScaler
+        """Append geo features by delegating to the GeoFeatures transformer.
+
+        ADR-0001: clustering + hierarchy both live in the GeoFeatures transformer now.
+        This ETL is a thin file-I/O wrapper: read a parquet, hand the in-memory frame
+        to one GeoFeatures instance, write the result back. The load-or-fit decision
+        (train fits + persists, infer loads + predicts) is driven by whether
+        ``geo_model_path`` exists on disk.
+        """
+        from energizados.preprocessing.geo_features import GeoFeatures
 
         df = df.copy()
+
+        # R4: cast object columns to category to cut DataFrame-copy memory ~4x.
+        _obj_cols = df.select_dtypes(include="object").columns
+        if len(_obj_cols):
+            df[_obj_cols] = df[_obj_cols].astype("category")
+            logger.info("  \u2022 R4: cast %d object columns to category", len(_obj_cols))
 
         if self.lat_col not in df.columns or self.lon_col not in df.columns:
             raise ETLError(
@@ -1683,68 +1706,45 @@ class GeoFeaturesETL(BaseETL):
                 f"'{self.lon_col}' not found. Available: {list(df.columns)}"
             )
 
-        lats = pd.to_numeric(df[self.lat_col], errors="coerce").values
-        lons = pd.to_numeric(df[self.lon_col], errors="coerce").values
-        valid_mask = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
-
-        n_valid = int(valid_mask.sum())
-        if n_valid < 10:
-            raise ETLError(
-                f"GeoFeaturesETL '{self.name}': only {n_valid} valid coordinates found. "
-                "Need at least 10 to fit clusters."
-            )
-
-        # --- Geographic clustering ---
-        coords = np.column_stack([lats[valid_mask], lons[valid_mask]])
-        n_clusters = min(self.n_clusters, n_valid)
-
-        scaler = StandardScaler()
-        coords_scaled = scaler.fit_transform(coords)
-
-        kmeans = KMeans(n_clusters=n_clusters, random_state=self.random_state, n_init=10)
-        kmeans.fit(coords_scaled)
-
-        labels = np.full(len(df), -1, dtype=int)
-        labels[valid_mask] = kmeans.predict(coords_scaled)
-        df["geo_cluster"] = labels
-
-        invalid_count = int((~valid_mask).sum())
-        logger.info(
-            "  ✓ GeoFeaturesETL: %d clusters fitted on %d valid coordinates (%d → label -1)",
-            n_clusters,
-            n_valid,
-            invalid_count,
+        transformer = GeoFeatures(
+            lat_col=self.lat_col,
+            lon_col=self.lon_col,
+            include_cluster=self.include_cluster,
+            n_clusters=self.n_clusters,
+            random_state=self.random_state,
+            include_hierarchy=self.include_hierarchy,
+            include_target_encoding=False,
+            include_distances=self.include_distances,
+            distance_cities=self.distance_cities,
+            include_coords=self.include_coords,
+            cache_dir=self.cache_dir,
+            region_cities=self.region_cities,
+            regions_file=self.regions_file,
+            geo_model_path=self.geo_model_path,
         )
-        for cluster_id in sorted(set(labels[valid_mask])):
-            count = int((labels == cluster_id).sum())
-            logger.info(
-                "    Cluster %d: %d records (%.1f%%)", cluster_id, count, count / len(df) * 100
-            )
 
-        # --- Geographic hierarchy and distances ---
-        if self.include_hierarchy or self.include_distances:
-            from energizados.preprocessing.geo_features import GeoFeatures
-
-            transformer = GeoFeatures(
-                lat_col=self.lat_col,
-                lon_col=self.lon_col,
-                include_hierarchy=self.include_hierarchy,
-                include_target_encoding=False,
-                include_distances=self.include_distances,
-                distance_cities=self.distance_cities,
-                include_coords=self.include_coords,
-                cache_dir=self.cache_dir,
-                region_cities=self.region_cities,
-                regions_file=self.regions_file,
-            )
-            df = transformer.fit_transform(df)
-            logger.info("  ✓ GeoFeaturesETL: geographic features added")
-
-        return df
+        # load-or-fit branch (ADR-0001): train fits + persists; infer loads + predicts.
+        # The transformer raises ValueError/TransformerError; the ETL owns the ETLError
+        # contract at its boundary (mirrors DatasetBuilderETL.run).
+        try:
+            if self.geo_model_path and Path(self.geo_model_path).exists():
+                transformer.load()
+                transformer.fit(df)
+            else:
+                transformer.fit(df)
+                if self.geo_model_path:
+                    transformer.save()
+            return transformer.transform(df)
+        except ETLError:
+            raise
+        except Exception as e:
+            raise ETLError(
+                f"GeoFeaturesETL '{self.name}': geo feature extraction failed: {e}"
+            ) from e
 
     def load(self, df: pd.DataFrame, path: str) -> None:
         """Save enriched dataset."""
-        from energizados.core.utils.secure_pickle import validate_no_traversal
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         validate_no_traversal(path, label=f"ETL '{self.name}' output")
         output_path = Path(path)

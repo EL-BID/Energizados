@@ -11,7 +11,11 @@ import pandas as pd
 import pytest
 
 from energizados.core.exceptions import ETLError
+from energizados.core.utils.import_utils import register_allowed_prefix
 from energizados.etl.pipeline import SourceETL
+
+# Register tests prefix for test imports
+register_allowed_prefix("tests")
 
 
 def mock_add_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -81,8 +85,10 @@ class TestSourceETLTransformFnInit:
         assert callable(etl._transform_fn)
 
     def test_init_with_transform_fn_string_invalid(self):
-        """Verify that invalid transform_fn string raises ImportError."""
-        with pytest.raises(ImportError):
+        """Verify that invalid transform_fn string raises ConfigurationError."""
+        from energizados.core.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError):
             SourceETL(
                 name="test",
                 input_paths=["file1.csv"],
@@ -99,8 +105,10 @@ class TestSourceETLTransformFnInit:
             )
 
     def test_init_with_transform_fn_string_not_in_allowlist(self):
-        """Verify that transform_fn outside allowlist raises ImportError."""
-        with pytest.raises(ImportError, match="not in the allowed module prefixes"):
+        """Verify that transform_fn outside allowlist raises ConfigurationError."""
+        from energizados.core.exceptions import ConfigurationError
+
+        with pytest.raises(ConfigurationError, match="not in the allowed module prefixes"):
             SourceETL(
                 name="test",
                 input_paths=["file1.csv"],

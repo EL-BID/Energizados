@@ -157,12 +157,17 @@ pip install energizados
   pip install energizados[catboost]
   ```
 
+- **XGBoost** (for XGBoost models):
+  ```bash
+  pip install energizados[xgboost]
+  ```
+
 - **TensorFlow** (for neural networks and LSTM):
   ```bash
   pip install energizados[tensorflow]
   ```
 
-- **All extras** (CatBoost + TensorFlow):
+- **All extras** (CatBoost + TensorFlow + XGBoost):
   ```bash
   pip install energizados[all]
   ```

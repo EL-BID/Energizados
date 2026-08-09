@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% from "components/status_badge.html" import status_badge %}
+
+{% block title %}Style Guide · Energizados{% endblock %}
+{% block app_title %}Style Guide{% endblock %}
+
+{% block content %}
+{# ============================================================
+     Intro
+     ============================================================ #}
+<div class="app-hero mb-4">
+    <h2 class="app-hero__title">Design System</h2>
+    <span class="app-hero__path">static/css/app.css · tokens &amp; components</span>
+    <p class="mt-3 mb-0" style="color: var(--app-muted); max-width: 60ch;">
+        Living documentation of the web console design system. Every swatch and
+        sample below is rendered with the real
+        <code>var(--app-*)</code> tokens — no hardcoded colors. Toggle the
+        <strong>light/dark switch in the topbar</strong> and the entire page
+        re-themes in place: swatches, components, and the displayed token values
+        all follow.
+    </p>
+</div>
+
+{# ============================================================
+     Colors
+     ============================================================ #}
+<section class="app-card mb-4" id="colors">
+    <div class="app-card__header">
+        <h3 class="app-card__title">Colors</h3>
+        <span class="app-card__count">brand · neutrals · semantic</span>
+    </div>
+    <p class="text-muted small mb-3">
+        Each chip's background is the token itself (<code>var(--app-*)</code>),
+        so it tracks the active theme. The value shown is the live computed hex.
+    </p>
+
+    <p class="app-subtitle">Brand · indigo</p>
+    <div class="swatch-grid mb-4">
+        {% set brand_tokens = [
+            ('--app-primary', 'base'),
+            ('--app-primary-400', 'lighter'),
+            ('--app-primary-600', 'darker'),
+            ('--app-primary-700', 'darkest')
+        ] %}
+        {% for token, note in brand_tokens %}
+        <div class="swatch">
+            <div class="swatch__chip" data-token-color style="background-color: var({{ token }});"></div>
+            <div class="swatch__meta">
+                <code>{{ token }}</code>
+                <span class="swatch__note">{{ note }}</span>
+                <span class="swatch__value" data-token-value>—</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="text-muted small mb-4">
+        A comma-separated <code>--app-primary-rgb</code> triple is also defined
+        for <code>rgba()</code> composition (not a standalone color).
+    </p>
+
+    <p class="app-subtitle">Neutrals</p>
+    <div class="swatch-grid mb-4">
+        {% set neutral_tokens = [
+            ('--app-bg', 'page background'),
+            ('--app-surface', 'cards / panels'),
+            ('--app-surface-2', 'raised / inset'),
+            ('--app-text', 'body text'),
+            ('--app-muted', 'secondary text'),
+            ('--app-border', 'dividers')
+        ] %}
+        {% for token, note in neutral_tokens %}
+        <div class="swatch">
+            <div class="swatch__chip"
+                 data-token-color
+                 style="background-color: var({{ token }}); {% if token in ('--app-text','--app-muted','--app-border') %}border: 1px solid var(--app-border);{% endif %}"></div>
+            <div class="swatch__meta">
+                <code>{{ token }}</code>
+                <span class="swatch__note">{{ note }}</span>
+                <span class="swatch__value" data-token-value>—</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <p class="app-subtitle">Semantic</p>
+    <div class="swatch-grid">
+        {% set semantic_tokens = [
+            ('--app-success', 'success / ok'),
+            ('--app-warning', 'warning / queued'),
+            ('--app-danger', 'danger / failed')
+        ] %}
+        {% for token, note in semantic_tokens %}
+        <div class="swatch">
+            <div class="swatch__chip" data-token-color style="background-color: var({{ token }});"></div>
+            <div class="swatch__meta">
+                <code>{{ token }}</code>
+                <span class="swatch__note">{{ note }}</span>
+                <span class="swatch__value" data-token-value>—</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{# ============================================================
+     Typography
+     ============================================================ #}
+<section class="app-card mb-4" id="typography">
+    <div class="app-card__header">
+        <h3 class="app-card__title">Typography</h3>
+        <span class="app-card__count">Inter (UI) · monospace (code/IDs)</span>
+    </div>
+    <p class="app-subtitle">Sans — <code>--app-font-sans</code> (Inter)</p>
+    <h1>Heading level 1</h1>
+    <h2>Heading level 2</h2>
+    <h3>Heading level 3</h3>
+    <p>Body text — the quick brown fox jumps over the lazy dog while the
+       electricity meter records consumption for twelve months.</p>
+    <p><small>Small / caption text for secondary detail.</small></p>
+
+    <hr style="border-color: var(--app-border);">
+
+    <p class="app-subtitle">Mono — <code>--app-font-mono</code></p>
+    <p class="font-mono">train-20240101_120000 · AUC=0.8523 · F1=0.7810</p>
+    <pre class="font-mono" style="background-color: var(--app-surface-2); padding: var(--app-space-3); border-radius: var(--app-radius-md);">etl:
+  sample:
+    enabled: true
+    custom_class: "energizados.etl.pipeline.SourceETL"</pre>
+</section>
+
+{# ============================================================
+     Scale — spacing / radius / shadow
+     ============================================================ #}
+<section class="app-card mb-4" id="scale">
+    <div class="app-card__header">
+        <h3 class="app-card__title">Scale</h3>
+        <span class="app-card__count">spacing · radius · shadow</span>
+    </div>
+
+    <p class="app-subtitle">Spacing — <code>--app-space-1 … --app-space-6</code></p>
+    <div class="d-flex flex-wrap align-items-end gap-3 mb-2">
+        {% set spaces = [
+            ('--app-space-1', '0.25rem'),
+            ('--app-space-2', '0.5rem'),
+            ('--app-space-3', '0.75rem'),
+            ('--app-space-4', '1rem'),
+            ('--app-space-5', '1.5rem'),
+            ('--app-space-6', '2rem')
+        ] %}
+        {% for token, rem in spaces %}
+        <div class="text-center">
+            <div class="scale-bar" style="width: var({{ token }}); height: var({{ token }});"></div>
+            <code class="d-block small mt-1">{{ token }}</code>
+            <span class="text-muted small">{{ rem }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr style="border-color: var(--app-border);">
+
+    <p class="app-subtitle">Radius — <code>--app-radius-sm / md / lg</code></p>
+    <div class="d-flex flex-wrap gap-3 mb-2">
+        {% set radii = [
+            ('--app-radius-sm', '0.25rem'),
+            ('--app-radius-md', '0.5rem'),
+            ('--app-radius-lg', '0.75rem')
+        ] %}
+        {% for token, rem in radii %}
+        <div class="text-center">
+            <div class="radius-box" style="border-radius: var({{ token }});"></div>
+            <code class="d-block small mt-1">{{ token }}</code>
+            <span class="text-muted small">{{ rem }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr style="border-color: var(--app-border);">
+
+    <p class="app-subtitle">Shadow — <code>--app-shadow-sm / md</code></p>
+    <div class="d-flex flex-wrap gap-4">
+        <div class="shadow-box" style="box-shadow: var(--app-shadow-sm);">
+            <code>--app-shadow-sm</code>
+        </div>
+        <div class="shadow-box" style="box-shadow: var(--app-shadow-md);">
+            <code>--app-shadow-md</code>
+        </div>
+    </div>
+</section>
+
+{# ============================================================
+     Components
+     ============================================================ #}
+<section class="app-card mb-4" id="components">
+    <div class="app-card__header">
+        <h3 class="app-card__title">Components</h3>
+        <span class="app-card__count">live examples</span>
+    </div>
+
+    <p class="app-subtitle">Buttons &amp; spinner</p>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+        <button type="button" class="btn btn-primary">Primary</button>
+        <button type="button" class="btn btn-outline-secondary">Outline secondary</button>
+        <button type="button" class="btn btn-warning">Warning</button>
+        <button type="button" class="btn btn-info">Info</button>
+        <span class="app-spinner" role="status" aria-label="Loading"></span>
+        <span class="app-loading"><span class="app-spinner"></span> Loading…</span>
+    </div>
+
+    <p class="app-subtitle">Status badges (status_badge macro)</p>
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        {{ status_badge('queued') }}
+        {{ status_badge('running') }}
+        {{ status_badge('success') }}
+        {{ status_badge('partial') }}
+        {{ status_badge('failed') }}
+        {{ status_badge('aborted') }}
+    </div>
+
+    <p class="app-subtitle">Metric row</p>
+    <div class="app-metrics mb-4">
+        <div class="app-metric">
+            <span class="app-metric__label">AUC</span>
+            <span class="app-metric__value">0.8523</span>
+        </div>
+        <div class="app-metric">
+            <span class="app-metric__label">F1</span>
+            <span class="app-metric__value">0.7810</span>
+        </div>
+        <div class="app-metric">
+            <span class="app-metric__label">Runs</span>
+            <span class="app-metric__value">42</span>
+        </div>
+    </div>
+
+    <p class="app-subtitle">Empty state</p>
+    <div class="app-empty mb-4">No runs yet. Enqueue a job to see results here.</div>
+
+    <p class="app-subtitle">Card with header &amp; compact table</p>
+    <div class="app-card" style="background-color: var(--app-surface-2);">
+        <div class="app-card__header">
+            <h4 class="app-card__title app-card__title--sm">Recent runs</h4>
+            <a class="app-card__link" href="#">View all</a>
+        </div>
+        <table class="table">
+            <thead>
+                <tr><th>Run</th><th>Status</th><th>AUC</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="font-mono">train-20240712_0915</td>
+                    <td>{{ status_badge('success') }}</td>
+                    <td>0.8523</td>
+                </tr>
+                <tr>
+                    <td class="font-mono">train-20240711_1430</td>
+                    <td>{{ status_badge('failed') }}</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td class="font-mono">etl-20240712_0800</td>
+                    <td>{{ status_badge('running') }}</td>
+                    <td>—</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Page-local layout for swatches & scale demos. Uses design tokens only. */
+    .swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: var(--app-space-3);
+    }
+    .swatch { display: flex; flex-direction: column; gap: var(--app-space-2); }
+    .swatch__chip {
+        height: 64px;
+        border-radius: var(--app-radius-md);
+        border: 1px solid var(--app-border);
+    }
+    .swatch__meta { display: flex; flex-direction: column; gap: 2px; }
+    .swatch__meta code { font-size: .8rem; }
+    .swatch__note { font-size: .72rem; color: var(--app-muted); }
+    .swatch__value { font-size: .75rem; color: var(--app-text); font-weight: 600; }
+
+    .scale-bar {
+        background: linear-gradient(135deg, var(--app-primary), var(--app-primary-700));
+        border-radius: var(--app-radius-sm);
+        min-width: 8px;
+        min-height: 8px;
+    }
+    .radius-box {
+        width: 56px;
+        height: 56px;
+        background-color: color-mix(in srgb, var(--app-primary) 24%, transparent);
+        border: 1px solid var(--app-primary);
+    }
+    .shadow-box {
+        padding: var(--app-space-4);
+        background-color: var(--app-surface);
+        border-radius: var(--app-radius-md);
+        border: 1px solid var(--app-border);
+    }
+    .shadow-box code { font-size: .8rem; }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    /*
+     * Style guide interactivity: display the live computed value of each color
+     * token, and refresh it whenever the theme changes.
+     *
+     * Swatch chips carry data-token-color; their sibling [data-token-value]
+     * receives the resolved hex. We re-read on theme toggle by observing the
+     * data-bs-theme / data-theme attributes that theme.js mutates on <html>.
+     * No hardcoded colors anywhere — the values come from the active palette.
+     */
+    (function () {
+        "use strict";
+
+        function rgbToHex(value) {
+            var match = String(value).match(/\d+(\.\d+)?/g);
+            if (!match || match.length < 3) { return value; }
+            return "#" + match.slice(0, 3).map(function (n) {
+                return parseInt(n, 10).toString(16).padStart(2, "0");
+            }).join("");
+        }
+
+        function fillValues() {
+            document.querySelectorAll("[data-token-color]").forEach(function (chip) {
+                var swatch = chip.closest(".swatch");
+                if (!swatch) { return; }
+                var target = swatch.querySelector("[data-token-value]");
+                if (!target) { return; }
+                var resolved = getComputedStyle(chip).backgroundColor;
+                target.textContent = rgbToHex(resolved);
+            });
+        }
+
+        function init() {
+            fillValues();
+            // theme.js toggles these attributes on <html>; refresh on change.
+            var observer = new MutationObserver(fillValues);
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ["data-bs-theme", "data-theme"]
+            });
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", init);
+        } else {
+            init();
+        }
+    })();
+</script>
+{% endblock %}

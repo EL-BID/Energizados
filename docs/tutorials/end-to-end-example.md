@@ -62,13 +62,13 @@ EOF
 
 **Expected output**:
 ```
-Dataset shape: (42500, 18)
+Dataset shape: (42500, 20)
 
-Columns: ['actividad', 'tipo_tarifa', 'nivel_tension', 'material_instalacion',
-          'zona', 'target', 'fecha_inspeccion', '12_anterior', '11_anterior',
-          '10_anterior', '9_anterior', '8_anterior', '7_anterior',
-          '6_anterior', '5_anterior', '4_anterior', '3_anterior',
-          '2_anterior', '1_anterior']
+Columns: ['index', '12_anterior', '11_anterior', '10_anterior', '9_anterior',
+          '8_anterior', '7_anterior', '6_anterior', '5_anterior', '4_anterior',
+          '3_anterior', '2_anterior', '1_anterior', 'zona', 'actividad',
+          'tipo_tarifa', 'nivel_tension', 'material_instalacion',
+          'fecha_inspeccion', 'target']
 
 Target distribution:
 0    0.942118
@@ -83,10 +83,10 @@ Name: target, dtype: int64
 
 **Dataset characteristics**:
 
-- **42,500 customers** with 18 columns
+- **42,500 customers** with 20 columns (one is `index`, a parquet export artifact that is not a model feature — 19 are meaningful variables)
 - **5.8% fraud rate** (2,490 fraudsters, 40,010 legitimate customers)
 - **12 monthly consumption columns** (`12_anterior` through `1_anterior`)
-- **6 categorical features**: `actividad`, `tipo_tarifa`, `nivel_tension`, `material_instalacion`, `zona`
+- **5 categorical features**: `actividad`, `tipo_tarifa`, `nivel_tension`, `material_instalacion`, `zona`
 - **Target**: `target` (1 = fraudulent, 0 = legitimate)
 - **Date column**: `fecha_inspeccion` (inspection date)
 
@@ -327,7 +327,7 @@ infer:
   model_path: "output/train-20240315_1430/models/model.pkl"
   feature_engineering_path: "output/train-20240315_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  output_path: "output/inference_predictions.parquet"
+  output_predictions_path: "output/inference_predictions.parquet"
 ```
 
 !!! note
@@ -355,13 +355,13 @@ python << 'EOF'
 import pandas as pd
 
 preds = pd.read_parquet("output/inference_predictions.parquet")
-print(preds[['fraud_probability', 'fraud_prediction']].sort_values('fraud_probability', ascending=False))
+print(preds[['probability', 'prediction']].sort_values('probability', ascending=False))
 EOF
 ```
 
 **Expected output**:
 ```
-      fraud_probability  fraud_prediction
+      probability  prediction
 7               0.7842                 1
 2               0.6521                 1
 5               0.4123                 0
@@ -375,8 +375,8 @@ EOF
 ```
 
 The predictions include:
-- **fraud_probability**: Model's confidence score (0-1)
-- **fraud_prediction**: Binary prediction (1 = fraud, 0 = legitimate) based on threshold
+- **probability**: Model's confidence score (0-1)
+- **prediction**: Binary prediction (1 = fraud, 0 = legitimate) based on threshold
 
 ## Step 8: What to Do Next
 
@@ -449,5 +449,5 @@ In this tutorial, you:
 
 - [Model Selection Guide](model-selection-guide.md) - Choose the right model for your use case
 - [Ensemble Models](ensemble-models.md) - Combine multiple models for better performance
-- [Advanced Configuration](../configuration/) - Deep dive into configuration options
+- [Advanced Configuration](../user-guide/configuration/etl.md) - Deep dive into configuration options
 - [Understanding Results](../user-guide/understanding-results.md) - Master result interpretation

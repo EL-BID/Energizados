@@ -111,6 +111,9 @@ ensemble:
 - `catboost`: Robust to overfitting
 - Custom models: Implement in `src/models/`
 
+!!! note
+    When using stacking with pre-fitted base models, set `skip_base_fit: true` in the ensemble configuration to skip retraining base models and only train the meta-learner.
+
 ## Blending vs. Proper OOF
 
 The `use_val_as_oof` parameter controls how the meta-learner is trained:
@@ -318,12 +321,12 @@ infer:
   model_path: "output/train-20240315_1430/models/ensemble.pkl"  # Points to ensemble
   feature_engineering_path: "output/train-20240315_1430/models/feature_engineering.pkl"
   threshold: 0.5
-  output_path: "output/inference_predictions.parquet"
+  output_predictions_path: "output/inference_predictions.parquet"
 ```
 
 Run inference:
 ```bash
-energizados run inference
+energizados run infer
 ```
 
 The inference automatically:
@@ -522,5 +525,5 @@ Use different models for different customer segments (e.g., residential vs comme
 
 - [Model Selection Guide](model-selection-guide.md) - Choosing the right base models
 - [End-to-End Example](end-to-end-example.md) - Hands-on tutorial
-- [Configuration Guide](../configuration/) - Detailed ensemble configuration options
+- [Configuration Guide](../user-guide/configuration/etl.md) - Detailed ensemble configuration options
 - [Understanding Results](../user-guide/understanding-results.md) - Interpreting ensemble performance

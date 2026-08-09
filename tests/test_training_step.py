@@ -35,11 +35,14 @@ class _DummyModel(BaseModel):
         search_hip=False,
         n_iter=60,
         cv=3,
+        n_splits=5,
+        class_weight=None,
         config=None,
     ):
         super().__init__(config)
         self.proba = proba
         self.cols_for_model = cols_for_model or []
+        self.n_splits = n_splits
 
     def fit(self, X, y, X_val=None, y_val=None):
         self.is_fitted_ = True
@@ -55,6 +58,49 @@ class _DummyModel(BaseModel):
 
     def get_raw_model(self):
         return self
+
+    @classmethod
+    def from_config(cls, config: dict, X_train) -> dict:
+        """
+        Minimal from_config implementation for testing.
+
+        Replicates the ladder logic for tree-based models (lightgbm, etc.).
+        """
+        params = config.copy()
+        model_type = params.get("type", "lightgbm")
+
+        # Extract columns from X_train
+        params["cols_for_model"] = X_train.columns.tolist()
+
+        # Flatten sampling config
+        sampling_config = params.pop("sampling", {})
+        params["sampling_method"] = sampling_config.get("method", "undersample")
+        params["sampling_th"] = sampling_config.get("threshold", 0.5)
+
+        # Extract class_weight if present
+        class_weight = params.pop("class_weight", None)
+        if class_weight is not None:
+            params["class_weight"] = class_weight
+
+        # Pop hyperparams (will be passed through)
+        params["hyperparams"] = params.pop("hyperparams", {})
+
+        # Flatten hyperparam_search config
+        hyperparam_search = params.pop("hyperparam_search", {})
+        params["search_hip"] = hyperparam_search.get("enabled", False)
+        params["n_iter"] = hyperparam_search.get("n_iter", 60)
+        params["cv"] = hyperparam_search.get("cv", 3)
+        params["n_splits"] = hyperparam_search.get("n_splits", 5)
+
+        # Store type in config
+        params["config"] = {"type": model_type}
+
+        # Remove keys that are not constructor arguments
+        params.pop("type", None)
+        params.pop("name", None)
+        params.pop("calibration", None)
+
+        return params
 
 
 def _dummy_model_class(proba: float = 0.6):
@@ -97,32 +143,32 @@ def parquet_splits(temp_dir):
 
 
 class TestResolveModelNames:
-    def _step(self):
-        return TrainingStep(models_configs=[], output_dir="/tmp/x")  # nosec B108
+    def _step(self, tmp_path):
+        return TrainingStep(models_configs=[], output_dir=str(tmp_path / "x"))
 
-    def test_explicit_names_used(self):
-        step = self._step()
+    def test_explicit_names_used(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"name": "lgbm", "type": "lightgbm"}, {"name": "cat", "type": "catboost"}]
         assert step._resolve_model_names(cfgs) == ["lgbm", "cat"]
 
-    def test_unique_types_use_type_string(self):
-        step = self._step()
+    def test_unique_types_use_type_string(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"type": "lightgbm"}, {"type": "catboost"}]
         assert step._resolve_model_names(cfgs) == ["lightgbm", "catboost"]
 
-    def test_duplicate_types_get_suffix(self):
-        step = self._step()
+    def test_duplicate_types_get_suffix(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"type": "lightgbm"}, {"type": "lightgbm"}]
         names = step._resolve_model_names(cfgs)
         assert names == ["lightgbm_0", "lightgbm_1"]
 
-    def test_three_duplicates(self):
-        step = self._step()
+    def test_three_duplicates(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [{"type": "lightgbm"}] * 3
         assert step._resolve_model_names(cfgs) == ["lightgbm_0", "lightgbm_1", "lightgbm_2"]
 
-    def test_mixed_explicit_and_auto(self):
-        step = self._step()
+    def test_mixed_explicit_and_auto(self, tmp_path):
+        step = self._step(tmp_path)
         cfgs = [
             {"name": "my_lgbm", "type": "lightgbm"},
             {"type": "catboost"},
@@ -133,8 +179,8 @@ class TestResolveModelNames:
         assert names[1] == "catboost_0"
         assert names[2] == "catboost_1"
 
-    def test_single_model_uses_type(self):
-        step = self._step()
+    def test_single_model_uses_type(self, tmp_path):
+        step = self._step(tmp_path)
         assert step._resolve_model_names([{"type": "catboost"}]) == ["catboost"]
 
 
@@ -143,55 +189,8 @@ class TestResolveModelNames:
 # ---------------------------------------------------------------------------
 
 
-class TestPrepareModelParams:
-    def _step(self):
-        return TrainingStep(models_configs=[], output_dir="/tmp/x")  # nosec B108
-
-    def _X(self, cols=None):
-        return pd.DataFrame({c: [1, 2] for c in (cols or ["f1", "f2"])})
-
-    def test_lgbm_cols_for_model(self):
-        step = self._step()
-        X = self._X(["a", "b", "c"])
-        params = step._prepare_model_params({"type": "lightgbm", "hyperparams": {}}, X)
-        assert params["cols_for_model"] == ["a", "b", "c"]
-
-    def test_sampling_config_extracted(self):
-        step = self._step()
-        cfg = {"type": "lightgbm", "sampling": {"method": "oversample", "threshold": 0.3}}
-        params = step._prepare_model_params(cfg, self._X())
-        assert params["sampling_method"] == "oversample"
-        assert params["sampling_th"] == 0.3
-        assert "sampling" not in params
-
-    def test_hyperparam_search_extracted(self):
-        step = self._step()
-        cfg = {"type": "catboost", "hyperparam_search": {"enabled": True, "n_iter": 30, "cv": 5}}
-        params = step._prepare_model_params(cfg, self._X())
-        assert params["search_hip"] is True
-        assert params["n_iter"] == 30
-        assert params["cv"] == 5
-        assert "hyperparam_search" not in params
-
-    def test_type_stored_in_config(self):
-        step = self._step()
-        params = step._prepare_model_params({"type": "lightgbm"}, self._X())
-        assert params["config"] == {"type": "lightgbm"}
-
-    def test_type_and_name_removed(self):
-        step = self._step()
-        params = step._prepare_model_params({"type": "catboost", "name": "cat"}, self._X())
-        assert "type" not in params
-        assert "name" not in params
-
-    def test_neural_cols_split(self):
-        step = self._step()
-        cols = ["actividad", "zona", "12_anterior", "6_anterior"]
-        X = self._X(cols)
-        params = step._prepare_model_params({"type": "neural_network"}, X)
-        assert "12_anterior" in params["spents_names"]
-        assert "actividad" in params["features_names"]
-        assert "12_anterior" not in params["features_names"]
+# TestPrepareModelParams class removed - _prepare_model_params deleted in favor of per-adapter from_config methods
+# The functionality is now tested in tests/test_from_config_equivalence.py
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +209,7 @@ class TestTrainingStepSingleModel:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -265,7 +264,7 @@ class TestTrainingStepEnsemble:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -316,7 +315,7 @@ class TestTrainingStepEnsemble:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -341,7 +340,7 @@ class TestTrainingStepEnsemble:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.55)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -381,7 +380,7 @@ class TestTrainingStepMultiModel:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             step = TrainingStep(
@@ -466,7 +465,7 @@ class TestTrainingStepMultiModel:
         train_path, val_path = parquet_splits
         DummyCls = _dummy_model_class(0.6)
 
-        with patch("energizados.core.steps.training.ModelRegistry") as mock_reg:
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
             mock_reg.get.return_value = DummyCls
 
             # 1. Single model
@@ -551,10 +550,11 @@ class TestTrainingStepValidation:
         assert step.get_required_keys() == []
 
     def test_required_keys_when_paths_not_provided(self, temp_dir):
+        # train-without-holdout: only train_path is required; val_path is optional.
         step = TrainingStep(models_configs=[], output_dir=str(temp_dir))
         keys = step.get_required_keys()
         assert "train_path" in keys
-        assert "val_path" in keys
+        assert "val_path" not in keys
 
     def test_output_keys(self, temp_dir):
         step = TrainingStep(models_configs=[], output_dir=str(temp_dir))
@@ -597,7 +597,8 @@ class TestPipelineConfigParsing:
                         "feature_engineering": {"enabled": False},
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         pipeline = ConfigPipelineBuilder(str(cfg_file)).build()
@@ -625,7 +626,8 @@ class TestPipelineConfigParsing:
                         "feature_engineering": {"enabled": False},
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         pipeline = ConfigPipelineBuilder(str(cfg_file)).build()
@@ -651,10 +653,95 @@ class TestPipelineConfigParsing:
                         "feature_engineering": {"enabled": False},
                     }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         pipeline = ConfigPipelineBuilder(str(cfg_file)).build()
         step = pipeline.steps[0]
         assert isinstance(step, TrainingStep)
         assert step.ensemble_config is None
+
+
+class TestNoHoldoutTraining:
+    """FR2/FR3/FR7: TrainingStep in no-holdout mode (val_path=None)."""
+
+    @staticmethod
+    def _fe_config():
+        return {
+            "enabled": True,
+            "preprocessing": {
+                "enabled": True,
+                "columns": {"f1": [{"cast_dtype": {"dtype": "float32"}}]},
+            },
+            "feature_selection": {"enabled": False},
+        }
+
+    @staticmethod
+    def _model_config():
+        return [
+            {
+                "type": "lightgbm",
+                "sampling": {"method": "none"},
+                "hyperparams": {"n_estimators": 20, "num_leaves": 7, "verbose": -1},
+            }
+        ]
+
+    @staticmethod
+    def _write_data(path, n=200):
+        df = pd.DataFrame(
+            {"f1": [float(i % 10) for i in range(n)], "target": [i % 2 for i in range(n)]}
+        )
+        df.to_parquet(path, index=False)
+        return path
+
+    def _build(self, train_path, val_path, output_dir):
+        return TrainingStep(
+            train_path=train_path,
+            val_path=val_path,
+            target_column="target",
+            feature_engineering_config=self._fe_config(),
+            models_configs=self._model_config(),
+            output_dir=output_dir,
+        )
+
+    def test_training_no_holdout_succeeds(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        step = self._build(train, None, str(tmp_path / "models"))
+        ctx = step.execute({})
+        assert ctx["model_path"]
+        assert Path(ctx["model_path"]).exists()
+
+    def test_training_no_holdout_metrics_none_and_holdout_mode(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        step = self._build(train, None, str(tmp_path / "models"))
+        ctx = step.execute({})
+        assert ctx["val_auc"] is None
+        assert ctx["val_f1"] is None
+        assert ctx["val_predictions_path"] is None
+        assert ctx["holdout_mode"] == "none"
+
+    def test_training_with_val_sets_holdout_mode_standard(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        val = self._write_data(str(tmp_path / "val.parquet"), n=40)
+        step = self._build(train, val, str(tmp_path / "models2"))
+        ctx = step.execute({})
+        assert ctx["holdout_mode"] == "standard"
+        assert ctx["val_auc"] is not None
+
+    def test_training_no_holdout_calibration_skipped(self, tmp_path):
+        train = self._write_data(str(tmp_path / "train.parquet"))
+        fe = self._fe_config()
+        mc = self._model_config()
+        mc[0]["calibration"] = {"enabled": True, "method": "sigmoid"}
+        step = TrainingStep(
+            train_path=train,
+            val_path=None,
+            target_column="target",
+            feature_engineering_config=fe,
+            models_configs=mc,
+            output_dir=str(tmp_path / "models3"),
+        )
+        ctx = step.execute({})  # must not raise; calibration skipped, model ships uncalibrated
+        assert ctx["model_path"]
+        assert Path(ctx["model_path"]).exists()

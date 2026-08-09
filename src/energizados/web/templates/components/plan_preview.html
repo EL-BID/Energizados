@@ -1,0 +1,62 @@
+{% macro plan_preview(plan, available, message, error) %}
+{% if error %}
+<div class="alert alert-danger mt-3">
+    <h5 class="alert-heading">⚠️ Execution Plan Error</h5>
+    {% if error.error_code %}
+    <p class="mb-1">
+        <strong>Error Code:</strong> <code>{{ error.error_code }}</code>
+    </p>
+    {% endif %}
+    {% if error.message %}
+    <p class="mb-0">
+        <strong>Message:</strong> {{ error.message }}
+    </p>
+    {% endif %}
+    {% if error.details %}
+    <div class="mt-2">
+        <strong>Details:</strong>
+        <pre class="bg-body-tertiary p-2 border rounded font-mono small">{{ error.details | pprint if error.details is string else error.details | join(', ') }}</pre>
+    </div>
+    {% endif %}
+</div>
+{% elif not available %}
+<div class="alert alert-info mt-3">
+    <h5 class="alert-heading">ℹ️ Plan Preview Not Available</h5>
+    <p class="mb-0">{{ message }}</p>
+</div>
+{% elif plan %}
+<section class="app-card mt-3">
+    <div class="app-card__header">
+        <h3 class="app-card__title app-card__title--sm">📋 Execution Plan</h3>
+    </div>
+    <h6 class="app-subtitle">Execution Order</h6>
+    <ol class="mt-1 mb-0">
+        {% for step in plan.steps %}
+        <li>{{ step }}</li>
+        {% endfor %}
+    </ol>
+
+    {% if plan.dependencies %}
+    <h6 class="app-subtitle mt-3">Dependencies</h6>
+    <ul class="mt-1 mb-0">
+        {% for etl_name, deps in plan.dependencies.items() %}
+        <li>
+            <strong>{{ etl_name }}</strong>
+            {% if deps %}
+            depends on: {{ deps | join(', ') }}
+            {% else %}
+            has no dependencies
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if plan.estimated_duration %}
+    <p class="text-muted mt-3 mb-0">
+        <small>Estimated Duration: {{ plan.estimated_duration }} seconds</small>
+    </p>
+    {% endif %}
+</section>
+{% endif %}
+{% endmacro %}

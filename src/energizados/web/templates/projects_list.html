@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "components/status_badge.html" import status_badge %}
+
+{% block title %}Projects — Energizados Web Console{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="app-hero__title">📁 Projects</h2>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#create-project-form">
+        ＋ Create Project
+    </button>
+</div>
+
+<!-- Create + Register forms (collapsible) -->
+<div class="collapse mb-4" id="create-project-form">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <section class="app-card h-100">
+                <div class="app-card__header">
+                    <h3 class="app-card__title app-card__title--sm">Create new project</h3>
+                </div>
+                <form action="/projects" method="post">
+                    <div class="mb-2">
+                        <label class="form-label">Project name</label>
+                        <input type="text" name="name" class="form-control" required placeholder="my-fraud-project">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Template</label>
+                        <select name="template" class="form-select">
+                            <option value="default" selected>default</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Create</button>
+                </form>
+            </section>
+        </div>
+        <div class="col-md-6">
+            <section class="app-card h-100">
+                <div class="app-card__header">
+                    <h3 class="app-card__title app-card__title--sm">Register existing project</h3>
+                </div>
+                <form action="/projects/register" method="post">
+                    <div class="mb-2">
+                        <label class="form-label">Absolute path</label>
+                        <input type="text" name="path" class="form-control" required placeholder="/path/to/existing/project">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Display name (optional)</label>
+                        <input type="text" name="name" class="form-control" placeholder="defaults to directory name">
+                    </div>
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Register</button>
+                </form>
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- Project cards -->
+{% if projects_with_stats %}
+<div class="row g-3">
+    {% for item in projects_with_stats %}
+    {% set project = item.project %}
+    <div class="col-md-4">
+        <section class="app-card h-100 d-flex flex-column">
+            <div class="app-card__header">
+                <h3 class="app-card__title app-card__title--sm">{{ project.name }}</h3>
+            </div>
+            <div class="flex-grow-1">
+                <p class="small text-muted text-truncate mb-1">{{ project.path }}</p>
+                <code class="small text-muted">{{ project.project_id }}</code>
+                <div class="small text-muted mt-2">
+                    <span class="fw-bold">{{ item.run_count }} run{{ '' if item.run_count == 1 else 's' }}</span>
+                    {% if item.last_run %}
+                    · last:
+                    {% set lr = item.last_run %}
+                    {{ status_badge(lr.status) }}
+                    {% if lr.val_auc is not none %} AUC <span class="fw-bold">{{ '%.2f'|format(lr.val_auc) }}</span>{% else %} AUC —{% endif %}
+                    {% else %}
+                    · last: —
+                    {% endif %}
+                    · <span class="fw-bold">queued: {{ item.queue_depth }}</span>
+                </div>
+            </div>
+            <div class="app-card__meta">
+                <a href="/projects/{{ project.project_id }}" class="btn btn-primary btn-sm">Open</a>
+                <a href="/projects/{{ project.project_id }}/runs" class="btn btn-outline-secondary btn-sm">Runs</a>
+                <a href="/projects/{{ project.project_id }}/dashboard" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+            </div>
+        </section>
+    </div>
+    {% endfor %}
+</div>
+{% elif projects %}
+<div class="row g-3">
+    {% for project in projects %}
+    <div class="col-md-4">
+        <section class="app-card h-100 d-flex flex-column">
+            <div class="app-card__header">
+                <h3 class="app-card__title app-card__title--sm">{{ project.name }}</h3>
+            </div>
+            <div class="flex-grow-1">
+                <p class="small text-muted text-truncate mb-1">{{ project.path }}</p>
+                <code class="small text-muted">{{ project.project_id }}</code>
+            </div>
+            <div class="app-card__meta">
+                <a href="/projects/{{ project.project_id }}" class="btn btn-primary btn-sm">Open</a>
+                <a href="/projects/{{ project.project_id }}/runs" class="btn btn-outline-secondary btn-sm">Runs</a>
+                <a href="/projects/{{ project.project_id }}/dashboard" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+            </div>
+        </section>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="app-empty">
+    ℹ️ No projects registered yet. Create one above, or register an existing project directory.
+</div>
+{% endif %}
+
+<p class="text-muted small mt-4 mb-0">
+    <a href="/jobs">Global job list</a> · <a href="/runs">Global runs</a> · <a href="/dashboard">Global dashboard</a>
+</p>
+{% endblock %}

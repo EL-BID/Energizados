@@ -68,6 +68,8 @@ More complex models trained on labeled data:
 
 **CatBoost** — Gradient boosting with native support for categorical features, no manual encoding required.
 
+**XGBoost** — Gradient boosting (sklearn-compatible) with strong tabular accuracy. Optional dependency: install with `pip install energizados[xgboost]`.
+
 **Ensemble** — Combines multiple base models via soft voting (weighted average of probabilities) or stacking (a meta-learner trained on base model predictions).
 
 ### Stage 3 — Model Evaluation
@@ -91,13 +93,16 @@ New projects created with `energizados init` include a real anonymized dataset f
 | Property         | Value  |
 |------------------|--------|
 | Records          | 42,500 |
-| Columns          | 19     |
+| Columns          | 20     |
 | Fraudulent users | ~5.8%  |
+
+> **Note:** The raw parquet carries 20 columns. One of them, `index`, is a row-identifier artifact from the parquet export and is **not** a model feature — the 19 remaining columns are the meaningful variables described below.
 
 **Column descriptions:**
 
 | Variable                       | Description                                 | Type        | Cardinality |
 |--------------------------------|---------------------------------------------|-------------|-------------|
+| `index`                        | Row identifier (parquet export artifact; not a feature) | —           | —           |
 | `1_anterior` ... `12_anterior` | Monthly energy consumption (last 12 months) | Numeric     | —           |
 | `actividad`                    | User's economic activity                    | Categorical | 284         |
 | `tipo_tarifa`                  | Billing tariff type                         | Categorical | 47          |
