@@ -242,6 +242,23 @@ def init(ctx, project_name, template, path, copy_from, force, yes):
     from energizados.cli.init import create_project
     from energizados.cli.ui import print_error, print_info, print_success
 
+    # Reject traversal-shaped names at the CLI boundary so the operator
+    # gets a clear error instead of having ``create_project`` silently
+    # slugify their input. The web console relies on ``create_project``'s
+    # permissive slugification instead (see ``_slugify_for_filesystem``),
+    # which keeps the path confined without breaking the HTTP flow.
+    if not project_name or not project_name.strip():
+        raise click.BadParameter("Project name must not be empty.")
+    if project_name != project_name.strip():
+        raise click.BadParameter("Project name must not have leading or trailing whitespace.")
+    if ".." in project_name or "/" in project_name or "\\" in project_name:
+        raise click.BadParameter(
+            "Project name must not contain path separators ('/', '\\') or '..' "
+            "(would escape the target directory)."
+        )
+    if project_name.startswith("."):
+        raise click.BadParameter("Project name must not start with '.'.")
+
     project_path = Path(path) / project_name
 
     def _do_create(use_force: bool) -> None:

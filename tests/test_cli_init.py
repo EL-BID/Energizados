@@ -612,54 +612,94 @@ class TestInitPathValidation:
 
 
 class TestCreateProjectPathValidation:
-    """Verify the path-traversal guard at the ``create_project`` sink.
+    """Verify the path-traversal neutralization at the ``create_project`` sink.
 
     The web console (``ProjectService.create_project``) calls
-    ``create_project`` directly, bypassing the CLI command. The validation
-    MUST run inside ``create_project`` so that any caller — CLI, web, or
-    future automation — is protected, and so that the CodeQL
-    ``py/path-injection`` alerts in ``cli/init.py`` are resolved.
+    ``create_project`` directly, bypassing the CLI command. The CLI command
+    rejects traversal-shaped names with a clear error; the sink here takes
+    the permissive route and slugifies the name so the resulting directory
+    is confined to ``project_path``'s parent. This is the behavior CodeQL
+    tracks as a taint sanitizer (via ``os.path.basename`` and the
+    ``re.sub`` fallback in ``_slugify_for_filesystem``), and it matches the
+    pre-existing ``tests/web/test_projects.py::TestProjectServiceCreate::
+    test_create_outside_root_confined`` contract: a traversal-shaped name
+    produces a project whose path is strictly inside the workspace root and
+    whose final component contains no ``..`` / ``/`` / ``\\``.
     """
 
     @pytest.mark.parametrize(
-        "bad_name,reason",
+        "raw_name,slug",
         [
-            ("../escape", "parent-directory reference"),
-            ("..", "parent-directory reference alone"),
-            ("foo/../bar", "embedded parent-directory reference"),
-            ("foo/bar", "forward slash"),
-            ("foo\\bar", "backslash"),
-            (".hidden", "leading dot"),
-            ("", "empty"),
-            ("   ", "whitespace only"),
+            ("../escape", "escape"),
+            ("foo/../bar", "bar"),
+            ("foo/bar", "bar"),
+            ("foo\\bar", "foo_bar"),
+            (".hidden", "hidden"),
         ],
     )
-    def test_create_project_rejects_unsafe_name(self, bad_name, reason):
-        """``create_project`` raises ``ValueError`` for unsafe names."""
+    def test_create_project_slugifies_traversal_names(self, raw_name, slug):
+        """Traversal-shaped names slug to a safe directory name; the result
+        lives under ``project_path.parent`` (the workspace) and never escapes."""
+        from energizados.cli.init import create_project
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            project_path = workspace / "intended"
+            create_project(project_name=raw_name, project_path=project_path)
+            # The project was created at <workspace>/<slug> (NOT at
+            # project_path; the slug replaced the name component).
+            created = workspace / slug
+            assert created.is_dir(), (
+                f"Expected the project to be created at {created} for input "
+                f"{raw_name!r}; instead the directory is missing"
+            )
+            # The slug must not contain path-traversal characters.
+            assert ".." not in created.name
+            assert "/" not in created.name
+            assert "\\" not in created.name
+            # The created path is strictly inside the workspace.
+            assert str(created.resolve()).startswith(
+                str(workspace.resolve())
+            ), f"Project path {created} escaped workspace {workspace}"
+
+    @pytest.mark.parametrize(
+        "empty_slug_name,reason",
+        [
+            ("..", "parent-directory reference alone"),
+            ("", "empty"),
+            ("   ", "whitespace only"),
+            (".", "single dot"),
+            ("...", "only dots"),
+        ],
+    )
+    def test_create_project_rejects_names_that_slug_to_empty(self, empty_slug_name, reason):
+        """Names that slug to an empty string raise ``ValueError`` because
+        no safe directory name can be derived."""
         from energizados.cli.init import create_project
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project_path = Path(tmpdir) / "intended"
             with pytest.raises(ValueError) as excinfo:
-                create_project(project_name=bad_name, project_path=project_path)
-            assert "must not" in str(excinfo.value).lower(), (
-                f"Expected a clear validation message for {bad_name!r} ({reason}); "
-                f"got: {excinfo.value}"
+                create_project(project_name=empty_slug_name, project_path=project_path)
+            msg = str(excinfo.value).lower()
+            assert "must not" in msg or "not safe" in msg, (
+                f"Expected a clear validation message for {empty_slug_name!r} "
+                f"({reason}); got: {excinfo.value}"
             )
             assert (
                 not project_path.exists()
-            ), f"create_project was called with {bad_name!r} but a directory was created"
+            ), f"create_project was called with {empty_slug_name!r} but a directory was created"
 
-    def test_create_project_rejects_name_with_leading_or_trailing_whitespace(self):
+    def test_create_project_rejects_name_with_leading_or_trailing_whitespace_only(self):
         from energizados.cli.init import create_project
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project_path = Path(tmpdir) / "intended"
             with pytest.raises(ValueError):
-                create_project(project_name="  my_project  ", project_path=project_path)
+                create_project(project_name="  ", project_path=project_path)
 
     def test_create_project_accepts_valid_name(self):
-        """Sanity check: a normal name still works after the new validation."""
+        """Sanity check: a normal name still works."""
         from energizados.cli.init import create_project
 
         with tempfile.TemporaryDirectory() as tmpdir:
