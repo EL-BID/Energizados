@@ -15,7 +15,15 @@ The framework also includes an **ETL system** with support for multiple ETLs wit
 ### Environment Setup
 
 ```bash
+# Poetry (recommended — installs the pinned poetry.lock)
+poetry install --extras dev
+
+# Or uv (fast; resolves from pyproject.toml, no lock file — avoid `uv sync`, it creates uv.lock)
+uv venv && source .venv/bin/activate && uv pip install -e ".[dev]"
+
+# Or plain pip
 pip install -e ".[dev]"
+
 jupyter lab
 ```
 

@@ -357,7 +357,8 @@ The framework provides several base classes for extending functionality. All of 
 
 ### GitHub Actions Workflow
 
-Example CI pipeline configuration:
+Example CI pipeline configuration (this mirrors the actual
+[.github/workflows/test.yml](https://github.com/EL-BID/Energizados/blob/main/.github/workflows/test.yml)):
 
 ```yaml
 # .github/workflows/test.yml
@@ -382,25 +383,29 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install poetry
-          poetry install --with dev --extras all
+          pip install -e ".[dev,web]"
 
       - name: Run pre-commit
         run: |
-          poetry run pre-commit run --all-files
+          pre-commit run --all-files
 
       - name: Run tests
         run: |
-          poetry run pytest --cov=energizados --cov-report=term-missing
+          pytest --cov=energizados --cov-report=term-missing
 
       - name: Validate configs
         run: |
-          poetry run energizados validate etl,train
+          energizados validate etl,train
 
       - name: Dry run pipeline
         run: |
-          poetry run energizados run etl --dry-run
+          energizados run etl --dry-run
 ```
+
+CI installs with pip directly (no lock file, cached by `actions/setup-python`).
+For local development, the Poetry workflow described in
+[Development Setup](development-setup.md) is recommended — it installs the exact
+versions pinned in `poetry.lock`.
 
 **What the CI Pipeline Runs:**
 

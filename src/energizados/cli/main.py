@@ -100,6 +100,20 @@ def _setup_logging(verbose: int = 0, log_file: Optional[str] = None):
 class EnergizadosGroup(click.Group):
     """Custom Click Group to provide helpful hints for removed commands."""
 
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Show the framework version above the standard help output.
+
+        Covers both ``energizados`` (bare invocation prints help) and
+        ``energizados --help``.
+        """
+        from energizados._version import get_version
+
+        version = get_version()
+        if version and version != "unknown":
+            formatter.write(f"energizados v{version}\n\n")
+
+        super().format_help(ctx, formatter)
+
     def get_command(self, ctx, cmd_name):
         """Override to provide custom hints for removed commands."""
         rv = super().get_command(ctx, cmd_name)

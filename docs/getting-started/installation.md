@@ -19,11 +19,13 @@ python --version
 **macOS:**
 
 - With Homebrew:
+
   ```bash
   brew install python@3.11
   ```
 
 - With pyenv:
+
   ```bash
   pyenv install 3.11.0
   pyenv global 3.11.0
@@ -153,21 +155,25 @@ pip install energizados
 **With Extras:**
 
 - **CatBoost** (for CatBoost models):
+
   ```bash
   pip install energizados[catboost]
   ```
 
 - **XGBoost** (for XGBoost models):
+
   ```bash
   pip install energizados[xgboost]
   ```
 
 - **TensorFlow** (for neural networks and LSTM):
+
   ```bash
   pip install energizados[tensorflow]
   ```
 
 - **All extras** (CatBoost + TensorFlow + XGBoost):
+
   ```bash
   pip install energizados[all]
   ```
@@ -182,6 +188,25 @@ energizados --help
 ```
 
 If you see the help message, installation was successful.
+
+### Alternative: Install from Source (GitHub)
+
+Install from the repository instead of PyPI when you need an unreleased feature,
+a specific branch or commit, or when you plan to contribute.
+
+```bash
+git clone https://github.com/EL-BID/Energizados.git
+cd Energizados
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e .           # same extras syntax: -e ".[all]", -e ".[web]"...
+```
+
+The editable install (`-e`) makes your checkout importable and reflects code
+changes immediately. For the full setup guide — including uv (which can also
+install Python for you) and Poetry (which installs the team's pinned
+`poetry.lock`) — see the
+[Development Setup guide](../advanced/development-setup.md).
 
 ---
 
