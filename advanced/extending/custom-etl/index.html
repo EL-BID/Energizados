@@ -304,7 +304,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../web-console/" class="md-tabs__link">
+        <a href="../../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +346,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1190,7 +1190,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../web-console/" class="md-nav__link">
+      <a href="../../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1218,7 +1218,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -1395,7 +1395,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -1409,13 +1409,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1430,7 +1423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -1444,13 +1437,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1465,7 +1451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -1479,13 +1465,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1500,7 +1479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -1513,13 +1492,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2089,7 +2061,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -2386,68 +2358,75 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">BaseETL</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for custom ETL.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="sd">"""Base class for custom ETL."""</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize ETL instance.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="sd">        Extracts data from the source.</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="sd">        Returns:</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="sd">            pd.DataFrame: Raw data</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="sd">        Raises:</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="sd">            ETLError: If an error occurs during extraction</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="sd">        Transforms and cleans the data.</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="sd">        Args:</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="sd">            df: Raw DataFrame</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="sd">        Returns:</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="sd">            pd.DataFrame: Clean DataFrame with expected schema</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="sd">        Raises:</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="sd">            ETLError: If an error occurs during transformation</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    <span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="sd">        Saves transformed data.</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="sd">        Args:</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="sd">            df: Transformed DataFrame</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="sd">            path: Output path</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="sd">        Raises:</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="sd">            ETLError: If an error occurs during loading</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>        <span class="k">pass</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a><span class="sd">        Executes the complete ETL pipeline.</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a><span class="sd">        Can be overridden to add additional logic.</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="sd">        Args:</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a><span class="sd">            output_path: Path to save the transformed data</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a><span class="sd">        Returns:</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a><span class="sd">            pd.DataFrame: Transformed DataFrame</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>        <span class="c1"># Default implementation: extract() -&gt; transform() -&gt; load()</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">input_paths</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="sd">"""Initialize ETL instance.</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="sd">        Args:</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="sd">            name: ETL name (stored as self.name).</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="sd">            input_paths: Resolved input file paths (stored as self.input_paths).</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="sd">            output_path: Output path (stored as self.output_path).</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="sd">            **params: Additional orchestrator params (ignored by the base).</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="sd">        """</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="k">pass</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="sd">        Extracts data from the source.</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="sd">        Returns:</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="sd">            pd.DataFrame: Raw data</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="sd">        Raises:</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="sd">            ETLError: If an error occurs during extraction</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="sd">        """</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>        <span class="k">pass</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="sd">        Transforms and cleans the data.</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="sd">        Args:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="sd">            df: Raw DataFrame</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="sd">        Returns:</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="sd">            pd.DataFrame: Clean DataFrame with expected schema</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="sd">        Raises:</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="sd">            ETLError: If an error occurs during transformation</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="sd">        """</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>        <span class="k">pass</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    <span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="sd">        Saves transformed data.</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a><span class="sd">        Args:</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a><span class="sd">            df: Transformed DataFrame</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a><span class="sd">            path: Output path</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a><span class="sd">        Raises:</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a><span class="sd">            ETLError: If an error occurs during loading</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a><span class="sd">        """</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>        <span class="k">pass</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a><span class="sd">        Executes the complete ETL pipeline.</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a><span class="sd">        Can be overridden to add additional logic.</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a><span class="sd">        Args:</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a><span class="sd">            output_path: Path to save the transformed data</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a><span class="sd">        Returns:</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a><span class="sd">            pd.DataFrame: Transformed DataFrame</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a><span class="sd">        """</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>        <span class="c1"># Default implementation: extract() -&gt; transform() -&gt; load()</span>
 </code></pre></div>
 <h2 id="minimal-example-simplefilteretl">Minimal Example: SimpleFilterETL<a class="headerlink" href="#minimal-example-simplefilteretl" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># src/data/custom_etl.py</span>
@@ -2456,7 +2435,7 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">SimpleFilterETL</span><span class="p">(</span><span class="n">BaseETL</span><span class="p">):</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;ETL that removes rows with nulls and saves to parquet.&quot;&quot;&quot;</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="sd">"""ETL that removes rows with nulls and saves to parquet."""</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
@@ -2464,28 +2443,28 @@
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">=</span> <span class="n">output_path</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read raw data from CSV.&quot;&quot;&quot;</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="sd">"""Read raw data from CSV."""</span>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_path</span><span class="p">)</span>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop rows with any null values.&quot;&quot;&quot;</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">        </span><span class="sd">"""Drop rows with any null values."""</span>
 <a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save to parquet format.&quot;&quot;&quot;</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">        </span><span class="sd">"""Save to parquet format."""</span>
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="n">df</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 <p>Wire it in <code>config/etl.yaml</code>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">filter_data</span><span class="p">:</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Removes</span><span class="nv"> </span><span class="s">rows</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">null</span><span class="nv"> </span><span class="s">values&quot;</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/data.csv&quot;</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/clean.parquet&quot;</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;src.data.custom_etl.SimpleFilterETL&quot;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Removes</span><span class="nv"> </span><span class="s">rows</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">null</span><span class="nv"> </span><span class="s">values"</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/data.csv"</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/clean.parquet"</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"src.data.custom_etl.SimpleFilterETL"</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/data.csv&quot;</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">output_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/clean.parquet&quot;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/data.csv"</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">output_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/clean.parquet"</span>
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </code></pre></div></p>
 <h2 id="advanced-example-merging-multiple-sources">Advanced Example: Merging Multiple Sources<a class="headerlink" href="#advanced-example-merging-multiple-sources" title="Permanent link">&para;</a></h2>
@@ -2493,38 +2472,38 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">consumos</span><span class="p">:</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Consumption</span><span class="nv"> </span><span class="s">data&quot;</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/consumos.csv&quot;</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/consumos.parquet&quot;</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Consumption</span><span class="nv"> </span><span class="s">data"</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/consumos.csv"</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/consumos.parquet"</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;concat&quot;</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">"concat"</span>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nt">clientes</span><span class="p">:</span>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Customer</span><span class="nv"> </span><span class="s">data&quot;</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/clientes.csv&quot;</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/clientes.parquet&quot;</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Customer</span><span class="nv"> </span><span class="s">data"</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/clientes.csv"</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/clientes.parquet"</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;concat&quot;</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">"concat"</span>
 <a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 <a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
 <a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">  </span><span class="nt">merge_all</span><span class="p">:</span>
 <a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Merges</span><span class="nv"> </span><span class="s">consumos</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">clientes</span><span class="nv"> </span><span class="s">by</span><span class="nv"> </span><span class="s">id_cliente&quot;</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Merges</span><span class="nv"> </span><span class="s">consumos</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">clientes</span><span class="nv"> </span><span class="s">by</span><span class="nv"> </span><span class="s">id_cliente"</span>
 <a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span>
-<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;@consumos&quot;</span>
-<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;@clientes&quot;</span>
-<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/merged.parquet&quot;</span>
-<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"@consumos"</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"@clientes"</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/merged.parquet"</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;merge&quot;</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">"merge"</span>
 <a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="w">      </span><span class="nt">merge_config</span><span class="p">:</span>
-<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="w">        </span><span class="nt">how</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;left&quot;</span>
-<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="w">        </span><span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;id_cliente&quot;</span>
-<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;consumos&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;clientes&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="w">        </span><span class="nt">how</span><span class="p">:</span><span class="w"> </span><span class="s">"left"</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="w">        </span><span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="s">"id_cliente"</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"consumos"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"clientes"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p>The <code>merge_config</code> section accepts any parameter from pandas <code>pd.merge()</code>: <code>how</code>, <code>on</code>, <code>left_on</code>, <code>right_on</code>, <code>left_index</code>, <code>right_index</code>.</p>
 <h2 id="advanced-pattern-dataset-builder-etl-long-to-wide-transformation">Advanced Pattern: Dataset Builder ETL (Long-to-Wide Transformation)<a class="headerlink" href="#advanced-pattern-dataset-builder-etl-long-to-wide-transformation" title="Permanent link">&para;</a></h2>
@@ -2538,272 +2517,276 @@
 <li>You need to filter consumption data to periods before the inspection date</li>
 </ul>
 <h3 id="template-datasetbuilderetl">Template: DatasetBuilderETL<a class="headerlink" href="#template-datasetbuilderetl" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># src/etl/dataset_builder_etl.py</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="sd">&quot;&quot;&quot;Dataset Builder ETL: Joins and pivots consumption data to wide format.&quot;&quot;&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># src/data/dataset_builder_etl.py</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="sd">"""Dataset Builder ETL: Joins and pivots consumption data to wide format."""</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">energizados.etl.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">SourceETL</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">energizados.core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ETLError</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">DatasetBuilderETL</span><span class="p">(</span><span class="n">SourceETL</span><span class="p">):</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="sd">    ETL that builds a wide-format dataset for fraud detection.</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">energizados.etl.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">SourceETL</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">energizados.core.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ETLError</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="sd">    Expected input (from depends_on):</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="sd">        - maestros: Customer master data</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="sd">        - consumos: Longitudinal consumption data  </span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="sd">        - inspecciones: Inspection/fraud label data</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">    Output: Wide-format dataset with:</span>
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="sd">        - Customer attributes from maestros</span>
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="sd">        - Consumption columns: N_anterior (1-12) from consumos</span>
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="sd">        - Inspection columns: target, date, etc.</span>
-<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>        <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>        <span class="n">input_paths</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>        <span class="n">output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>        <span class="c1"># DatasetBuilder-specific parameters</span>
-<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>        <span class="n">consumo_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;id_cliente&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>        <span class="n">inspeccion_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;id_cliente&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>        <span class="n">maestro_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;id_cliente&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>        <span class="n">consumo_period_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;periodo&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>        <span class="n">inspeccion_period_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;fecha_inspeccion&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>        <span class="n">num_periodos</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>        <span class="n">periods_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;_anterior&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a>        <span class="n">min_num_measures</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>        <span class="n">min_num_measures_not_zero</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>        <span class="n">fill_empty_values_cycle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a>        <span class="n">fill_empty_values_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sin_dato&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-<a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a>    <span class="p">):</span>
-<a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a>        <span class="c1"># Call parent __init__ with minimal params (we handle input ourselves)</span>
-<a id="__codelineno-4-44" name="__codelineno-4-44" href="#__codelineno-4-44"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-4-45" name="__codelineno-4-45" href="#__codelineno-4-45"></a>            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-4-46" name="__codelineno-4-46" href="#__codelineno-4-46"></a>            <span class="n">input_paths</span><span class="o">=</span><span class="n">input_paths</span> <span class="ow">or</span> <span class="p">[],</span>
-<a id="__codelineno-4-47" name="__codelineno-4-47" href="#__codelineno-4-47"></a>            <span class="n">output_path</span><span class="o">=</span><span class="n">output_path</span><span class="p">,</span>
-<a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>            <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;concat&quot;</span><span class="p">,</span>  <span class="c1"># Not used - we override extract()</span>
-<a id="__codelineno-4-49" name="__codelineno-4-49" href="#__codelineno-4-49"></a>            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
-<a id="__codelineno-4-50" name="__codelineno-4-50" href="#__codelineno-4-50"></a>        <span class="p">)</span>
-<a id="__codelineno-4-51" name="__codelineno-4-51" href="#__codelineno-4-51"></a>
-<a id="__codelineno-4-52" name="__codelineno-4-52" href="#__codelineno-4-52"></a>        <span class="c1"># DatasetBuilder-specific config</span>
-<a id="__codelineno-4-53" name="__codelineno-4-53" href="#__codelineno-4-53"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span> <span class="o">=</span> <span class="n">consumo_key</span>
-<a id="__codelineno-4-54" name="__codelineno-4-54" href="#__codelineno-4-54"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span> <span class="o">=</span> <span class="n">inspeccion_key</span>
-<a id="__codelineno-4-55" name="__codelineno-4-55" href="#__codelineno-4-55"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">maestro_key</span> <span class="o">=</span> <span class="n">maestro_key</span>
-<a id="__codelineno-4-56" name="__codelineno-4-56" href="#__codelineno-4-56"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span> <span class="o">=</span> <span class="n">consumo_period_col</span>
-<a id="__codelineno-4-57" name="__codelineno-4-57" href="#__codelineno-4-57"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span> <span class="o">=</span> <span class="n">inspeccion_period_col</span>
-<a id="__codelineno-4-58" name="__codelineno-4-58" href="#__codelineno-4-58"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">num_periodos</span> <span class="o">=</span> <span class="n">num_periodos</span>
-<a id="__codelineno-4-59" name="__codelineno-4-59" href="#__codelineno-4-59"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span> <span class="o">=</span> <span class="n">periods_suffix</span>
-<a id="__codelineno-4-60" name="__codelineno-4-60" href="#__codelineno-4-60"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures</span> <span class="o">=</span> <span class="n">min_num_measures</span>
-<a id="__codelineno-4-61" name="__codelineno-4-61" href="#__codelineno-4-61"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures_not_zero</span> <span class="o">=</span> <span class="n">min_num_measures_not_zero</span>
-<a id="__codelineno-4-62" name="__codelineno-4-62" href="#__codelineno-4-62"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_cycle</span> <span class="o">=</span> <span class="n">fill_empty_values_cycle</span>
-<a id="__codelineno-4-63" name="__codelineno-4-63" href="#__codelineno-4-63"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_str</span> <span class="o">=</span> <span class="n">fill_empty_values_str</span>
-<a id="__codelineno-4-64" name="__codelineno-4-64" href="#__codelineno-4-64"></a>
-<a id="__codelineno-4-65" name="__codelineno-4-65" href="#__codelineno-4-65"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-4-66" name="__codelineno-4-66" href="#__codelineno-4-66"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-4-67" name="__codelineno-4-67" href="#__codelineno-4-67"></a><span class="sd">        Extract data from three sources: maestros, consumos, inspecciones.</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">class</span><span class="w"> </span><span class="nc">DatasetBuilderETL</span><span class="p">(</span><span class="n">SourceETL</span><span class="p">):</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="sd">"""</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="sd">    ETL that builds a wide-format dataset for fraud detection.</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="sd">    Expected input (from depends_on):</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="sd">        - maestros: Customer master data</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="sd">        - consumos: Longitudinal consumption data  </span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="sd">        - inspecciones: Inspection/fraud label data</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="sd">    Output: Wide-format dataset with:</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="sd">        - Customer attributes from maestros</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="sd">        - Consumption columns: N_anterior (1-12) from consumos</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="sd">        - Inspection columns: target, date, etc.</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="sd">    """</span>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>        <span class="n">input_paths</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>        <span class="n">output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>        <span class="c1"># DatasetBuilder-specific parameters</span>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>        <span class="n">consumo_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"id_cliente"</span><span class="p">,</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>        <span class="n">inspeccion_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"id_cliente"</span><span class="p">,</span>
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>        <span class="n">maestro_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"id_cliente"</span><span class="p">,</span>
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a>        <span class="n">consumo_period_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"periodo"</span><span class="p">,</span>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>        <span class="n">inspeccion_period_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"fecha_inspeccion"</span><span class="p">,</span>
+<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>        <span class="n">num_periodos</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a>        <span class="n">periods_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"_anterior"</span><span class="p">,</span>
+<a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>        <span class="n">min_num_measures</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a>        <span class="n">min_num_measures_not_zero</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a>        <span class="n">fill_empty_values_cycle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-4-44" name="__codelineno-4-44" href="#__codelineno-4-44"></a>        <span class="n">fill_empty_values_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"sin_dato"</span><span class="p">,</span>
+<a id="__codelineno-4-45" name="__codelineno-4-45" href="#__codelineno-4-45"></a>        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<a id="__codelineno-4-46" name="__codelineno-4-46" href="#__codelineno-4-46"></a>    <span class="p">):</span>
+<a id="__codelineno-4-47" name="__codelineno-4-47" href="#__codelineno-4-47"></a>        <span class="c1"># Call parent __init__ with minimal params (we handle input ourselves)</span>
+<a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-4-49" name="__codelineno-4-49" href="#__codelineno-4-49"></a>            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-4-50" name="__codelineno-4-50" href="#__codelineno-4-50"></a>            <span class="n">input_paths</span><span class="o">=</span><span class="n">input_paths</span> <span class="ow">or</span> <span class="p">[],</span>
+<a id="__codelineno-4-51" name="__codelineno-4-51" href="#__codelineno-4-51"></a>            <span class="n">output_path</span><span class="o">=</span><span class="n">output_path</span><span class="p">,</span>
+<a id="__codelineno-4-52" name="__codelineno-4-52" href="#__codelineno-4-52"></a>            <span class="n">mode</span><span class="o">=</span><span class="s2">"concat"</span><span class="p">,</span>  <span class="c1"># Not used - we override extract()</span>
+<a id="__codelineno-4-53" name="__codelineno-4-53" href="#__codelineno-4-53"></a>            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<a id="__codelineno-4-54" name="__codelineno-4-54" href="#__codelineno-4-54"></a>        <span class="p">)</span>
+<a id="__codelineno-4-55" name="__codelineno-4-55" href="#__codelineno-4-55"></a>
+<a id="__codelineno-4-56" name="__codelineno-4-56" href="#__codelineno-4-56"></a>        <span class="c1"># DatasetBuilder-specific config</span>
+<a id="__codelineno-4-57" name="__codelineno-4-57" href="#__codelineno-4-57"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span> <span class="o">=</span> <span class="n">consumo_key</span>
+<a id="__codelineno-4-58" name="__codelineno-4-58" href="#__codelineno-4-58"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span> <span class="o">=</span> <span class="n">inspeccion_key</span>
+<a id="__codelineno-4-59" name="__codelineno-4-59" href="#__codelineno-4-59"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">maestro_key</span> <span class="o">=</span> <span class="n">maestro_key</span>
+<a id="__codelineno-4-60" name="__codelineno-4-60" href="#__codelineno-4-60"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span> <span class="o">=</span> <span class="n">consumo_period_col</span>
+<a id="__codelineno-4-61" name="__codelineno-4-61" href="#__codelineno-4-61"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span> <span class="o">=</span> <span class="n">inspeccion_period_col</span>
+<a id="__codelineno-4-62" name="__codelineno-4-62" href="#__codelineno-4-62"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">num_periodos</span> <span class="o">=</span> <span class="n">num_periodos</span>
+<a id="__codelineno-4-63" name="__codelineno-4-63" href="#__codelineno-4-63"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span> <span class="o">=</span> <span class="n">periods_suffix</span>
+<a id="__codelineno-4-64" name="__codelineno-4-64" href="#__codelineno-4-64"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures</span> <span class="o">=</span> <span class="n">min_num_measures</span>
+<a id="__codelineno-4-65" name="__codelineno-4-65" href="#__codelineno-4-65"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures_not_zero</span> <span class="o">=</span> <span class="n">min_num_measures_not_zero</span>
+<a id="__codelineno-4-66" name="__codelineno-4-66" href="#__codelineno-4-66"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_cycle</span> <span class="o">=</span> <span class="n">fill_empty_values_cycle</span>
+<a id="__codelineno-4-67" name="__codelineno-4-67" href="#__codelineno-4-67"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_str</span> <span class="o">=</span> <span class="n">fill_empty_values_str</span>
 <a id="__codelineno-4-68" name="__codelineno-4-68" href="#__codelineno-4-68"></a>
-<a id="__codelineno-4-69" name="__codelineno-4-69" href="#__codelineno-4-69"></a><span class="sd">        Input paths should be resolved by the orchestrator:</span>
-<a id="__codelineno-4-70" name="__codelineno-4-70" href="#__codelineno-4-70"></a><span class="sd">            - input_paths[0] -&gt; maestros</span>
-<a id="__codelineno-4-71" name="__codelineno-4-71" href="#__codelineno-4-71"></a><span class="sd">            - input_paths[1] -&gt; consumos  </span>
-<a id="__codelineno-4-72" name="__codelineno-4-72" href="#__codelineno-4-72"></a><span class="sd">            - input_paths[2] -&gt; inspecciones</span>
-<a id="__codelineno-4-73" name="__codelineno-4-73" href="#__codelineno-4-73"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-4-74" name="__codelineno-4-74" href="#__codelineno-4-74"></a>        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_paths</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
-<a id="__codelineno-4-75" name="__codelineno-4-75" href="#__codelineno-4-75"></a>            <span class="k">raise</span> <span class="n">ETLError</span><span class="p">(</span>
-<a id="__codelineno-4-76" name="__codelineno-4-76" href="#__codelineno-4-76"></a>                <span class="sa">f</span><span class="s2">&quot;DatasetBuilderETL requires 3 input paths &quot;</span>
-<a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a>                <span class="sa">f</span><span class="s2">&quot;(maestros, consumos, inspecciones), got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_paths</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-4-78" name="__codelineno-4-78" href="#__codelineno-4-78"></a>            <span class="p">)</span>
-<a id="__codelineno-4-79" name="__codelineno-4-79" href="#__codelineno-4-79"></a>
-<a id="__codelineno-4-80" name="__codelineno-4-80" href="#__codelineno-4-80"></a>        <span class="n">maestros_path</span><span class="p">,</span> <span class="n">consumos_path</span><span class="p">,</span> <span class="n">inspecciones_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_paths</span>
-<a id="__codelineno-4-81" name="__codelineno-4-81" href="#__codelineno-4-81"></a>
-<a id="__codelineno-4-82" name="__codelineno-4-82" href="#__codelineno-4-82"></a>        <span class="c1"># Read all three sources</span>
-<a id="__codelineno-4-83" name="__codelineno-4-83" href="#__codelineno-4-83"></a>        <span class="n">maestros</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">maestros_path</span><span class="p">)</span>
-<a id="__codelineno-4-84" name="__codelineno-4-84" href="#__codelineno-4-84"></a>        <span class="n">consumos</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">consumos_path</span><span class="p">)</span>
-<a id="__codelineno-4-85" name="__codelineno-4-85" href="#__codelineno-4-85"></a>        <span class="n">inspecciones</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">inspecciones_path</span><span class="p">)</span>
-<a id="__codelineno-4-86" name="__codelineno-4-86" href="#__codelineno-4-86"></a>
-<a id="__codelineno-4-87" name="__codelineno-4-87" href="#__codelineno-4-87"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  • Maestros: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">maestros</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-88" name="__codelineno-4-88" href="#__codelineno-4-88"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  • Consumos: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">consumos</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-89" name="__codelineno-4-89" href="#__codelineno-4-89"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  • Inspecciones: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inspecciones</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-69" name="__codelineno-4-69" href="#__codelineno-4-69"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-4-70" name="__codelineno-4-70" href="#__codelineno-4-70"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-4-71" name="__codelineno-4-71" href="#__codelineno-4-71"></a><span class="sd">        Extract data from three sources: maestros, consumos, inspecciones.</span>
+<a id="__codelineno-4-72" name="__codelineno-4-72" href="#__codelineno-4-72"></a>
+<a id="__codelineno-4-73" name="__codelineno-4-73" href="#__codelineno-4-73"></a><span class="sd">        Input paths should be resolved by the orchestrator:</span>
+<a id="__codelineno-4-74" name="__codelineno-4-74" href="#__codelineno-4-74"></a><span class="sd">            - input_paths[0] -&gt; maestros</span>
+<a id="__codelineno-4-75" name="__codelineno-4-75" href="#__codelineno-4-75"></a><span class="sd">            - input_paths[1] -&gt; consumos  </span>
+<a id="__codelineno-4-76" name="__codelineno-4-76" href="#__codelineno-4-76"></a><span class="sd">            - input_paths[2] -&gt; inspecciones</span>
+<a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a><span class="sd">        """</span>
+<a id="__codelineno-4-78" name="__codelineno-4-78" href="#__codelineno-4-78"></a>        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_paths</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+<a id="__codelineno-4-79" name="__codelineno-4-79" href="#__codelineno-4-79"></a>            <span class="k">raise</span> <span class="n">ETLError</span><span class="p">(</span>
+<a id="__codelineno-4-80" name="__codelineno-4-80" href="#__codelineno-4-80"></a>                <span class="sa">f</span><span class="s2">"DatasetBuilderETL requires 3 input paths "</span>
+<a id="__codelineno-4-81" name="__codelineno-4-81" href="#__codelineno-4-81"></a>                <span class="sa">f</span><span class="s2">"(maestros, consumos, inspecciones), got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_paths</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-4-82" name="__codelineno-4-82" href="#__codelineno-4-82"></a>            <span class="p">)</span>
+<a id="__codelineno-4-83" name="__codelineno-4-83" href="#__codelineno-4-83"></a>
+<a id="__codelineno-4-84" name="__codelineno-4-84" href="#__codelineno-4-84"></a>        <span class="n">maestros_path</span><span class="p">,</span> <span class="n">consumos_path</span><span class="p">,</span> <span class="n">inspecciones_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_paths</span>
+<a id="__codelineno-4-85" name="__codelineno-4-85" href="#__codelineno-4-85"></a>
+<a id="__codelineno-4-86" name="__codelineno-4-86" href="#__codelineno-4-86"></a>        <span class="c1"># Read all three sources</span>
+<a id="__codelineno-4-87" name="__codelineno-4-87" href="#__codelineno-4-87"></a>        <span class="n">maestros</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">maestros_path</span><span class="p">)</span>
+<a id="__codelineno-4-88" name="__codelineno-4-88" href="#__codelineno-4-88"></a>        <span class="n">consumos</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">consumos_path</span><span class="p">)</span>
+<a id="__codelineno-4-89" name="__codelineno-4-89" href="#__codelineno-4-89"></a>        <span class="n">inspecciones</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="n">inspecciones_path</span><span class="p">)</span>
 <a id="__codelineno-4-90" name="__codelineno-4-90" href="#__codelineno-4-90"></a>
-<a id="__codelineno-4-91" name="__codelineno-4-91" href="#__codelineno-4-91"></a>        <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-4-92" name="__codelineno-4-92" href="#__codelineno-4-92"></a>            <span class="s2">&quot;maestros&quot;</span><span class="p">:</span> <span class="n">maestros</span><span class="p">,</span>
-<a id="__codelineno-4-93" name="__codelineno-4-93" href="#__codelineno-4-93"></a>            <span class="s2">&quot;consumos&quot;</span><span class="p">:</span> <span class="n">consumos</span><span class="p">,</span>
-<a id="__codelineno-4-94" name="__codelineno-4-94" href="#__codelineno-4-94"></a>            <span class="s2">&quot;inspecciones&quot;</span><span class="p">:</span> <span class="n">inspecciones</span><span class="p">,</span>
-<a id="__codelineno-4-95" name="__codelineno-4-95" href="#__codelineno-4-95"></a>        <span class="p">}</span>
-<a id="__codelineno-4-96" name="__codelineno-4-96" href="#__codelineno-4-96"></a>
-<a id="__codelineno-4-97" name="__codelineno-4-97" href="#__codelineno-4-97"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<a id="__codelineno-4-98" name="__codelineno-4-98" href="#__codelineno-4-98"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-4-99" name="__codelineno-4-99" href="#__codelineno-4-99"></a><span class="sd">        Transform: Join and pivot to wide format.</span>
+<a id="__codelineno-4-91" name="__codelineno-4-91" href="#__codelineno-4-91"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  • Maestros: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">maestros</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records"</span><span class="p">)</span>
+<a id="__codelineno-4-92" name="__codelineno-4-92" href="#__codelineno-4-92"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  • Consumos: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">consumos</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records"</span><span class="p">)</span>
+<a id="__codelineno-4-93" name="__codelineno-4-93" href="#__codelineno-4-93"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  • Inspecciones: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inspecciones</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records"</span><span class="p">)</span>
+<a id="__codelineno-4-94" name="__codelineno-4-94" href="#__codelineno-4-94"></a>
+<a id="__codelineno-4-95" name="__codelineno-4-95" href="#__codelineno-4-95"></a>        <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-4-96" name="__codelineno-4-96" href="#__codelineno-4-96"></a>            <span class="s2">"maestros"</span><span class="p">:</span> <span class="n">maestros</span><span class="p">,</span>
+<a id="__codelineno-4-97" name="__codelineno-4-97" href="#__codelineno-4-97"></a>            <span class="s2">"consumos"</span><span class="p">:</span> <span class="n">consumos</span><span class="p">,</span>
+<a id="__codelineno-4-98" name="__codelineno-4-98" href="#__codelineno-4-98"></a>            <span class="s2">"inspecciones"</span><span class="p">:</span> <span class="n">inspecciones</span><span class="p">,</span>
+<a id="__codelineno-4-99" name="__codelineno-4-99" href="#__codelineno-4-99"></a>        <span class="p">}</span>
 <a id="__codelineno-4-100" name="__codelineno-4-100" href="#__codelineno-4-100"></a>
-<a id="__codelineno-4-101" name="__codelineno-4-101" href="#__codelineno-4-101"></a><span class="sd">        Args:</span>
-<a id="__codelineno-4-102" name="__codelineno-4-102" href="#__codelineno-4-102"></a><span class="sd">            df_dict: Dict with &#39;maestros&#39;, &#39;consumos&#39;, &#39;inspecciones&#39; DataFrames</span>
-<a id="__codelineno-4-103" name="__codelineno-4-103" href="#__codelineno-4-103"></a><span class="sd">        &quot;&quot;&quot;</span>
-<a id="__codelineno-4-104" name="__codelineno-4-104" href="#__codelineno-4-104"></a>        <span class="n">maestros</span> <span class="o">=</span> <span class="n">df_dict</span><span class="p">[</span><span class="s2">&quot;maestros&quot;</span><span class="p">]</span>
-<a id="__codelineno-4-105" name="__codelineno-4-105" href="#__codelineno-4-105"></a>        <span class="n">consumos</span> <span class="o">=</span> <span class="n">df_dict</span><span class="p">[</span><span class="s2">&quot;consumos&quot;</span><span class="p">]</span>
-<a id="__codelineno-4-106" name="__codelineno-4-106" href="#__codelineno-4-106"></a>        <span class="n">inspecciones</span> <span class="o">=</span> <span class="n">df_dict</span><span class="p">[</span><span class="s2">&quot;inspecciones&quot;</span><span class="p">]</span>
-<a id="__codelineno-4-107" name="__codelineno-4-107" href="#__codelineno-4-107"></a>
-<a id="__codelineno-4-108" name="__codelineno-4-108" href="#__codelineno-4-108"></a>        <span class="c1"># Step 1: Filter consumos to periods BEFORE inspection</span>
-<a id="__codelineno-4-109" name="__codelineno-4-109" href="#__codelineno-4-109"></a>        <span class="n">inspecciones</span> <span class="o">=</span> <span class="n">inspecciones</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-4-110" name="__codelineno-4-110" href="#__codelineno-4-110"></a>        <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
-<a id="__codelineno-4-111" name="__codelineno-4-111" href="#__codelineno-4-111"></a>            <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span>
-<a id="__codelineno-4-112" name="__codelineno-4-112" href="#__codelineno-4-112"></a>        <span class="p">)</span>
-<a id="__codelineno-4-113" name="__codelineno-4-113" href="#__codelineno-4-113"></a>
-<a id="__codelineno-4-114" name="__codelineno-4-114" href="#__codelineno-4-114"></a>        <span class="c1"># Extract year-month from inspection date</span>
-<a id="__codelineno-4-115" name="__codelineno-4-115" href="#__codelineno-4-115"></a>        <span class="n">inspecciones</span><span class="p">[</span><span class="s2">&quot;insp_year_month&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-4-116" name="__codelineno-4-116" href="#__codelineno-4-116"></a>            <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">year</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">+</span> 
-<a id="__codelineno-4-117" name="__codelineno-4-117" href="#__codelineno-4-117"></a>            <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">month</span>
-<a id="__codelineno-4-118" name="__codelineno-4-118" href="#__codelineno-4-118"></a>        <span class="p">)</span>
-<a id="__codelineno-4-119" name="__codelineno-4-119" href="#__codelineno-4-119"></a>
-<a id="__codelineno-4-120" name="__codelineno-4-120" href="#__codelineno-4-120"></a>        <span class="c1"># Convert consumo period to numeric</span>
-<a id="__codelineno-4-121" name="__codelineno-4-121" href="#__codelineno-4-121"></a>        <span class="n">consumos</span> <span class="o">=</span> <span class="n">consumos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-4-122" name="__codelineno-4-122" href="#__codelineno-4-122"></a>        <span class="n">consumos</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span>
-<a id="__codelineno-4-123" name="__codelineno-4-123" href="#__codelineno-4-123"></a>            <span class="n">consumos</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span>
-<a id="__codelineno-4-124" name="__codelineno-4-124" href="#__codelineno-4-124"></a>        <span class="p">)</span>
-<a id="__codelineno-4-125" name="__codelineno-4-125" href="#__codelineno-4-125"></a>
-<a id="__codelineno-4-126" name="__codelineno-4-126" href="#__codelineno-4-126"></a>        <span class="c1"># Filter: consumo period must be strictly less than inspection period</span>
-<a id="__codelineno-4-127" name="__codelineno-4-127" href="#__codelineno-4-127"></a>        <span class="n">merged</span> <span class="o">=</span> <span class="n">inspecciones</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-<a id="__codelineno-4-128" name="__codelineno-4-128" href="#__codelineno-4-128"></a>            <span class="n">consumos</span><span class="p">,</span>
-<a id="__codelineno-4-129" name="__codelineno-4-129" href="#__codelineno-4-129"></a>            <span class="n">left_on</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span><span class="p">,</span> <span class="s2">&quot;insp_year_month&quot;</span><span class="p">],</span>
-<a id="__codelineno-4-130" name="__codelineno-4-130" href="#__codelineno-4-130"></a>            <span class="n">right_on</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">],</span>
-<a id="__codelineno-4-131" name="__codelineno-4-131" href="#__codelineno-4-131"></a>            <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-132" name="__codelineno-4-132" href="#__codelineno-4-132"></a>        <span class="p">)</span>
-<a id="__codelineno-4-133" name="__codelineno-4-133" href="#__codelineno-4-133"></a>
-<a id="__codelineno-4-134" name="__codelineno-4-134" href="#__codelineno-4-134"></a>        <span class="c1"># Step 2: Calculate rank (months before inspection)</span>
-<a id="__codelineno-4-135" name="__codelineno-4-135" href="#__codelineno-4-135"></a>        <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;rank&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;insp_year_month&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">merged</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">]</span>
-<a id="__codelineno-4-136" name="__codelineno-4-136" href="#__codelineno-4-136"></a>
-<a id="__codelineno-4-137" name="__codelineno-4-137" href="#__codelineno-4-137"></a>        <span class="c1"># Filter to only the last N periods</span>
-<a id="__codelineno-4-138" name="__codelineno-4-138" href="#__codelineno-4-138"></a>        <span class="n">merged</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="n">merged</span><span class="p">[</span><span class="s2">&quot;rank&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">between</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_periodos</span><span class="p">)]</span>
-<a id="__codelineno-4-139" name="__codelineno-4-139" href="#__codelineno-4-139"></a>
-<a id="__codelineno-4-140" name="__codelineno-4-140" href="#__codelineno-4-140"></a>        <span class="c1"># Step 3: Pivot wide - consumo by rank -&gt; columns</span>
-<a id="__codelineno-4-141" name="__codelineno-4-141" href="#__codelineno-4-141"></a>        <span class="n">pivot</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span>
-<a id="__codelineno-4-142" name="__codelineno-4-142" href="#__codelineno-4-142"></a>            <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span>
-<a id="__codelineno-4-143" name="__codelineno-4-143" href="#__codelineno-4-143"></a>            <span class="n">columns</span><span class="o">=</span><span class="s2">&quot;rank&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-144" name="__codelineno-4-144" href="#__codelineno-4-144"></a>            <span class="n">values</span><span class="o">=</span><span class="s2">&quot;consumo&quot;</span><span class="p">,</span>  <span class="c1"># Adjust to your actual column name</span>
-<a id="__codelineno-4-145" name="__codelineno-4-145" href="#__codelineno-4-145"></a>            <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-146" name="__codelineno-4-146" href="#__codelineno-4-146"></a>        <span class="p">)</span>
-<a id="__codelineno-4-147" name="__codelineno-4-147" href="#__codelineno-4-147"></a>
-<a id="__codelineno-4-148" name="__codelineno-4-148" href="#__codelineno-4-148"></a>        <span class="c1"># Rename columns: 1 -&gt; &quot;1_anterior&quot;, 2 -&gt; &quot;2_anterior&quot;, etc.</span>
-<a id="__codelineno-4-149" name="__codelineno-4-149" href="#__codelineno-4-149"></a>        <span class="n">pivot</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">col</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">pivot</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
-<a id="__codelineno-4-150" name="__codelineno-4-150" href="#__codelineno-4-150"></a>        <span class="n">pivot</span> <span class="o">=</span> <span class="n">pivot</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<a id="__codelineno-4-101" name="__codelineno-4-101" href="#__codelineno-4-101"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-4-102" name="__codelineno-4-102" href="#__codelineno-4-102"></a><span class="w">        </span><span class="sd">"""</span>
+<a id="__codelineno-4-103" name="__codelineno-4-103" href="#__codelineno-4-103"></a><span class="sd">        Transform: Join and pivot to wide format.</span>
+<a id="__codelineno-4-104" name="__codelineno-4-104" href="#__codelineno-4-104"></a>
+<a id="__codelineno-4-105" name="__codelineno-4-105" href="#__codelineno-4-105"></a><span class="sd">        Args:</span>
+<a id="__codelineno-4-106" name="__codelineno-4-106" href="#__codelineno-4-106"></a><span class="sd">            df_dict: Dict with 'maestros', 'consumos', 'inspecciones' DataFrames</span>
+<a id="__codelineno-4-107" name="__codelineno-4-107" href="#__codelineno-4-107"></a><span class="sd">        """</span>
+<a id="__codelineno-4-108" name="__codelineno-4-108" href="#__codelineno-4-108"></a>        <span class="n">maestros</span> <span class="o">=</span> <span class="n">df_dict</span><span class="p">[</span><span class="s2">"maestros"</span><span class="p">]</span>
+<a id="__codelineno-4-109" name="__codelineno-4-109" href="#__codelineno-4-109"></a>        <span class="n">consumos</span> <span class="o">=</span> <span class="n">df_dict</span><span class="p">[</span><span class="s2">"consumos"</span><span class="p">]</span>
+<a id="__codelineno-4-110" name="__codelineno-4-110" href="#__codelineno-4-110"></a>        <span class="n">inspecciones</span> <span class="o">=</span> <span class="n">df_dict</span><span class="p">[</span><span class="s2">"inspecciones"</span><span class="p">]</span>
+<a id="__codelineno-4-111" name="__codelineno-4-111" href="#__codelineno-4-111"></a>
+<a id="__codelineno-4-112" name="__codelineno-4-112" href="#__codelineno-4-112"></a>        <span class="c1"># Step 1: Filter consumos to periods BEFORE inspection</span>
+<a id="__codelineno-4-113" name="__codelineno-4-113" href="#__codelineno-4-113"></a>        <span class="n">inspecciones</span> <span class="o">=</span> <span class="n">inspecciones</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-4-114" name="__codelineno-4-114" href="#__codelineno-4-114"></a>        <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+<a id="__codelineno-4-115" name="__codelineno-4-115" href="#__codelineno-4-115"></a>            <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span>
+<a id="__codelineno-4-116" name="__codelineno-4-116" href="#__codelineno-4-116"></a>        <span class="p">)</span>
+<a id="__codelineno-4-117" name="__codelineno-4-117" href="#__codelineno-4-117"></a>
+<a id="__codelineno-4-118" name="__codelineno-4-118" href="#__codelineno-4-118"></a>        <span class="c1"># Extract year-month from inspection date</span>
+<a id="__codelineno-4-119" name="__codelineno-4-119" href="#__codelineno-4-119"></a>        <span class="n">inspecciones</span><span class="p">[</span><span class="s2">"insp_year_month"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-4-120" name="__codelineno-4-120" href="#__codelineno-4-120"></a>            <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">year</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">+</span> 
+<a id="__codelineno-4-121" name="__codelineno-4-121" href="#__codelineno-4-121"></a>            <span class="n">inspecciones</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">month</span>
+<a id="__codelineno-4-122" name="__codelineno-4-122" href="#__codelineno-4-122"></a>        <span class="p">)</span>
+<a id="__codelineno-4-123" name="__codelineno-4-123" href="#__codelineno-4-123"></a>
+<a id="__codelineno-4-124" name="__codelineno-4-124" href="#__codelineno-4-124"></a>        <span class="c1"># Convert consumo period to numeric</span>
+<a id="__codelineno-4-125" name="__codelineno-4-125" href="#__codelineno-4-125"></a>        <span class="n">consumos</span> <span class="o">=</span> <span class="n">consumos</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-4-126" name="__codelineno-4-126" href="#__codelineno-4-126"></a>        <span class="n">consumos</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span>
+<a id="__codelineno-4-127" name="__codelineno-4-127" href="#__codelineno-4-127"></a>            <span class="n">consumos</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"coerce"</span>
+<a id="__codelineno-4-128" name="__codelineno-4-128" href="#__codelineno-4-128"></a>        <span class="p">)</span>
+<a id="__codelineno-4-129" name="__codelineno-4-129" href="#__codelineno-4-129"></a>
+<a id="__codelineno-4-130" name="__codelineno-4-130" href="#__codelineno-4-130"></a>        <span class="c1"># Filter: consumo period must be strictly less than inspection period</span>
+<a id="__codelineno-4-131" name="__codelineno-4-131" href="#__codelineno-4-131"></a>        <span class="n">merged</span> <span class="o">=</span> <span class="n">inspecciones</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+<a id="__codelineno-4-132" name="__codelineno-4-132" href="#__codelineno-4-132"></a>            <span class="n">consumos</span><span class="p">,</span>
+<a id="__codelineno-4-133" name="__codelineno-4-133" href="#__codelineno-4-133"></a>            <span class="n">left_on</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span><span class="p">,</span> <span class="s2">"insp_year_month"</span><span class="p">],</span>
+<a id="__codelineno-4-134" name="__codelineno-4-134" href="#__codelineno-4-134"></a>            <span class="n">right_on</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">],</span>
+<a id="__codelineno-4-135" name="__codelineno-4-135" href="#__codelineno-4-135"></a>            <span class="n">how</span><span class="o">=</span><span class="s2">"inner"</span><span class="p">,</span>
+<a id="__codelineno-4-136" name="__codelineno-4-136" href="#__codelineno-4-136"></a>        <span class="p">)</span>
+<a id="__codelineno-4-137" name="__codelineno-4-137" href="#__codelineno-4-137"></a>
+<a id="__codelineno-4-138" name="__codelineno-4-138" href="#__codelineno-4-138"></a>        <span class="c1"># Step 2: Calculate rank (months before inspection)</span>
+<a id="__codelineno-4-139" name="__codelineno-4-139" href="#__codelineno-4-139"></a>        <span class="n">merged</span><span class="p">[</span><span class="s2">"rank"</span><span class="p">]</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s2">"insp_year_month"</span><span class="p">]</span> <span class="o">-</span> <span class="n">merged</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_period_col</span><span class="p">]</span>
+<a id="__codelineno-4-140" name="__codelineno-4-140" href="#__codelineno-4-140"></a>
+<a id="__codelineno-4-141" name="__codelineno-4-141" href="#__codelineno-4-141"></a>        <span class="c1"># Filter to only the last N periods</span>
+<a id="__codelineno-4-142" name="__codelineno-4-142" href="#__codelineno-4-142"></a>        <span class="n">merged</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="n">merged</span><span class="p">[</span><span class="s2">"rank"</span><span class="p">]</span><span class="o">.</span><span class="n">between</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_periodos</span><span class="p">)]</span>
+<a id="__codelineno-4-143" name="__codelineno-4-143" href="#__codelineno-4-143"></a>
+<a id="__codelineno-4-144" name="__codelineno-4-144" href="#__codelineno-4-144"></a>        <span class="c1"># Step 3: Pivot wide - consumo by rank -&gt; columns</span>
+<a id="__codelineno-4-145" name="__codelineno-4-145" href="#__codelineno-4-145"></a>        <span class="n">pivot</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span>
+<a id="__codelineno-4-146" name="__codelineno-4-146" href="#__codelineno-4-146"></a>            <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span>
+<a id="__codelineno-4-147" name="__codelineno-4-147" href="#__codelineno-4-147"></a>            <span class="n">columns</span><span class="o">=</span><span class="s2">"rank"</span><span class="p">,</span>
+<a id="__codelineno-4-148" name="__codelineno-4-148" href="#__codelineno-4-148"></a>            <span class="n">values</span><span class="o">=</span><span class="s2">"consumo"</span><span class="p">,</span>  <span class="c1"># Adjust to your actual column name</span>
+<a id="__codelineno-4-149" name="__codelineno-4-149" href="#__codelineno-4-149"></a>            <span class="n">aggfunc</span><span class="o">=</span><span class="s2">"first"</span><span class="p">,</span>
+<a id="__codelineno-4-150" name="__codelineno-4-150" href="#__codelineno-4-150"></a>        <span class="p">)</span>
 <a id="__codelineno-4-151" name="__codelineno-4-151" href="#__codelineno-4-151"></a>
-<a id="__codelineno-4-152" name="__codelineno-4-152" href="#__codelineno-4-152"></a>        <span class="c1"># Step 4: Merge with maestros (customer attributes)</span>
-<a id="__codelineno-4-153" name="__codelineno-4-153" href="#__codelineno-4-153"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">pivot</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-<a id="__codelineno-4-154" name="__codelineno-4-154" href="#__codelineno-4-154"></a>            <span class="n">maestros</span><span class="p">,</span>
-<a id="__codelineno-4-155" name="__codelineno-4-155" href="#__codelineno-4-155"></a>            <span class="n">left_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span>
-<a id="__codelineno-4-156" name="__codelineno-4-156" href="#__codelineno-4-156"></a>            <span class="n">right_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maestro_key</span><span class="p">,</span>
-<a id="__codelineno-4-157" name="__codelineno-4-157" href="#__codelineno-4-157"></a>            <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-158" name="__codelineno-4-158" href="#__codelineno-4-158"></a>        <span class="p">)</span>
-<a id="__codelineno-4-159" name="__codelineno-4-159" href="#__codelineno-4-159"></a>
-<a id="__codelineno-4-160" name="__codelineno-4-160" href="#__codelineno-4-160"></a>        <span class="c1"># Step 5: Merge with inspecciones (target and metadata)</span>
-<a id="__codelineno-4-161" name="__codelineno-4-161" href="#__codelineno-4-161"></a>        <span class="c1"># Keep latest inspection per customer</span>
-<a id="__codelineno-4-162" name="__codelineno-4-162" href="#__codelineno-4-162"></a>        <span class="n">latest_inspecciones</span> <span class="o">=</span> <span class="n">inspecciones</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
-<a id="__codelineno-4-163" name="__codelineno-4-163" href="#__codelineno-4-163"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span>
-<a id="__codelineno-4-164" name="__codelineno-4-164" href="#__codelineno-4-164"></a>        <span class="p">)</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-165" name="__codelineno-4-165" href="#__codelineno-4-165"></a>
-<a id="__codelineno-4-166" name="__codelineno-4-166" href="#__codelineno-4-166"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
-<a id="__codelineno-4-167" name="__codelineno-4-167" href="#__codelineno-4-167"></a>            <span class="n">latest_inspecciones</span><span class="p">,</span>
-<a id="__codelineno-4-168" name="__codelineno-4-168" href="#__codelineno-4-168"></a>            <span class="n">left_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span>
-<a id="__codelineno-4-169" name="__codelineno-4-169" href="#__codelineno-4-169"></a>            <span class="n">right_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span><span class="p">,</span>
-<a id="__codelineno-4-170" name="__codelineno-4-170" href="#__codelineno-4-170"></a>            <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-171" name="__codelineno-4-171" href="#__codelineno-4-171"></a>        <span class="p">)</span>
-<a id="__codelineno-4-172" name="__codelineno-4-172" href="#__codelineno-4-172"></a>
-<a id="__codelineno-4-173" name="__codelineno-4-173" href="#__codelineno-4-173"></a>        <span class="c1"># Step 6: Add auxiliary features</span>
-<a id="__codelineno-4-174" name="__codelineno-4-174" href="#__codelineno-4-174"></a>        <span class="n">consumo_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span><span class="p">)]</span>
-<a id="__codelineno-4-175" name="__codelineno-4-175" href="#__codelineno-4-175"></a>        <span class="n">result</span><span class="p">[</span><span class="s2">&quot;num_measures&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-4-176" name="__codelineno-4-176" href="#__codelineno-4-176"></a>        <span class="n">result</span><span class="p">[</span><span class="s2">&quot;num_measures_not_zero&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-4-177" name="__codelineno-4-177" href="#__codelineno-4-177"></a>            <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
-<a id="__codelineno-4-178" name="__codelineno-4-178" href="#__codelineno-4-178"></a>        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-4-179" name="__codelineno-4-179" href="#__codelineno-4-179"></a>
-<a id="__codelineno-4-180" name="__codelineno-4-180" href="#__codelineno-4-180"></a>        <span class="c1"># Step 7: Filter by minimum measures</span>
-<a id="__codelineno-4-181" name="__codelineno-4-181" href="#__codelineno-4-181"></a>        <span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-<a id="__codelineno-4-182" name="__codelineno-4-182" href="#__codelineno-4-182"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span>
-<a id="__codelineno-4-183" name="__codelineno-4-183" href="#__codelineno-4-183"></a>            <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;num_measures&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures</span><span class="p">)</span> <span class="o">&amp;</span>
-<a id="__codelineno-4-184" name="__codelineno-4-184" href="#__codelineno-4-184"></a>            <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;num_measures_not_zero&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures_not_zero</span><span class="p">)</span>
-<a id="__codelineno-4-185" name="__codelineno-4-185" href="#__codelineno-4-185"></a>        <span class="p">]</span>
-<a id="__codelineno-4-186" name="__codelineno-4-186" href="#__codelineno-4-186"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  • Filtered </span><span class="si">{</span><span class="n">before</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> rows (min measures)&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-187" name="__codelineno-4-187" href="#__codelineno-4-187"></a>
-<a id="__codelineno-4-188" name="__codelineno-4-188" href="#__codelineno-4-188"></a>        <span class="c1"># Step 8: Fill empty values</span>
-<a id="__codelineno-4-189" name="__codelineno-4-189" href="#__codelineno-4-189"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_cycle</span><span class="p">:</span>
-<a id="__codelineno-4-190" name="__codelineno-4-190" href="#__codelineno-4-190"></a>            <span class="c1"># Forward/backward fill for consumption columns</span>
-<a id="__codelineno-4-191" name="__codelineno-4-191" href="#__codelineno-4-191"></a>            <span class="n">consumo_cols_sorted</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-<a id="__codelineno-4-192" name="__codelineno-4-192" href="#__codelineno-4-192"></a>                <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span><span class="p">)]</span>
-<a id="__codelineno-4-193" name="__codelineno-4-193" href="#__codelineno-4-193"></a>            <span class="p">)</span>
-<a id="__codelineno-4-194" name="__codelineno-4-194" href="#__codelineno-4-194"></a>            <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span><span class="o">.</span><span class="n">ffill</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-4-195" name="__codelineno-4-195" href="#__codelineno-4-195"></a>            <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span><span class="o">.</span><span class="n">bfill</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-4-196" name="__codelineno-4-196" href="#__codelineno-4-196"></a>
-<a id="__codelineno-4-197" name="__codelineno-4-197" href="#__codelineno-4-197"></a>        <span class="c1"># Fill string columns</span>
-<a id="__codelineno-4-198" name="__codelineno-4-198" href="#__codelineno-4-198"></a>        <span class="n">str_cols</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;object&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">columns</span>
-<a id="__codelineno-4-199" name="__codelineno-4-199" href="#__codelineno-4-199"></a>        <span class="n">result</span><span class="p">[</span><span class="n">str_cols</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">str_cols</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_str</span><span class="p">)</span>
+<a id="__codelineno-4-152" name="__codelineno-4-152" href="#__codelineno-4-152"></a>        <span class="c1"># Rename columns: 1 -&gt; "1_anterior", 2 -&gt; "2_anterior", etc.</span>
+<a id="__codelineno-4-153" name="__codelineno-4-153" href="#__codelineno-4-153"></a>        <span class="n">pivot</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">col</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">pivot</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+<a id="__codelineno-4-154" name="__codelineno-4-154" href="#__codelineno-4-154"></a>        <span class="n">pivot</span> <span class="o">=</span> <span class="n">pivot</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<a id="__codelineno-4-155" name="__codelineno-4-155" href="#__codelineno-4-155"></a>
+<a id="__codelineno-4-156" name="__codelineno-4-156" href="#__codelineno-4-156"></a>        <span class="c1"># Step 4: Merge with maestros (customer attributes)</span>
+<a id="__codelineno-4-157" name="__codelineno-4-157" href="#__codelineno-4-157"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">pivot</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+<a id="__codelineno-4-158" name="__codelineno-4-158" href="#__codelineno-4-158"></a>            <span class="n">maestros</span><span class="p">,</span>
+<a id="__codelineno-4-159" name="__codelineno-4-159" href="#__codelineno-4-159"></a>            <span class="n">left_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span>
+<a id="__codelineno-4-160" name="__codelineno-4-160" href="#__codelineno-4-160"></a>            <span class="n">right_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maestro_key</span><span class="p">,</span>
+<a id="__codelineno-4-161" name="__codelineno-4-161" href="#__codelineno-4-161"></a>            <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span>
+<a id="__codelineno-4-162" name="__codelineno-4-162" href="#__codelineno-4-162"></a>        <span class="p">)</span>
+<a id="__codelineno-4-163" name="__codelineno-4-163" href="#__codelineno-4-163"></a>
+<a id="__codelineno-4-164" name="__codelineno-4-164" href="#__codelineno-4-164"></a>        <span class="c1"># Step 5: Merge with inspecciones (target and metadata)</span>
+<a id="__codelineno-4-165" name="__codelineno-4-165" href="#__codelineno-4-165"></a>        <span class="c1"># Keep latest inspection per customer</span>
+<a id="__codelineno-4-166" name="__codelineno-4-166" href="#__codelineno-4-166"></a>        <span class="n">latest_inspecciones</span> <span class="o">=</span> <span class="n">inspecciones</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+<a id="__codelineno-4-167" name="__codelineno-4-167" href="#__codelineno-4-167"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_period_col</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span>
+<a id="__codelineno-4-168" name="__codelineno-4-168" href="#__codelineno-4-168"></a>        <span class="p">)</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">"first"</span><span class="p">)</span>
+<a id="__codelineno-4-169" name="__codelineno-4-169" href="#__codelineno-4-169"></a>
+<a id="__codelineno-4-170" name="__codelineno-4-170" href="#__codelineno-4-170"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+<a id="__codelineno-4-171" name="__codelineno-4-171" href="#__codelineno-4-171"></a>            <span class="n">latest_inspecciones</span><span class="p">,</span>
+<a id="__codelineno-4-172" name="__codelineno-4-172" href="#__codelineno-4-172"></a>            <span class="n">left_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">consumo_key</span><span class="p">,</span>
+<a id="__codelineno-4-173" name="__codelineno-4-173" href="#__codelineno-4-173"></a>            <span class="n">right_on</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inspeccion_key</span><span class="p">,</span>
+<a id="__codelineno-4-174" name="__codelineno-4-174" href="#__codelineno-4-174"></a>            <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span>
+<a id="__codelineno-4-175" name="__codelineno-4-175" href="#__codelineno-4-175"></a>        <span class="p">)</span>
+<a id="__codelineno-4-176" name="__codelineno-4-176" href="#__codelineno-4-176"></a>
+<a id="__codelineno-4-177" name="__codelineno-4-177" href="#__codelineno-4-177"></a>        <span class="c1"># Step 6: Add auxiliary features</span>
+<a id="__codelineno-4-178" name="__codelineno-4-178" href="#__codelineno-4-178"></a>        <span class="n">consumo_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span><span class="p">)]</span>
+<a id="__codelineno-4-179" name="__codelineno-4-179" href="#__codelineno-4-179"></a>        <span class="n">result</span><span class="p">[</span><span class="s2">"num_measures"</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-4-180" name="__codelineno-4-180" href="#__codelineno-4-180"></a>        <span class="n">result</span><span class="p">[</span><span class="s2">"num_measures_not_zero"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-4-181" name="__codelineno-4-181" href="#__codelineno-4-181"></a>            <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<a id="__codelineno-4-182" name="__codelineno-4-182" href="#__codelineno-4-182"></a>        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-4-183" name="__codelineno-4-183" href="#__codelineno-4-183"></a>
+<a id="__codelineno-4-184" name="__codelineno-4-184" href="#__codelineno-4-184"></a>        <span class="c1"># Step 7: Filter by minimum measures</span>
+<a id="__codelineno-4-185" name="__codelineno-4-185" href="#__codelineno-4-185"></a>        <span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+<a id="__codelineno-4-186" name="__codelineno-4-186" href="#__codelineno-4-186"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span>
+<a id="__codelineno-4-187" name="__codelineno-4-187" href="#__codelineno-4-187"></a>            <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"num_measures"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures</span><span class="p">)</span> <span class="o">&amp;</span>
+<a id="__codelineno-4-188" name="__codelineno-4-188" href="#__codelineno-4-188"></a>            <span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"num_measures_not_zero"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_num_measures_not_zero</span><span class="p">)</span>
+<a id="__codelineno-4-189" name="__codelineno-4-189" href="#__codelineno-4-189"></a>        <span class="p">]</span>
+<a id="__codelineno-4-190" name="__codelineno-4-190" href="#__codelineno-4-190"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  • Filtered </span><span class="si">{</span><span class="n">before</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> rows (min measures)"</span><span class="p">)</span>
+<a id="__codelineno-4-191" name="__codelineno-4-191" href="#__codelineno-4-191"></a>
+<a id="__codelineno-4-192" name="__codelineno-4-192" href="#__codelineno-4-192"></a>        <span class="c1"># Step 8: Fill empty values</span>
+<a id="__codelineno-4-193" name="__codelineno-4-193" href="#__codelineno-4-193"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_cycle</span><span class="p">:</span>
+<a id="__codelineno-4-194" name="__codelineno-4-194" href="#__codelineno-4-194"></a>            <span class="c1"># Forward/backward fill for consumption columns</span>
+<a id="__codelineno-4-195" name="__codelineno-4-195" href="#__codelineno-4-195"></a>            <span class="n">consumo_cols_sorted</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+<a id="__codelineno-4-196" name="__codelineno-4-196" href="#__codelineno-4-196"></a>                <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span><span class="p">)]</span>
+<a id="__codelineno-4-197" name="__codelineno-4-197" href="#__codelineno-4-197"></a>            <span class="p">)</span>
+<a id="__codelineno-4-198" name="__codelineno-4-198" href="#__codelineno-4-198"></a>            <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span><span class="o">.</span><span class="n">ffill</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-4-199" name="__codelineno-4-199" href="#__codelineno-4-199"></a>            <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">consumo_cols_sorted</span><span class="p">]</span><span class="o">.</span><span class="n">bfill</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 <a id="__codelineno-4-200" name="__codelineno-4-200" href="#__codelineno-4-200"></a>
-<a id="__codelineno-4-201" name="__codelineno-4-201" href="#__codelineno-4-201"></a>        <span class="c1"># Step 9: Order columns logically</span>
-<a id="__codelineno-4-202" name="__codelineno-4-202" href="#__codelineno-4-202"></a>        <span class="n">id_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="s2">&quot;id&quot;</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
-<a id="__codelineno-4-203" name="__codelineno-4-203" href="#__codelineno-4-203"></a>        <span class="n">inspeccion_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="s2">&quot;insp&quot;</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;target&quot;</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
-<a id="__codelineno-4-204" name="__codelineno-4-204" href="#__codelineno-4-204"></a>        <span class="n">consumo_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span> <span class="ow">in</span> <span class="n">c</span><span class="p">]</span>
-<a id="__codelineno-4-205" name="__codelineno-4-205" href="#__codelineno-4-205"></a>        <span class="n">other_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">id_cols</span> <span class="o">+</span> <span class="n">inspeccion_cols</span> <span class="o">+</span> <span class="n">consumo_cols</span><span class="p">]</span>
-<a id="__codelineno-4-206" name="__codelineno-4-206" href="#__codelineno-4-206"></a>
-<a id="__codelineno-4-207" name="__codelineno-4-207" href="#__codelineno-4-207"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">id_cols</span> <span class="o">+</span> <span class="n">inspeccion_cols</span> <span class="o">+</span> <span class="n">consumo_cols</span> <span class="o">+</span> <span class="n">other_cols</span><span class="p">]</span>
-<a id="__codelineno-4-208" name="__codelineno-4-208" href="#__codelineno-4-208"></a>
-<a id="__codelineno-4-209" name="__codelineno-4-209" href="#__codelineno-4-209"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ✓ Dataset built: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2"> columns&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-210" name="__codelineno-4-210" href="#__codelineno-4-210"></a>        <span class="k">return</span> <span class="n">result</span>
-<a id="__codelineno-4-211" name="__codelineno-4-211" href="#__codelineno-4-211"></a>
-<a id="__codelineno-4-212" name="__codelineno-4-212" href="#__codelineno-4-212"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-4-213" name="__codelineno-4-213" href="#__codelineno-4-213"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Save to parquet format.&quot;&quot;&quot;</span>
-<a id="__codelineno-4-214" name="__codelineno-4-214" href="#__codelineno-4-214"></a>        <span class="n">df</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-4-215" name="__codelineno-4-215" href="#__codelineno-4-215"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  ✓ Saved dataset to &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-201" name="__codelineno-4-201" href="#__codelineno-4-201"></a>        <span class="c1"># Fill string columns</span>
+<a id="__codelineno-4-202" name="__codelineno-4-202" href="#__codelineno-4-202"></a>        <span class="n">str_cols</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">"object"</span><span class="p">])</span><span class="o">.</span><span class="n">columns</span>
+<a id="__codelineno-4-203" name="__codelineno-4-203" href="#__codelineno-4-203"></a>        <span class="n">result</span><span class="p">[</span><span class="n">str_cols</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">str_cols</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fill_empty_values_str</span><span class="p">)</span>
+<a id="__codelineno-4-204" name="__codelineno-4-204" href="#__codelineno-4-204"></a>
+<a id="__codelineno-4-205" name="__codelineno-4-205" href="#__codelineno-4-205"></a>        <span class="c1"># Step 9: Order columns logically</span>
+<a id="__codelineno-4-206" name="__codelineno-4-206" href="#__codelineno-4-206"></a>        <span class="n">id_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="s2">"id"</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+<a id="__codelineno-4-207" name="__codelineno-4-207" href="#__codelineno-4-207"></a>        <span class="n">inspeccion_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="s2">"insp"</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">"target"</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+<a id="__codelineno-4-208" name="__codelineno-4-208" href="#__codelineno-4-208"></a>        <span class="n">consumo_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">periods_suffix</span> <span class="ow">in</span> <span class="n">c</span><span class="p">]</span>
+<a id="__codelineno-4-209" name="__codelineno-4-209" href="#__codelineno-4-209"></a>        <span class="n">other_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">id_cols</span> <span class="o">+</span> <span class="n">inspeccion_cols</span> <span class="o">+</span> <span class="n">consumo_cols</span><span class="p">]</span>
+<a id="__codelineno-4-210" name="__codelineno-4-210" href="#__codelineno-4-210"></a>
+<a id="__codelineno-4-211" name="__codelineno-4-211" href="#__codelineno-4-211"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">id_cols</span> <span class="o">+</span> <span class="n">inspeccion_cols</span> <span class="o">+</span> <span class="n">consumo_cols</span> <span class="o">+</span> <span class="n">other_cols</span><span class="p">]</span>
+<a id="__codelineno-4-212" name="__codelineno-4-212" href="#__codelineno-4-212"></a>
+<a id="__codelineno-4-213" name="__codelineno-4-213" href="#__codelineno-4-213"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  ✓ Dataset built: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> records, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2"> columns"</span><span class="p">)</span>
+<a id="__codelineno-4-214" name="__codelineno-4-214" href="#__codelineno-4-214"></a>        <span class="k">return</span> <span class="n">result</span>
+<a id="__codelineno-4-215" name="__codelineno-4-215" href="#__codelineno-4-215"></a>
+<a id="__codelineno-4-216" name="__codelineno-4-216" href="#__codelineno-4-216"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-4-217" name="__codelineno-4-217" href="#__codelineno-4-217"></a><span class="w">        </span><span class="sd">"""Save to parquet format."""</span>
+<a id="__codelineno-4-218" name="__codelineno-4-218" href="#__codelineno-4-218"></a>        <span class="n">df</span><span class="o">.</span><span class="n">to_parquet</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-4-219" name="__codelineno-4-219" href="#__codelineno-4-219"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  ✓ Saved dataset to '</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="wiring-in-yaml">Wiring in YAML<a class="headerlink" href="#wiring-in-yaml" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="c1"># Step 1: Load raw consumption data</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">consumos</span><span class="p">:</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/consumos_*.csv&quot;</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/consumos.parquet&quot;</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/consumos_*.csv"</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/consumos.parquet"</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;concat&quot;</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">"concat"</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="c1"># Step 2: Load customer master data  </span>
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">maestros</span><span class="p">:</span>
 <a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/maestros.csv&quot;</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/maestros.parquet&quot;</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/maestros.csv"</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/maestros.parquet"</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;concat&quot;</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">"concat"</span>
 <a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 <a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>
 <a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">  </span><span class="c1"># Step 3: Load inspection data</span>
 <a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">  </span><span class="nt">inspecciones</span><span class="p">:</span>
 <a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/inspecciones.csv&quot;</span>
-<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/inspecciones.parquet&quot;</span>
-<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/inspecciones.csv"</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/inspecciones.parquet"</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;concat&quot;</span>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">"concat"</span>
 <a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 <a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>
 <a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="w">  </span><span class="c1"># Step 4: Build wide-format dataset</span>
 <a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="w">  </span><span class="nt">dataset_builder</span><span class="p">:</span>
 <a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Join</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">pivot</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">wide</span><span class="nv"> </span><span class="s">format</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">ML</span><span class="nv"> </span><span class="s">training&quot;</span>
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Join</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">pivot</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">wide</span><span class="nv"> </span><span class="s">format</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">ML</span><span class="nv"> </span><span class="s">training"</span>
 <a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span>
-<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;@maestros&quot;</span><span class="w">    </span><span class="c1"># Index 0</span>
-<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;@consumos&quot;</span><span class="w">   </span><span class="c1"># Index 1</span>
-<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;@inspecciones&quot;</span><span class="w"> </span><span class="c1"># Index 2</span>
-<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/dataset_wide.parquet&quot;</span>
-<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;src.etl.dataset_builder_etl.DatasetBuilderETL&quot;</span>
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"@maestros"</span><span class="w">    </span><span class="c1"># Index 0</span>
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"@consumos"</span><span class="w">   </span><span class="c1"># Index 1</span>
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"@inspecciones"</span><span class="w"> </span><span class="c1"># Index 2</span>
+<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/dataset_wide.parquet"</span>
+<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"src.data.dataset_builder_etl.DatasetBuilderETL"</span>
 <a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a><span class="w">      </span><span class="nt">consumo_key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;id_cliente&quot;</span>
-<a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a><span class="w">      </span><span class="nt">inspeccion_key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;id_cliente&quot;</span>
-<a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="w">      </span><span class="nt">maestro_key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;id_cliente&quot;</span>
-<a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a><span class="w">      </span><span class="nt">consumo_period_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;periodo&quot;</span>
-<a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a><span class="w">      </span><span class="nt">inspeccion_period_col</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;fecha_inspeccion&quot;</span>
+<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a><span class="w">      </span><span class="nt">consumo_key</span><span class="p">:</span><span class="w"> </span><span class="s">"id_cliente"</span>
+<a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a><span class="w">      </span><span class="nt">inspeccion_key</span><span class="p">:</span><span class="w"> </span><span class="s">"id_cliente"</span>
+<a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="w">      </span><span class="nt">maestro_key</span><span class="p">:</span><span class="w"> </span><span class="s">"id_cliente"</span>
+<a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a><span class="w">      </span><span class="nt">consumo_period_col</span><span class="p">:</span><span class="w"> </span><span class="s">"periodo"</span>
+<a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a><span class="w">      </span><span class="nt">inspeccion_period_col</span><span class="p">:</span><span class="w"> </span><span class="s">"fecha_inspeccion"</span>
 <a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a><span class="w">      </span><span class="nt">num_periodos</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
-<a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a><span class="w">      </span><span class="nt">periods_suffix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;_anterior&quot;</span>
+<a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a><span class="w">      </span><span class="nt">periods_suffix</span><span class="p">:</span><span class="w"> </span><span class="s">"_anterior"</span>
 <a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="w">      </span><span class="nt">min_num_measures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 <a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a><span class="w">      </span><span class="nt">min_num_measures_not_zero</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 <a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">maestros</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">consumos</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">inspecciones</span><span class="p p-Indicator">]</span>
@@ -2826,15 +2809,15 @@
 <p>Reference other ETL outputs using the <code>@etl_name</code> syntax in the <code>input</code> field:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">step1</span><span class="p">:</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/raw/source.csv&quot;</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/step1.parquet&quot;</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"data/raw/source.csv"</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/step1.parquet"</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">step2</span><span class="p">:</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;@step1&quot;</span><span class="w">  </span><span class="c1"># References step1&#39;s output</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/step2.parquet&quot;</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;energizados.etl.pipeline.SourceETL&quot;</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;step1&quot;</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># Explicit dependency</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"@step1"</span><span class="w">  </span><span class="c1"># References step1's output</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/step2.parquet"</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.SourceETL"</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"step1"</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># Explicit dependency</span>
 </code></pre></div>
 <h2 id="testing-custom-etls">Testing Custom ETLs<a class="headerlink" href="#testing-custom-etls" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># tests/test_custom_etl.py</span>
@@ -2847,20 +2830,20 @@
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">sample_data</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">):</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create sample CSV data for testing.&quot;&quot;&quot;</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="sd">"""Create sample CSV data for testing."""</span>
 <a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>        <span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;D&#39;</span><span class="p">,</span> <span class="s1">&#39;E&#39;</span><span class="p">]</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s1">'id'</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="s1">'value'</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>        <span class="s1">'category'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'A'</span><span class="p">,</span> <span class="s1">'B'</span><span class="p">,</span> <span class="s1">'C'</span><span class="p">,</span> <span class="s1">'D'</span><span class="p">,</span> <span class="s1">'E'</span><span class="p">]</span>
 <a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="p">})</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">csv_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;test_data.csv&quot;</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">csv_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">"test_data.csv"</span>
 <a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="n">data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>    <span class="k">return</span> <span class="n">csv_path</span>
 <a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
 <a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>
 <a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_simple_filter_etl</span><span class="p">(</span><span class="n">sample_data</span><span class="p">,</span> <span class="n">temp_dir</span><span class="p">):</span>
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test SimpleFilterETL removes rows with nulls.&quot;&quot;&quot;</span>
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="n">output_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;output.parquet&quot;</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">    </span><span class="sd">"""Test SimpleFilterETL removes rows with nulls."""</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="n">output_path</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">"output.parquet"</span>
 <a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
 <a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>    <span class="n">etl</span> <span class="o">=</span> <span class="n">SimpleFilterETL</span><span class="p">(</span>
 <a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>        <span class="n">input_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">sample_data</span><span class="p">),</span>
@@ -2871,7 +2854,7 @@
 <a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>
 <a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>    <span class="c1"># Assert row with null is removed</span>
 <a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
-<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>    <span class="k">assert</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>    <span class="k">assert</span> <span class="n">df</span><span class="p">[</span><span class="s1">'value'</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span>
 <a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>
 <a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>    <span class="c1"># Assert output file exists</span>
 <a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>    <span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>

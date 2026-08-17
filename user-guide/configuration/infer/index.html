@@ -306,7 +306,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../web-console/" class="md-tabs__link">
+        <a href="../../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +346,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1869,7 +1869,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../web-console/" class="md-nav__link">
+      <a href="../../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1897,7 +1897,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -2068,7 +2068,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -2082,13 +2082,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -2103,7 +2096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -2117,13 +2110,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -2138,7 +2124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -2152,13 +2138,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -2173,7 +2152,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -2186,13 +2165,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2563,7 +2535,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -3379,13 +3351,14 @@
 <h2 id="configuration-structure">Configuration Structure<a class="headerlink" href="#configuration-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">          </span><span class="c1"># Set to true to run inference</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/sample_dataset.parquet&quot;</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/predictions.csv&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/sample_dataset.parquet"</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/predictions.csv"</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="c1"># Uncomment and set to point to a specific training run:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="c1"># model_path: &quot;output/train-YYYYMMDD_HHMM/models/model.pkl&quot;</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="c1"># feature_engineering_path: &quot;output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="c1"># model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="c1"># feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;default&quot;</span><span class="w">         </span><span class="c1"># Use &quot;default&quot; or set custom_class</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="c1"># For a custom inference engine, set custom_class instead:</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="c1"># custom_class: "src.inference.custom_inference.CustomInference"</span>
 </code></pre></div>
 <blockquote>
 <p><strong>Note:</strong> The template ships with <code>enabled: false</code>. You must set <code>enabled: true</code> and configure <code>model_path</code> and <code>feature_engineering_path</code> before running inference.</p>
@@ -3498,8 +3471,8 @@
 <p>If you omit <code>model_path</code> and <code>feature_engineering_path</code>, the system will automatically detect the latest training run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="c1"># model_path and feature_engineering_path are auto-detected</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="c1"># from output/train-YYYYMMDD_HHMM/</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
@@ -3514,10 +3487,10 @@
 <p>Configuration:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 </code></pre></div>
 <h3 id="ensemble-model-inference">Ensemble Model Inference<a class="headerlink" href="#ensemble-model-inference" title="Permanent link">&para;</a></h3>
@@ -3534,10 +3507,10 @@
 <p>Configuration:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/ensemble.pkl&quot;</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/ensemble.pkl"</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 </code></pre></div>
 <blockquote>
@@ -3589,50 +3562,50 @@
 <h3 id="basic-inference">Basic Inference<a class="headerlink" href="#basic-inference" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 </code></pre></div>
 <h3 id="inference-with-custom-threshold">Inference with Custom Threshold<a class="headerlink" href="#inference-with-custom-threshold" title="Permanent link">&para;</a></h3>
 <p>Use a higher threshold to reduce false positives (fewer unnecessary inspections):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.7</span><span class="w">  </span><span class="c1"># Higher threshold = fewer false positives</span>
 </code></pre></div>
 <p>Use a lower threshold to reduce false negatives (catch more fraud):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span><span class="w">  </span><span class="c1"># Lower threshold = catch more fraud</span>
 </code></pre></div>
 <h3 id="inference-with-calibrated-threshold">Inference with Calibrated Threshold<a class="headerlink" href="#inference-with-calibrated-threshold" title="Permanent link">&para;</a></h3>
 <p>If you used threshold calibration during training, use the calibrated threshold:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.42</span><span class="w">  </span><span class="c1"># Calibrated threshold from evaluation report</span>
 </code></pre></div>
-<p>Check the evaluation report (<code>output/train-YYYYMMDD_HHMM/reports/evaluation/report.json</code>) to find the calibrated threshold.</p>
+<p>Check the evaluation report (<code>output/train-YYYYMMDD_HHMM/reports/evaluation/evaluation_report.json</code>) to find the calibrated threshold.</p>
 <h3 id="batch-inference">Batch Inference<a class="headerlink" href="#batch-inference" title="Permanent link">&para;</a></h3>
 <p>Process multiple files by updating the configuration:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/batch/january_2024.parquet&quot;</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions/january_2024.csv&quot;</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/batch/january_2024.parquet"</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions/january_2024.csv"</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 </code></pre></div>
 <p>Then run for each month, updating paths accordingly.</p>
@@ -3640,68 +3613,68 @@
 <p>Filter records BEFORE feature engineering to avoid expensive operations like tsfel on records you don't need:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>
 <a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">  </span><span class="c1"># Filter BEFORE feature engineering (optimization)</span>
 <a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">  </span><span class="nt">columns_filter</span><span class="p">:</span>
-<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="nt">zona</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;FLORIANOPOLIS&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;PALHOCA&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">    </span><span class="nt">zona</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"FLORIANOPOLIS"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"PALHOCA"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <h3 id="filtering-with-operators">Filtering with Operators<a class="headerlink" href="#filtering-with-operators" title="Permanent link">&para;</a></h3>
 <p>Filter by comparison operators (<code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>!=</code>, <code>like</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
 <a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">  </span><span class="nt">columns_filter</span><span class="p">:</span>
 <a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span><span class="c1"># Simple equality (list of values)</span>
-<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span><span class="nt">zona</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;FLORIANOPOLIS&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;PALHOCA&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">    </span><span class="nt">nivel_tension</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;BT&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">    </span><span class="nt">zona</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"FLORIANOPOLIS"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"PALHOCA"</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">    </span><span class="nt">nivel_tension</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"BT"</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>
 <a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="w">    </span><span class="c1"># Comparison operators</span>
 <a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="w">    </span><span class="nt">consumo_1_anterior</span><span class="p">:</span>
-<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">      </span><span class="s">&quot;&gt;&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w">                    </span><span class="c1"># consumption &gt; 0</span>
-<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="w">      </span><span class="s">&quot;&lt;=&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span><span class="w">               </span><span class="c1"># and consumption &lt;= 10000</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="w">      </span><span class="s">"&gt;"</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w">                    </span><span class="c1"># consumption &gt; 0</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="w">      </span><span class="s">"&lt;="</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span><span class="w">               </span><span class="c1"># and consumption &lt;= 10000</span>
 <a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
 <a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="w">    </span><span class="nt">fecha_inspeccion</span><span class="p">:</span>
-<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="w">      </span><span class="s">&quot;&gt;=&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;2026-01-01&quot;</span><span class="w">        </span><span class="c1"># date &gt;= 2026-01-01</span>
-<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="w">      </span><span class="s">&quot;!=&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                </span><span class="c1"># not null</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="w">      </span><span class="s">"&gt;="</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">"2026-01-01"</span><span class="w">        </span><span class="c1"># date &gt;= 2026-01-01</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="w">      </span><span class="s">"!="</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                </span><span class="c1"># not null</span>
 <a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a>
 <a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="w">    </span><span class="c1"># Pattern matching ( LIKE %pattern% )</span>
 <a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a><span class="w">    </span><span class="nt">actividad</span><span class="p">:</span>
-<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="w">      </span><span class="nt">like</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;INDUSTRI&quot;</span>
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="w">      </span><span class="nt">like</span><span class="p">:</span><span class="w"> </span><span class="s">"INDUSTRI"</span>
 </code></pre></div>
 <h3 id="filtering-with-pandas-expression">Filtering with Pandas Expression<a class="headerlink" href="#filtering-with-pandas-expression" title="Permanent link">&para;</a></h3>
 <p>Use pandas query syntax for complex filters:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
 <a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span><span class="nt">columns_filter</span><span class="p">:</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="nt">_expr</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;(zona</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">&#39;FLORIANOPOLIS&#39;)</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">(consumo_1_anterior</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">500)&quot;</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="nt">_expr</span><span class="p">:</span><span class="w"> </span><span class="s">"(zona</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">'FLORIANOPOLIS')</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">(consumo_1_anterior</span><span class="nv"> </span><span class="s">&gt;</span><span class="nv"> </span><span class="s">500)"</span>
 </code></pre></div>
 <h3 id="inference-with-custom-output-columns">Inference with Custom Output Columns<a class="headerlink" href="#inference-with-custom-output-columns" title="Permanent link">&para;</a></h3>
 <p>Select specific columns for the output CSV. <code>output_columns</code> is <strong>self-sufficient</strong> — input columns named in it are included automatically (no <code>output_include_input</code> needed), and omitting <code>prediction</code> drops it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
 <a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">  </span><span class="c1"># output_columns selects the FINAL output columns, in order. Input columns</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">  </span><span class="c1"># (cliente, actividad, zona) are included automatically; &#39;prediction&#39; is</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">  </span><span class="c1"># (cliente, actividad, zona) are included automatically; 'prediction' is</span>
 <a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">  </span><span class="c1"># omitted → not generated.</span>
 <a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">  </span><span class="nt">output_columns</span><span class="p">:</span>
 <a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cliente</span>
@@ -3757,36 +3730,36 @@
 <h3 id="example-per-region-models">Example: Per-Region Models<a class="headerlink" href="#example-per-region-models" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/new_data.parquet&quot;</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/predictions.csv&quot;</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/new_data.parquet"</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/predictions.csv"</span>
 <a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
 <a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">  </span><span class="c1"># No top-level model_path needed when routes are configured</span>
 <a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">  </span><span class="nt">routes</span><span class="p">:</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;florianopolis&quot;</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"florianopolis"</span>
 <a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">      </span><span class="nt">condition</span><span class="p">:</span>
-<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">        </span><span class="nt">geo_region</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;FLORIANOPOLIS&quot;</span>
-<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">      </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/regional/flor_model.pkl&quot;</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">        </span><span class="nt">geo_region</span><span class="p">:</span><span class="w"> </span><span class="s">"FLORIANOPOLIS"</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">      </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"models/regional/flor_model.pkl"</span>
 <a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>
-<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;south_regions&quot;</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"south_regions"</span>
 <a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">      </span><span class="nt">condition</span><span class="p">:</span>
-<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">        </span><span class="nt">geo_region</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;SAO_PAULO&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;RIO&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;BELO_HORIZONTE&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">      </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/regional/south_model.pkl&quot;</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">        </span><span class="nt">geo_region</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"SAO_PAULO"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"RIO"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"BELO_HORIZONTE"</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">      </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"models/regional/south_model.pkl"</span>
 <a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>
-<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;alta_tension&quot;</span>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"alta_tension"</span>
 <a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">      </span><span class="nt">condition</span><span class="p">:</span>
-<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">        </span><span class="nt">nivel_tension</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ALTA&quot;</span>
-<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">      </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/alta_tension/model.pkl&quot;</span>
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">        </span><span class="nt">nivel_tension</span><span class="p">:</span><span class="w"> </span><span class="s">"ALTA"</span>
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">      </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"models/alta_tension/model.pkl"</span>
 <a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a>
-<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">  </span><span class="nt">default_model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/global/model.pkl&quot;</span>
+<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">  </span><span class="nt">default_model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"models/global/model.pkl"</span>
 <a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a>
 <a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a><span class="w">  </span><span class="c1"># Optional: route-specific feature engineering</span>
 <a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a><span class="w">  </span><span class="nt">feature_engineering_paths</span><span class="p">:</span>
-<a id="__codelineno-18-28" name="__codelineno-18-28" href="#__codelineno-18-28"></a><span class="w">    </span><span class="nt">florianopolis</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/regional/flor_fe.pkl&quot;</span>
-<a id="__codelineno-18-29" name="__codelineno-18-29" href="#__codelineno-18-29"></a><span class="w">    </span><span class="nt">south_regions</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/regional/south_fe.pkl&quot;</span>
+<a id="__codelineno-18-28" name="__codelineno-18-28" href="#__codelineno-18-28"></a><span class="w">    </span><span class="nt">florianopolis</span><span class="p">:</span><span class="w"> </span><span class="s">"models/regional/flor_fe.pkl"</span>
+<a id="__codelineno-18-29" name="__codelineno-18-29" href="#__codelineno-18-29"></a><span class="w">    </span><span class="nt">south_regions</span><span class="p">:</span><span class="w"> </span><span class="s">"models/regional/south_fe.pkl"</span>
 <a id="__codelineno-18-30" name="__codelineno-18-30" href="#__codelineno-18-30"></a><span class="w">    </span><span class="c1"># alta_tension shares the top-level FE if omitted.</span>
-<a id="__codelineno-18-31" name="__codelineno-18-31" href="#__codelineno-18-31"></a><span class="w">    </span><span class="c1"># &quot;__default__&quot; provides the FE for the default model&#39;s rows (unrouted rows):</span>
-<a id="__codelineno-18-32" name="__codelineno-18-32" href="#__codelineno-18-32"></a><span class="w">    </span><span class="nt">__default__</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/global/global_fe.pkl&quot;</span>
+<a id="__codelineno-18-31" name="__codelineno-18-31" href="#__codelineno-18-31"></a><span class="w">    </span><span class="c1"># "__default__" provides the FE for the default model's rows (unrouted rows):</span>
+<a id="__codelineno-18-32" name="__codelineno-18-32" href="#__codelineno-18-32"></a><span class="w">    </span><span class="nt">__default__</span><span class="p">:</span><span class="w"> </span><span class="s">"models/global/global_fe.pkl"</span>
 </code></pre></div>
 <h3 id="routing-behavior">Routing Behavior<a class="headerlink" href="#routing-behavior" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3843,25 +3816,25 @@ for the override syntax.</p>
 <h3 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/new_data.parquet&quot;</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/predictions.csv&quot;</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/new_data.parquet"</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/predictions.csv"</span>
 <a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># Global fallback (used for unknown segments)</span>
 <a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
 <a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">  </span><span class="nt">segment_thresholds</span><span class="p">:</span>
 <a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/segment_thresholds_geo_region.json&quot;</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/segment_thresholds_geo_region.json"</span>
 <a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">    </span><span class="c1"># Unknown segment values fall back to the global `threshold` above.</span>
 </code></pre></div>
 <h3 id="json-format-from-evaluation">JSON Format (from evaluation)<a class="headerlink" href="#json-format-from-evaluation" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">&quot;segment_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;geo_region&quot;</span><span class="p">,</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">&quot;threshold_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;youden&quot;</span><span class="p">,</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">&quot;default_threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">,</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">&quot;segments&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">    </span><span class="nt">&quot;FLORIANOPOLIS&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.42</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;auc&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.82</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;n_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">150</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="nt">&quot;SAO_PAULO&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.55</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;auc&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.88</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;n_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">320</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="nt">&quot;RIO&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.48</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;auc&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.79</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;n_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">210</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="nt">&quot;BELO_HORIZONTE&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.51</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;auc&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.81</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;n_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">180</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">"segment_column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"geo_region"</span><span class="p">,</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">"threshold_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"youden"</span><span class="p">,</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">"default_threshold"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">,</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">"segments"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">    </span><span class="nt">"FLORIANOPOLIS"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"threshold"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.42</span><span class="p">,</span><span class="w"> </span><span class="nt">"auc"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.82</span><span class="p">,</span><span class="w"> </span><span class="nt">"n_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">150</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="nt">"SAO_PAULO"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"threshold"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.55</span><span class="p">,</span><span class="w"> </span><span class="nt">"auc"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.88</span><span class="p">,</span><span class="w"> </span><span class="nt">"n_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">320</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="nt">"RIO"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"threshold"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.48</span><span class="p">,</span><span class="w"> </span><span class="nt">"auc"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.79</span><span class="p">,</span><span class="w"> </span><span class="nt">"n_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">210</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="nt">"BELO_HORIZONTE"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"threshold"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.51</span><span class="p">,</span><span class="w"> </span><span class="nt">"auc"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.81</span><span class="p">,</span><span class="w"> </span><span class="nt">"n_samples"</span><span class="p">:</span><span class="w"> </span><span class="mi">180</span><span class="w"> </span><span class="p">}</span>
 <a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">  </span><span class="p">}</span>
 <a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="p">}</span>
 </code></pre></div>
@@ -3953,13 +3926,13 @@ for the override syntax.</p>
 <h3 id="example-configuration_1">Example Configuration<a class="headerlink" href="#example-configuration_1" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/new_data.parquet&quot;</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/predictions.csv&quot;</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/new_data.parquet"</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/predictions.csv"</span>
 <a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
 <a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">  </span><span class="nt">segment_thresholds</span><span class="p">:</span>
 <a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/segment_thresholds_geo_region.json&quot;</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/segment_thresholds_geo_region.json"</span>
 <a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">    </span><span class="c1"># Unknown segment values fall back to the global `threshold` above.</span>
 <a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>
 <a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="w">  </span><span class="nt">business_rules</span><span class="p">:</span>
@@ -3967,25 +3940,25 @@ for the override syntax.</p>
 <a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>
 <a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="w">    </span><span class="c1"># Only apply rules to specific regions (optional)</span>
 <a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="w">    </span><span class="nt">apply_to</span><span class="p">:</span>
-<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="w">      </span><span class="nt">column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;geo_region&quot;</span>
+<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="w">      </span><span class="nt">column</span><span class="p">:</span><span class="w"> </span><span class="s">"geo_region"</span>
 <a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a><span class="w">      </span><span class="nt">regions</span><span class="p">:</span>
-<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;FLORIANOPOLIS&quot;</span>
-<a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;SAO_PAULO&quot;</span>
+<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"FLORIANOPOLIS"</span>
+<a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"SAO_PAULO"</span>
 <a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>
 <a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a><span class="w">    </span><span class="nt">rules</span><span class="p">:</span>
-<a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;consumo_cero_3m&quot;</span>
-<a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a><span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;(`3_anterior`</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0)</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">(`2_anterior`</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0)</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">(`1_anterior`</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0)&quot;</span>
-<a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a><span class="w">        </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;override&quot;</span>
+<a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"consumo_cero_3m"</span>
+<a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a><span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">"(`3_anterior`</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0)</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">(`2_anterior`</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0)</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">(`1_anterior`</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0)"</span>
+<a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a><span class="w">        </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"override"</span>
 <a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a><span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w">  </span><span class="c1"># Ignored for override</span>
 <a id="__codelineno-21-27" name="__codelineno-21-27" href="#__codelineno-21-27"></a>
-<a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;caida_abrupta&quot;</span>
-<a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a><span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;(`1_anterior`</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">11)</span><span class="nv"> </span><span class="s">&lt;</span><span class="nv"> </span><span class="s">0.4</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">(`12_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`11_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`10_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`9_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`8_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`7_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`6_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`5_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`4_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`3_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`2_anterior`)&quot;</span>
-<a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a><span class="w">        </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;score_boost&quot;</span>
+<a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"caida_abrupta"</span>
+<a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a><span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">"(`1_anterior`</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">11)</span><span class="nv"> </span><span class="s">&lt;</span><span class="nv"> </span><span class="s">0.4</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">(`12_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`11_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`10_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`9_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`8_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`7_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`6_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`5_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`4_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`3_anterior`</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">`2_anterior`)"</span>
+<a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a><span class="w">        </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"score_boost"</span>
 <a id="__codelineno-21-31" name="__codelineno-21-31" href="#__codelineno-21-31"></a><span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
 <a id="__codelineno-21-32" name="__codelineno-21-32" href="#__codelineno-21-32"></a>
-<a id="__codelineno-21-33" name="__codelineno-21-33" href="#__codelineno-21-33"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;denuncia_sac&quot;</span>
-<a id="__codelineno-21-34" name="__codelineno-21-34" href="#__codelineno-21-34"></a><span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;False&quot;</span><span class="w">  </span><span class="c1"># Stub rule — never triggers until data column exists</span>
-<a id="__codelineno-21-35" name="__codelineno-21-35" href="#__codelineno-21-35"></a><span class="w">        </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;flag&quot;</span>
+<a id="__codelineno-21-33" name="__codelineno-21-33" href="#__codelineno-21-33"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"denuncia_sac"</span>
+<a id="__codelineno-21-34" name="__codelineno-21-34" href="#__codelineno-21-34"></a><span class="w">        </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="s">"False"</span><span class="w">  </span><span class="c1"># Stub rule — never triggers until data column exists</span>
+<a id="__codelineno-21-35" name="__codelineno-21-35" href="#__codelineno-21-35"></a><span class="w">        </span><span class="nt">action</span><span class="p">:</span><span class="w"> </span><span class="s">"flag"</span>
 <a id="__codelineno-21-36" name="__codelineno-21-36" href="#__codelineno-21-36"></a><span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
 <a id="__codelineno-21-37" name="__codelineno-21-37" href="#__codelineno-21-37"></a>
 <a id="__codelineno-21-38" name="__codelineno-21-38" href="#__codelineno-21-38"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span>
@@ -4011,37 +3984,37 @@ for the override syntax.</p>
 <a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
 <a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">CustomInference</span><span class="p">(</span><span class="n">BaseInference</span><span class="p">):</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>        <span class="c1"># Apply feature engineering</span>
 <a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>        <span class="n">transformed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_engineering</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 <a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>        <span class="c1"># Get probability scores</span>
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>        <span class="n">probabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">transformed</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>        <span class="c1"># Get probability scores from the passed model</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>        <span class="n">probabilities</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">transformed</span><span class="p">)</span>
 <a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>
 <a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>        <span class="c1"># Apply threshold</span>
 <a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>        <span class="n">predictions</span> <span class="o">=</span> <span class="p">(</span><span class="n">probabilities</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
 <a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>
 <a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>        <span class="c1"># Create output DataFrame</span>
 <a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>            <span class="s1">&#39;prediction&#39;</span><span class="p">:</span> <span class="n">predictions</span><span class="p">,</span>
-<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>            <span class="s1">&#39;probability&#39;</span><span class="p">:</span> <span class="n">probabilities</span>
+<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>            <span class="s1">'prediction'</span><span class="p">:</span> <span class="n">predictions</span><span class="p">,</span>
+<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>            <span class="s1">'probability'</span><span class="p">:</span> <span class="n">probabilities</span>
 <a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>        <span class="p">})</span>
 <a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>
 <a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>        <span class="c1"># Add custom logic here</span>
 <a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a>        <span class="c1"># For example: filter out low-risk customers</span>
-<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a>        <span class="n">high_risk</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;probability&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.8</span><span class="p">]</span>
+<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a>        <span class="n">high_risk</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="n">result</span><span class="p">[</span><span class="s1">'probability'</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.8</span><span class="p">]</span>
 <a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a>
 <a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a>        <span class="k">return</span> <span class="n">high_risk</span>
 </code></pre></div>
 <p>Update <code>infer.yaml</code> to use your custom class:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions.csv&quot;</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions.csv"</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">  </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;src.inference.custom_inference.CustomInference&quot;</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">  </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"src.inference.custom_inference.CustomInference"</span>
 </code></pre></div>
 <hr />
 <h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
@@ -4049,10 +4022,10 @@ for the override syntax.</p>
 <p>Keep track of which model was used for infer:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_data.parquet&quot;</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;predictions_model_v1.csv&quot;</span>
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20260317_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_data.parquet"</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"predictions_model_v1.csv"</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/model.pkl"</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20260317_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 </code></pre></div>
 <h3 id="2-data-quality-checks">2. Data Quality Checks<a class="headerlink" href="#2-data-quality-checks" title="Permanent link">&para;</a></h3>
@@ -4108,7 +4081,7 @@ for the override syntax.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># In custom_inference.py</span>
 <a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
 <a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="n">predictions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="n">predictions</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="ow">not</span> <span class="n">exists</span><span class="p">)</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="n">predictions</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'a'</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="ow">not</span> <span class="n">exists</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <p>← <a href="../evaluation/">Configuration: Evaluation</a> | <a href="../../troubleshooting/">Troubleshooting</a> →</p>

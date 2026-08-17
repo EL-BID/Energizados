@@ -306,7 +306,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../web-console/" class="md-tabs__link">
+        <a href="../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +346,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1559,7 +1559,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/" class="md-nav__link">
+      <a href="../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1587,7 +1587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -1758,7 +1758,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -1772,13 +1772,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1793,7 +1786,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -1807,13 +1800,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1828,7 +1814,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -1842,13 +1828,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1863,7 +1842,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -1876,13 +1855,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2253,7 +2225,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -2868,7 +2840,7 @@
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">            </span><span class="c1"># ignored when calibration.enabled = true</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">calibration</span><span class="p">:</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cost_benefit&quot;</span><span class="w">   </span><span class="c1"># cost_benefit | operational | precision_recall</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">"cost_benefit"</span><span class="w">   </span><span class="c1"># cost_benefit | operational | precision_recall</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">cost_fp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">cost_fn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
@@ -2943,8 +2915,8 @@ is significantly slower than TreeExplainer (for tree models).</p>
 <p class="admonition-title">Enabling segment evaluation</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">evaluation</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">segment_columns</span><span class="p">:</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;zona&quot;</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;tipo_tarifa&quot;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"zona"</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"tipo_tarifa"</span>
 </code></pre></div>
 </div>
 <p>The report generates:</p>
@@ -2975,9 +2947,9 @@ is significantly slower than TreeExplainer (for tree models).</p>
 <p class="admonition-title">segmented_evaluation</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">evaluation</span><span class="p">:</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">segmented_evaluation</span><span class="p">:</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">by</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;zona&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;tipo_tarifa&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;zona+nivel_tension&quot;</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># columns and combos via &quot;+&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">by</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"zona"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"tipo_tarifa"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"zona+nivel_tension"</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># columns and combos via "+"</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">min_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">            </span><span class="c1"># skip segments smaller than this</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">threshold_mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;youden&quot;</span><span class="w">   </span><span class="c1"># global | youden | f1_optimal | recall_target</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">threshold_mode</span><span class="p">:</span><span class="w"> </span><span class="s">"youden"</span><span class="w">   </span><span class="c1"># global | youden | f1_optimal | recall_target</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">recall_target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.80</span><span class="w">        </span><span class="c1"># only used when threshold_mode=recall_target</span>
 </code></pre></div>
 </div>

@@ -306,7 +306,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../web-console/" class="md-tabs__link">
+        <a href="../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +346,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1794,7 +1794,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/" class="md-nav__link">
+      <a href="../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1822,7 +1822,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -1993,7 +1993,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -2007,13 +2007,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -2028,7 +2021,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -2042,13 +2035,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -2063,7 +2049,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -2077,13 +2063,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -2098,7 +2077,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -2111,13 +2090,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2488,7 +2460,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -3309,9 +3281,9 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># ❌ This causes a circular dependency</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="nt">etl</span><span class="p">:</span>
 <a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">a</span><span class="p">:</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;b&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"b"</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">b</span><span class="p">:</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;a&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"a"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <hr />
 <h2 id="training-errors">Training Errors<a class="headerlink" href="#training-errors" title="Permanent link">&para;</a></h2>
@@ -3332,7 +3304,7 @@
 <li>Check target column exists:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;data/processed/dataset.parquet&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">"data/processed/dataset.parquet"</span><span class="p">)</span>
 <a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>  <span class="c1"># Verify target_column is present</span>
 </code></pre></div>
 <ol>
@@ -3368,7 +3340,7 @@
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nt">calibration</span><span class="p">:</span>
 <a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cost_benefit&quot;</span><span class="w">  </span><span class="c1"># Must be: cost_benefit, operational, precision_recall</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="s">"cost_benefit"</span><span class="w">  </span><span class="c1"># Must be: cost_benefit, operational, precision_recall</span>
 <a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span><span class="nt">params</span><span class="p">:</span>
 <a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">    </span><span class="nt">cost_fp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">  </span><span class="c1"># Required for cost_benefit</span>
 <a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">    </span><span class="nt">cost_fn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
@@ -3396,7 +3368,7 @@
 <li>Ensure input data has correct schema:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">&quot;data/new_data.parquet&quot;</span><span class="p">)</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s2">"data/new_data.parquet"</span><span class="p">)</span>
 <a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>  <span class="c1"># Should match training data columns</span>
 </code></pre></div>
 <ol>

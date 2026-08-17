@@ -306,7 +306,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../web-console/" class="md-tabs__link">
+        <a href="../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +346,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1504,7 +1504,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/" class="md-nav__link">
+      <a href="../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1532,7 +1532,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -1703,7 +1703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -1717,13 +1717,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1738,7 +1731,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -1752,13 +1745,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1773,7 +1759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -1787,13 +1773,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1808,7 +1787,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -1821,13 +1800,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2198,7 +2170,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -2591,6 +2563,7 @@
 <li><code>--path, -p</code>: Directory where to create the project (default: <code>.</code>)</li>
 <li><code>--copy, -c</code>: Copy from an existing project (takes precedence over <code>--template</code>)</li>
 <li><code>--force, -f</code>: Force creation, removing existing directory if necessary</li>
+<li><code>--yes, -y</code>: Skip interactive prompts. On a directory conflict, recreation also requires <code>--force</code> (e.g., <code>init x --yes --force</code>). Useful for CI/automation.</li>
 </ul>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create from default template</span>
@@ -2619,7 +2592,7 @@
 <li><code>--etl, -e</code>: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.</li>
 <li><code>--dry-run, -d</code>: Show execution plan without executing anything</li>
 <li><code>--json, -j</code>: Output results as JSON instead of human-readable format (useful for scripting and CI/CD integration)</li>
-<li><code>--verbose, -v</code>: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)</li>
+<li><code>--verbose, -v</code>: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG). With <code>run</code>, <code>-vv</code> also enables memory profiling: per-step RSS sampling (Δ retained + peak shown per step) and a final <code>Memory profile</code> table sorted by peak.</li>
 <li><code>--name, -n</code>: Custom run directory name. Without this, auto-generated timestamp is used (e.g., <code>train-20260318_2209</code>). Only alphanumeric, dashes, and underscores allowed.</li>
 <li><code>--overwrite, -o</code>: Overwrite existing output directory if it exists</li>
 <li><code>--log-file, -l</code>: Save logs to a file (e.g., <code>output/run.log</code>)</li>

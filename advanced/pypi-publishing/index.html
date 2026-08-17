@@ -14,8 +14,6 @@
         <link rel="prev" href="../contributing/">
       
       
-        <link rel="next" href="../../releases/v0.3.3/">
-      
       
         
       
@@ -304,7 +302,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../web-console/" class="md-tabs__link">
+        <a href="../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +344,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1190,7 +1188,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/" class="md-nav__link">
+      <a href="../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1218,7 +1216,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -1395,7 +1393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -1409,13 +1407,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1430,7 +1421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -1444,13 +1435,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1465,7 +1449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -1479,13 +1463,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1500,7 +1477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -1513,13 +1490,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2340,7 +2310,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -2889,7 +2859,7 @@
 <p class="admonition-title">Name Availability</p>
 <p>If the name is NOT available, you must change it in <code>pyproject.toml</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[project]</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;energizados-ml&quot;</span><span class="w">  </span><span class="c1"># or alternative name you choose</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"energizados-ml"</span><span class="w">  </span><span class="c1"># or alternative name you choose</span>
 </code></pre></div>
 <p><strong>Considerations for choosing a name:</strong>
 - Unique on PyPI
@@ -3016,8 +2986,8 @@
 </div>
 <h3 id="option-2-environment-variables-recommended-method">Option 2: Environment Variables (recommended method)<a class="headerlink" href="#option-2-environment-variables-recommended-method" title="Permanent link">&para;</a></h3>
 <p>In your shell (<code>~/.bashrc</code>, <code>~/.zshrc</code>, etc.):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TWINE_USERNAME</span><span class="o">=</span><span class="s2">&quot;__token__&quot;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TWINE_PASSWORD</span><span class="o">=</span><span class="s2">&quot;pypi-AGVmAGx...your-complete-token...&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TWINE_USERNAME</span><span class="o">=</span><span class="s2">"__token__"</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TWINE_PASSWORD</span><span class="o">=</span><span class="s2">"pypi-AGVmAGx...your-complete-token..."</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Environment Variables</p>
@@ -3039,32 +3009,32 @@
 <h2 id="prepare-pyprojecttoml">Prepare pyproject.toml<a class="headerlink" href="#prepare-pyprojecttoml" title="Permanent link">&para;</a></h2>
 <p>The file should already be configured, but verify:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">[build-system]</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">requires</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;setuptools&gt;=61.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;wheel&quot;</span><span class="p">]</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">build-backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;setuptools.build_meta&quot;</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">requires</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"setuptools&gt;=61.0"</span><span class="p">,</span><span class="w"> </span><span class="s2">"wheel"</span><span class="p">]</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">build-backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"setuptools.build_meta"</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">[project]</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;energizados&quot;</span><span class="w">              </span><span class="c1"># ← Unique name on PyPI</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="w">                  </span><span class="c1"># ← First version</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Framework for electricity fraud detection&quot;</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">readme</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;README.md&quot;</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&gt;=3.10&quot;</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">license</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">text</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"energizados"</span><span class="w">              </span><span class="c1"># ← Unique name on PyPI</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"0.1.0"</span><span class="w">                  </span><span class="c1"># ← First version</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Framework for electricity fraud detection"</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">readme</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"README.md"</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&gt;=3.10"</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">license</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">text</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"MIT"</span><span class="w"> </span><span class="p">}</span>
 <a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">authors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;Energizados Team&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;contact@energizados.org&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"Energizados Team"</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"contact@energizados.org"</span><span class="w"> </span><span class="p">}</span>
 <a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="p">]</span>
 <a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
 <a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># Dependencies</span>
 <a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="s2">&quot;boruta==0.4.3&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">    </span><span class="s2">&quot;catboost==1.2.8&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="s2">"boruta==0.4.3"</span><span class="p">,</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">    </span><span class="s2">"catboost==1.2.8"</span><span class="p">,</span>
 <a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">    </span><span class="c1"># ... rest of dependencies</span>
 <a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="p">]</span>
 <a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>
 <a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="k">[project.urls]</span>
-<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="n">Homepage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/EL-BID/Energizados&quot;</span>
-<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="n">Documentation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/EL-BID/Energizados#readme&quot;</span>
-<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="n">Repository</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/EL-BID/Energizados&quot;</span>
-<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="n">Issues</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/EL-BID/Energizados/issues&quot;</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="n">Homepage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://github.com/EL-BID/Energizados"</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="n">Documentation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://github.com/EL-BID/Energizados#readme"</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="n">Repository</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://github.com/EL-BID/Energizados"</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="n">Issues</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://github.com/EL-BID/Energizados/issues"</span>
 </code></pre></div>
 <h3 id="verify-readmemd">Verify README.md<a class="headerlink" href="#verify-readmemd" title="Permanent link">&para;</a></h3>
 <p>The README will be used as long description on PyPI. Ensure that:</p>
@@ -3084,7 +3054,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>build<span class="w"> </span>twine
 </code></pre></div>
 <h3 id="2-build-packages">2. Build Packages<a class="headerlink" href="#2-build-packages" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Make sure you&#39;re on the correct branch</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Make sure you're on the correct branch</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>main
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Clean if previous build exists</span>
@@ -3169,7 +3139,7 @@
 <a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set up Python</span>
 <a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/setup-python@v5</span>
 <a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;3.x&quot;</span>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="s">"3.x"</span>
 <a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a>
 <a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Install build tools</span>
 <a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>

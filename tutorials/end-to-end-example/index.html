@@ -306,7 +306,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../web-console/" class="md-tabs__link">
+        <a href="../../web-console/README.md" class="md-tabs__link">
           
   
   
@@ -346,7 +346,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../releases/v0.3.3/" class="md-tabs__link">
+        <a href="../../releases/v0.3.3.md" class="md-tabs__link">
           
   
   
@@ -1489,7 +1489,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/" class="md-nav__link">
+      <a href="../../web-console/README.md" class="md-nav__link">
         
   
   
@@ -1517,7 +1517,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../web-console/DEPLOYMENT/" class="md-nav__link">
+      <a href="../../web-console/DEPLOYMENT.md" class="md-nav__link">
         
   
   
@@ -1688,7 +1688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-geo-features-as-transformer/" class="md-nav__link">
+      <a href="../../adr/0001-geo-features-as-transformer.md" class="md-nav__link">
         
   
   
@@ -1702,13 +1702,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1723,7 +1716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-generalized-run/" class="md-nav__link">
+      <a href="../../adr/0002-generalized-run.md" class="md-nav__link">
         
   
   
@@ -1737,13 +1730,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1758,7 +1744,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0003-deprecate-global-scope/" class="md-nav__link">
+      <a href="../../adr/0003-deprecate-global-scope.md" class="md-nav__link">
         
   
   
@@ -1772,13 +1758,6 @@
   </span>
   
   
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
-  
 
       </a>
     </li>
@@ -1793,7 +1772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0004-run-level-lineage/" class="md-nav__link">
+      <a href="../../adr/0004-run-level-lineage.md" class="md-nav__link">
         
   
   
@@ -1806,13 +1785,6 @@
     
   </span>
   
-  
-    
-  
-  
-    <span class="md-status md-status--accepted"></span>
-  
-
   
 
       </a>
@@ -2183,7 +2155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../releases/v0.3.3/" class="md-nav__link">
+      <a href="../../releases/v0.3.3.md" class="md-nav__link">
         
   
   
@@ -2591,27 +2563,27 @@
 <h2 id="step-2-explore-sample-data">Step 2: Explore Sample Data<a class="headerlink" href="#step-2-explore-sample-data" title="Permanent link">&para;</a></h2>
 <p>Let's briefly examine the sample dataset:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Load Python and inspect the data</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span><span class="s">&lt;&lt; 'EOF'</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="s">import pandas as pd</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s">df = pd.read_parquet(&quot;data/raw/sample_dataset.parquet&quot;)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s">df = pd.read_parquet("data/raw/sample_dataset.parquet")</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="s">print(f&quot;Dataset shape: {df.shape}&quot;)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="s">print(f&quot;\nColumns: {list(df.columns)}&quot;)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="s">print(f&quot;\nTarget distribution:&quot;)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="s">print(df[&#39;target&#39;].value_counts(normalize=True))</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="s">print(f&quot;\nTarget count:&quot;)</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="s">print(df[&#39;target&#39;].value_counts())</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="s">print(f"Dataset shape: {df.shape}")</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="s">print(f"\nColumns: {list(df.columns)}")</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="s">print(f"\nTarget distribution:")</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="s">print(df['target'].value_counts(normalize=True))</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="s">print(f"\nTarget count:")</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="s">print(df['target'].value_counts())</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="s">EOF</span>
 </code></pre></div>
 <p><strong>Expected output</strong>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Dataset shape: (42500, 20)
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>Columns: [&#39;index&#39;, &#39;12_anterior&#39;, &#39;11_anterior&#39;, &#39;10_anterior&#39;, &#39;9_anterior&#39;,
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>          &#39;8_anterior&#39;, &#39;7_anterior&#39;, &#39;6_anterior&#39;, &#39;5_anterior&#39;, &#39;4_anterior&#39;,
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>          &#39;3_anterior&#39;, &#39;2_anterior&#39;, &#39;1_anterior&#39;, &#39;zona&#39;, &#39;actividad&#39;,
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>          &#39;tipo_tarifa&#39;, &#39;nivel_tension&#39;, &#39;material_instalacion&#39;,
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>          &#39;fecha_inspeccion&#39;, &#39;target&#39;]
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>Columns: ['index', '12_anterior', '11_anterior', '10_anterior', '9_anterior',
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>          '8_anterior', '7_anterior', '6_anterior', '5_anterior', '4_anterior',
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>          '3_anterior', '2_anterior', '1_anterior', 'zona', 'actividad',
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>          'tipo_tarifa', 'nivel_tension', 'material_instalacion',
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>          'fecha_inspeccion', 'target']
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>Target distribution:
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>0    0.942118
@@ -2671,15 +2643,15 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># config/train.yaml</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">train</span><span class="p">:</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/processed/sample_dataset.parquet&quot;</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">target_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;target&quot;</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/sample_dataset.parquet"</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">target_column</span><span class="p">:</span><span class="w"> </span><span class="s">"target"</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">split</span><span class="p">:</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;time_series&quot;</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">date_column</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;fecha_inspeccion&quot;</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="nt">train_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;2010-01-01&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;2017-08-01&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="nt">val_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;2017-09-01&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;2017-12-31&quot;</span><span class="p p-Indicator">]</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nt">test_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;2018-01-01&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="s">"time_series"</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">date_column</span><span class="p">:</span><span class="w"> </span><span class="s">"fecha_inspeccion"</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="nt">train_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"2010-01-01"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"2017-08-01"</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="nt">val_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"2017-09-01"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"2017-12-31"</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nt">test_period</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"2018-01-01"</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
 <a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">  </span><span class="nt">feature_engineering</span><span class="p">:</span>
 <a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2705,9 +2677,9 @@
 <a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>
 <a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">  </span><span class="nt">models</span><span class="p">:</span>
-<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;lightgbm&quot;</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"lightgbm"</span>
 <a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a><span class="w">      </span><span class="nt">sampling</span><span class="p">:</span>
-<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="w">        </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;undersample&quot;</span>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="w">        </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="s">"undersample"</span>
 <a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a><span class="w">        </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
 <a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a><span class="w">      </span><span class="nt">hyperparams</span><span class="p">:</span>
 <a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a><span class="w">        </span><span class="nt">num_leaves</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">31</span>
@@ -2829,21 +2801,21 @@
 <h3 id="prepare-new-data">Prepare New Data<a class="headerlink" href="#prepare-new-data" title="Permanent link">&para;</a></h3>
 <p>Create a new CSV or parquet file with the same columns as the training data (except <code>target</code>). For example:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Create a sample inference file</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>python<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>python<span class="w"> </span><span class="s">&lt;&lt; 'EOF'</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="s">import pandas as pd</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="s">import numpy as np</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="s"># Load the training data to get column structure</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="s">train_df = pd.read_parquet(&quot;data/processed/sample_dataset.parquet&quot;)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="s">train_df = pd.read_parquet("data/processed/sample_dataset.parquet")</span>
 <a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
 <a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="s"># Create 10 mock customers</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="s">new_data = train_df.drop(columns=[&#39;target&#39;]).sample(n=10, random_state=42)</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="s">new_data[&#39;fecha_inspeccion&#39;] = &#39;2024-01-15&#39;</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="s">new_data = train_df.drop(columns=['target']).sample(n=10, random_state=42)</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="s">new_data['fecha_inspeccion'] = '2024-01-15'</span>
 <a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
 <a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="s"># Save for inference</span>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="s">new_data.to_parquet(&quot;data/new_customers.parquet&quot;, index=False)</span>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="s">print(f&quot;Created {len(new_data)} mock customers for inference&quot;)</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="s">print(f&quot;\nColumns: {list(new_data.columns)}&quot;)</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="s">new_data.to_parquet("data/new_customers.parquet", index=False)</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="s">print(f"Created {len(new_data)} mock customers for inference")</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="s">print(f"\nColumns: {list(new_data.columns)}")</span>
 <a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="s">EOF</span>
 </code></pre></div>
 <h3 id="configure-inference">Configure Inference<a class="headerlink" href="#configure-inference" title="Permanent link">&para;</a></h3>
@@ -2851,11 +2823,11 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># config/infer.yaml</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">infer</span><span class="p">:</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;data/new_customers.parquet&quot;</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20240315_1430/models/model.pkl&quot;</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/train-20240315_1430/models/feature_engineering.pkl&quot;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">input_path</span><span class="p">:</span><span class="w"> </span><span class="s">"data/new_customers.parquet"</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">model_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20240315_1430/models/model.pkl"</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">feature_engineering_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/train-20240315_1430/models/feature_engineering.pkl"</span>
 <a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="nt">threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;output/inference_predictions.parquet&quot;</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">  </span><span class="nt">output_predictions_path</span><span class="p">:</span><span class="w"> </span><span class="s">"output/inference_predictions.parquet"</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2872,11 +2844,11 @@
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>Predictions saved to output/inference_predictions.parquet
 </code></pre></div></p>
 <h3 id="view-predictions">View Predictions<a class="headerlink" href="#view-predictions" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>python<span class="w"> </span><span class="s">&lt;&lt; &#39;EOF&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>python<span class="w"> </span><span class="s">&lt;&lt; 'EOF'</span>
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="s">import pandas as pd</span>
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="s">preds = pd.read_parquet(&quot;output/inference_predictions.parquet&quot;)</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="s">print(preds[[&#39;probability&#39;, &#39;prediction&#39;]].sort_values(&#39;probability&#39;, ascending=False))</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="s">preds = pd.read_parquet("output/inference_predictions.parquet")</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="s">print(preds[['probability', 'prediction']].sort_values('probability', ascending=False))</span>
 <a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="s">EOF</span>
 </code></pre></div>
 <p><strong>Expected output</strong>:
