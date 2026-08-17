@@ -30,7 +30,8 @@ infer:
   # model_path: "output/train-YYYYMMDD_HHMM/models/model.pkl"
   # feature_engineering_path: "output/train-YYYYMMDD_HHMM/models/feature_engineering.pkl"
   threshold: 0.5
-  type: "default"         # Use "default" or set custom_class
+  # For a custom inference engine, set custom_class instead:
+  # custom_class: "src.inference.custom_inference.CustomInference"
 ```
 
 > **Note:** The template ships with `enabled: false`. You must set `enabled: true` and configure `model_path` and `feature_engineering_path` before running inference.
@@ -237,7 +238,7 @@ infer:
   threshold: 0.42  # Calibrated threshold from evaluation report
 ```
 
-Check the evaluation report (`output/train-YYYYMMDD_HHMM/reports/evaluation/report.json`) to find the calibrated threshold.
+Check the evaluation report (`output/train-YYYYMMDD_HHMM/reports/evaluation/evaluation_report.json`) to find the calibrated threshold.
 
 ### Batch Inference
 
@@ -596,12 +597,12 @@ from energizados.inference.base import BaseInference
 import pandas as pd
 
 class CustomInference(BaseInference):
-    def predict(self, data: pd.DataFrame) -> pd.DataFrame:
+    def predict(self, model, data: pd.DataFrame) -> pd.DataFrame:
         # Apply feature engineering
         transformed = self.feature_engineering.transform(data)
 
-        # Get probability scores
-        probabilities = self.model.predict_proba(transformed)[:, 1]
+        # Get probability scores from the passed model
+        probabilities = model.predict_proba(transformed)
 
         # Apply threshold
         predictions = (probabilities >= self.threshold).astype(int)

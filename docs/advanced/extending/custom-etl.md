@@ -13,8 +13,15 @@ import pandas as pd
 class BaseETL(ABC):
     """Base class for custom ETL."""
 
-    def __init__(self):
-        """Initialize ETL instance."""
+    def __init__(self, name=None, input_paths=None, output_path=None, **params):
+        """Initialize ETL instance.
+
+        Args:
+            name: ETL name (stored as self.name).
+            input_paths: Resolved input file paths (stored as self.input_paths).
+            output_path: Output path (stored as self.output_path).
+            **params: Additional orchestrator params (ignored by the base).
+        """
         pass
 
     @abstractmethod
@@ -179,12 +186,16 @@ This is a domain-specific operation that is best implemented as a **custom ETL e
 ### Template: DatasetBuilderETL
 
 ```python
-# src/etl/dataset_builder_etl.py
+# src/data/dataset_builder_etl.py
 """Dataset Builder ETL: Joins and pivots consumption data to wide format."""
+
+import logging
 
 import pandas as pd
 from energizados.etl.pipeline import SourceETL
 from energizados.core.exceptions import ETLError
+
+logger = logging.getLogger(__name__)
 
 
 class DatasetBuilderETL(SourceETL):
@@ -439,7 +450,7 @@ etl:
       - "@consumos"   # Index 1
       - "@inspecciones" # Index 2
     output: "data/processed/dataset_wide.parquet"
-    custom_class: "src.etl.dataset_builder_etl.DatasetBuilderETL"
+    custom_class: "src.data.dataset_builder_etl.DatasetBuilderETL"
     params:
       consumo_key: "id_cliente"
       inspeccion_key: "id_cliente"

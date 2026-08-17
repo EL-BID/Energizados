@@ -12,6 +12,7 @@ Creates a new project from a template or copies an existing one.
 - `--path, -p`: Directory where to create the project (default: `.`)
 - `--copy, -c`: Copy from an existing project (takes precedence over `--template`)
 - `--force, -f`: Force creation, removing existing directory if necessary
+- `--yes, -y`: Skip interactive prompts. On a directory conflict, recreation also requires `--force` (e.g., `init x --yes --force`). Useful for CI/automation.
 
 ### Examples
 
@@ -46,7 +47,7 @@ Executes a pipeline from YAML configuration files.
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
 - `--json, -j`: Output results as JSON instead of human-readable format (useful for scripting and CI/CD integration)
-- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
+- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG). With `run`, `-vv` also enables memory profiling: per-step RSS sampling (Δ retained + peak shown per step) and a final `Memory profile` table sorted by peak.
 - `--name, -n`: Custom run directory name. Without this, auto-generated timestamp is used (e.g., `train-20260318_2209`). Only alphanumeric, dashes, and underscores allowed.
 - `--overwrite, -o`: Overwrite existing output directory if it exists
 - `--log-file, -l`: Save logs to a file (e.g., `output/run.log`)

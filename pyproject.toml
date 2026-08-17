@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "energizados"
-version = "0.3.4"
+version = "0.3.5"
 description = "Framework para detección de fraude en consumo energético"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 license = { file = "LICENSE.md" }
 authors = [{ name = "Energizados Team", email = "contact@energizados.org" }]
 keywords = [

@@ -57,7 +57,7 @@ etl:
 
 ## SourceETL
 
-`SourceETL` is the built-in ETL implementation. It reads CSV, Parquet (`.parquet`/`.pq`), and Excel (`.xlsx`/`.xls`) files and supports two processing modes.
+`SourceETL` is the built-in ETL implementation. It reads CSV, Parquet (`.parquet`/`.pq`), and Excel (`.xlsx`/`.xls`) files and supports three processing modes: `concat`, `merge`, and `incremental`.
 
 > **Note:** New projects created with `energizados init` use `custom_class: "src.data.custom_etl.CustomETL"` for the sample ETL — this is the generated `CustomETL` class in `src/data/custom_etl.py`, which extends `BaseETL`. Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly without a custom class.
 

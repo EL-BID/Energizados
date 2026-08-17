@@ -187,7 +187,7 @@ mi_proyecto/
 | `INFERENCE_SCHEMA` | Validates inference configuration (input/output, threshold) |
 
 **Sampling Methods Validated:**
-- `over` — increases minority class samples (RandomOverSampler)
+- `oversample` — increases minority class samples (RandomOverSampler)
 - `undersample` — reduces majority class samples (RandomUnderSampler)
 - `smotetomek` — combines SMOTE oversampling with Tomek links cleaning (SMOTETomek)
 - `none` — disable class balancing
@@ -354,7 +354,7 @@ Feature Engineering (config/train.yaml → feature_engineering)
 Feature Engineering Pipeline (saved as .pkl)
     ↓
 Model Training (config/train.yaml → models)
-    ├── Sampling (over/undersample/smotetomek/none)
+    ├── Sampling (oversample/undersample/smotetomek/none)
     ├── Hyperparameter Search (optional)
     └── Model Fitting
     ↓

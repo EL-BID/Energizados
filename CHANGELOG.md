@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-08-16
+
+### Added
+
+- **CLI: bare `energizados` and `energizados --help` now print the framework version.** The help banner leads with `energizados vX.Y.Z`, sourced from the same installed-package metadata as `doctor` and `--version` (`_version.get_version()`), so all three always agree. Covered by `tests/test_cli_main.py`.
+
+### Fixed
+
+- **Packaging: `requires-python` capped to `<4.0` and `poetry.lock` regenerated.** `requires-python = ">=3.10"` had no upper bound, which made `poetry lock` fail (`geobr` requires Python `<4.0`) and left `poetry.lock` stale — any `poetry install` aborted with "pyproject.toml changed significantly since poetry.lock was last generated". The range is now `>=3.10,<4.0` (no effect on supported Pythons 3.10–3.13) and the lock file is consistent again.
+
+### Changed
+
+- **Docs: development environment setup now documents Poetry (recommended), uv, and venv+pip.** `docs/advanced/development-setup.md` previously only described venv + pip while the repo tracks a `poetry.lock`. It now shows `poetry install --extras dev` as Option A (reproducible, lock-file-backed), uv as Option B (fast `uv pip` workflow; `uv sync` is called out because it would create an untracked `uv.lock`), and venv + pip as Option C. Prerequisites now also cover the fresh-machine path: `uv python install` fetches a Python interpreter without any prior Python (uv's standalone installer needs none). The CI example in `docs/advanced/contributing.md` was updated to match the real workflow (`pip install -e ".[dev,web]"`) — the previously documented `poetry install --with dev --extras all` was broken: `dev` is a PEP 621 extra, not a dependency group, so `--with dev` always failed. `AGENTS.md`/`CLAUDE.md` environment setup lists all three paths.
+- **Docs: "Install from source" path added to the Installation guide.** `docs/getting-started/installation.md` only covered installing from PyPI; the clone-the-repo scenario (unreleased features, specific branch, or contributing) fell in the gap between it and the contributor-oriented Development Setup guide. A new "Alternative: Install from Source (GitHub)" section covers clone → venv → editable install inline and links to the full Development Setup guide for uv and Poetry.
+
 ## [0.3.4] - 2026-08-09
 
 ### Added

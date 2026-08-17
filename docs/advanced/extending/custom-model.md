@@ -124,9 +124,31 @@ class SklearnModelAdapter(BaseModel):
         self.estimator_class = estimator_class or LogisticRegression
         self.estimator_params = estimator_params or {}
 
+    def _resolve_estimator_class(self):
+        """Accept either a class or a dotted import path string."""
+        if isinstance(self.estimator_class, str):
+            from importlib import import_module
+            module_path, _, class_name = self.estimator_class.rpartition(".")
+            return getattr(import_module(module_path), class_name)
+        return self.estimator_class
+
+    @classmethod
+    def from_config(cls, config, X_train):
+        """Derive constructor kwargs from the YAML model config.
+
+        The training step calls this classmethod to turn the `models:` YAML
+        entry (including `hyperparams`) into constructor kwargs.
+        """
+        hyperparams = config.get("hyperparams", {})
+        return {
+            "estimator_class": hyperparams.get("estimator_class"),
+            "estimator_params": hyperparams.get("estimator_params"),
+        }
+
     def fit(self, X, y, X_val=None, y_val=None):
         """Fit the sklearn estimator."""
-        self.model_ = self.estimator_class(**self.estimator_params)
+        estimator_cls = self._resolve_estimator_class()
+        self.model_ = estimator_cls(**self.estimator_params)
         self.model_.fit(X, y)
         self.is_fitted_ = True
         return self
@@ -140,15 +162,43 @@ class SklearnModelAdapter(BaseModel):
         """Return probability of positive class."""
         self.check_fitted()
         return self.model_.predict_proba(X)[:, 1]
+
+    def get_raw_model(self):
+        """Return the underlying fitted sklearn estimator."""
+        self.check_fitted()
+        return self.model_
 ```
 
-Wire it in `config/train.yaml`:
+## Registering Custom Models
+
+The training pipeline resolves models **only through the model registry** — the `models:` list in `config/train.yaml` supports a `type:` key that must match a name registered in `ModelRegistry` (see `src/energizados/modeling/registry.py`). There is **no `custom_class` option for models**.
+
+To make a custom model available, register it by calling `ModelRegistry.register(name, model_class)`. Registration must run before training starts — the simplest way is to do it at import time in your project's `src/models/__init__.py`:
+
+```python
+# src/models/__init__.py
+from src.models.sklearn_adapter import SklearnModelAdapter
+from src.models.custom_lightgbm import CustomLightGBMModel
+
+from energizados.modeling.registry import ModelRegistry
+
+ModelRegistry.register("sklearn_adapter", SklearnModelAdapter)
+ModelRegistry.register("custom_lgbm", CustomLightGBMModel)
+```
+
+At training time the step resolves `type:` through `ModelRegistry.get(type)` and instantiates the class with the kwargs returned by its `from_config(config, X_train)` classmethod (see the example below), so your adapter must implement both.
+
+The framework's own built-in models (`lightgbm`, `catboost`, `xgboost`, `neural_network`, `lstm`, `simple_trend`, `simple_constant`) are registered the same way at import time.
+
+Once registered, use the name in `type:` and pass constructor arguments via `hyperparams`:
+
+> **Note:** `energizados validate` checks `type` against the built-in schema enum and will emit a warning for custom registered names (`type unknown: ...`). This is expected — the training step itself resolves the name through `ModelRegistry` at runtime.
+
 ```yaml
 train:
   models:
     - type: "sklearn_adapter"
-      custom_class: "src.models.sklearn_adapter.SklearnModelAdapter"
-      params:
+      hyperparams:
         estimator_class: "sklearn.ensemble.RandomForestClassifier"
         estimator_params:
           n_estimators: 100
@@ -180,6 +230,11 @@ class CustomLightGBMModel(BaseModel):
         grad = y_true * (1 - y_pred) ** gamma - (1 - y_true) * y_pred ** gamma
         hess = gamma * y_true * (1 - y_pred) ** (gamma - 1) + gamma * (1 - y_true) * y_pred ** (gamma - 1)
         return grad, hess
+
+    @classmethod
+    def from_config(cls, config, X_train):
+        """Derive constructor kwargs from the YAML model config."""
+        return dict(config.get("hyperparams", {}))
 
     def fit(self, X, y, X_val=None, y_val=None):
         """Fit LightGBM with custom objective."""
@@ -218,15 +273,21 @@ class CustomLightGBMModel(BaseModel):
         """Return probability predictions."""
         self.check_fitted()
         return self.model_.predict(X)
+
+    def get_raw_model(self):
+        """Return the underlying fitted LightGBM booster."""
+        self.check_fitted()
+        return self.model_
 ```
 
-Wire it in `config/train.yaml`:
+Register it (see [Registering Custom Models](#registering-custom-models)) and wire it in `config/train.yaml`:
+
 ```yaml
 train:
   models:
     - name: "custom_lgbm"
-      custom_class: "src.models.custom_lightgbm.CustomLightGBMModel"
-      params:
+      type: "custom_lgbm"
+      hyperparams:
         n_estimators: 1000
         learning_rate: 0.05
         early_stopping_rounds: 30
@@ -234,21 +295,21 @@ train:
 
 ## Using Custom Models in Ensemble
 
-Custom models can be used as base models in ensembles:
+Custom models can be used as base models in ensembles — register them first (see [Registering Custom Models](#registering-custom-models)), then reference them by their registered `type`:
 
 ```yaml
 train:
   models:
     - name: "sklearn_rf"
-      custom_class: "src.models.sklearn_adapter.SklearnModelAdapter"
-      params:
+      type: "sklearn_adapter"
+      hyperparams:
         estimator_class: "sklearn.ensemble.RandomForestClassifier"
         estimator_params:
           n_estimators: 100
 
     - name: "custom_lgbm"
-      custom_class: "src.models.custom_lightgbm.CustomLightGBMModel"
-      params:
+      type: "custom_lgbm"
+      hyperparams:
         n_estimators: 500
 
   ensemble:

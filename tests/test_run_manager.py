@@ -867,8 +867,8 @@ class TestDirectorResolveBaseOutputDirETL:
     def test_resolve_base_output_dir_etl_wins_over_default(self, tmp_path, monkeypatch):
         """When only etl sets output_base_dir, it beats the 'output' default."""
         d = self._director(
-            {"etl": {"output_base_dir": "out/celesc/v5"}},
+            {"etl": {"output_base_dir": "out/sample/v5"}},
             tmp_path,
             monkeypatch,
         )
-        assert d._resolve_base_output_dir() == "out/celesc/v5"
+        assert d._resolve_base_output_dir() == "out/sample/v5"

@@ -36,7 +36,6 @@ For the full model list and pipeline stages, see the [Overview](getting-started/
 
 ## Stay Current
 
-- [Releases](releases/v0.3.3.md) — per-version release notes
 - [Changelog](https://github.com/EL-BID/Energizados/blob/master/CHANGELOG.md) — full change history
 
 ---
