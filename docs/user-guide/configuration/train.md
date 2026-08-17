@@ -377,6 +377,7 @@ Available per-column transformations:
 | `ordinal_encoding` | Ordinal encoding (0, 1, 2, ...) | sklearn OrdinalEncoder params |
 | `minmax_scaler_row` | Row-wise MinMax scaling | `feature_range` (tuple, default=[0,1]) |
 | `cast_dtype` | Converts column to a pandas dtype | `dtype` (str, default=`"float32"`) |
+| `temporal_features` | Calendar features from a date column with flat (`month=7`) and/or cyclic (`month_sin/cos`) encoding | `date_column` (str, required), `features` (list, default=["month","quarter","week","dayofweek"] — also supports "day","year"), `encoding` (str, default="both" — "flat"/"cyclic"/"both"), `drop_date_column` (bool, default=false) |
 
 **Global transformers:**
 
@@ -794,7 +795,7 @@ These models work directly on raw consumption columns without preprocessing:
 
 ```yaml
 models:
-  - type: "lightgbm"  # lightgbm, catboost, neural_network, lstm
+  - type: "lightgbm"  # lightgbm, catboost, xgboost, neural_network, lstm, simple_trend, simple_constant
     sampling:
       method: "undersample"  # oversample, undersample, smotetomek, none
       threshold: 0.5
@@ -995,9 +996,9 @@ ensemble:
 |-----------|------|---------|-------------|
 | `method` | string | - | Ensemble method: `stacking` or `soft_voting` |
 | `meta_learner` | dict | - | Meta-learner configuration (for stacking) |
-| `meta_learner.type` | string | - | Meta-learner type |
+| `meta_learner.type` | string | - | Meta-learner type: `logistic_regression`, `random_forest`, or `gradient_boosting` |
 | `meta_learner.params` | dict | - | Meta-learner hyperparameters |
-| `use_val_as_oof` | boolean | `true` | Use validation set for OOF (blending) |
+| `use_val_as_oof` | boolean | `false` | Use validation set for OOF (blending); default is proper K-fold OOF |
 | `cv` | int | `5` | Number of CV folds (only when `use_val_as_oof=false`) |
 | `skip_base_fit` | boolean | - | Internal to EnsembleModel API; not a user-facing YAML config. The built-in training flow always pre-fits base models and sets this internally when training the ensemble. |
 
@@ -1046,8 +1047,8 @@ evaluation:
 | `generate_json_report` | boolean | `true` | Whether to generate JSON report |
 | `calibration` | dict | - | Threshold calibration configuration |
 | `calibration.enabled` | boolean | `false` | Whether to perform threshold calibration |
-| `calibration.method` | string | - | Calibration method |
-| `calibration.params` | dict | - | Calibration method parameters |
+| `calibration.strategy` | string | - | Calibration strategy: `cost_benefit`, `operational`, or `precision_recall` |
+| `calibration.params` | dict | - | Calibration strategy parameters |
 
 **Available Metrics:**
 

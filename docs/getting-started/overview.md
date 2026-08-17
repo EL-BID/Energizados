@@ -88,13 +88,13 @@ Additional metrics: precision, recall, F1, confusion matrix, cumulative gains cu
 
 ## Sample Dataset
 
-New projects created with `energizados init` include a real anonymized dataset for immediate testing:
+New projects created with `energizados init` include a synthetic dataset (generated to match the statistical properties of real electricity consumption data — no real customer information) for immediate testing:
 
 | Property         | Value  |
 |------------------|--------|
 | Records          | 42,500 |
 | Columns          | 20     |
-| Fraudulent users | ~5.8%  |
+| Fraudulent users | ~5.9%  |
 
 > **Note:** The raw parquet carries 20 columns. One of them, `index`, is a row-identifier artifact from the parquet export and is **not** a model feature — the 19 remaining columns are the meaningful variables described below.
 

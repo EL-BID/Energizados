@@ -234,7 +234,7 @@ When evaluation is enabled, the following files are generated in `output/train-Y
 
 ### HTML Report
 
-**File:** `report.html`
+**File:** `evaluation_report.html`
 
 A comprehensive, interactive HTML report containing:
 
@@ -251,7 +251,7 @@ The HTML report is self-contained and can be opened directly in any web browser.
 
 ### JSON Report
 
-**File:** `report.json`
+**File:** `evaluation_report.json`
 
 A machine-readable JSON file containing all metrics and metadata:
 

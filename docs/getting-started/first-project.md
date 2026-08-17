@@ -189,7 +189,7 @@ This contains:
 
 ### Open the Evaluation Report
 
-Open `output/train-YYYYMMDD_HHMM/reports/evaluation/report.html` in your browser to see:
+Open `output/train-YYYYMMDD_HHMM/reports/evaluation/evaluation_report.html` in your browser to see:
 - Model metrics (AUC, Precision, Recall, F1)
 - Confusion matrix
 - ROC curve

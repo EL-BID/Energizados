@@ -105,14 +105,13 @@ ensemble:
 - Requires training meta-learner (additional time)
 - Risk of overfitting if not careful
 
-**Meta-learner options**:
+**Meta-learner options** (validated by `ENSEMBLE_SCHEMA`):
 - `logistic_regression`: Simple, interpretable, good baseline (default)
-- `lightgbm`: Can capture non-linear patterns
-- `catboost`: Robust to overfitting
-- Custom models: Implement in `src/models/`
+- `random_forest`: Can capture non-linear patterns
+- `gradient_boosting`: Robust to overfitting
 
 !!! note
-    When using stacking with pre-fitted base models, set `skip_base_fit: true` in the ensemble configuration to skip retraining base models and only train the meta-learner.
+    `EnsembleModel` also accepts an internal `skip_base_fit` constructor flag used by the framework's training flow (base models are pre-fitted and only the meta-learner is trained inside the ensemble). It is not a user-facing YAML option — the built-in training step manages it for you.
 
 ## Blending vs. Proper OOF
 
@@ -437,7 +436,7 @@ Based on fraud detection benchmarks:
 
 **Solutions**:
 1. **Increase model diversity**: Try LightGBM + CatBoost + Neural Network
-2. **Change meta-learner**: Try `lightgbm` or `catboost` instead of `logistic_regression`
+2. **Change meta-learner**: Try `random_forest` or `gradient_boosting` instead of `logistic_regression`
 3. **Use proper OOF**: Set `use_val_as_oof: false` to avoid blending issues
 4. **Check base model performance**: Ensure each base model has AUC > 0.75
 
@@ -477,7 +476,7 @@ ensemble:
 **Solutions**:
 1. **Increase regularization**: Set `C: 0.1` or `C: 0.01` in meta_learner params
 2. **Add different models**: Ensure base models are diverse
-3. **Change meta-learner type**: Use `lightgbm` or `catboost` instead of `logistic_regression`
+3. **Change meta-learner type**: Use `random_forest` or `gradient_boosting` instead of `logistic_regression`
 
 ```yaml
 ensemble:
@@ -509,7 +508,7 @@ Include engineered features along with base model predictions in meta-learner:
 ensemble:
   method: "stacking"
   meta_learner:
-    type: "lightgbm"  # Can handle features + predictions
+    type: "gradient_boosting"  # Can handle features + predictions
 ```
 
 ### Dynamic Ensembling

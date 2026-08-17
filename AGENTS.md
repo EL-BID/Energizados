@@ -356,16 +356,19 @@ New projects created with `energizados init` include a **sample ETL** that proce
 ```yaml
 # config/etl.yaml
 etl:
+  schema_version: 1
   sample:
     enabled: true
-    description: "Procesa dataset de ejemplo (elimina filas con NULL)"
+    description: "Processes example dataset (removes rows with NULL)"
     input: "data/raw/sample_dataset.parquet"
     output: "data/processed/sample_dataset.parquet"
-    custom_class: "energizados.etl.pipeline.SourceETL"
+    custom_class: "src.data.custom_etl.CustomETL"
     params:
       mode: "concat"  # 'concat' (default) or 'merge'
     depends_on: []
 ```
+
+The sample ETL uses the project's own `CustomETL` class (generated in `src/data/custom_etl.py`, extends `BaseETL`). Use `energizados.etl.pipeline.SourceETL` when you want the built-in implementation directly.
 
 **SourceETL Modes:**
 
@@ -443,7 +446,7 @@ etl:
 
 # train.yaml
 train:
-  schema_version: 1
+  schema_version: 2
   enabled: true
   ...
 ```
@@ -703,7 +706,7 @@ preprocessing:
 - Per-column: `custom_class` inside a column's transformer list
 - Full preprocessing replacement: `preprocessing.custom_class`
 - Full feature engineering replacement: `feature_engineering.custom_class`
-- Custom model: `model.custom_class`
+- Custom model: NOT supported via `custom_class` in `models:` — register the class in `ModelRegistry` (`ModelRegistry.register(name, cls)` with a `from_config(cls, config, X_train)` classmethod) and reference it via `type: "<registered-name>"`
 
 **Key Feature Engineering Classes (internal framework):**
 
