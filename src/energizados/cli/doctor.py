@@ -7,7 +7,6 @@ and validate the environment (Python version, required libraries).
 
 import importlib.metadata
 import logging
-import os
 import platform
 import shutil
 import sys
@@ -70,98 +69,14 @@ RECOMMENDED_PYTHON_VERSION = (3, 11)
 def get_system_info() -> Dict[str, str]:
     """Gather system information.
 
-    Returns:
-        Dictionary with system details.
+    Delegates to ``energizados.api.config.get_system_info`` (single source of
+    truth) and augments the result with optional GPU info.
     """
-    info = {
-        "platform": platform.platform(),
-        "system": platform.system(),
-        "release": platform.release(),
-        "machine": platform.machine(),
-        "processor": platform.processor(),
-        "hostname": platform.node(),
-        "python_version": platform.python_version(),
-        "python_implementation": platform.python_implementation(),
-        "python_executable": sys.executable,
-    }
+    from energizados.api.config import get_system_info as _api_get_system_info
 
-    # Try to get detailed system info using psutil
-    try:
-        import psutil  # type: ignore[import-not-found]
-
-        # CPU info
-        cpu_count_physical = psutil.cpu_count(logical=False)
-        cpu_count_logical = psutil.cpu_count(logical=True)
-        cpu_freq = psutil.cpu_freq()
-        cpu_percent = psutil.cpu_percent(interval=0.1)
-
-        info.update(
-            {
-                "cpu_physical_cores": str(cpu_count_physical) if cpu_count_physical else "Unknown",
-                "cpu_logical_cores": str(cpu_count_logical) if cpu_count_logical else "Unknown",
-                "cpu_freq_mhz": f"{cpu_freq.max:.0f} MHz" if cpu_freq else "Unknown",
-                "cpu_usage": f"{cpu_percent}%",
-            }
-        )
-
-        # Memory info
-        mem = psutil.virtual_memory()
-        mem_total_gb = mem.total / (1024**3)
-        mem_available_gb = mem.available / (1024**3)
-        mem_percent = mem.percent
-
-        info.update(
-            {
-                "memory_total": f"{mem_total_gb:.2f} GB",
-                "memory_available": f"{mem_available_gb:.2f} GB",
-                "memory_percent": f"{mem_percent}%",
-            }
-        )
-
-        # Disk info
-        # psutil.disk_usage("/") raises OSError (WinError 3) on Windows because
-        # "/" is not a valid mount point. Use a portable root instead.
-        root_path = os.path.abspath(os.sep)  # "/" on POSIX, "C:\\" on Windows
-        try:
-            disk = psutil.disk_usage(root_path)
-            disk_total_gb = disk.total / (1024**3)
-            disk_used_gb = disk.used / (1024**3)
-            disk_free_gb = disk.free / (1024**3)
-            disk_percent = disk.percent
-        except OSError as e:
-            logger.warning(f"Could not read disk usage for '{root_path}': {e}")
-            disk_total_gb = disk_used_gb = disk_free_gb = disk_percent = 0.0
-
-        info.update(
-            {
-                "disk_total": f"{disk_total_gb:.2f} GB",
-                "disk_used": f"{disk_used_gb:.2f} GB",
-                "disk_free": f"{disk_free_gb:.2f} GB",
-                "disk_percent": f"{disk_percent}%",
-            }
-        )
-
-    except (ImportError, OSError):
-        # Fallback to os module for basic info
-        info.update(
-            {
-                "cpu_physical_cores": "Unknown (install psutil)",
-                "cpu_logical_cores": str(os.cpu_count()) if hasattr(os, "cpu_count") else "Unknown",
-                "cpu_freq_mhz": "Unknown (install psutil)",
-                "cpu_usage": "Unknown (install psutil)",
-                "memory_total": "Unknown (install psutil)",
-                "memory_available": "Unknown (install psutil)",
-                "memory_percent": "Unknown (install psutil)",
-                "disk_total": "Unknown (install psutil)",
-                "disk_used": "Unknown (install psutil)",
-                "disk_free": "Unknown (install psutil)",
-                "disk_percent": "Unknown (install psutil)",
-            }
-        )
-
+    info = _api_get_system_info()
     # GPU info (optional)
     info["gpu"] = _get_gpu_info()
-
     return info
 
 

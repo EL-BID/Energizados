@@ -143,6 +143,104 @@ class DoctorReport:
         }
 
 
+def get_system_info() -> Dict[str, str]:
+    """Gather system information (platform, CPU, memory, disk, GPU).
+
+    Uses psutil when available for hardware details; falls back to the
+    ``os`` module with "Unknown (install psutil)" placeholders otherwise.
+
+    Returns:
+        Dictionary with system details.
+    """
+    import os
+
+    info = {
+        "platform": platform.platform(),
+        "system": platform.system(),
+        "release": platform.release(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "hostname": platform.node(),
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "python_executable": sys.executable,
+    }
+
+    try:
+        import psutil  # type: ignore[import-not-found]
+
+        cpu_count_physical = psutil.cpu_count(logical=False)
+        cpu_count_logical = psutil.cpu_count(logical=True)
+        cpu_freq = psutil.cpu_freq()
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+
+        info.update(
+            {
+                "cpu_physical_cores": (
+                    str(cpu_count_physical) if cpu_count_physical else "Unknown"
+                ),
+                "cpu_logical_cores": str(cpu_count_logical) if cpu_count_logical else "Unknown",
+                "cpu_freq_mhz": f"{cpu_freq.max:.0f} MHz" if cpu_freq else "Unknown",
+                "cpu_usage": f"{cpu_percent}%",
+            }
+        )
+
+        mem = psutil.virtual_memory()
+        info.update(
+            {
+                "memory_total": f"{mem.total / (1024**3):.2f} GB",
+                "memory_available": f"{mem.available / (1024**3):.2f} GB",
+                "memory_percent": f"{mem.percent}%",
+            }
+        )
+
+        # psutil.disk_usage("/") raises OSError (WinError 3) on Windows because
+        # "/" is not a valid mount point. Use a portable root instead.
+        root_path = os.path.abspath(os.sep)  # "/" on POSIX, "C:\\" on Windows
+        try:
+            disk = psutil.disk_usage(root_path)
+            info.update(
+                {
+                    "disk_total": f"{disk.total / (1024**3):.2f} GB",
+                    "disk_used": f"{disk.used / (1024**3):.2f} GB",
+                    "disk_free": f"{disk.free / (1024**3):.2f} GB",
+                    "disk_percent": f"{disk.percent}%",
+                }
+            )
+        except OSError as e:
+            logger.warning(f"Could not read disk usage for '{root_path}': {e}")
+            info.update(
+                {
+                    "disk_total": "0.00 GB",
+                    "disk_used": "0.00 GB",
+                    "disk_free": "0.00 GB",
+                    "disk_percent": "0.0%",
+                }
+            )
+
+    except (ImportError, OSError):
+        # Fallback to os module for basic info
+        info.update(
+            {
+                "cpu_physical_cores": "Unknown (install psutil)",
+                "cpu_logical_cores": (
+                    str(os.cpu_count()) if hasattr(os, "cpu_count") else "Unknown"
+                ),
+                "cpu_freq_mhz": "Unknown (install psutil)",
+                "cpu_usage": "Unknown (install psutil)",
+                "memory_total": "Unknown (install psutil)",
+                "memory_available": "Unknown (install psutil)",
+                "memory_percent": "Unknown (install psutil)",
+                "disk_total": "Unknown (install psutil)",
+                "disk_used": "Unknown (install psutil)",
+                "disk_free": "Unknown (install psutil)",
+                "disk_percent": "Unknown (install psutil)",
+            }
+        )
+
+    return info
+
+
 def doctor(include_optional: bool = False) -> DoctorReport:
     """Run system health checks and return structured report.
 
@@ -161,11 +259,8 @@ def doctor(include_optional: bool = False) -> DoctorReport:
     """
     report = DoctorReport()
 
-    # Gather system info
-    report.system_info["python_version"] = (
-        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    )
-    report.system_info["platform"] = platform.platform()
+    # Gather system info (platform + hardware via psutil when available)
+    report.system_info = get_system_info()
     report.system_info["energizados_version"] = get_version()
 
     # Python version check

@@ -321,6 +321,42 @@ def test_doctor_report_has_system_info():
         assert key in report.system_info
 
 
+def test_doctor_report_has_hardware_info():
+    """Regression: doctor() must gather CPU/memory/disk info via psutil.
+
+    The CLI previously relied on api.doctor() for system_info, but the
+    hardware collection (get_system_info in cli/doctor.py) was never
+    invoked, rendering an empty System Summary panel.
+    """
+    import psutil
+
+    from energizados.api import doctor
+
+    report = doctor()
+
+    hardware_keys = [
+        "cpu_physical_cores",
+        "cpu_logical_cores",
+        "cpu_freq_mhz",
+        "cpu_usage",
+        "memory_total",
+        "memory_available",
+        "memory_percent",
+        "disk_total",
+        "disk_used",
+        "disk_free",
+        "disk_percent",
+    ]
+    for key in hardware_keys:
+        assert key in report.system_info, f"missing key: {key}"
+        assert report.system_info[key], f"empty value for {key}"
+
+    # With psutil installed, values must be real (not the fallback message)
+    assert psutil is not None  # ensures the test env has psutil
+    assert "install psutil" not in report.system_info["memory_total"]
+    assert "Unknown" not in report.system_info["memory_total"]
+
+
 def test_doctor_report_checks_have_required_fields():
     """Test doctor report checks have name, status, message."""
     from energizados.api import doctor
