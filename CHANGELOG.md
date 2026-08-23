@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-08-17
+
 ### Added
 
 - **Offline/proxy support: self-contained HTML reports and fully vendored web console assets.** New `self_contained` option (default `false`) in the `evaluation` section of `train.yaml` and the `output` section of `eda.yaml` inlines Plotly.js (and the Tailwind bundle in run-comparison reports) directly into generated HTML files, so reports render with charts in air-gapped/restricted networks where browser CDN access fails. `ComparativeEvaluator` gained the same parameter. The web console now ships Bootstrap, Bootstrap Icons, HTMX, Plotly.js and the Inter font vendored under `web/static/vendor/` — zero external network requests, replacing the former CDN references (and the manual HTMX download workaround). New documentation: `docs/user-guide/offline-and-proxy.md` (proxy env vars, corporate CA bundles, IBGE shapefile cache pre-population).
