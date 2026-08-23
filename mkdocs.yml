@@ -97,21 +97,14 @@ nav:
           - Inference: user-guide/configuration/infer.md
       - EDA Module: user-guide/eda.md
       - Understanding Results: user-guide/understanding-results.md
+      - Offline & Proxied Environments: user-guide/offline-and-proxy.md
       - Troubleshooting: user-guide/troubleshooting.md
   - Tutorials:
       - End-to-End Example: tutorials/end-to-end-example.md
       - Model Selection Guide: tutorials/model-selection-guide.md
       - Ensemble Models: tutorials/ensemble-models.md
-  - Web Console:
-      - Overview: web-console/README.md
-      - Deployment: web-console/DEPLOYMENT.md
   - Advanced:
       - Architecture: advanced/architecture.md
-      - Architecture Decision Records:
-          - GeoFeatures as transformer (ADR-0001): adr/0001-geo-features-as-transformer.md
-          - Generalized run (ADR-0002): adr/0002-generalized-run.md
-          - Deprecate global scope (ADR-0003): adr/0003-deprecate-global-scope.md
-          - Run-level lineage (ADR-0004): adr/0004-run-level-lineage.md
       - Development Setup: advanced/development-setup.md
       - Extending the Framework:
           - Custom ETL: advanced/extending/custom-etl.md
@@ -121,5 +114,3 @@ nav:
           - Custom Inference: advanced/extending/custom-inference.md
       - Contributing: advanced/contributing.md
       - PyPI Publishing: advanced/pypi-publishing.md
-  - Releases:
-      - v0.3.3: releases/v0.3.3.md

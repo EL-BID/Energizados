@@ -596,6 +596,7 @@ training:
     generate_plots: true
     generate_html_report: true
     generate_json_report: true
+    # self_contained: true  # inline Plotly.js in HTML reports for offline/air-gapped use (+~3.5 MB)
 ```
 
 **Available Preprocessing Transformations:**

@@ -485,6 +485,7 @@ train:
     enabled: true
     # output_dir is managed automatically within the run directory
     threshold: 0.5  # Ignored if calibration.enabled=true
+    # self_contained: true   # Inline Plotly.js in HTML reports (offline/air-gapped; adds ~3.5 MB per report)
 
     metrics:
       - auc

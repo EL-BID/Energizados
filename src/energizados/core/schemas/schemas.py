@@ -270,6 +270,11 @@ TRAINING_SCHEMA = {
                 "generate_plots": {"type": "boolean"},
                 "generate_html_report": {"type": "boolean"},
                 "generate_json_report": {"type": "boolean"},
+                "self_contained": {
+                    "type": "boolean",
+                    "description": "Inline JS bundles (Plotly/Tailwind) in HTML reports for offline use",
+                    "default": False,
+                },
                 "calibration": {
                     "type": "object",
                     "properties": {
@@ -576,6 +581,11 @@ EDA_OUTPUT_SCHEMA = {
         "output_dir": {"type": "string"},
         "interactive": {"type": "boolean"},
         "static": {"type": "boolean"},
+        "self_contained": {
+            "type": "boolean",
+            "description": "Inline the Plotly.js bundle in the HTML report for offline use",
+            "default": False,
+        },
     },
 }
 

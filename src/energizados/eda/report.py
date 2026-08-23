@@ -201,9 +201,42 @@ class EDAReportGenerator:
         >>> path = generator.generate(results, alerts)
     """
 
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, self_contained: bool = False):
+        """
+        Initialize the report generator.
+
+        Args:
+            output_dir: Directory where to save reports
+            self_contained: If True, inline the Plotly.js bundle in the HTML
+                (offline reports, no CDN). Default False keeps the CDN reference.
+        """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.self_contained = self_contained
+
+    _PLOTLY_CDN_TAG = '<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>'
+
+    def _plotly_js_tag(self) -> str:
+        """
+        Return the ``<script>`` markup that provides Plotly.js for the report.
+
+        Default: CDN reference (identical to the historical behavior).
+        self_contained: inline the Plotly.js bundle shipped inside the installed
+        plotly package (works fully offline, adds ~3.5 MB to the report).
+        """
+        if not self.self_contained:
+            return self._PLOTLY_CDN_TAG
+        try:
+            import plotly.offline
+
+            js = plotly.offline.get_plotlyjs()
+        except Exception as e:
+            logger.warning("Could not inline Plotly.js (%s); falling back to CDN", e)
+            return self._PLOTLY_CDN_TAG
+        return (
+            "<script>window.PlotlyConfig = {MathJaxConfig: 'local'};</script>\n"
+            f'<script type="text/javascript">{js}</script>'
+        )
 
     def generate(
         self,
@@ -362,7 +395,7 @@ class EDAReportGenerator:
     <style>
 {_EDA_CSS}
     </style>
-    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    {self._plotly_js_tag()}
 </head>
 <body>
 <div class="layout">
@@ -875,9 +908,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
         rows = ""
         for d in numeric:
             iv_td = (
-                f"<td>{_fmt(d.get('iv'))}</td>" f"<td>{_fmt(d.get('ks_stat'))}</td>"
-                if has_iv
-                else ""
+                f"<td>{_fmt(d.get('iv'))}</td><td>{_fmt(d.get('ks_stat'))}</td>" if has_iv else ""
             )
             null_color = "color:#f44336;" if (d.get("null_pct", 0) or 0) > 30 else ""
             is_consumption = d.get("consumption", False)
@@ -925,9 +956,7 @@ document.querySelectorAll('details.col-detail').forEach(function(el) {{
             top = d.get("top_categories", [])
             top_str = ", ".join(f"{_esc(c['value'])} ({c['pct']:.1f}%)" for c in top[:3])
             iv_td = (
-                f"<td>{_fmt(d.get('iv'))}</td>" f"<td>{_fmt(d.get('cramers_v'))}</td>"
-                if has_iv
-                else ""
+                f"<td>{_fmt(d.get('iv'))}</td><td>{_fmt(d.get('cramers_v'))}</td>" if has_iv else ""
             )
             null_color = "color:#f44336;" if (d.get("null_pct", 0) or 0) > 30 else ""
             rows += f"""

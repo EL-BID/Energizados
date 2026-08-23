@@ -5,6 +5,7 @@ Tests for the outlier analysis section rendering and JSON artifact saving.
 """
 
 import json
+import re
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -508,3 +509,42 @@ class TestGenerateReportIntegration:
                 html = f.read()
             assert 'href="#outliers"' in html
             assert "Phase 2.5: Outlier Analysis" in html
+
+
+class TestSelfContainedReport:
+    """Tests for the self_contained option (offline HTML reports)."""
+
+    def _generate(self, tmp_path, self_contained=False):
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"), self_contained=self_contained)
+        path = generator.generate({}, [])
+        return Path(path).read_text(encoding="utf-8")
+
+    def test_default_self_contained_is_false(self, tmp_path):
+        """Constructor must default to self_contained=False (backwards compatible)."""
+        generator = EDAReportGenerator(str(tmp_path / "eda_output"))
+        assert generator.self_contained is False
+
+    def test_default_report_references_plotly_cdn(self, tmp_path):
+        """Default report keeps the Plotly.js CDN script tag (byte-identical behavior)."""
+        html = self._generate(tmp_path)
+        assert '<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>' in html
+
+    def test_self_contained_inlines_plotly_js(self, tmp_path):
+        """self_contained=True inlines the full Plotly.js bundle in the HTML head."""
+        html = self._generate(tmp_path, self_contained=True)
+        # Inline bundle marker (emitted by plotly when the library is embedded)
+        assert "window.PlotlyConfig" in html
+        assert len(html) > 1_000_000  # full plotly.js bundle is ~4.8 MB
+
+    def test_self_contained_has_no_cdn_script_reference(self, tmp_path):
+        """self_contained=True loads no script or stylesheet over the network."""
+        html = self._generate(tmp_path, self_contained=True)
+        assert "cdn.plot.ly/plotly-" not in html
+        # No resource-loading HTML tag may reference a remote URL (the plotly
+        # bundle contains plain-text attribution links, which are harmless).
+        tag_external = re.search(
+            r"<(?:script|link|img|iframe|source|video|audio|object|embed)"
+            r'[^>]*?(?:src|href)="https?://',
+            html,
+        )
+        assert tag_external is None, f"External tag reference: {tag_external.group(0)}"

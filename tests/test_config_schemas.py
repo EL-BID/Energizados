@@ -792,3 +792,94 @@ class TestETLOutputBaseDirSchema:
 
         errors = validator.validate_config(config)
         assert len(errors) == 0, f"bare output_base_dir in etl should be valid, got: {errors}"
+
+
+class TestSelfContainedSchema:
+    """Test self_contained config option validation for reports (offline mode)."""
+
+    def test_evaluation_self_contained_valid(self):
+        """Verify train.evaluation.self_contained (boolean) passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "self_contained": True,
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"self_contained should be valid, got: {errors}"
+
+    def test_evaluation_self_contained_invalid_type_rejected(self):
+        """Verify a non-boolean train.evaluation.self_contained is rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "models": [{"type": "lightgbm"}],
+                "evaluation": {
+                    "enabled": True,
+                    "self_contained": "yes",  # not a boolean
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for non-boolean evaluation.self_contained"
+        assert any("self_contained" in str(err) for err in errors)
+
+    def test_eda_output_self_contained_valid(self):
+        """Verify eda.output.self_contained (boolean) passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "eda": {
+                "enabled": True,
+                "output": {
+                    "output_dir": "output/eda/",
+                    "self_contained": True,
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"eda.output.self_contained should be valid, got: {errors}"
+
+    def test_eda_output_self_contained_invalid_type_rejected(self):
+        """Verify a non-boolean eda.output.self_contained is rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "eda": {
+                "enabled": True,
+                "output": {
+                    "self_contained": "true",  # not a boolean
+                },
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "Expected errors for non-boolean eda.output.self_contained"
+        assert any("self_contained" in str(err) for err in errors)
+
+    def test_self_contained_defaults_to_false_in_code(self, tmp_path):
+        """The self_contained option must default to False everywhere (backwards compat)."""
+        from energizados.eda.report import EDAReportGenerator
+        from energizados.evaluation.comparative import ComparativeEvaluator
+        from energizados.evaluation.evaluator import DefaultEvaluator
+        from energizados.evaluation.plots_interactive import EvalInteractivePlots
+
+        assert EDAReportGenerator(str(tmp_path)).self_contained is False
+        assert EvalInteractivePlots(str(tmp_path)).self_contained is False
+        assert ComparativeEvaluator(str(tmp_path)).self_contained is False
+        assert DefaultEvaluator(output_dir=str(tmp_path / "eval")).self_contained is False
