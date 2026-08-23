@@ -107,6 +107,8 @@ exclude = ["tests*", "docs*", "notebooks*"]
 
 [tool.setuptools.package-data]
 "energizados" = ["py.typed", "templates/**/*", "templates/**/.gitignore.tpl"]
+"energizados.evaluation" = ["assets/*.js"]
+"energizados.web" = ["static/**/*", "templates/*.html"]
 
 # Black configuration
 [tool.black]

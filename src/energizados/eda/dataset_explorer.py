@@ -88,6 +88,7 @@ class DatasetExplorer:
             self.periods_suffix = col_detection.get("periods_suffix", periods_suffix)
             output_cfg = eda_cfg.get("output", {})
             self.output_dir = output_cfg.get("output_dir", output_dir)
+            self.self_contained = output_cfg.get("self_contained", False)
             self.sections = sections or eda_cfg.get("sections", {})
             self._full_config = eda_cfg
         else:
@@ -100,6 +101,7 @@ class DatasetExplorer:
             self.zone_column = zone_column
             self.periods_suffix = periods_suffix
             self.output_dir = output_dir
+            self.self_contained = False
             self.sections = sections or {}
             self._full_config = {}
 
@@ -1188,7 +1190,7 @@ class DatasetExplorer:
 
     def _generate_report(self, results: Dict) -> str:
         """Generate HTML report."""
-        generator = EDAReportGenerator(self.output_dir)
+        generator = EDAReportGenerator(self.output_dir, self_contained=self.self_contained)
         return generator.generate(results, self._all_alerts)
 
     def _add_alert(

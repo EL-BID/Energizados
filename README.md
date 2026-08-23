@@ -39,6 +39,7 @@ energizados run etl,train
 - [User Guide](docs/user-guide/) - Complete framework documentation
 - [Tutorials](docs/tutorials/) - Hands-on examples and walkthroughs
 - [Advanced](docs/advanced/) - Extending and customizing the framework
+- [Offline & Proxied Environments](docs/user-guide/offline-and-proxy.md) - Running behind corporate proxies or fully air-gapped
 - [Domain Glossary (CONTEXT.md)](CONTEXT.md) - Ubiquitous-language glossary: the single source of truth for framework terms (Pipeline, Step, Context, Model, Run, Job, Project, ...)
 
 ## 🤝 Contributing
@@ -58,8 +59,6 @@ any other theory; and/or
 ii. From the use of the Digital Tool, including, but not limited to, potential defects in the Digital Tool, or the loss
 or inaccuracy of data of any kind. The foregoing includes expenses or damages associated with communication failures
 and/or computer failures related to the use of the Digital Tool.
-
-
 
 ## Acknowledgments / Reconocimientos
 

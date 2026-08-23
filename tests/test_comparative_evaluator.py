@@ -278,3 +278,60 @@ class TestComparativeEvaluator:
         # Should not raise an error
         assert len(result["ranking"]) == 2
         assert Path(result["html"]).exists()
+
+
+class TestSelfContainedComparative:
+    """Tests for the self_contained option (offline comparison reports)."""
+
+    @pytest.fixture
+    def metrics(self):
+        return {
+            "lgbm": {"auc": 0.85, "f1": 0.72, "precision": 0.78, "recall": 0.67},
+            "cat": {"auc": 0.83, "f1": 0.70, "precision": 0.75, "recall": 0.65},
+        }
+
+    @pytest.fixture
+    def model_info(self):
+        return {
+            "lgbm": {"model_class": "lightgbm"},
+            "cat": {"model_class": "catboost"},
+        }
+
+    def test_default_self_contained_is_false(self, tmp_path):
+        """Constructor must default to self_contained=False (backwards compatible)."""
+        evaluator = ComparativeEvaluator(str(tmp_path))
+        assert evaluator.self_contained is False
+
+    def test_default_report_uses_tailwind_cdn(self, tmp_path, metrics, model_info):
+        """Default report keeps the Tailwind CDN script tag (byte-identical behavior)."""
+        evaluator = ComparativeEvaluator(str(tmp_path))
+        result = evaluator.compare(metrics, model_info)
+        html = Path(result["html"]).read_text(encoding="utf-8")
+        assert '<script src="https://cdn.tailwindcss.com"></script>' in html
+
+    def test_self_contained_inlines_tailwind(self, tmp_path, metrics, model_info):
+        """self_contained=True inlines the vendored Tailwind Play script."""
+        evaluator = ComparativeEvaluator(str(tmp_path), self_contained=True)
+        result = evaluator.compare(metrics, model_info)
+        html = Path(result["html"]).read_text(encoding="utf-8")
+        # The vendored Tailwind engine is inlined (large inline script block)
+        assert "tailwind" in html.lower()
+        assert len(html) > 300_000  # Tailwind Play bundle is ~400 KB
+        assert html.count("<script") >= 1
+
+    def test_self_contained_no_external_references(self, tmp_path, metrics, model_info):
+        """self_contained=True loads nothing from the network."""
+        import re
+
+        evaluator = ComparativeEvaluator(str(tmp_path), self_contained=True)
+        result = evaluator.compare(metrics, model_info)
+        html = Path(result["html"]).read_text(encoding="utf-8")
+        assert '<script src="https://cdn.tailwindcss.com">' not in html
+        # No resource-loading HTML tag may reference a remote URL (the tailwind
+        # bundle contains plain-text attribution links, which are harmless).
+        tag_external = re.search(
+            r"<(?:script|link|img|iframe|source|video|audio|object|embed)"
+            r'[^>]*?(?:src|href)="https?://',
+            html,
+        )
+        assert tag_external is None, f"External tag reference: {tag_external.group(0)}"

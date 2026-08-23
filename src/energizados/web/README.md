@@ -28,7 +28,7 @@ uvicorn energizados.web.app:app --reload
 energizados-web-worker --db-path data/web/jobs.db
 ```
 
-Access the web console at http://localhost:8000
+Access the web console at <http://localhost:8000>
 
 ## Features
 
@@ -62,7 +62,7 @@ Access the web console at http://localhost:8000
 
 ### Web Interface
 
-1. Open http://localhost:8000
+1. Open <http://localhost:8000>
 2. Paste YAML configuration or upload file
 3. Click "Submit Job"
 4. Monitor job status in real-time
@@ -129,7 +129,7 @@ Jobs progress through these states:
 
 ### API Documentation
 
-Interactive API documentation available at http://localhost:8000/docs (Swagger UI)
+Interactive API documentation available at <http://localhost:8000/docs> (Swagger UI)
 
 ## Templates
 
@@ -148,6 +148,7 @@ The web interface uses Jinja2 templates with HTMX for dynamic updates:
 The web console currently has **no authentication or authorization**. All endpoints are publicly accessible.
 
 **Required security measures:**
+
 - Deploy behind network firewall
 - Use reverse proxy with authentication (Nginx basic auth, OAuth2)
 - Require VPN for access
@@ -172,6 +173,7 @@ cat docs/web-console/DEPLOYMENT.md
 ```
 
 Key deployment options:
+
 - **systemd** (recommended): Native service management
 - **Docker Compose**: Containerized deployment
 - **Supervisor**: Process management
@@ -258,15 +260,15 @@ src/energizados/web/
 
 ## Air-Gapped Deployment
 
-For environments without internet access, download HTMX manually:
+The web console ships all frontend assets vendored under
+`src/energizados/web/static/vendor/` (Bootstrap, Bootstrap Icons, HTMX,
+Plotly.js, Inter font) — it makes **zero external network requests** and works
+out of the box in offline environments. See
+`src/energizados/web/static/vendor/README.md` for versions, sources, licenses,
+and how to upgrade them.
 
-```bash
-# Download HTMX
-curl -o src/energizados/web/static/htmx.min.js https://unpkg.com/htmx.org@1.9.10
-
-# Update base.html template to use local file
-# <script src="/static/htmx.min.js"></script>
-```
+For the ML pipeline itself behind a proxy or fully offline, see
+[Offline & Proxied Environments](../docs/user-guide/offline-and-proxy.md).
 
 ## Performance
 
@@ -297,7 +299,7 @@ Planned for Phase 2+:
 - **Framework Docs**: See main project README.md
 - **Design Docs**: `openspec/changes/web-console/design.md`
 - **Issues**: Report via project issue tracker
-- **API Docs**: http://localhost:8000/docs
+- **API Docs**: <http://localhost:8000/docs>
 
 ## License
 

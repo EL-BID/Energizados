@@ -84,6 +84,7 @@ class EvaluationBuilder(StepBuilder):
             thresholds_output_dir=(
                 (eval_config.get("segmented_evaluation") or {}).get("thresholds_output_dir")
             ),
+            self_contained=eval_config.get("self_contained", False),
         )
 
     def is_enabled(self) -> bool:

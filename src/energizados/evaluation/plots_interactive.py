@@ -9,7 +9,7 @@ Follows the same pattern as energizados.eda.plots_interactive.EDAInteractivePlot
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -32,26 +32,49 @@ class EvalInteractivePlots:
     Generates interactive Plotly charts for the evaluation report.
 
     All methods return HTML strings of the chart (not file paths).
-    Each chart includes the Plotly.js CDN (browsers cache it, no penalty).
+    By default each chart references the Plotly.js CDN (browsers cache it,
+    no penalty). With ``self_contained=True`` the first chart inlines the
+    full Plotly.js bundle and subsequent charts omit it (offline reports).
 
     Args:
         output_dir: Output directory (kept for API consistency, not used for HTML charts)
         template: Plotly template name
+        self_contained: If True, inline the Plotly.js bundle once per instance
+            (first chart) instead of referencing the CDN (offline mode)
 
     Example:
         >>> plotter = EvalInteractivePlots("output/evaluation/")
         >>> html = plotter.roc_curve(fpr, tpr, auc_score)
     """
 
-    def __init__(self, output_dir: str = "output/", template: str = "plotly_white"):
+    def __init__(
+        self,
+        output_dir: str = "output/",
+        template: str = "plotly_white",
+        self_contained: bool = False,
+    ):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.template = template
+        self.self_contained = self_contained
+        # Track whether the inline Plotly.js bundle was already emitted
+        # (one inclusion per HTML document is enough).
+        self._plotlyjs_emitted = False
 
     def _to_html(self, fig) -> str:
-        """Convert figure to HTML, including Plotly.js CDN every time."""
+        """Convert figure to HTML, including Plotly.js exactly once."""
         try:
-            return fig.to_html(full_html=False, include_plotlyjs="cdn", config={"responsive": True})
+            include_js: Union[bool, str]
+            if self.self_contained:
+                # Inline the full bundle on the first chart only; the rest
+                # rely on it being present earlier in the same document.
+                include_js = not self._plotlyjs_emitted
+                self._plotlyjs_emitted = True
+            else:
+                include_js = "cdn"
+            return fig.to_html(
+                full_html=False, include_plotlyjs=include_js, config={"responsive": True}
+            )
         except Exception as e:
             logger.warning("Error converting figure to HTML: %s", e)
             return ""

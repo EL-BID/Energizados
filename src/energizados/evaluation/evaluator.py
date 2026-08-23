@@ -69,6 +69,7 @@ class DefaultEvaluator(BaseEvaluator):
         experiment_description: Optional[str] = None,
         segmented_evaluation: Optional[Dict] = None,
         thresholds_output_dir: Optional[str] = None,
+        self_contained: bool = False,
         **kwargs,
     ):
         self.input_path = input_path
@@ -100,6 +101,8 @@ class DefaultEvaluator(BaseEvaluator):
         # deployment artifact consumed by inference, so it belongs next
         # to the model, not next to the reports.
         self.thresholds_output_dir = thresholds_output_dir
+        # Inline JS bundles in HTML reports (offline / air-gapped environments)
+        self.self_contained = self_contained
 
         self.plot_generator = PlotGenerator(str(self.output_dir))
         self.report_generator = ReportGenerator(str(self.output_dir))
@@ -479,7 +482,9 @@ class DefaultEvaluator(BaseEvaluator):
 
             from energizados.evaluation.plots_interactive import EvalInteractivePlots
 
-            eval_plots = EvalInteractivePlots(str(self.output_dir))
+            eval_plots = EvalInteractivePlots(
+                str(self.output_dir), self_contained=self.self_contained
+            )
 
             # ROC
             try:
@@ -835,7 +840,9 @@ class DefaultEvaluator(BaseEvaluator):
                     EvalInteractivePlots,
                 )
 
-                eval_plots = EvalInteractivePlots(str(model_output_dir))
+                eval_plots = EvalInteractivePlots(
+                    str(model_output_dir), self_contained=self.self_contained
+                )
 
                 # ROC
                 try:
@@ -953,7 +960,9 @@ class DefaultEvaluator(BaseEvaluator):
         # Generate comparative report
         from energizados.evaluation.comparative import ComparativeEvaluator
 
-        comparative_evaluator = ComparativeEvaluator(str(self.output_dir))
+        comparative_evaluator = ComparativeEvaluator(
+            str(self.output_dir), self_contained=self.self_contained
+        )
         comparison_result = comparative_evaluator.compare(
             all_metrics=all_metrics,
             all_model_info=all_model_info,

@@ -97,6 +97,7 @@ nav:
           - Inference: user-guide/configuration/infer.md
       - EDA Module: user-guide/eda.md
       - Understanding Results: user-guide/understanding-results.md
+      - Offline & Proxied Environments: user-guide/offline-and-proxy.md
       - Troubleshooting: user-guide/troubleshooting.md
   - Tutorials:
       - End-to-End Example: tutorials/end-to-end-example.md

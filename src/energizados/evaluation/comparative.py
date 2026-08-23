@@ -11,6 +11,11 @@ from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
+# Vendored Tailwind Play script (source URL, version and license are noted in
+# the file header): inlined into self-contained comparison reports for offline use.
+_TAILWIND_ASSET = Path(__file__).parent / "assets" / "tailwind-play-3.4.17.min.js"
+_TAILWIND_CDN_TAG = '<script src="https://cdn.tailwindcss.com"></script>'
+
 
 class ComparativeEvaluator:
     """
@@ -28,15 +33,35 @@ class ComparativeEvaluator:
         >>> print(result["html"])  # Path to comparison.html
     """
 
-    def __init__(self, output_dir: str):
+    def __init__(self, output_dir: str, self_contained: bool = False):
         """
         Initialize the comparative evaluator.
 
         Args:
             output_dir: Output directory for reports.
+            self_contained: If True, inline the vendored Tailwind script in the
+                HTML report (offline, no CDN). Default False keeps the CDN tag.
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.self_contained = self_contained
+
+    def _tailwind_script_tag(self) -> str:
+        """
+        Return the ``<script>`` markup that provides Tailwind for the report.
+
+        Default: CDN reference (identical to the historical behavior).
+        self_contained: inline the vendored Tailwind Play script shipped as
+        package data (works fully offline, adds ~400 KB to the report).
+        """
+        if not self.self_contained:
+            return _TAILWIND_CDN_TAG
+        try:
+            js = _TAILWIND_ASSET.read_text(encoding="utf-8")
+        except OSError as e:
+            logger.warning("Could not read vendored Tailwind script (%s); using CDN", e)
+            return _TAILWIND_CDN_TAG
+        return f"<script>{js}</script>"
 
     def compare(
         self,
@@ -186,7 +211,7 @@ class ComparativeEvaluator:
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Model Comparison Report - Energizados</title>
-            <script src="https://cdn.tailwindcss.com"></script>
+            {self._tailwind_script_tag()}
         </head>
         <body class="bg-gray-100 min-h-screen">
             <div class="container mx-auto px-4 py-8">

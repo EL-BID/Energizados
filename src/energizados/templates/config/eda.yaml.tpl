@@ -150,3 +150,4 @@ eda:
     export_plots: true
     export_csv: true              # Export summary tables as CSV
     sample_size: null             # null = full dataset
+    self_contained: false         # true = inline Plotly.js in the report (offline/air-gapped; +~3.5 MB)
