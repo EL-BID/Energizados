@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-08-23
+
+### Fixed
+
+- **`doctor`: empty CPU/memory/disk lines in the System Summary panel.** The CLI delegates to `api.doctor()`, which only filled `python_version`, `platform` and `energizados_version`; the psutil-based hardware collection lived as dead code in `cli/doctor.py` and was never invoked, so empty strings bypassed the "Unknown" guards and rendered blank fields. Hardware collection now lives in `energizados.api.get_system_info()` (single source of truth, psutil with `os`-based fallback), `api.doctor()` uses it, and `cli/doctor.py:get_system_info()` delegates to the API adding only GPU info — ~80 duplicated lines removed. Regression test: `tests/test_api.py::test_doctor_report_has_hardware_info`.
+
+### Added
+
+- **Docs: new step-by-step tutorial for the sample project** (`docs/tutorials/step-by-step_es.md`).
+
 ## [0.3.6] - 2026-08-17
 
 ### Added
