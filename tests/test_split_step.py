@@ -5,6 +5,7 @@ Tests cover schema validation, time_series split behavior, warnings,
 and regression tests for stratified/random splits.
 """
 
+import json
 import logging
 
 import numpy as np
@@ -942,6 +943,426 @@ class TestInjectUnlabeledNegatives:
         assert (
             "inject" in info_logs.lower() or "added" in info_logs.lower()
         ), "Should log injection count"
+
+
+# =============================================================================
+# Unlabeled Negatives via @etl_ref (same-data-negatives)
+# =============================================================================
+
+
+class TestUnlabeledNegativesEtlRef:
+    """Test suite for @etl_name source resolution and ETL-ref injection."""
+
+    @pytest.fixture
+    def labeled_df(self):
+        """Labeled training data."""
+        return pd.DataFrame(
+            {
+                "id": ["A1", "A2", "A3", "A4", "A5"],
+                "feature1": [1.0, 2.0, 3.0, 4.0, 5.0],
+                "zona": ["X", "Y", "X", "Y", "Z"],
+                "target": [0, 1, 0, 1, 0],
+            }
+        )
+
+    @pytest.fixture
+    def negatives_parquet(self, tmp_path):
+        """Assumed-negatives parquet + a pipeline context referencing it."""
+        df = pd.DataFrame(
+            {
+                "id": ["B1", "B2", "B3"],
+                "feature1": [10.0, 20.0, 30.0],
+                "zona": ["X", "Y", "Z"],
+            }
+        )
+        path = tmp_path / "assumed_negatives.parquet"
+        df.to_parquet(path, index=False)
+        context = {
+            "etl_output_paths": {"negatives": str(path)},
+            "etl_results": {"negatives": df},
+        }
+        return str(path), context
+
+    def _split_step(self, source_path, **extra):
+        return SplitStep(
+            input_path="dummy.parquet",
+            target_column="target",
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": source_path,
+                "max_per_cutoff": 1500,
+                "random_state": 42,
+                **extra,
+            },
+        )
+
+    def test_etl_ref_resolves_and_injects(self, labeled_df, negatives_parquet):
+        """@negatives must resolve via context keys and inject into train only."""
+        path, context = negatives_parquet
+        split_step = self._split_step("@negatives")
+
+        val_df = pd.DataFrame({"id": ["V1"], "feature1": [100.0], "target": [0]})
+        test_df = pd.DataFrame({"id": ["T1"], "feature1": [200.0], "target": [0]})
+        val_before, test_before = val_df.copy(), test_df.copy()
+
+        result = split_step._inject_unlabeled_negatives(labeled_df.copy(), val_df, test_df, context)
+
+        # Train-only injection
+        assert len(result) == 8, f"Expected 8 rows (5 labeled + 3 injected), got {len(result)}"
+        pd.testing.assert_frame_equal(val_df, val_before)
+        pd.testing.assert_frame_equal(test_df, test_before)
+
+        # Hard target=0, no marker column
+        injected = result[~result["id"].isin(labeled_df["id"])]
+        assert injected["target"].eq(0).all(), "Injected rows must have target=0"
+        assert set(result.columns) == set(labeled_df.columns), "No marker column expected"
+
+    def test_unknown_ref_error_lists_etls(self, labeled_df, negatives_parquet):
+        """@no_such_etl must raise naming the ref and available ETLs."""
+        _, context = negatives_parquet
+        split_step = self._split_step("@no_such_etl")
+
+        with pytest.raises(ValueError) as excinfo:
+            split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+            )
+        message = str(excinfo.value)
+        assert "no_such_etl" in message, f"Error must name the reference: {message}"
+        assert "negatives" in message, f"Error must list available ETLs: {message}"
+
+    def test_not_executed_ref_error(self, labeled_df, negatives_parquet):
+        """Ref in etl_output_paths but absent from etl_results → disabled/failed error."""
+        path, context = negatives_parquet
+        context = dict(context)
+        del context["etl_results"]  # configured but never executed
+
+        split_step = self._split_step("@negatives")
+
+        with pytest.raises(ValueError) as excinfo:
+            split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+            )
+        message = str(excinfo.value).lower()
+        assert "negatives" in message
+        assert "disabled" in message or "failed" in message or "did not execute" in message
+
+    def test_traversal_on_resolved_path_rejected(self, labeled_df, tmp_path):
+        """A resolved path containing '..' must fail traversal validation."""
+        evil = str(tmp_path / ".." / "evil.parquet")
+        context = {
+            "etl_output_paths": {"negatives": evil},
+            "etl_results": {"negatives": pd.DataFrame()},
+        }
+        split_step = self._split_step("@negatives")
+
+        with pytest.raises(ValueError, match="traversal"):
+            split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+            )
+
+    def test_resolved_path_missing_file_raises(self, labeled_df, tmp_path):
+        """Executed ETL whose output file is gone → FileNotFoundError."""
+        missing = str(tmp_path / "gone.parquet")
+        context = {
+            "etl_output_paths": {"negatives": missing},
+            "etl_results": {"negatives": pd.DataFrame()},
+        }
+        split_step = self._split_step("@negatives")
+
+        with pytest.raises(FileNotFoundError):
+            split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+            )
+
+    def test_etl_ref_drops_extra_columns_with_log(self, labeled_df, negatives_parquet, caplog):
+        """Source columns absent from train are dropped (train schema wins)."""
+        path, context = negatives_parquet
+        extra_df = pd.read_parquet(path)
+        extra_df["source_file"] = "raw.csv"  # column train does not have
+
+        extra_path = path.replace(".parquet", "_extra.parquet")
+        extra_df.to_parquet(extra_path, index=False)
+        context = {
+            "etl_output_paths": {"negatives": extra_path},
+            "etl_results": {"negatives": extra_df},
+        }
+        split_step = self._split_step("@negatives")
+
+        with caplog.at_level(logging.INFO):
+            result = split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+            )
+
+        assert "source_file" not in result.columns, "Extra column must be dropped"
+        assert set(result.columns) == set(labeled_df.columns)
+
+        logs = " ".join(r.getMessage() for r in caplog.records)
+        assert "source_file" in logs, f"Dropped column must be logged, got: {logs}"
+
+    def test_etl_ref_fills_missing_columns_with_warning(
+        self, labeled_df, negatives_parquet, caplog
+    ):
+        """Train columns missing from the negatives source are NaN-filled + WARNING."""
+        path, context = negatives_parquet
+        partial_df = pd.read_parquet(path).drop(columns=["zona"])
+
+        partial_path = path.replace(".parquet", "_partial.parquet")
+        partial_df.to_parquet(partial_path, index=False)
+        context = {
+            "etl_output_paths": {"negatives": partial_path},
+            "etl_results": {"negatives": partial_df},
+        }
+        split_step = self._split_step("@negatives")
+
+        with caplog.at_level(logging.WARNING):
+            result = split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+            )
+
+        injected = result[~result["id"].isin(labeled_df["id"])]
+        assert injected["zona"].isna().all(), "Missing column must be NaN-filled"
+
+        warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("zona" in w for w in warnings), f"Expected NaN-fill WARNING: {warnings}"
+
+    def test_file_mode_keeps_extra_columns(self, labeled_df, tmp_path):
+        """External-file mode retains its pass-through behavior for extra columns."""
+        unlabeled = pd.DataFrame(
+            {
+                "id": ["B1"],
+                "feature1": [10.0],
+                "zona": ["X"],
+                "source_file": ["raw.csv"],  # extra column — file mode keeps it
+            }
+        )
+        path = tmp_path / "external.parquet"
+        unlabeled.to_parquet(path, index=False)
+
+        split_step = self._split_step(str(path))
+        result = split_step._inject_unlabeled_negatives(
+            labeled_df.copy(), pd.DataFrame(), pd.DataFrame()
+        )
+
+        assert "source_file" in result.columns, "File mode must keep extra columns"
+
+
+class TestUnlabeledNegativesGuardrails:
+    """Zero-cap / date-filter-skip / empty-source WARNING behaviors (both modes)."""
+
+    @pytest.fixture
+    def labeled_df(self):
+        return pd.DataFrame(
+            {
+                "id": ["A1", "A2", "A3"],
+                "feature1": [1.0, 2.0, 3.0],
+                "target": [0, 1, 0],
+            }
+        )
+
+    def _make_source(self, tmp_path, df, name="negatives.parquet"):
+        path = tmp_path / name
+        df.to_parquet(path, index=False)
+        return str(path)
+
+    def test_zero_cap_injects_nothing_with_warning(self, labeled_df, tmp_path, caplog):
+        path = self._make_source(
+            tmp_path, pd.DataFrame({"id": ["B1", "B2"], "feature1": [10.0, 20.0]})
+        )
+        split_step = SplitStep(
+            input_path="dummy.parquet",
+            target_column="target",
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": path,
+                "max_per_cutoff": 0,
+            },
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame()
+            )
+
+        assert len(result) == len(labeled_df), "Zero cap must inject nothing"
+        warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("no unlabeled negatives" in w.lower() for w in warnings)
+
+    def test_empty_source_warns_and_train_unchanged(self, labeled_df, tmp_path, caplog):
+        path = self._make_source(
+            tmp_path,
+            pd.DataFrame(
+                {"id": pd.Series([], dtype="object"), "feature1": pd.Series([], dtype="float64")}
+            ),
+        )
+        split_step = SplitStep(
+            input_path="dummy.parquet",
+            target_column="target",
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": path,
+                "max_per_cutoff": 10,
+            },
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame()
+            )
+
+        assert len(result) == len(labeled_df)
+        warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("no unlabeled negatives" in w.lower() for w in warnings)
+
+    def test_date_filter_skip_warns_when_column_absent(self, labeled_df, tmp_path, caplog):
+        """time_series + configured date_column absent from negatives → skip + WARNING."""
+        path = self._make_source(tmp_path, pd.DataFrame({"id": ["B1"], "feature1": [10.0]}))
+        split_step = SplitStep(
+            input_path="dummy.parquet",
+            target_column="target",
+            method="time_series",
+            date_column="date",
+            train_period=["2020-01-01", "2022-12-31"],
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": path,
+                "max_per_cutoff": 10,
+                "date_column": "date",
+            },
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame()
+            )
+
+        # Row must NOT be silently dropped by the date filter
+        assert len(result) == len(labeled_df) + 1
+        warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("date" in w.lower() and "skip" in w.lower() for w in warnings)
+
+
+class TestUnlabeledNegativesMetadata:
+    """split_metadata.json contract for both source modes, including 0 rows."""
+
+    def _make_negatives(self, tmp_path, rows=3):
+        df = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=rows, freq="ME"),
+                "f1": [float(i) for i in range(rows)],
+            }
+        )
+        path = tmp_path / "negatives.parquet"
+        df.to_parquet(path, index=False)
+        return df, str(path)
+
+    def _run_split(self, tmp_path, source_path, context=None):
+        split_step = SplitStep(
+            input_path=None,  # force etl_results fallback? No — use explicit path below
+            target_column="target",
+            method="stratified",
+            test_size=0.2,
+            val_size=0.1,
+            random_state=42,
+            splits_dir=str(tmp_path / "splits"),
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": source_path,
+                "max_per_cutoff": 1500,
+                "random_state": 42,
+            },
+        )
+        # Build a real input dataset in context-free mode
+        dataset = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=50, freq="ME"),
+                "f1": np.random.default_rng(42).standard_normal(50),
+                "target": np.random.default_rng(42).integers(0, 2, 50),
+            }
+        )
+        dataset_path = tmp_path / "dataset.parquet"
+        dataset.to_parquet(dataset_path, index=False)
+        split_step.input_path = str(dataset_path)
+        split_step.execute(context or {})
+
+        metadata_path = tmp_path / "splits" / "split_metadata.json"
+        with open(metadata_path, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_metadata_etl_ref_mode(self, tmp_path):
+        """ETL-ref mode reports resolved path, mode, assumed label, counts."""
+        df, path = self._make_negatives(tmp_path, rows=3)
+        context = {
+            "etl_output_paths": {"negatives": path},
+            "etl_results": {"negatives": df},
+        }
+
+        metadata = self._run_split(tmp_path, "@negatives", context)
+
+        assert metadata["unlabeled_negatives_source"] == path
+        assert metadata["unlabeled_negatives_source_mode"] == "etl_ref"
+        assert metadata["unlabeled_negatives_labels_assumed"] is True
+        assert metadata["unlabeled_negatives_injected"] == 3
+        assert metadata["unlabeled_negatives_excluded_by_dedup"] == 0
+        assert isinstance(metadata["new_fraud_rate"], float)
+
+    def test_metadata_file_mode(self, tmp_path):
+        """File mode reports the literal path and file-mode indicator."""
+        _, path = self._make_negatives(tmp_path, rows=2)
+
+        metadata = self._run_split(tmp_path, path)
+
+        assert metadata["unlabeled_negatives_source"] == path
+        assert metadata["unlabeled_negatives_source_mode"] == "file"
+        assert metadata["unlabeled_negatives_labels_assumed"] is True
+        assert metadata["unlabeled_negatives_injected"] == 2
+        # Existing keys keep their names
+        assert "unlabeled_negatives_excluded_by_dedup" in metadata
+        assert "new_fraud_rate" in metadata
+
+    def test_metadata_zero_rows_still_reported(self, tmp_path):
+        """Injection enabled with 0 injected rows still reports source/mode/count."""
+        df, path = self._make_negatives(tmp_path, rows=0)
+        context = {
+            "etl_output_paths": {"negatives": path},
+            "etl_results": {"negatives": df},
+        }
+
+        metadata = self._run_split(tmp_path, "@negatives", context)
+
+        assert metadata["unlabeled_negatives_source"] == path
+        assert metadata["unlabeled_negatives_source_mode"] == "etl_ref"
+        assert metadata["unlabeled_negatives_injected"] == 0
+        assert metadata["unlabeled_negatives_labels_assumed"] is True
+
+    def test_metadata_absent_when_injection_disabled(self, tmp_path):
+        """No injection configured → no unlabeled_negatives keys in metadata."""
+        metadata = self._run_split_no_injection(tmp_path)
+        assert not any(k.startswith("unlabeled_negatives") for k in metadata)
+
+    def _run_split_no_injection(self, tmp_path):
+        dataset = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=50, freq="ME"),
+                "f1": np.random.default_rng(42).standard_normal(50),
+                "target": np.random.default_rng(42).integers(0, 2, 50),
+            }
+        )
+        dataset_path = tmp_path / "dataset.parquet"
+        dataset.to_parquet(dataset_path, index=False)
+
+        split_step = SplitStep(
+            input_path=str(dataset_path),
+            target_column="target",
+            method="stratified",
+            test_size=0.2,
+            val_size=0.1,
+            random_state=42,
+            splits_dir=str(tmp_path / "splits"),
+        )
+        split_step.execute({})
+
+        with open(tmp_path / "splits" / "split_metadata.json", encoding="utf-8") as f:
+            return json.load(f)
 
 
 # =============================================================================

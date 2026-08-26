@@ -364,11 +364,16 @@ class SplitStep(PipelineStep):
         unlabeled_metadata = {}
         if self.unlabeled_negatives and self.unlabeled_negatives.get("enabled", False):
             train_df_before = train_df.copy()
-            train_df = self._inject_unlabeled_negatives(train_df, val_df, test_df)
-            # Capture metadata for F1 injection
+            train_df = self._inject_unlabeled_negatives(train_df, val_df, test_df, context)
+            # Capture metadata for F1 injection (reported whenever injection is
+            # enabled — including when 0 rows were injected)
             unlabeled_metadata = {
                 "unlabeled_negatives_injected": len(train_df) - len(train_df_before),
-                "unlabeled_negatives_source": self.unlabeled_negatives.get("source_path"),
+                "unlabeled_negatives_source": getattr(self, "_last_unlabeled_source", None),
+                "unlabeled_negatives_source_mode": getattr(
+                    self, "_last_unlabeled_source_mode", "file"
+                ),
+                "unlabeled_negatives_labels_assumed": True,
                 "unlabeled_negatives_excluded_by_dedup": getattr(self, "_last_excluded_count", 0),
                 "new_fraud_rate": (
                     (train_df[self.target_column] == 1).sum() / len(train_df)
@@ -446,8 +451,9 @@ class SplitStep(PipelineStep):
             ),
         }
 
-        # Add unlabeled_negatives metadata if injection was performed
-        if unlabeled_metadata and unlabeled_metadata.get("unlabeled_negatives_injected", 0) > 0:
+        # Add unlabeled_negatives metadata whenever injection is enabled
+        # (including 0 injected rows)
+        if unlabeled_metadata:
             metadata.update(unlabeled_metadata)
 
         # Add geo_stratify metadata if stratification was performed
@@ -579,25 +585,90 @@ class SplitStep(PipelineStep):
             "max": str(df[date_col].max()),
         }
 
+    def _resolve_unlabeled_source(self, context: Optional[Dict[str, Any]]) -> tuple:
+        """
+        Resolve ``unlabeled_negatives.source_path`` to a concrete file path.
+
+        Literal paths are returned unchanged (mode ``"file"``). Paths starting
+        with ``@`` are resolved against the pipeline context written by the
+        ETL step (mode ``"etl_ref"``):
+
+        1. ``context["etl_output_paths"][name]`` → configured output path
+        2. ``context["etl_results"]`` membership → the ETL actually executed
+        3. ``validate_no_traversal`` on the resolved path
+
+        Args:
+            context: Pipeline context dict (may be None for direct calls).
+
+        Returns:
+            Tuple of (resolved_path, mode) where mode is "file" or "etl_ref".
+
+        Raises:
+            ValueError: If the reference is unknown, did not execute, or the
+                resolved path fails traversal validation.
+        """
+        source_path = self.unlabeled_negatives.get("source_path")
+        if not source_path:
+            return None, "file"
+
+        if not source_path.startswith("@"):
+            return source_path, "file"
+
+        ref_name = source_path[1:]
+        context = context or {}
+        output_paths = context.get("etl_output_paths", {})
+        executed = context.get("etl_results", {})
+
+        if ref_name not in output_paths:
+            available = list(output_paths.keys()) if output_paths else []
+            raise ValueError(
+                f"Unknown ETL reference '{source_path}' in "
+                f"unlabeled_negatives.source_path: no ETL named '{ref_name}' "
+                f"exists in this run. Available ETLs: {available}"
+            )
+
+        if ref_name not in executed:
+            raise ValueError(
+                f"ETL '{ref_name}' referenced by unlabeled_negatives.source_path "
+                f"did not execute (disabled or failed) — no negatives output is "
+                f"available. Enable the ETL or remove its reference."
+            )
+
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
+
+        resolved = output_paths[ref_name]
+        validate_no_traversal(resolved, label="unlabeled_negatives source")
+
+        return resolved, "etl_ref"
+
     def _inject_unlabeled_negatives(
-        self, train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame
+        self,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        context: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Inject unlabeled negative samples into training data.
 
-        1. Load source_path parquet
-        2. For time_series: filter by date_column within train_period
-        3. Exclude IDs present in val_df or test_df (using id_column)
-        4. Sample up to max_per_cutoff records
-        5. Assign target=0
-        6. Fill missing columns with NaN, log WARNING per missing column
-        7. Concatenate to train_df
-        8. Log count added and new fraud rate
+        1. Resolve source_path (literal file or ``@etl_name`` via context)
+        2. Load the resolved parquet
+        3. For time_series: filter by date_column within train_period
+        4. Exclude IDs present in val_df or test_df (using id_column)
+        5. Sample up to max_per_cutoff records
+        6. Align columns (ETL-ref mode: train schema wins — extra source
+           columns are dropped; missing train columns are NaN-filled in both
+           modes)
+        7. Assign target=0
+        8. Concatenate to train_df
+        9. Log count added and new fraud rate
 
         Args:
             train_df: Training DataFrame (labeled data)
             val_df: Validation DataFrame
             test_df: Test DataFrame
+            context: Pipeline context dict, used to resolve ``@etl_name``
+                references against ``etl_output_paths`` / ``etl_results``.
 
         Returns:
             Training DataFrame with injected unlabeled negatives
@@ -606,17 +677,21 @@ class SplitStep(PipelineStep):
         if not self.unlabeled_negatives or not self.unlabeled_negatives.get("enabled", False):
             return train_df
 
-        source_path = self.unlabeled_negatives.get("source_path")
+        source_path, source_mode = self._resolve_unlabeled_source(context)
+        self._last_unlabeled_source = source_path
+        self._last_unlabeled_source_mode = source_mode
+
         if not source_path:
             logger.warning("unlabeled_negatives.enabled is True but source_path is not set")
             return train_df
+
+        logger.info(f"Loading unlabeled negatives from: {source_path} (mode: {source_mode})")
 
         # Check if source file exists
         if not Path(source_path).exists():
             raise FileNotFoundError(f"Unlabeled negatives source file not found: {source_path}")
 
         # Load unlabeled data
-        logger.info(f"Loading unlabeled negatives from: {source_path}")
         unlabeled_df = pd.read_parquet(source_path)
         original_count = len(unlabeled_df)
 
@@ -683,6 +758,22 @@ class SplitStep(PipelineStep):
         if len(unlabeled_df) == 0:
             logger.warning("No unlabeled negatives to inject after filtering")
             return train_df
+
+        # ETL-ref mode: train schema wins — drop source columns absent from
+        # train (external-file mode keeps its pass-through behavior)
+        if source_mode == "etl_ref":
+            extra_columns = [
+                col
+                for col in unlabeled_df.columns
+                if col not in train_df.columns and col != self.target_column
+            ]
+            if extra_columns:
+                for col in extra_columns:
+                    logger.info(
+                        f"Dropping source column '{col}' absent from train "
+                        "(train schema wins in ETL-reference mode)"
+                    )
+                unlabeled_df = unlabeled_df.drop(columns=extra_columns)
 
         # Fill missing columns with NaN
         train_columns = set(train_df.columns)
