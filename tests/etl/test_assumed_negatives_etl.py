@@ -315,6 +315,102 @@ class TestAssumedNegativesRun:
 
 
 # ---------------------------------------------------------------------------
+# Directory inputs (Hive-partitioned ETL outputs, e.g. incremental consumos/)
+# ---------------------------------------------------------------------------
+
+
+def _write_partitioned_dir(tmp_path, name, df, n_partitions=2):
+    """Write a DataFrame as a Hive-style partitioned directory.
+
+    Layout: tmp_path/<name>/partition=<i>/data.parquet (splits df rows evenly).
+    Returns the directory path as str.
+    """
+    root = tmp_path / name
+    chunk = max(1, len(df) // n_partitions)
+    for i, start in enumerate(range(0, len(df), chunk)):
+        part = df.iloc[start : start + chunk]
+        part_dir = root / f"partition={i}"
+        part_dir.mkdir(parents=True, exist_ok=True)
+        part.to_parquet(part_dir / "data.parquet", index=False)
+    return str(root)
+
+
+class TestAssumedNegativesDirectoryInputs:
+    def test_consumption_as_partitioned_directory(self, tmp_path):
+        """Consumption given as a Hive dir (e.g. '@consumos' incremental output)."""
+        consumption_dir = _write_partitioned_dir(tmp_path, "consumos", _consumption_df())
+        inspections = _write_parquet(tmp_path, "inspections.parquet", _inspections_df(["C2", "C3"]))
+        output = str(tmp_path / "negatives.parquet")
+
+        result = AssumedNegativesETL(
+            name="negatives",
+            input_paths=[consumption_dir, inspections],
+            output_path=output,
+            id_column="contract_id",
+        ).run(output)
+
+        expected = _consumption_df()[lambda df: df["contract_id"].isin(["C1", "C4", "C5"])]
+        assert len(result) == 3
+        pd.testing.assert_frame_equal(
+            result.reset_index(drop=True), expected.reset_index(drop=True)
+        )
+
+    def test_inspections_as_partitioned_directory(self, tmp_path):
+        """Inspections given as a Hive dir (e.g. '@inspecciones' incremental output)."""
+        consumption = _write_parquet(tmp_path, "consumption.parquet", _consumption_df())
+        inspections_dir = _write_partitioned_dir(
+            tmp_path, "inspecciones", _inspections_df(["C2", "C3"])
+        )
+        output = str(tmp_path / "negatives.parquet")
+
+        AssumedNegativesETL(
+            name="negatives",
+            input_paths=[consumption, inspections_dir],
+            output_path=output,
+            id_column="contract_id",
+        ).run(output)
+
+        written = pd.read_parquet(output)
+        assert set(written["contract_id"]) == {"C1", "C4", "C5"}
+
+    def test_both_roles_as_directories(self, tmp_path):
+        """celesc-style wiring: both inputs are partitioned ETL output dirs."""
+        consumption_dir = _write_partitioned_dir(tmp_path, "consumos", _consumption_df())
+        inspections_dir = _write_partitioned_dir(
+            tmp_path, "inspecciones", _inspections_df(["C2", "C3"])
+        )
+        output = str(tmp_path / "negatives.parquet")
+
+        AssumedNegativesETL(
+            name="negativos",
+            input_paths=[consumption_dir, inspections_dir],
+            output_path=output,
+            id_column="contract_id",
+        ).run(output)
+
+        written = pd.read_parquet(output)
+        assert set(written["contract_id"]) == {"C1", "C4", "C5"}
+        assert list(written.columns) == ["contract_id", "consumo", "zona"]
+
+    def test_empty_directory_raises_etlerror_naming_role(self, tmp_path):
+        """A directory with no parquet files must fail naming the role, not crash."""
+        empty_dir = tmp_path / "empty_source"
+        empty_dir.mkdir()
+        consumption = _write_parquet(tmp_path, "consumption.parquet", _consumption_df())
+        output = str(tmp_path / "negatives.parquet")
+
+        etl = AssumedNegativesETL(
+            name="negatives",
+            input_paths=[consumption, str(empty_dir)],
+            output_path=output,
+            id_column="contract_id",
+        )
+
+        with pytest.raises(ETLError, match="inspections.*[Nn]o parquet|[Nn]o parquet.*inspections"):
+            etl.run(output)
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator integration (@ref resolution)
 # ---------------------------------------------------------------------------
 

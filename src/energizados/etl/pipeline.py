@@ -1770,8 +1770,11 @@ class AssumedNegativesETL(BaseETL):
     inspectable parquet. It never modifies either input source or the main
     training dataset.
 
-    Input roles are positional and each may be a literal path or an
-    ``@etl_name`` reference (resolved by the orchestrator):
+    Input roles are positional and each may be a literal path, an
+    ``@etl_name`` reference (resolved by the orchestrator), or a
+    Hive-style partitioned parquet directory (e.g. an incremental ETL's
+    output — the discovered ``*.parquet`` files are read directly, without
+    materializing partition keys as columns):
 
     - ``input_paths[0]``: **consumption** source (columns are preserved as-is)
     - ``input_paths[1]``: **inspections** source (only ``id_column`` is used)
@@ -1860,7 +1863,25 @@ class AssumedNegativesETL(BaseETL):
         if not source_file.exists():
             raise ETLError(f"File not found ({role}): {path}")
 
-        if source_file.suffix in [".parquet", ".pq"]:
+        if source_file.is_dir():
+            # Hive-style partitioned ETL output (e.g. incremental consumos/).
+            # Read the discovered files explicitly (sorted for determinism)
+            # instead of the directory root, so partition keys are NOT
+            # materialized as phantom columns by the pyarrow dataset API.
+            parquet_files = sorted(source_file.rglob("*.parquet"))
+            if not parquet_files:
+                raise ETLError(
+                    f"AssumedNegativesETL '{self.name}': {role} source directory "
+                    f"'{path}' contains no parquet files."
+                )
+            try:
+                # Read file-by-file and concat: passing paths (single or list)
+                # to read_parquet routes through the pyarrow dataset API,
+                # which materializes Hive partition keys as phantom columns.
+                df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+            except Exception as e:
+                raise ETLError(f"Failed to read {role} source directory '{path}': {e}") from e
+        elif source_file.suffix in [".parquet", ".pq"]:
             df = pd.read_parquet(path)
         elif source_file.suffix == ".csv":
             df = pd.read_csv(path)
