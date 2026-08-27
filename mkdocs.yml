@@ -100,6 +100,7 @@ nav:
       - Offline & Proxied Environments: user-guide/offline-and-proxy.md
       - Troubleshooting: user-guide/troubleshooting.md
   - Tutorials:
+      - Guía paso a paso (ES): tutorials/step-by-step_es.md
       - End-to-End Example: tutorials/end-to-end-example.md
       - Model Selection Guide: tutorials/model-selection-guide.md
       - Ensemble Models: tutorials/ensemble-models.md
