@@ -240,3 +240,23 @@ etl:
   #     missing_ok: true   # silently skip files that don't exist
   #   depends_on:
   #     - sample           # run last — after all ETLs that produce the files above
+  #
+  # # ETL 11: Assumed negatives — consumption rows with no inspection record.
+  # # Anti-join of the consumption source against the inspections source on
+  # # id_column. Input roles are POSITIONAL and exactly 2 are required:
+  # #   input[0] = consumption source (columns preserved as-is)
+  # #   input[1] = inspections source (only id_column is used)
+  # # Each input may be a literal path or an @etl_name reference. The output is
+  # # a standalone parquet (0 rows + WARNING when every client was inspected).
+  # # Reference it from train.yaml as split.unlabeled_negatives.source_path: "@negatives".
+  # negatives:
+  #   enabled: false
+  #   description: "Assumed negatives: consumption rows with no inspection record"
+  #   input:
+  #     - "data/processed/sample_dataset.parquet"   # consumption source
+  #     - "@inspecciones"                           # inspections source (@ref)
+  #   output: "data/processed/assumed_negatives.parquet"
+  #   custom_class: "energizados.etl.pipeline.AssumedNegativesETL"
+  #   params:
+  #     id_column: "contract_id"   # join column present in BOTH sources (required)
+  #   depends_on: []

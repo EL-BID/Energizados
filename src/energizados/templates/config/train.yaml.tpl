@@ -65,9 +65,16 @@ train:
     # Inject external unlabeled contracts as negative samples (target=0)
     # to reduce selection bias when labeled negatives are not representative.
     #
+    # source_path accepts a literal parquet path OR an "@etl_name" reference
+    # to an ETL output (resolved at run time against the executed ETLs — e.g.
+    # the AssumedNegativesETL "negatives" block in etl.yaml). In ETL-reference
+    # mode the train schema wins: extra source columns are dropped and missing
+    # train columns are NaN-filled (WARNING per column).
+    #
     # unlabeled_negatives:
     #   enabled: true
-    #   source_path: "data/external/unlabeled_contracts.parquet"  # dataset WITHOUT target column
+    #   source_path: "@negatives"     # @etl_name reference OR literal path:
+    #   # source_path: "data/external/unlabeled_contracts.parquet"  # dataset WITHOUT target column
     #   max_per_cutoff: 1500          # max rows to sample per cutoff
     #   random_state: 42
     #   date_column: "fecha_inspeccion"  # for time_series filtering

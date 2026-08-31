@@ -359,6 +359,31 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
             if not 0 < val_size < 1:
                 result.add_warning(f"train.split.val_size must be between 0 and 1, got: {val_size}")
 
+    # Warn about unknown keys inside unlabeled_negatives (typo guard).
+    # Checks train.split and the legacy top-level split section (mirrors the
+    # PipelineDirector fallback).
+    from energizados.core.schemas.schemas import SPLIT_SCHEMA
+
+    known_unlabeled_keys = set(
+        SPLIT_SCHEMA["properties"]["unlabeled_negatives"]["properties"].keys()
+    )
+    for split_name, split_cfg in [
+        ("train.split", training.get("split")),
+        ("split", config.get("split")),
+    ]:
+        if not isinstance(split_cfg, dict):
+            continue
+        unlabeled = split_cfg.get("unlabeled_negatives")
+        if not isinstance(unlabeled, dict):
+            continue
+        unknown_keys = [k for k in unlabeled if k not in known_unlabeled_keys]
+        if unknown_keys:
+            result.add_warning(
+                f"{split_name}.unlabeled_negatives: unknown key(s) {unknown_keys}. "
+                f"Known keys: {sorted(known_unlabeled_keys)}. "
+                "Check for typos (e.g. 'soruce_path' instead of 'source_path')."
+            )
+
     # Check sampling (lives under train.models[].sampling, not train.sampling)
     if isinstance(models, list):
         valid_methods = ["oversample", "undersample", "smotetomek", "none"]

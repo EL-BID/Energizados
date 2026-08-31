@@ -5,6 +5,7 @@ This module provides ETL classes for data processing:
 - ClipOutliersETL: Clips extreme values in numeric columns (data reading errors).
 - GeoFeaturesETL: Adds geo_cluster + geographic hierarchy and distance features.
 - CleanFilesETL: Deletes specified files (e.g. intermediate outputs after pipeline).
+- AssumedNegativesETL: Derives assumed negatives via anti-join (uninspected clients).
 """
 
 import glob
@@ -1758,3 +1759,201 @@ class GeoFeaturesETL(BaseETL):
             df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
 
         logger.info(f"  ✓ Saved {len(df)} records to '{path}'")
+
+
+class AssumedNegativesETL(BaseETL):
+    """ETL that derives **Assumed Negatives** via an anti-join.
+
+    An Assumed Negative is a consumption row whose client id has no inspection
+    record — downstream, ``split.unlabeled_negatives`` labels these rows
+    ``target=0`` by assumption. This ETL materializes them as a standalone,
+    inspectable parquet. It never modifies either input source or the main
+    training dataset.
+
+    Input roles are positional and each may be a literal path, an
+    ``@etl_name`` reference (resolved by the orchestrator), or a
+    Hive-style partitioned parquet directory (e.g. an incremental ETL's
+    output — the discovered ``*.parquet`` files are read directly, without
+    materializing partition keys as columns):
+
+    - ``input_paths[0]``: **consumption** source (columns are preserved as-is)
+    - ``input_paths[1]``: **inspections** source (only ``id_column`` is used)
+
+    Exactly 2 inputs are required. The orchestrator silently drops ``@refs``
+    to disabled ETLs during resolution, so a shrunk input list fails loudly
+    here instead of silently joining against the wrong role.
+
+    The anti-join runs in ``transform()`` (not ``extract()``) on purpose:
+    ``BaseETL.run`` short-circuits when ``extract()`` returns 0 rows, which
+    would skip ``load()``. Keeping the anti-join in ``transform()`` guarantees
+    an empty result still writes a 0-row parquet.
+
+    Args:
+        name: ETL name.
+        input_paths: Exactly 2 paths — [consumption, inspections].
+        output_path: Path to save the assumed negatives parquet.
+        id_column: Join column present in both sources (required).
+        **kwargs: Additional parameters (ignored).
+
+    Example YAML:
+        .. code-block:: yaml
+
+            negatives:
+              enabled: true
+              description: "Consumption rows with no inspection record"
+              input:
+                - "data/processed/dataset.parquet"   # consumption
+                - "@inspecciones"                     # inspections
+              output: "data/processed/assumed_negatives.parquet"
+              custom_class: "energizados.etl.pipeline.AssumedNegativesETL"
+              params:
+                id_column: "contract_id"
+              depends_on: [inspecciones]
+    """
+
+    def __init__(
+        self,
+        name: str,
+        input_paths: Optional[List[str]] = None,
+        output_path: Optional[str] = None,
+        id_column: Optional[str] = None,
+        **kwargs,
+    ):
+        self.name = name
+        self.input_paths = input_paths or []
+        self.output_path = output_path
+        self.id_column = id_column
+        self.kwargs = kwargs
+        self._inspection_ids: set = set()
+
+        if not id_column:
+            raise ValueError(
+                f"AssumedNegativesETL '{self.name}': params.id_column is required. "
+                "Set it to the join column present in both sources "
+                "(e.g. id_column: 'contract_id')."
+            )
+
+        if len(self.input_paths) != 2:
+            raise ValueError(
+                f"AssumedNegativesETL '{self.name}': expected exactly 2 inputs "
+                f"[consumption, inspections], got {len(self.input_paths)}. "
+                "Note: an '@etl_name' reference to a disabled ETL is silently "
+                "dropped during resolution — enable the referenced ETL or use a "
+                "literal path."
+            )
+
+    def _read_source(self, role: str, path: str) -> pd.DataFrame:
+        """Read one input source and validate id_column presence.
+
+        Args:
+            role: Role name ("consumption" or "inspections") for error messages.
+            path: Path to the source file.
+
+        Returns:
+            DataFrame with the file contents.
+
+        Raises:
+            ETLError: If the file is missing, unreadable, or lacks id_column.
+        """
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
+
+        validate_no_traversal(path, label=f"ETL '{self.name}' {role} input")
+        source_file = Path(path)
+
+        if not source_file.exists():
+            raise ETLError(f"File not found ({role}): {path}")
+
+        if source_file.is_dir():
+            # Hive-style partitioned ETL output (e.g. incremental consumos/).
+            # Read the discovered files explicitly (sorted for determinism)
+            # instead of the directory root, so partition keys are NOT
+            # materialized as phantom columns by the pyarrow dataset API.
+            parquet_files = sorted(source_file.rglob("*.parquet"))
+            if not parquet_files:
+                raise ETLError(
+                    f"AssumedNegativesETL '{self.name}': {role} source directory "
+                    f"'{path}' contains no parquet files."
+                )
+            try:
+                # Read file-by-file and concat: passing paths (single or list)
+                # to read_parquet routes through the pyarrow dataset API,
+                # which materializes Hive partition keys as phantom columns.
+                df = pd.concat([pd.read_parquet(f) for f in parquet_files], ignore_index=True)
+            except Exception as e:
+                raise ETLError(f"Failed to read {role} source directory '{path}': {e}") from e
+        elif source_file.suffix in [".parquet", ".pq"]:
+            df = pd.read_parquet(path)
+        elif source_file.suffix == ".csv":
+            df = pd.read_csv(path)
+        else:
+            raise ETLError(f"Unsupported format for {role} source: {source_file.suffix}")
+
+        logger.info(f"  • Read {len(df)} records from {role} source '{source_file.name}'")
+
+        if self.id_column not in df.columns:
+            raise ETLError(
+                f"AssumedNegativesETL '{self.name}': id_column '{self.id_column}' not "
+                f"found in the {role} source '{path}'. "
+                f"Available columns: {list(df.columns)}"
+            )
+
+        return df
+
+    def extract(self) -> pd.DataFrame:
+        """Read both sources and return the consumption frame.
+
+        The inspections id set is cached on the instance for the anti-join in
+        ``transform()``.
+        """
+        consumption = self._read_source("consumption", self.input_paths[0])
+        inspections = self._read_source("inspections", self.input_paths[1])
+
+        self._inspection_ids = set(inspections[self.id_column])
+        logger.info(
+            f"  • {len(self._inspection_ids)} distinct inspected ids " f"('{self.id_column}')"
+        )
+        return consumption
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Anti-join: keep consumption rows whose id has no inspection record.
+
+        Rows are never collapsed or deduplicated — duplicate consumption ids
+        are emitted as-is and counted in the join-stats log.
+        """
+        rows_in = len(df)
+        mask = ~df[self.id_column].isin(self._inspection_ids)
+        matched = int((~mask).sum())
+        emitted = df[mask].copy()
+
+        duplicated_rows = int(df[self.id_column].duplicated(keep=False).sum())
+
+        logger.info(
+            f"  ✓ Anti-join stats: consumption_in={rows_in}, matched={matched}, "
+            f"emitted={len(emitted)}, duplicated_id_rows={duplicated_rows}"
+        )
+
+        if len(emitted) == 0:
+            logger.warning(
+                f"AssumedNegativesETL '{self.name}': no assumed negatives were "
+                "identified (every consumption id has an inspection record). "
+                "A 0-row parquet will be written."
+            )
+
+        return emitted
+
+    def load(self, df: pd.DataFrame, path: str) -> None:
+        """Save the assumed negatives parquet (0-row result included)."""
+        from energizados.core.utils.integrity_pickle import validate_no_traversal
+
+        validate_no_traversal(path, label=f"ETL '{self.name}' output")
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if output_path.suffix in [".parquet", ".pq"]:
+            df.to_parquet(path, index=False)
+        elif output_path.suffix == ".csv":
+            df.to_csv(path, index=False)
+        else:
+            df.to_parquet(str(output_path.with_suffix(".parquet")), index=False)
+
+        logger.info(f"  ✓ Saved {len(df)} assumed negatives to '{path}'")

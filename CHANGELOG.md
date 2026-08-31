@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Same-data assumed negatives: `AssumedNegativesETL` + `@etl_name` source references in `split.unlabeled_negatives`.** New built-in `AssumedNegativesETL` (`energizados.etl.pipeline.AssumedNegativesETL`) derives **Assumed Negatives** — consumption rows whose client id has no inspection record — via an anti-join on `params.id_column` (required; positional 2-role `input: [consumption, inspections]`, each a literal path, an `@etl_name` reference, or a Hive-style partitioned parquet directory such as an incremental ETL's output — the parquet files are read directly without inferring partition-key columns) and writes them to a standalone inspectable parquet. It never modifies either input, keeps duplicate ids as-is (counted in the join-stats log), and still writes a 0-row parquet with a WARNING when every client was inspected. `split.unlabeled_negatives.source_path` now also accepts a leading `@etl_name`, resolved at run time against the executed ETLs (unknown refs and disabled/failed refs raise actionable errors; resolved paths pass traversal validation). In ETL-reference mode the train schema wins — extra source columns are dropped with a log while missing train columns are NaN-filled with a WARNING (external-file mode is unchanged). `split_metadata.json` now reports `unlabeled_negatives_source_mode` (`etl_ref` | `file`) and `unlabeled_negatives_labels_assumed`, and is written whenever injection is enabled (including 0 injected rows). `energizados validate` warns on unknown keys inside `unlabeled_negatives` (typo guard, e.g. `soruce_path`) in both the CLI and API validators.
+
 ## [0.3.7] - 2026-08-23
 
 ### Fixed
