@@ -261,6 +261,37 @@ def _validate_training_section(config: Dict[str, Any], result: ValidationResult)
             )
         )
 
+    # Warn about unknown keys inside unlabeled_negatives (typo guard).
+    # Checks train.split and the legacy top-level split section (mirrors the
+    # PipelineDirector fallback). Kept in sync with cli/validate.py — parity
+    # is enforced by tests/test_cli_api_parity.py conventions.
+    from energizados.core.schemas.schemas import SPLIT_SCHEMA
+
+    known_unlabeled_keys = set(
+        SPLIT_SCHEMA["properties"]["unlabeled_negatives"]["properties"].keys()
+    )
+    for split_name, split_cfg in [
+        ("train.split", training.get("split")),
+        ("split", config.get("split")),
+    ]:
+        if not isinstance(split_cfg, dict):
+            continue
+        unlabeled = split_cfg.get("unlabeled_negatives")
+        if not isinstance(unlabeled, dict):
+            continue
+        unknown_keys = [k for k in unlabeled if k not in known_unlabeled_keys]
+        if unknown_keys:
+            result.warnings.append(
+                ConfigWarning(
+                    field=f"{split_name}.unlabeled_negatives",
+                    message=(
+                        f"{split_name}.unlabeled_negatives: unknown key(s) {unknown_keys}. "
+                        f"Known keys: {sorted(known_unlabeled_keys)}. "
+                        "Check for typos (e.g. 'soruce_path' instead of 'source_path')."
+                    ),
+                )
+            )
+
 
 def _validate_inference_section(config: Dict[str, Any], result: ValidationResult) -> None:
     """Validates the inference section of the configuration."""

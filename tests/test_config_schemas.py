@@ -883,3 +883,108 @@ class TestSelfContainedSchema:
         assert EvalInteractivePlots(str(tmp_path)).self_contained is False
         assert ComparativeEvaluator(str(tmp_path)).self_contained is False
         assert DefaultEvaluator(output_dir=str(tmp_path / "eval")).self_contained is False
+
+
+class TestUnlabeledNegativesSourceRefValidation:
+    """Schema/CLI/API validation for @etl_name source references (same-data-negatives)."""
+
+    def _train_config(self, unlabeled):
+        return {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "stratified",
+                    "test_size": 0.2,
+                    "val_size": 0.1,
+                    "unlabeled_negatives": unlabeled,
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+    def test_source_path_etl_ref_validates_without_file(self):
+        """`source_path: "@negatives"` passes validation with no file on disk."""
+        validator = ConfigValidator()
+        config = self._train_config({"enabled": True, "source_path": "@negatives"})
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"@ref source_path should be valid, got: {errors}"
+
+        from energizados.api import validate_dict
+
+        api_result = validate_dict(config, "train")
+        assert (
+            api_result.is_valid
+        ), f"@ref source_path should pass API validation: {api_result.errors}"
+
+    def test_typo_soruce_path_warns_in_api(self):
+        """`soruce_path` typo inside unlabeled_negatives → API WARNING."""
+        from energizados.api import validate_dict
+
+        config = self._train_config({"enabled": True, "soruce_path": "data/x.parquet"})
+        result = validate_dict(config, "train")
+
+        warning_messages = [w.message for w in result.warnings]
+        assert any(
+            "soruce_path" in msg for msg in warning_messages
+        ), f"Expected unknown-key warning for 'soruce_path', got: {warning_messages}"
+
+    def test_typo_soruce_path_warns_in_cli(self):
+        """`soruce_path` typo inside unlabeled_negatives → CLI WARNING (parity)."""
+        from energizados.cli.validate import ValidationResult as CliValidationResult
+        from energizados.cli.validate import _validate_training_section as cli_section
+
+        result = CliValidationResult()
+        cli_section(self._train_config({"enabled": True, "soruce_path": "data/x.parquet"}), result)
+
+        assert any(
+            "soruce_path" in w for w in result.warnings
+        ), f"Expected unknown-key warning for 'soruce_path', got: {result.warnings}"
+
+    def test_typo_warning_legacy_top_level_split(self):
+        """Legacy top-level `split.unlabeled_negatives` typo warns in BOTH validators."""
+        from energizados.api import validate_dict
+        from energizados.cli.validate import ValidationResult as CliValidationResult
+        from energizados.cli.validate import _validate_training_section as cli_section
+
+        config = {
+            "train": {"enabled": True, "models": [{"type": "lightgbm"}]},
+            "split": {
+                "method": "stratified",
+                "unlabeled_negatives": {"enabled": True, "soruce_path": "data/x.parquet"},
+            },
+        }
+
+        api_result = validate_dict(config, "train")
+        assert any(
+            "soruce_path" in w.message for w in api_result.warnings
+        ), f"API should warn on legacy split typo, got: {[w.message for w in api_result.warnings]}"
+
+        cli_result = CliValidationResult()
+        cli_section(config, cli_result)
+        assert any(
+            "soruce_path" in w for w in cli_result.warnings
+        ), f"CLI should warn on legacy split typo, got: {cli_result.warnings}"
+
+    def test_known_keys_do_not_warn(self):
+        """All documented unlabeled_negatives keys produce no unknown-key warning."""
+        from energizados.api import validate_dict
+
+        config = self._train_config(
+            {
+                "enabled": True,
+                "source_path": "@negatives",
+                "max_per_cutoff": 1500,
+                "random_state": 42,
+                "date_column": "fecha",
+                "id_column": "contract_id",
+            }
+        )
+        result = validate_dict(config, "train")
+
+        unknown_key_warnings = [
+            w.message for w in result.warnings if "unknown key" in w.message.lower()
+        ]
+        assert not unknown_key_warnings, f"Known keys must not warn: {unknown_key_warnings}"

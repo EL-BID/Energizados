@@ -79,6 +79,15 @@ contract (`explore`); orchestrated by `DatasetExplorer`. Driven by the `eda`
 config section.
 _Avoid_: profiling, analysis (too generic), report (the output, not the phase)
 
+**Assumed Negative**:
+A consumption row whose client id has no inspection record, labeled `target=0`
+by assumption when injected into train via `split.unlabeled_negatives`. Derived
+same-data by `AssumedNegativesETL` (anti-join of consumption against
+inspections on `id_column`) and referenced from the split config as
+`source_path: "@etl_name"`. Injection is train-only and reported in
+`split_metadata.json` (`unlabeled_negatives_labels_assumed: true`).
+_Avoid_: synthetic negative, true negative, uninspected negative
+
 ### Modeling
 
 **Model**:

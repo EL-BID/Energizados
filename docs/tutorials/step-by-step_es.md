@@ -10,25 +10,6 @@ gestor de ambientes.
 (sin navegador ni display en el servidor). Si trabajás en una máquina local sin
 proxy, simplemente omití los pasos de configuración de proxy (Paso 2).
 
-## Ruta rápida
-
-```bash
-# (VPS con proxy) configurar el proxy primero — ver Paso 2
-git clone https://github.com/EL-BID/Energizados.git
-cd Energizados
-uv venv --python 3.12 && source .venv/bin/activate
-uv pip install -e .
-energizados init sample && cd sample
-energizados validate etl,train
-energizados run etl,train
-```
-
-Al terminar: descargá `output/index.html` a tu máquina (ver Paso 3) para ver las
-métricas del run en tu navegador.
-Documentación local: `uv pip install -e ".[dev]"` en el repo y `mkdocs serve` + túnel SSH.
-
----
-
 ## Paso 1. Prerrequisitos (SLES 15)
 
 | Requisito   | Detalle                                                                       |
