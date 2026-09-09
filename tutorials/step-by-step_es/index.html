@@ -1096,17 +1096,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ruta-rapida" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Ruta rápida
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#paso-1-prerrequisitos-sles-15" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1817,17 +1806,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ruta-rapida" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Ruta rápida
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#paso-1-prerrequisitos-sles-15" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2113,20 +2091,6 @@ gestor de ambientes.</p>
 <strong>siempre por SSH</strong>. Todos los pasos están pensados para ese entorno headless
 (sin navegador ni display en el servidor). Si trabajás en una máquina local sin
 proxy, simplemente omití los pasos de configuración de proxy (Paso 2).</p>
-<h2 id="ruta-rapida">Ruta rápida<a class="headerlink" href="#ruta-rapida" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># (VPS con proxy) configurar el proxy primero — ver Paso 2</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/EL-BID/Energizados.git
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>Energizados
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>energizados<span class="w"> </span>init<span class="w"> </span>sample<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>sample
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>energizados<span class="w"> </span>validate<span class="w"> </span>etl,train
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>energizados<span class="w"> </span>run<span class="w"> </span>etl,train
-</code></pre></div>
-<p>Al terminar: descargá <code>output/index.html</code> a tu máquina (ver Paso 3) para ver las
-métricas del run en tu navegador.
-Documentación local: <code>uv pip install -e ".[dev]"</code> en el repo y <code>mkdocs serve</code> + túnel SSH.</p>
-<hr />
 <h2 id="paso-1-prerrequisitos-sles-15">Paso 1. Prerrequisitos (SLES 15)<a class="headerlink" href="#paso-1-prerrequisitos-sles-15" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2181,15 +2145,15 @@ no se requieren paquetes de sistema adicionales ni compilador.</p>
 <p>Todo el toolchain de esta guía (curl, git, uv, pip, y las descargas de datos del
 framework) respeta las variables de entorno estándar de proxy. Agregá esto a
 <code>~/.bashrc</code> (ajustando host y puerto a tu proxy):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTTP_PROXY</span><span class="o">=</span><span class="s2">"http://proxy.empresa.com:8080"</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTTPS_PROXY</span><span class="o">=</span><span class="s2">"http://proxy.empresa.com:8080"</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">http_proxy</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HTTP_PROXY</span><span class="s2">"</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">https_proxy</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HTTPS_PROXY</span><span class="s2">"</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NO_PROXY</span><span class="o">=</span><span class="s2">"localhost,127.0.0.1"</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">no_proxy</span><span class="o">=</span><span class="s2">"</span><span class="nv">$NO_PROXY</span><span class="s2">"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTTP_PROXY</span><span class="o">=</span><span class="s2">"http://proxy.empresa.com:8080"</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">HTTPS_PROXY</span><span class="o">=</span><span class="s2">"http://proxy.empresa.com:8080"</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">http_proxy</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HTTP_PROXY</span><span class="s2">"</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">https_proxy</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HTTPS_PROXY</span><span class="s2">"</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NO_PROXY</span><span class="o">=</span><span class="s2">"localhost,127.0.0.1"</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">no_proxy</span><span class="o">=</span><span class="s2">"</span><span class="nv">$NO_PROXY</span><span class="s2">"</span>
 </code></pre></div>
 <p>Luego <code>source ~/.bashrc</code>. Verificación rápida:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-sI<span class="w"> </span>https://pypi.org<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="w">   </span><span class="c1"># debe responder HTTP/... 200 o 301</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl<span class="w"> </span>-sI<span class="w"> </span>https://pypi.org<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="w">   </span><span class="c1"># debe responder HTTP/... 200 o 301</span>
 </code></pre></div>
 <p>Notas por componente:</p>
 <table>
@@ -2278,21 +2242,21 @@ instalación de paquetes sí lo necesitan.</p>
 <p>Todo lo que sigue ocurre en el VPS por SSH. Tres herramientas de trabajo:</p>
 <p><strong>tmux — para que el trabajo sobreviva a cortes de SSH.</strong> Un entrenamiento largo
 muere si se corta la conexión SSH. Corré los pasos largos dentro de tmux:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>tmux<span class="w"> </span>new<span class="w"> </span>-s<span class="w"> </span>energizados<span class="w">    </span><span class="c1"># crear sesión</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># ... ejecutar lo que quieras ...</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Ctrl+B y luego D        # despegarse (detach) — el proceso sigue corriendo</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>tmux<span class="w"> </span>attach<span class="w"> </span>-t<span class="w"> </span>energizados<span class="w"> </span><span class="c1"># re-pegarse más tarde (inclusive desde otra máquina)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>tmux<span class="w"> </span>new<span class="w"> </span>-s<span class="w"> </span>energizados<span class="w">    </span><span class="c1"># crear sesión</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># ... ejecutar lo que quieras ...</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Ctrl+B y luego D        # despegarse (detach) — el proceso sigue corriendo</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>tmux<span class="w"> </span>attach<span class="w"> </span>-t<span class="w"> </span>energizados<span class="w"> </span><span class="c1"># re-pegarse más tarde (inclusive desde otra máquina)</span>
 </code></pre></div>
 <p><strong>Túneles SSH — para servicios web del VPS.</strong> MkDocs (Paso 14), Jupyter y la
 consola web escuchan en <code>127.0.0.1</code> del VPS. Para usarlos desde tu navegador:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Desde TU máquina local:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8000</span>:127.0.0.1:8000<span class="w"> </span>usuario@vps<span class="w">   </span><span class="c1"># luego abre http://localhost:8000</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Desde TU máquina local:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8000</span>:127.0.0.1:8000<span class="w"> </span>usuario@vps<span class="w">   </span><span class="c1"># luego abre http://localhost:8000</span>
 </code></pre></div>
 <p><strong>Descarga de artefactos — los reportes se ven en tu máquina, no en el VPS.</strong> El
 VPS no tiene navegador; traé los HTML/CSV generados con <code>scp</code> o <code>rsync</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Desde TU máquina local:</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>scp<span class="w"> </span>usuario@vps:~/projects/sample/output/index.html<span class="w"> </span>.
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>rsync<span class="w"> </span>-avz<span class="w"> </span>usuario@vps:~/projects/sample/output/train-*/reports/<span class="w"> </span>./reports/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Desde TU máquina local:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>scp<span class="w"> </span>usuario@vps:~/projects/sample/output/index.html<span class="w"> </span>.
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>rsync<span class="w"> </span>-avz<span class="w"> </span>usuario@vps:~/projects/sample/output/train-*/reports/<span class="w"> </span>./reports/
 </code></pre></div>
 <blockquote>
 <p><strong>Reportes sin internet:</strong> los reportes HTML referencian CDN de Plotly/Tailwind
@@ -2302,19 +2266,19 @@ de <code>config/train.yaml</code> (o <code>output.self_contained</code> en <code
 incrustan en el HTML (+~3.5 MB por archivo) y se ven offline.</p>
 </blockquote>
 <h2 id="paso-4-clonar-el-repositorio">Paso 4. Clonar el repositorio<a class="headerlink" href="#paso-4-clonar-el-repositorio" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/EL-BID/Energizados.git
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nb">cd</span><span class="w"> </span>Energizados
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/EL-BID/Energizados.git
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">cd</span><span class="w"> </span>Energizados
 </code></pre></div>
 <p>Verificación: <code>ls</code> debe mostrar <code>pyproject.toml</code>, <code>src/</code>, <code>tests/</code>, <code>README.md</code>.</p>
 <h2 id="paso-5-instalar-uv">Paso 5. Instalar uv<a class="headerlink" href="#paso-5-instalar-uv" title="Permanent link">&para;</a></h2>
 <p>En SLES 15 (con el proxy del Paso 2 ya exportado — curl lo respeta):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># o si prefieres wget:</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># wget -qO- https://astral.sh/uv/install.sh | sh</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># o si prefieres wget:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># wget -qO- https://astral.sh/uv/install.sh | sh</span>
 </code></pre></div>
 <p>Alternativa si ya tienes Python 3.12: <code>pip install uv</code> (o <code>pipx install uv</code>).</p>
 <p>Verificación:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>uv<span class="w"> </span>--version
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>--version
 </code></pre></div>
 <blockquote>
 <p>El instalador deja uv en <code>~/.local/bin</code>. Si <code>uv: command not found</code>, abre una
@@ -2322,15 +2286,15 @@ terminal nueva o ejecuta <code>source ~/.bashrc</code> (o el rc de tu shell).</p
 </blockquote>
 <h2 id="paso-6-crear-el-ambiente-e-instalar-el-framework">Paso 6. Crear el ambiente e instalar el framework<a class="headerlink" href="#paso-6-crear-el-ambiente-e-instalar-el-framework" title="Permanent link">&para;</a></h2>
 <p>Desde la raíz del repositorio clonado:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Crea .venv con Python 3.12 (lo descarga automáticamente si no existe;</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># el build standalone llega desde github.com — ya está en la allowlist)</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Activa el entorno</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># Instala el framework en modo editable</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Crea .venv con Python 3.12 (lo descarga automáticamente si no existe;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># el build standalone llega desde github.com — ya está en la allowlist)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.12
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># Activa el entorno</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># Instala el framework en modo editable</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </code></pre></div>
 <p>Variantes según tu uso:</p>
 <table>
@@ -2364,39 +2328,39 @@ terminal nueva o ejecuta <code>source ~/.bashrc</code> (o el rc de tu shell).</p
 con Poetry (<code>poetry.lock</code>); <code>uv sync</code> crearía un <code>uv.lock</code> no deseado.</p>
 </blockquote>
 <p>Verificación:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>energizados<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>energizados<span class="w"> </span>--help
 </code></pre></div>
 <h2 id="paso-7-verificar-el-entorno">Paso 7. Verificar el entorno<a class="headerlink" href="#paso-7-verificar-el-entorno" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>energizados<span class="w"> </span>doctor
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>energizados<span class="w"> </span>doctor
 </code></pre></div>
 <p>Confirma versión de Python y que los paquetes requeridos están presentes. Salida
 sana = todos los checks en verde (exit code 0). No requiere red.</p>
 <h2 id="paso-8-crear-el-proyecto-demo">Paso 8. Crear el proyecto demo<a class="headerlink" href="#paso-8-crear-el-proyecto-demo" title="Permanent link">&para;</a></h2>
 <p>Primero crea un directorio dedicado para agrupar todos tus proyectos (fuera del
 repo del framework, con el entorno activado):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>mkdir<span class="w"> </span>~/projects<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>~/projects
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>energizados<span class="w"> </span>init<span class="w"> </span>sample
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="nb">cd</span><span class="w"> </span>sample
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>mkdir<span class="w"> </span>~/projects<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>~/projects
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>energizados<span class="w"> </span>init<span class="w"> </span>sample
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nb">cd</span><span class="w"> </span>sample
 </code></pre></div>
 <p>Esto genera la estructura completa:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>sample/
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>├── config/          # etl.yaml, train.yaml, infer.yaml, eda.yaml
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>├── data/raw/        # sample_dataset.parquet (dataset demo incluido)
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>├── src/             # ETL, modelo e inferencia personalizables + scripts run/
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>├── notebooks/
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>├── output/          # aquí aparecen los runs de entrenamiento
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>└── tests/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>sample/
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>├── config/          # etl.yaml, train.yaml, infer.yaml, eda.yaml
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>├── data/raw/        # sample_dataset.parquet (dataset demo incluido)
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>├── src/             # ETL, modelo e inferencia personalizables + scripts run/
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>├── notebooks/
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>├── output/          # aquí aparecen los runs de entrenamiento
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>└── tests/
 </code></pre></div>
 <p>Verificación: <code>ls config</code> muestra los 4 YAML.</p>
 <h2 id="paso-9-validar-la-configuracion">Paso 9. Validar la configuración<a class="headerlink" href="#paso-9-validar-la-configuracion" title="Permanent link">&para;</a></h2>
 <p>Siempre dentro de <code>sample/</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>energizados<span class="w"> </span>validate<span class="w"> </span>etl,train
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>energizados<span class="w"> </span>validate<span class="w"> </span>etl,train
 </code></pre></div>
 <p>Debe reportar validación exitosa sin errores. Para ver el plan sin ejecutar nada:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>etl,train<span class="w"> </span>--dry-run
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>etl,train<span class="w"> </span>--dry-run
 </code></pre></div>
 <h2 id="paso-10-ejecutar-el-etl">Paso 10. Ejecutar el ETL<a class="headerlink" href="#paso-10-ejecutar-el-etl" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>etl
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>etl
 </code></pre></div>
 <p>Qué hace: lee <code>data/raw/sample_dataset.parquet</code>, elimina filas con NULL y escribe
 <code>data/processed/sample_dataset.parquet</code> (ETL <code>sample</code> de <code>etl.yaml</code>).</p>
@@ -2409,11 +2373,11 @@ vía <code>geobr</code>. Después de eso, todo queda cacheado en disco y no se v
 tocar la red.</p>
 <p><strong>1. Pre-calienta los caches una sola vez</strong> (con el proxy activo, en el entorno
 del proyecto):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Datos geobr (municipios + estados) → ~/.cache/geobr/</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import geobr; print(geobr.read_state(year=2020).shape)"</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Extensiones duckdb (spatial + httpfs) → ~/.duckdb/extensions/</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import duckdb; c = duckdb.connect(); c.execute('LOAD spatial'); c.execute('LOAD httpfs'); print('extensiones OK')"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Datos geobr (municipios + estados) → ~/.cache/geobr/</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import geobr; print(geobr.read_state(year=2020).shape)"</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Extensiones duckdb (spatial + httpfs) → ~/.duckdb/extensions/</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import duckdb; c = duckdb.connect(); c.execute('LOAD spatial'); c.execute('LOAD httpfs'); print('extensiones OK')"</span>
 </code></pre></div>
 <p>Si ambos comandos responden, el proxy está dejando pasar todo lo necesario
 (<code>api.github.com</code>, <code>github.com</code>/<code>objects.githubusercontent.com</code>,
@@ -2421,27 +2385,27 @@ del proyecto):</p>
 <code>ConnectionError: Failed to download v2 metadata</code>, es falta de permiso del proxy
 en <code>api.github.com</code>.</p>
 <p><strong>2. Configura siempre <code>cache_dir</code> en el ETL geográfico</strong> (<code>config/etl.yaml</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="w">  </span><span class="nt">geo_features</span><span class="p">:</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Features</span><span class="nv"> </span><span class="s">geográficas</span><span class="nv"> </span><span class="s">(IBGE</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">cluster</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">distancias)"</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"@dataset"</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/dataset_geo.parquet"</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.GeoFeaturesETL"</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">      </span><span class="nt">lat_col</span><span class="p">:</span><span class="w"> </span><span class="s">"latitud"</span>
-<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">      </span><span class="nt">lon_col</span><span class="p">:</span><span class="w"> </span><span class="s">"longitud"</span>
-<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">      </span><span class="nt">cache_dir</span><span class="p">:</span><span class="w"> </span><span class="s">".cache/ibge"</span><span class="w">   </span><span class="c1"># → .cache/ibge/ibge_municipios_2020.parquet + ibge_states_2020.parquet</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="w">  </span><span class="nt">geo_features</span><span class="p">:</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Features</span><span class="nv"> </span><span class="s">geográficas</span><span class="nv"> </span><span class="s">(IBGE</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">cluster</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">distancias)"</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">input</span><span class="p">:</span><span class="w"> </span><span class="s">"@dataset"</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="s">"data/processed/dataset_geo.parquet"</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="nt">custom_class</span><span class="p">:</span><span class="w"> </span><span class="s">"energizados.etl.pipeline.GeoFeaturesETL"</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">params</span><span class="p">:</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">      </span><span class="nt">lat_col</span><span class="p">:</span><span class="w"> </span><span class="s">"latitud"</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">      </span><span class="nt">lon_col</span><span class="p">:</span><span class="w"> </span><span class="s">"longitud"</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">      </span><span class="nt">cache_dir</span><span class="p">:</span><span class="w"> </span><span class="s">".cache/ibge"</span><span class="w">   </span><span class="c1"># → .cache/ibge/ibge_municipios_2020.parquet + ibge_states_2020.parquet</span>
 </code></pre></div>
 <p><strong>3. VPS sin salida posterior / clonar la instalación:</strong> los caches son
 directorios plain-files; copiándolos a otro VPS, las features geográficas
 corren <strong>sin tocar internet</strong>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Qué respaldar/copiar:</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>~/.cache/geobr/<span class="w">            </span><span class="c1"># datos geobr</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>~/.duckdb/extensions/<span class="w">      </span><span class="c1"># extensiones duckdb</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>&lt;proyecto&gt;/.cache/ibge/<span class="w">    </span><span class="c1"># caches del proyecto (si usaste cache_dir)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Qué respaldar/copiar:</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>~/.cache/geobr/<span class="w">            </span><span class="c1"># datos geobr</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>~/.duckdb/extensions/<span class="w">      </span><span class="c1"># extensiones duckdb</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>&lt;proyecto&gt;/.cache/ibge/<span class="w">    </span><span class="c1"># caches del proyecto (si usaste cache_dir)</span>
 </code></pre></div>
 <h2 id="paso-11-ejecutar-el-eda">Paso 11. Ejecutar el EDA<a class="headerlink" href="#paso-11-ejecutar-el-eda" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>eda
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>eda
 </code></pre></div>
 <p>Qué hace: análisis exploratorio interactivo del dataset procesado
 (<code>data/processed/sample_dataset.parquet</code>): estadísticas globales, análisis por
@@ -2449,15 +2413,15 @@ columna, variable objetivo, importancia de features (IV, KS, Cramér's V) y
 segmentación. Genera un reporte HTML autocontenido.</p>
 <p>Verificación: <code>output/eda-*/</code> contiene <code>eda_report.html</code>. Descargalo y ábrelo en
 tu navegador (ver Paso 3):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># desde tu máquina local:</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>scp<span class="w"> </span>usuario@vps:~/projects/sample/output/eda-*/eda_report.html<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># desde tu máquina local:</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>scp<span class="w"> </span>usuario@vps:~/projects/sample/output/eda-*/eda_report.html<span class="w"> </span>.
 </code></pre></div>
 <h2 id="paso-12-ejecutar-el-entrenamiento">Paso 12. Ejecutar el entrenamiento<a class="headerlink" href="#paso-12-ejecutar-el-entrenamiento" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p>Al ser un paso largo, corrélo dentro de tmux (Paso 3) para que sobreviva a
 cortes de SSH: <code>tmux new -s train</code> → ejecutar → <code>Ctrl+B D</code>.</p>
 </blockquote>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>train
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>train
 </code></pre></div>
 <p>Qué hace:</p>
 <ol>
@@ -2472,17 +2436,17 @@ minutos. Para un primer smoke test rápido, edita <code>config/train.yaml</code>
 <code>hyperparam_search: { enabled: false }</code> antes de ejecutar.</p>
 </blockquote>
 <p>Ejecución paso a paso (opcional):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>train<span class="w"> </span>--step<span class="w"> </span>split
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>energizados<span class="w"> </span>run<span class="w"> </span>train<span class="w"> </span>--step<span class="w"> </span>train
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>train<span class="w"> </span>--step<span class="w"> </span>split
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>energizados<span class="w"> </span>run<span class="w"> </span>train<span class="w"> </span>--step<span class="w"> </span>train
 </code></pre></div>
 <h2 id="paso-13-revisar-resultados">Paso 13. Revisar resultados<a class="headerlink" href="#paso-13-revisar-resultados" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>output/
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>├── index.html                    # Tabla resumen de todos los runs
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>└── train-YYYYMMDD_HHMM/          # Un directorio por ejecución
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    ├── models/                   # feature_engineering.pkl + model.pkl
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    ├── reports/evaluation/       # reporte HTML + JSON + gráficos
-<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    ├── config/                   # copia de los YAML usados
-<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    └── run_metadata.json         # métricas, versión, duración
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>output/
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>├── index.html                    # Tabla resumen de todos los runs
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>└── train-YYYYMMDD_HHMM/          # Un directorio por ejecución
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    ├── models/                   # feature_engineering.pkl + model.pkl
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>    ├── reports/evaluation/       # reporte HTML + JSON + gráficos
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    ├── config/                   # copia de los YAML usados
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    └── run_metadata.json         # métricas, versión, duración
 </code></pre></div>
 <p>Checklist de éxito:</p>
 <ul>
@@ -2491,21 +2455,21 @@ minutos. Para un primer smoke test rápido, edita <code>config/train.yaml</code>
 <li>[ ] <code>output/index.html</code> lista el run con métricas (val_auc, val_f1)</li>
 </ul>
 <p>Para ver los HTML en tu máquina (Paso 3):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>scp<span class="w"> </span>usuario@vps:~/projects/sample/output/index.html<span class="w"> </span>.
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>scp<span class="w"> </span>-r<span class="w"> </span>usuario@vps:~/projects/sample/output/train-*/reports/evaluation/<span class="w"> </span>./evaluation/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>scp<span class="w"> </span>usuario@vps:~/projects/sample/output/index.html<span class="w"> </span>.
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>scp<span class="w"> </span>-r<span class="w"> </span>usuario@vps:~/projects/sample/output/train-*/reports/evaluation/<span class="w"> </span>./evaluation/
 </code></pre></div>
 <h2 id="paso-14-servir-la-documentacion-mkdocs">Paso 14. Servir la documentación (MkDocs)<a class="headerlink" href="#paso-14-servir-la-documentacion-mkdocs" title="Permanent link">&para;</a></h2>
 <p>La documentación del framework está en el repo (carpeta <code>docs/</code> + <code>mkdocs.yml</code>) y se
 sirve con MkDocs Material, incluido en los extras <code>dev</code>.</p>
 <p>Desde la raíz del repositorio <code>Energizados/</code> (no dentro de <code>sample</code>), con el
 entorno activado:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span><span class="w">    </span><span class="c1"># agrega mkdocs-material (ya lo tienes si instalaste [dev] en el Paso 6)</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>mkdocs<span class="w"> </span>serve
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span><span class="w">    </span><span class="c1"># agrega mkdocs-material (ya lo tienes si instalaste [dev] en el Paso 6)</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>mkdocs<span class="w"> </span>serve
 </code></pre></div>
 <p>El servidor escucha en <code>127.0.0.1:8000</code> <strong>del VPS</strong>. Para verlo desde tu
 navegador, abre un túnel SSH en otra terminal (tu máquina local):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8000</span>:127.0.0.1:8000<span class="w"> </span>usuario@vps
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="c1"># luego abre http://localhost:8000</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8000</span>:127.0.0.1:8000<span class="w"> </span>usuario@vps
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="c1"># luego abre http://localhost:8000</span>
 </code></pre></div>
 <p>El servidor recarga automáticamente al editar archivos de <code>docs/</code>. Detén con <code>Ctrl+C</code>.</p>
 <blockquote>
@@ -2515,22 +2479,22 @@ evita que el tráfico local se mande al proxy.</p>
 </blockquote>
 <h2 id="paso-15-ejecutar-la-inferencia">Paso 15. Ejecutar la inferencia<a class="headerlink" href="#paso-15-ejecutar-la-inferencia" title="Permanent link">&para;</a></h2>
 <p>Con el proyecto <code>sample</code> y al menos un run de entrenamiento terminado:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="nb">cd</span><span class="w"> </span>~/projects/sample
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>energizados<span class="w"> </span>run<span class="w"> </span>infer
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="nb">cd</span><span class="w"> </span>~/projects/sample
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>energizados<span class="w"> </span>run<span class="w"> </span>infer
 </code></pre></div>
 <p>Qué hace: busca el run de entrenamiento más reciente en <code>output/</code> (o el que
 indiques con <code>model_path</code> en <code>config/infer.yaml</code>), aplica el feature engineering
 entrenado y puntúa el dataset de <code>input_path</code>.</p>
 <p>Estructura generada:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>output/
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>└── inference-YYYYMMDD_HHMM/
-<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>    ├── predictions.csv                      # columna probability (+ prediction si no la excluís)
-<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>    ├── predictions.csv.metadata.json        # modelo, threshold, feature engineering usados
-<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>    └── run.log
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>output/
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>└── inference-YYYYMMDD_HHMM/
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    ├── predictions.csv                      # columna probability (+ prediction si no la excluís)
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    ├── predictions.csv.metadata.json        # modelo, threshold, feature engineering usados
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>    └── run.log
 </code></pre></div>
 <p>Ejecución por fases (opcional, si tu <code>infer.yaml</code> tiene sección <code>etl:</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>infer<span class="w"> </span>--step<span class="w"> </span>etl<span class="w">     </span><span class="c1"># solo construye el dataset de inferencia</span>
-<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>energizados<span class="w"> </span>run<span class="w"> </span>infer<span class="w"> </span>--step<span class="w"> </span>infer<span class="w">   </span><span class="c1"># solo puntúa (el dataset debe existir)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>energizados<span class="w"> </span>run<span class="w"> </span>infer<span class="w"> </span>--step<span class="w"> </span>etl<span class="w">     </span><span class="c1"># solo construye el dataset de inferencia</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>energizados<span class="w"> </span>run<span class="w"> </span>infer<span class="w"> </span>--step<span class="w"> </span>infer<span class="w">   </span><span class="c1"># solo puntúa (el dataset debe existir)</span>
 </code></pre></div>
 <blockquote>
 <p>En el demo, <code>input_path</code> apunta al mismo dataset de entrenamiento: es un smoke
@@ -2546,15 +2510,15 @@ estratificación por deciles, top clientes sospechosos, patrones de consumo vs
 probabilidad, zona gris (0.4–0.6) y exporta CSVs accionables. Solo usa
 pandas/numpy/matplotlib/seaborn, que ya vienen con el framework.</p>
 <p>Copiá el notebook al proyecto y apuntalo a tu inferencia:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>cp<span class="w"> </span>~/Energizados/notebooks/07_inference_analysis.ipynb<span class="w"> </span>~/projects/sample/notebooks/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>cp<span class="w"> </span>~/Energizados/notebooks/07_inference_analysis.ipynb<span class="w"> </span>~/projects/sample/notebooks/
 </code></pre></div>
 <p>Abrí el notebook y editá <strong>solo la primera celda de código (celda
 "CONFIGURACIÓN")</strong>. Las variables a ajustar:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="n">PROJECT_PATH</span>        <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s1">'/home/usuario/projects/sample'</span><span class="p">)</span>  <span class="c1"># tu proyecto</span>
-<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="n">OUTPUT_PATH</span>         <span class="o">=</span> <span class="n">PROJECT_PATH</span> <span class="o">/</span> <span class="s1">'output'</span>
-<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="n">VERSION</span>             <span class="o">=</span> <span class="s1">'.'</span>                       <span class="c1"># demo: los runs van directo a output/</span>
-<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="n">INFERENCE_DIR_NAME</span>  <span class="o">=</span> <span class="s1">'inference-YYYYMMDD_HHMM'</span>  <span class="c1"># el dir que generó el Paso 15</span>
-<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="n">SEGMENT_THRESHOLDS_PATH</span> <span class="o">=</span> <span class="n">OUTPUT_PATH</span> <span class="o">/</span> <span class="n">VERSION</span> <span class="o">/</span> <span class="s1">'segment_thresholds_geo_region.json'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="n">PROJECT_PATH</span>        <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s1">'/home/usuario/projects/sample'</span><span class="p">)</span>  <span class="c1"># tu proyecto</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="n">OUTPUT_PATH</span>         <span class="o">=</span> <span class="n">PROJECT_PATH</span> <span class="o">/</span> <span class="s1">'output'</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="n">VERSION</span>             <span class="o">=</span> <span class="s1">'.'</span>                       <span class="c1"># demo: los runs van directo a output/</span>
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="n">INFERENCE_DIR_NAME</span>  <span class="o">=</span> <span class="s1">'inference-YYYYMMDD_HHMM'</span>  <span class="c1"># el dir que generó el Paso 15</span>
+<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="n">SEGMENT_THRESHOLDS_PATH</span> <span class="o">=</span> <span class="n">OUTPUT_PATH</span> <span class="o">/</span> <span class="n">VERSION</span> <span class="o">/</span> <span class="s1">'segment_thresholds_geo_region.json'</span>
 </code></pre></div>
 <blockquote>
 <p>Convención de paths del notebook: <code>INFERENCE_DIR = output/&lt;VERSION&gt;/&lt;INFERENCE_DIR_NAME&gt;</code>.
@@ -2567,10 +2531,10 @@ configuraste, el JSON de umbrales por segmento.</p>
 <p>Verificá el nombre exacto del run: <code>ls ~/projects/sample/output/ | grep inference</code></p>
 <p>Al ejecutarlo (por ejemplo en JupyterLab, accesible desde tu máquina con el
 túnel SSH del Paso 3), la celda final de export genera:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>output/&lt;VERSION&gt;/&lt;INFERENCE_DIR_NAME&gt;/analysis/
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>├── top_1000_suspicious.csv     # top 1000 clientes más sospechosos
-<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>├── decile_summary.csv          # resumen por decil de riesgo
-<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>└── predictions_enriched.csv    # predicciones + decil + bucket + meses en cero
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>output/&lt;VERSION&gt;/&lt;INFERENCE_DIR_NAME&gt;/analysis/
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>├── top_1000_suspicious.csv     # top 1000 clientes más sospechosos
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>├── decile_summary.csv          # resumen por decil de riesgo
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>└── predictions_enriched.csv    # predicciones + decil + bucket + meses en cero
 </code></pre></div>
 <hr />
 <h2 id="siguientes-pasos">Siguientes pasos<a class="headerlink" href="#siguientes-pasos" title="Permanent link">&para;</a></h2>
