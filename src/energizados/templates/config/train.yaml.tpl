@@ -367,6 +367,7 @@ train:
         enabled: true
         n_iter: 60
         cv: 3
+        # n_jobs: -1   # search parallelism: -1 = all cores, N = cap (each worker fits sequentially)
 
       # Probability calibration (FR-EVAL-016)
       # Adjust raw model scores to reflect true frequencies

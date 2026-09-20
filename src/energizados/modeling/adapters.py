@@ -48,6 +48,8 @@ class LGBMModelAdapter(BaseModel):
         search_hip: If True, performs hyperparameter search.
         sampling_th: Sampling threshold for imbalanced classes.
         sampling_method: Sampling method ('over', 'undersample', 'none').
+        n_iter: Number of iterations for RandomizedSearchCV.
+        search_n_jobs: Number of parallel jobs for RandomizedSearchCV (-1 = all cores).
         threshold: Classification threshold for binary predictions (default 0.5).
     """
 
@@ -61,6 +63,7 @@ class LGBMModelAdapter(BaseModel):
         n_iter: int = 60,
         cv: int = 3,
         n_splits: int = 5,
+        search_n_jobs: int = -1,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
         threshold: float = 0.5,
@@ -74,6 +77,7 @@ class LGBMModelAdapter(BaseModel):
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
+        self.search_n_jobs = search_n_jobs
         self.class_weight = class_weight
         self.threshold = threshold
         self._trained_pipeline = None
@@ -90,6 +94,7 @@ class LGBMModelAdapter(BaseModel):
             n_iter=n_iter,
             cv=cv,
             n_splits=n_splits,
+            search_n_jobs=search_n_jobs,
             class_weight=class_weight,
         )
 
@@ -132,6 +137,7 @@ class LGBMModelAdapter(BaseModel):
         params["n_iter"] = hyperparam_search.get("n_iter", 60)
         params["cv"] = hyperparam_search.get("cv", 3)
         params["n_splits"] = hyperparam_search.get("n_splits", 5)
+        params["search_n_jobs"] = hyperparam_search.get("n_jobs", -1)
 
         # Store type in config
         params["config"] = {"type": model_type}
@@ -227,6 +233,8 @@ class CATModelAdapter(BaseModel):
         sampling_method: Sampling strategy ('over', 'undersample', or other for none).
         n_iter: Number of iterations for RandomizedSearchCV.
         cv: Number of cross-validation folds for RandomizedSearchCV.
+        search_n_jobs: Number of parallel jobs for RandomizedSearchCV
+            (default 4 = cap; CatBoost workers fit with thread_count=1).
         config: Optional framework configuration dict.
         class_weight: Class weights (dict or "balanced").
         threshold: Classification threshold for binary predictions (default 0.5).
@@ -242,6 +250,7 @@ class CATModelAdapter(BaseModel):
         n_iter: int = 60,
         cv: int = 3,
         n_splits: int = 5,
+        search_n_jobs: int = 4,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
         threshold: float = 0.5,
@@ -255,6 +264,7 @@ class CATModelAdapter(BaseModel):
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
+        self.search_n_jobs = search_n_jobs
         self.class_weight = class_weight
         self.threshold = threshold
         self._trained_pipeline = None
@@ -271,6 +281,7 @@ class CATModelAdapter(BaseModel):
             n_iter=n_iter,
             cv=cv,
             n_splits=n_splits,
+            search_n_jobs=search_n_jobs,
             class_weight=class_weight,
         )
 
@@ -313,6 +324,7 @@ class CATModelAdapter(BaseModel):
         params["n_iter"] = hyperparam_search.get("n_iter", 60)
         params["cv"] = hyperparam_search.get("cv", 3)
         params["n_splits"] = hyperparam_search.get("n_splits", 5)
+        params["search_n_jobs"] = hyperparam_search.get("n_jobs", 4)
 
         # Store type in config
         params["config"] = {"type": model_type}
@@ -405,6 +417,7 @@ class XGBModelAdapter(BaseModel):
         sampling_method: Sampling strategy ('oversample', 'undersample', 'smotetomek', or other for none).
         n_iter: Number of iterations for RandomizedSearchCV.
         cv: Number of cross-validation folds for RandomizedSearchCV.
+        search_n_jobs: Number of parallel jobs for RandomizedSearchCV (-1 = all cores).
         config: Optional framework configuration dict.
         class_weight: scale_pos_weight value for XGBoost (int/float).
         threshold: Classification threshold for binary predictions (default 0.5).
@@ -420,6 +433,7 @@ class XGBModelAdapter(BaseModel):
         n_iter: int = 60,
         cv: int = 3,
         n_splits: int = 5,
+        search_n_jobs: int = -1,
         config: Optional[dict] = None,
         class_weight: Optional[dict] = None,
         threshold: float = 0.5,
@@ -433,6 +447,7 @@ class XGBModelAdapter(BaseModel):
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
+        self.search_n_jobs = search_n_jobs
         self.class_weight = class_weight
         self.threshold = threshold
 
@@ -447,6 +462,7 @@ class XGBModelAdapter(BaseModel):
             n_iter=n_iter,
             cv=cv,
             n_splits=n_splits,
+            search_n_jobs=search_n_jobs,
             class_weight=class_weight,
         )
         self._trained_pipeline = None
@@ -490,6 +506,7 @@ class XGBModelAdapter(BaseModel):
         params["n_iter"] = hyperparam_search.get("n_iter", 60)
         params["cv"] = hyperparam_search.get("cv", 3)
         params["n_splits"] = hyperparam_search.get("n_splits", 5)
+        params["search_n_jobs"] = hyperparam_search.get("n_jobs", -1)
 
         # Store type in config
         params["config"] = {"type": model_type}

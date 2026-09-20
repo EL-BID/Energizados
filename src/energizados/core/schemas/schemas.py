@@ -182,6 +182,7 @@ MODEL_CONFIG_SCHEMA = {
                 "n_iter": {"type": "integer"},
                 "cv": {"type": ["integer", "string"], "enum": [3, 5, 10, "time_series"]},
                 "n_splits": {"type": "integer"},
+                "n_jobs": {"type": "integer"},
             },
         },
         "validation": {

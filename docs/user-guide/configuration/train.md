@@ -822,6 +822,7 @@ models:
 | `hyperparam_search.enabled` | boolean | `false` | Whether to perform hyperparameter search |
 | `hyperparam_search.n_iter` | int | `60` | Number of iterations for RandomizedSearchCV |
 | `hyperparam_search.cv` | int | `3` | Number of cross-validation folds |
+| `hyperparam_search.n_jobs` | int | model-specific | Parallelism of the search itself: `-1` = all cores, `N` = cap. Default: `-1` (lightgbm, xgboost), `4` (catboost). Each worker fits its model clone sequentially |
 
 ### Model-Specific Configuration
 

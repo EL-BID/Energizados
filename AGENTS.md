@@ -570,6 +570,7 @@ training:
         enabled: true
         n_iter: 60
         cv: 3
+        # n_jobs: -1  # search parallelism (-1 = all cores; each worker fits sequentially)
 
   # For stacking ensemble (uncomment to use multiple base models)
   # models:
