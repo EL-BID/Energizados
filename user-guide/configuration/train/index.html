@@ -4371,6 +4371,12 @@
 <td><code>3</code></td>
 <td>Number of cross-validation folds</td>
 </tr>
+<tr>
+<td><code>hyperparam_search.n_jobs</code></td>
+<td>int</td>
+<td>model-specific</td>
+<td>Parallelism of the search itself: <code>-1</code> = all cores, <code>N</code> = cap. Default: <code>-1</code> (lightgbm, xgboost), <code>4</code> (catboost). Each worker fits its model clone sequentially</td>
+</tr>
 </tbody>
 </table>
 <h3 id="model-specific-configuration">Model-Specific Configuration<a class="headerlink" href="#model-specific-configuration" title="Permanent link">&para;</a></h3>
@@ -4385,10 +4391,11 @@
 <a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">      </span><span class="nt">max_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-1</span>
 <a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">      </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
 <a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">      </span><span class="nt">n_estimators</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">    </span><span class="nt">hyperparam_search</span><span class="p">:</span>
-<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="w">      </span><span class="nt">n_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
-<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="w">      </span><span class="nt">cv</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">      </span><span class="nt">n_jobs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-1</span><span class="w">  </span><span class="c1"># parallel threads (-1 = all cores, framework default)</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="w">    </span><span class="nt">hyperparam_search</span><span class="p">:</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="w">      </span><span class="nt">n_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
+<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a><span class="w">      </span><span class="nt">cv</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </code></pre></div>
 <p><strong>LightGBM Hyperparameters:</strong></p>
 <table>
@@ -4424,6 +4431,12 @@
 <td>int</td>
 <td><code>1000</code></td>
 <td>Number of boosting iterations</td>
+</tr>
+<tr>
+<td><code>n_jobs</code></td>
+<td>int</td>
+<td><code>-1</code></td>
+<td>Parallel threads (-1 = all cores). Applies to the final fit; during hyperparameter search each worker fits sequentially to avoid oversubscription</td>
 </tr>
 <tr>
 <td><code>min_child_samples</code></td>
