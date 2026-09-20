@@ -27,6 +27,7 @@ from imblearn.under_sampling import RandomUnderSampler
 from lightgbm import LGBMClassifier, early_stopping, log_evaluation
 from scipy.stats import randint as sp_randint
 from scipy.stats import uniform as sp_uniform
+from sklearn.base import clone
 from sklearn.model_selection import (
     RandomizedSearchCV,
     TimeSeriesSplit,
@@ -74,6 +75,7 @@ class LGBMModel:
         n_iter=60,
         cv=3,
         n_splits=5,
+        search_n_jobs=-1,
         class_weight=None,
     ):
         """
@@ -81,7 +83,8 @@ class LGBMModel:
 
         Args:
             cols_for_model (list): The columns to be used for modeling.
-            hyperparams: The hyperparameters for the LGBMClassifier.
+            hyperparams: The hyperparameters for the LGBMClassifier. May include
+                `n_jobs` (int, framework default -1 = all cores).
             search_hip (bool): Flag indicating whether to perform hyperparameter search.
             sampling_th (float): The sampling threshold.
             sampling_method (str): The sampling method ('over' or 'under').
@@ -89,15 +92,18 @@ class LGBMModel:
             cv (int): Number of cross-validation folds for RandomizedSearchCV,
                 or "time_series" to use TimeSeriesSplit respecting temporal order.
             n_splits (int): Number of splits for TimeSeriesSplit when cv="time_series".
+            search_n_jobs (int): Number of parallel jobs for RandomizedSearchCV
+                (-1 = all cores).
         """
         self.cols_for_model = cols_for_model
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
         self.search_hip = search_hip
-        self.hyperparams = hyperparams
+        self.hyperparams = hyperparams if hyperparams is not None else {}
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
+        self.search_n_jobs = search_n_jobs
         self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self):
@@ -111,6 +117,7 @@ class LGBMModel:
             random_state=314,
             metric="None",
             n_estimators=1000,
+            n_jobs=-1,
             verbosity=-1,
             class_weight=self.class_weight,
         )
@@ -157,9 +164,13 @@ class LGBMModel:
         pipe_preproceso_model = self.build_pipeline_preproceso_model()
 
         if self.search_hip:
-            self.best_score_, self.hyperparams = self.find_hyp_lgbm_model(
+            user_hyperparams = dict(self.hyperparams or {})
+            self.best_score_, best_params = self.find_hyp_lgbm_model(
                 X_train, y_train, X_val, y_val, pipe_preproceso_model
             )
+            # Search results win on searched keys; user-specified keys outside
+            # the search space (e.g. n_jobs) are preserved instead of dropped.
+            self.hyperparams = {**user_hyperparams, **best_params}
 
         params = self.hyperparams
         import logging as _logging
@@ -227,13 +238,19 @@ class LGBMModel:
         }
 
         cv_splits = TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv
+        # Avoid oversubscription: RandomizedSearchCV parallelizes across workers
+        # (see search_n_jobs), so each worker fits its clone sequentially (n_jobs=1).
+        # The caller's pipeline is cloned so its own n_jobs is untouched for the
+        # final fit after the search.
+        search_pipeline = clone(imba_pipeline)
+        search_pipeline.set_params(lgbmclassifier__n_jobs=1)
         random_imba = RandomizedSearchCV(
-            estimator=imba_pipeline,
+            estimator=search_pipeline,
             param_distributions=new_params,
             cv=cv_splits,
             #                            scoring = 'average_precision',
             scoring="roc_auc",
-            n_jobs=-1,
+            n_jobs=self.search_n_jobs,
             n_iter=self.n_iter,
             refit=True,
             random_state=314,
@@ -265,6 +282,7 @@ class CATModel:
         n_iter=60,
         cv=3,
         n_splits=5,
+        search_n_jobs=4,
         class_weight=None,
     ):
         """Initialize CATModel.
@@ -280,6 +298,8 @@ class CATModel:
             cv: Number of cross-validation folds for RandomizedSearchCV,
                 or "time_series" to use TimeSeriesSplit respecting temporal order.
             n_splits: Number of splits for TimeSeriesSplit when cv="time_series".
+            search_n_jobs: Number of parallel jobs for RandomizedSearchCV
+                (default 4 = cap; CatBoost workers fit with thread_count=1).
             class_weight: Class weights for CatBoost (dict like {0: 1, 1: 10} or "balanced").
         """
         self.cols_for_model = cols_for_model
@@ -291,6 +311,7 @@ class CATModel:
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
+        self.search_n_jobs = search_n_jobs
         self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self, cat_features):
@@ -434,7 +455,7 @@ class CATModel:
             param_distributions=new_params,
             cv=TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv,
             scoring="roc_auc",
-            n_jobs=4,  # CatBoost uses thread_count=1 per worker; cap total parallelism
+            n_jobs=self.search_n_jobs,  # CatBoost uses thread_count=1 per worker; cap total parallelism
             n_iter=self.n_iter,
             refit=True,
             random_state=314,
@@ -469,6 +490,7 @@ class XGBModel:
         n_iter=60,
         cv=3,
         n_splits=5,
+        search_n_jobs=-1,
         class_weight=None,
     ):
         """Initialize XGBModel.
@@ -483,6 +505,8 @@ class XGBModel:
             cv: Number of cross-validation folds for RandomizedSearchCV,
                 or "time_series" to use TimeSeriesSplit respecting temporal order.
             n_splits: Number of splits for TimeSeriesSplit when cv="time_series".
+            search_n_jobs: Number of parallel jobs for RandomizedSearchCV
+                (-1 = all cores).
             class_weight: Passed as scale_pos_weight (int/float) or ignored if None.
         """
         self.cols_for_model = cols_for_model
@@ -493,6 +517,7 @@ class XGBModel:
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
+        self.search_n_jobs = search_n_jobs
         self.class_weight = class_weight
 
     def build_pipeline_preproceso_model(self):
@@ -609,7 +634,7 @@ class XGBModel:
             param_distributions=new_params,
             cv=TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv,
             scoring="roc_auc",
-            n_jobs=-1,
+            n_jobs=self.search_n_jobs,
             n_iter=self.n_iter,
             refit=True,
             random_state=314,

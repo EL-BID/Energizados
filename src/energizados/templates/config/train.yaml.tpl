@@ -360,12 +360,14 @@ train:
         max_depth: -1
         learning_rate: 0.05
         n_estimators: 1000
+        n_jobs: -1  # parallel threads (-1 = all cores, framework default)
 
       # Hyperparameter search
       hyperparam_search:
         enabled: true
         n_iter: 60
         cv: 3
+        # n_jobs: -1   # search parallelism: -1 = all cores, N = cap (each worker fits sequentially)
 
       # Probability calibration (FR-EVAL-016)
       # Adjust raw model scores to reflect true frequencies

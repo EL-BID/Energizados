@@ -822,6 +822,7 @@ models:
 | `hyperparam_search.enabled` | boolean | `false` | Whether to perform hyperparameter search |
 | `hyperparam_search.n_iter` | int | `60` | Number of iterations for RandomizedSearchCV |
 | `hyperparam_search.cv` | int | `3` | Number of cross-validation folds |
+| `hyperparam_search.n_jobs` | int | model-specific | Parallelism of the search itself: `-1` = all cores, `N` = cap. Default: `-1` (lightgbm, xgboost), `4` (catboost). Each worker fits its model clone sequentially |
 
 ### Model-Specific Configuration
 
@@ -838,6 +839,7 @@ models:
       max_depth: -1
       learning_rate: 0.05
       n_estimators: 1000
+      n_jobs: -1  # parallel threads (-1 = all cores, framework default)
     hyperparam_search:
       enabled: true
       n_iter: 60
@@ -852,6 +854,7 @@ models:
 | `max_depth` | int | `-1` | Maximum tree depth (-1 = unlimited) |
 | `learning_rate` | float | `0.05` | Boosting learning rate |
 | `n_estimators` | int | `1000` | Number of boosting iterations |
+| `n_jobs` | int | `-1` | Parallel threads (-1 = all cores). Applies to the final fit; during hyperparameter search each worker fits sequentially to avoid oversubscription |
 | `min_child_samples` | int | `20` | Minimum samples in leaf |
 | `subsample` | float | `1.0` | Subsample ratio of training data |
 | `class_weight` | string/dict | `null` | e.g. `"balanced"` — when set, **sampling is bypassed entirely** and class imbalance is handled via LightGBM weights instead |
