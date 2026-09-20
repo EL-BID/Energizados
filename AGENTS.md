@@ -565,6 +565,7 @@ training:
         num_leaves: 31
         learning_rate: 0.05
         n_estimators: 1000
+        n_jobs: -1  # lightgbm: parallel threads (-1 = all cores, framework default)
       hyperparam_search:
         enabled: true
         n_iter: 60

@@ -27,6 +27,7 @@ from imblearn.under_sampling import RandomUnderSampler
 from lightgbm import LGBMClassifier, early_stopping, log_evaluation
 from scipy.stats import randint as sp_randint
 from scipy.stats import uniform as sp_uniform
+from sklearn.base import clone
 from sklearn.model_selection import (
     RandomizedSearchCV,
     TimeSeriesSplit,
@@ -81,7 +82,8 @@ class LGBMModel:
 
         Args:
             cols_for_model (list): The columns to be used for modeling.
-            hyperparams: The hyperparameters for the LGBMClassifier.
+            hyperparams: The hyperparameters for the LGBMClassifier. May include
+                `n_jobs` (int, framework default -1 = all cores).
             search_hip (bool): Flag indicating whether to perform hyperparameter search.
             sampling_th (float): The sampling threshold.
             sampling_method (str): The sampling method ('over' or 'under').
@@ -94,7 +96,7 @@ class LGBMModel:
         self.sampling_th = sampling_th
         self.sampling_method = sampling_method
         self.search_hip = search_hip
-        self.hyperparams = hyperparams
+        self.hyperparams = hyperparams if hyperparams is not None else {}
         self.n_iter = n_iter
         self.cv = cv
         self.n_splits = n_splits
@@ -111,6 +113,7 @@ class LGBMModel:
             random_state=314,
             metric="None",
             n_estimators=1000,
+            n_jobs=-1,
             verbosity=-1,
             class_weight=self.class_weight,
         )
@@ -157,9 +160,13 @@ class LGBMModel:
         pipe_preproceso_model = self.build_pipeline_preproceso_model()
 
         if self.search_hip:
-            self.best_score_, self.hyperparams = self.find_hyp_lgbm_model(
+            user_hyperparams = dict(self.hyperparams or {})
+            self.best_score_, best_params = self.find_hyp_lgbm_model(
                 X_train, y_train, X_val, y_val, pipe_preproceso_model
             )
+            # Search results win on searched keys; user-specified keys outside
+            # the search space (e.g. n_jobs) are preserved instead of dropped.
+            self.hyperparams = {**user_hyperparams, **best_params}
 
         params = self.hyperparams
         import logging as _logging
@@ -227,8 +234,14 @@ class LGBMModel:
         }
 
         cv_splits = TimeSeriesSplit(n_splits=self.n_splits) if self.cv == "time_series" else self.cv
+        # Avoid oversubscription: RandomizedSearchCV parallelizes across workers
+        # (n_jobs=-1), so each worker fits its clone sequentially (n_jobs=1).
+        # The caller's pipeline is cloned so its own n_jobs is untouched for the
+        # final fit after the search.
+        search_pipeline = clone(imba_pipeline)
+        search_pipeline.set_params(lgbmclassifier__n_jobs=1)
         random_imba = RandomizedSearchCV(
-            estimator=imba_pipeline,
+            estimator=search_pipeline,
             param_distributions=new_params,
             cv=cv_splits,
             #                            scoring = 'average_precision',

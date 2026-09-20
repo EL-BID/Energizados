@@ -360,6 +360,7 @@ train:
         max_depth: -1
         learning_rate: 0.05
         n_estimators: 1000
+        n_jobs: -1  # parallel threads (-1 = all cores, framework default)
 
       # Hyperparameter search
       hyperparam_search:
