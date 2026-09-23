@@ -969,8 +969,13 @@ def fill_empty_values_cycle(df, cant_ciclos_validos, suffix: str = "_anterior"):
     """
     cols_consumo = [f"{i}{suffix}" for i in range(cant_ciclos_validos, 0, -1)]
 
-    df.loc[:, cols_consumo] = df.loc[:, cols_consumo].ffill(axis=1)
-    df.loc[:, cols_consumo] = df.loc[:, cols_consumo].bfill(axis=1)
+    # Normalize to float64 first: with mixed int64/float64 consumption columns,
+    # axis-1 ffill/bfill consolidates the block to float64, and pandas 3.x
+    # (Copy-on-Write) rejects the lossy write back into int64 columns
+    # (TypeError) where pandas 2.x silently upcast. ``df[cols] =`` replaces
+    # whole columns and takes the assigned dtype, so behavior is identical on
+    # every pandas version.
+    df[cols_consumo] = df[cols_consumo].astype("float64").ffill(axis=1).bfill(axis=1)
     return df
 
 
