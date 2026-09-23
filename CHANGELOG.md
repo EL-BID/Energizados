@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-09-22
+
+### Fixed
+
+- **`fill_empty_values_cycle`: dtype-safe under pandas 3 (Copy-on-Write).** With mixed `int64`/`float64` consumption columns the axis-1 `ffill`/`bfill` consolidates the block to `float64`, and pandas 3.x now raises `TypeError: Invalid value ... for dtype 'int64'` (`LossySetitemError`) on the lossy write back into `int64` columns where pandas 2.x silently upcast — crashing ETLs that finalize wide consumption frames (e.g. a `dataset_inference` ETL using the `BaseDatasetBuilder` template, `_finalize` step). The consumption block is now normalized to `float64` before filling and assigned via wholesale column replacement (`df[cols] = ...`), which takes the assigned dtype and behaves identically on every pandas version. Consumption columns now end uniformly `float64` on pandas 2.x and 3.x alike, where the old pattern left the result dtype version- and data-dependent. Verified on pandas 2.3.3 and 3.0.6. Regression tests: `tests/test_preprocessing/test_fill_empty_values_cycle.py`.
+
 ## [0.3.8] - 2026-09-20
 
 ### Added
