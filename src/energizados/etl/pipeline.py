@@ -95,6 +95,14 @@ class SourceETL(BaseETL):
             Applied to the parsed ``incremental_key`` datetime to create a ``"partition"``
             column. Output is written as ``output_path/partition=<value>/data.parquet``.
             Default: ``"%Y-%m"`` (monthly partitions like ``"2024-01"``).
+        stream_result: When True (incremental mode only), ``run()`` does not keep every
+            processed file's DataFrame in memory. Each file is extracted, transformed,
+            written to its partitions, and released; ``run()`` returns a small summary
+            DataFrame with columns ``file`` and ``rows`` instead of the concatenated
+            data. Downstream ETLs consume the written partitions from disk (``@etl``
+            references resolve to paths), so this does not change pipeline results —
+            it removes an O(total-data) memory term for large sources. Default: False
+            (backward compatible: return the concatenated records).
         **kwargs: Additional parameters.
 
     Example:
@@ -203,6 +211,7 @@ class SourceETL(BaseETL):
         last_processed: Optional[str] = None,
         incremental_format: Optional[str] = None,
         incremental_partition: str = "%Y-%m",
+        stream_result: bool = False,
         **kwargs,
     ):
         self.name = name
@@ -215,6 +224,7 @@ class SourceETL(BaseETL):
         self.output_params = output_params or {}
         self.sample = sample
         self.reprocess = reprocess
+        self.stream_result = stream_result
         self.write_mode = write_mode.lower() if write_mode else "append"
         self.state_file = state_file
         self.raw_glob = raw_glob
@@ -642,9 +652,9 @@ class SourceETL(BaseETL):
         base = Path(output_path)
         base.mkdir(parents=True, exist_ok=True)
 
-        df = df.copy()
-
-        # Use pre-computed _partition if available; otherwise derive from incremental_key
+        # Use pre-computed _partition if available; otherwise derive from incremental_key.
+        # The fallback needs a copy because it mutates the frame; the normal run path
+        # (partition pre-computed in run()) must not pay for a full-frame copy.
         if "_partition" not in df.columns:
             col = self.incremental_key
             if col not in df.columns:
@@ -655,6 +665,7 @@ class SourceETL(BaseETL):
                     f"as a bug. Available columns: {list(df.columns)}"
                 )
 
+            df = df.copy()
             if not pd.api.types.is_datetime64_any_dtype(df[col]):
                 if self.incremental_format:
                     df[col] = pd.to_datetime(df[col], format=self.incremental_format)
@@ -768,6 +779,7 @@ class SourceETL(BaseETL):
         self._written_partitions = []
 
         all_results = []
+        streamed_rows: List[Dict[str, Any]] = []
 
         for path in input_paths:
             validate_no_traversal(path, label=f"ETL '{self.name}' incremental input")
@@ -818,12 +830,28 @@ class SourceETL(BaseETL):
                     f"Failed to write incremental output for '{source_file.name}': {e}"
                 ) from e
 
-            all_results.append(df)
+            rows_written = len(df)
+            if self.stream_result:
+                # Stream mode: record the per-file counts and release the data.
+                # Downstream ETLs read the written partitions from disk.
+                streamed_rows.append({"file": source_file.name, "rows": rows_written})
+                del df
+            else:
+                all_results.append(df)
             self._mark_file_processed(path)
-            logger.info(f"  • Processed {len(df)} records from '{source_file.name}'")
+            logger.info(f"  • Processed {rows_written} records from '{source_file.name}'")
 
         # Save state ONCE after all files
         self._on_load_success()
+
+        if self.stream_result:
+            summary = pd.DataFrame(streamed_rows, columns=["file", "rows"])
+            total = int(summary["rows"].sum()) if not summary.empty else 0
+            logger.info(
+                f"  ✓ Incremental run complete (streamed): {total} records "
+                f"from {len(streamed_rows)} files"
+            )
+            return summary
 
         if not all_results:
             logger.info("  ✓ No new data to process")

@@ -420,6 +420,7 @@ The sample ETL uses the project's own `CustomETL` class (generated in `src/data/
        incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
        reprocess: false                        # true = re-read all files; false = only pending
        write_mode: "append"                    # "append" = concat to existing; "replace" = overwrite
+       stream_result: false                    # true = release each file after writing (low-memory mode)
        state_file: ".cache/etl_states/consumos.json"
        # last_processed: "2024-01-01"  # optional: initial cutoff on first run
    ```
@@ -431,6 +432,7 @@ The sample ETL uses the project's own `CustomETL` class (generated in `src/data/
 - `incremental_format`: Optional strftime string for explicit date parsing. When set, `pd.to_datetime(col, format=incremental_format)` is used instead of auto-parsing. Useful for ambiguous date formats like `"15/01/2024"` (DD/MM/YYYY).
 - `incremental_partition`: strftime format string (default `"%Y-%m"`). Controls output partition directory names. Output structure: `output_dir/partition=<value>/data.parquet`. Common values: `"%Y-%m"` → `partition=2024-01/`, `"%Y"` → `partition=2024/`.
 - `partition_by` is **deprecated** in incremental mode. If passed, a deprecation warning is logged and the parameter is ignored. Use `incremental_partition` instead. For concat/merge modes, `partition_by` still works with Hive-style partitioning.
+- `stream_result` (bool, default `false`, incremental mode only): when `true`, `run()` releases each file's DataFrame right after writing its partitions and returns a small summary (`file`, `rows`) instead of the concatenated records. Downstream ETLs are unaffected — `@etl_name` references resolve to output paths on disk — so this removes the O(total-data) memory term when a source spans many large files. Recommended for large consumption sources on memory-constrained servers.
 
 ### Project Versioning
 
