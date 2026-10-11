@@ -1653,22 +1653,48 @@ class TestStreamResult:
             assert result.empty
             assert list(result.columns) == ["file", "rows"]
 
-    def test_stream_result_ignored_in_concat_mode(self):
-        """stream_result only affects incremental mode; concat behaves as before."""
+    def test_stream_result_concat_returns_summary_and_writes_output(self):
+        """concat + stream_result: run() returns a one-row summary; the output
+        parquet still contains the full transformed data."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             file_a = str(tmpdir_path / "a.csv")
-            Path(file_a).write_text("valor\n10\n", encoding="utf-8")
+            Path(file_a).write_text("valor\n10\n20\n", encoding="utf-8")
 
+            out = tmpdir_path / "out.parquet"
             etl = SourceETL(
                 name="test",
                 mode="concat",
                 input_paths=[file_a],
-                output_path=str(tmpdir_path / "out.parquet"),
+                output_path=str(out),
                 stream_result=True,
             )
-            df = etl.run(str(tmpdir_path / "out.parquet"))
-            assert list(df["valor"]) == [10]
+            summary = etl.run(str(out))
+
+            assert list(summary.columns) == ["rows"]
+            assert int(summary["rows"].iloc[0]) == 2
+            written = pd.read_parquet(out)
+            assert sorted(written["valor"]) == [10, 20]
+
+    def test_stream_result_concat_empty_input(self):
+        """concat + stream_result with an empty source still writes nothing and
+        returns a zero-rows summary (mirrors BaseETL empty short-circuit)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            file_a = str(tmpdir_path / "empty.csv")
+            Path(file_a).write_text("valor\n", encoding="utf-8")
+
+            out = tmpdir_path / "out.parquet"
+            etl = SourceETL(
+                name="test",
+                mode="concat",
+                input_paths=[file_a],
+                output_path=str(out),
+                stream_result=True,
+            )
+            summary = etl.run(str(out))
+            assert list(summary.columns) == ["rows"]
+            assert int(summary["rows"].iloc[0]) == 0
 
 
 class TestAutoInferredStateFile:

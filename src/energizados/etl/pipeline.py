@@ -95,14 +95,19 @@ class SourceETL(BaseETL):
             Applied to the parsed ``incremental_key`` datetime to create a ``"partition"``
             column. Output is written as ``output_path/partition=<value>/data.parquet``.
             Default: ``"%Y-%m"`` (monthly partitions like ``"2024-01"``).
-        stream_result: When True (incremental mode only), ``run()`` does not keep every
-            processed file's DataFrame in memory. Each file is extracted, transformed,
-            written to its partitions, and released; ``run()`` returns a small summary
-            DataFrame with columns ``file`` and ``rows`` instead of the concatenated
-            data. Downstream ETLs consume the written partitions from disk (``@etl``
-            references resolve to paths), so this does not change pipeline results —
-            it removes an O(total-data) memory term for large sources. Default: False
-            (backward compatible: return the concatenated records).
+        stream_result: When True, ``run()`` returns a small summary DataFrame instead
+            of the transformed data, releasing it as soon as the output is written.
+            Downstream ETLs are unaffected — ``@etl_name`` references resolve to
+            output paths on disk, never to in-memory results.
+              * incremental: each file is extracted, transformed, written to its
+                partitions, and released; the summary has columns ``file`` and
+                ``rows`` (one row per processed file).
+              * concat/merge: the full frame still exists while the ETL runs
+                (transform may need it), but it is released right after ``load``;
+                the summary has one ``rows`` column. This removes the
+                O(total-data) retention the orchestrator would otherwise hold for
+                the rest of the pipeline run.
+            Default: False (backward compatible: return the data).
         **kwargs: Additional parameters.
 
     Example:
@@ -745,7 +750,16 @@ class SourceETL(BaseETL):
             Concatenated DataFrame of all processed records.
         """
         if self.mode != "incremental":
-            return super().run(output_path or self.output_path or "")
+            actual_output = output_path or self.output_path or ""
+            df = super().run(actual_output)
+            if not self.stream_result:
+                return df
+            # Streamed concat/merge: the data was written by load(); release it
+            # so the orchestrator does not retain it for the rest of the run.
+            rows = len(df)
+            del df
+            logger.info(f"  ✓ Streamed result: {rows} records written to '{actual_output}'")
+            return pd.DataFrame({"rows": [rows]})
 
         # Incremental mode: file-by-file processing
         actual_output = output_path or self.output_path or ""
