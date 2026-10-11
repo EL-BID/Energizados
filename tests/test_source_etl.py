@@ -4,6 +4,7 @@ Unit tests for SourceETL.
 Tests for the SourceETL class that supports mode concat and merge.
 """
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -1557,6 +1558,143 @@ class TestWrittenPartitions:
             )
             etl._load_incremental(df2, tmpdir)
             assert etl._written_partitions == ["2024-01", "2024-02"]
+
+
+class TestStreamResult:
+    """stream_result=True: incremental run() releases each file after writing and
+    returns a per-file summary instead of the concatenated data (memory mode for
+    large sources). Partitions and state are identical to the default behavior."""
+
+    @staticmethod
+    def _make_input(tmpdir_path, name, fechas, valores):
+        df = pd.DataFrame({"fecha": pd.to_datetime(fechas), "valor": valores})
+        path = tmpdir_path / name
+        df.to_parquet(path, index=False)
+        return str(path)
+
+    def test_stream_returns_summary_not_data(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            file_a = self._make_input(tmpdir_path, "a.parquet", ["2024-01-15"], [10])
+            file_b = self._make_input(
+                tmpdir_path, "b.parquet", ["2024-02-05", "2024-02-10"], [30, 40]
+            )
+
+            etl = SourceETL(
+                name="test",
+                mode="incremental",
+                input_paths=[file_a, file_b],
+                output_path=str(tmpdir_path / "processed"),
+                incremental_key="fecha",
+                state_file=str(tmpdir_path / "state.json"),
+                stream_result=True,
+            )
+            result = etl.run(str(tmpdir_path / "processed"))
+
+            # Summary, not data.
+            assert list(result.columns) == ["file", "rows"]
+            assert len(result) == 2
+            assert set(result["file"]) == {"a.parquet", "b.parquet"}
+            assert sorted(result["rows"]) == [1, 2]
+
+    def test_stream_writes_same_partitions_and_state(self):
+        """Partitions and unified state are identical with and without streaming."""
+        results = {}
+        for stream in (False, True):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmpdir_path = Path(tmpdir)
+                file_a = self._make_input(
+                    tmpdir_path, "a.parquet", ["2024-01-15", "2024-01-20"], [10, 20]
+                )
+                file_b = self._make_input(tmpdir_path, "b.parquet", ["2024-02-10"], [30])
+
+                out = tmpdir_path / "processed"
+                state = tmpdir_path / "state.json"
+                etl = SourceETL(
+                    name="test",
+                    mode="incremental",
+                    input_paths=[file_a, file_b],
+                    output_path=str(out),
+                    incremental_key="fecha",
+                    state_file=str(state),
+                    stream_result=stream,
+                )
+                etl.run(str(out))
+
+                partitions = sorted(p.name for p in out.iterdir() if p.is_dir())
+                df_jan = pd.read_parquet(out / "partition=2024-01" / "data.parquet")
+                df_feb = pd.read_parquet(out / "partition=2024-02" / "data.parquet")
+                state_data = json.loads(state.read_text(encoding="utf-8"))
+                results[stream] = (partitions, df_jan, df_feb, state_data["last_processed_value"])
+
+        assert results[False][0] == results[True][0]  # partition names
+        pd.testing.assert_frame_equal(results[False][1], results[True][1])
+        pd.testing.assert_frame_equal(results[False][2], results[True][2])
+        assert results[False][3] == results[True][3]  # last_processed_value
+
+    def test_stream_skips_files_without_new_records(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            file_old = self._make_input(tmpdir_path, "old.parquet", ["2020-01-01"], [1])
+
+            etl = SourceETL(
+                name="test",
+                mode="incremental",
+                input_paths=[file_old],
+                output_path=str(tmpdir_path / "processed"),
+                incremental_key="fecha",
+                last_processed="2024-01-01",
+                state_file=str(tmpdir_path / "state.json"),
+                stream_result=True,
+            )
+            result = etl.run(str(tmpdir_path / "processed"))
+
+            assert isinstance(result, pd.DataFrame)
+            assert result.empty
+            assert list(result.columns) == ["file", "rows"]
+
+    def test_stream_result_concat_returns_summary_and_writes_output(self):
+        """concat + stream_result: run() returns a one-row summary; the output
+        parquet still contains the full transformed data."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            file_a = str(tmpdir_path / "a.csv")
+            Path(file_a).write_text("valor\n10\n20\n", encoding="utf-8")
+
+            out = tmpdir_path / "out.parquet"
+            etl = SourceETL(
+                name="test",
+                mode="concat",
+                input_paths=[file_a],
+                output_path=str(out),
+                stream_result=True,
+            )
+            summary = etl.run(str(out))
+
+            assert list(summary.columns) == ["rows"]
+            assert int(summary["rows"].iloc[0]) == 2
+            written = pd.read_parquet(out)
+            assert sorted(written["valor"]) == [10, 20]
+
+    def test_stream_result_concat_empty_input(self):
+        """concat + stream_result with an empty source still writes nothing and
+        returns a zero-rows summary (mirrors BaseETL empty short-circuit)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            file_a = str(tmpdir_path / "empty.csv")
+            Path(file_a).write_text("valor\n", encoding="utf-8")
+
+            out = tmpdir_path / "out.parquet"
+            etl = SourceETL(
+                name="test",
+                mode="concat",
+                input_paths=[file_a],
+                output_path=str(out),
+                stream_result=True,
+            )
+            summary = etl.run(str(out))
+            assert list(summary.columns) == ["rows"]
+            assert int(summary["rows"].iloc[0]) == 0
 
 
 class TestAutoInferredStateFile:

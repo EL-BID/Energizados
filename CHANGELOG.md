@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-11
+
+### Added
+
+- **`SourceETL`: `stream_result` for bounded-memory ETL runs.** New opt-in ETL param (`stream_result: true` under `params`, all modes). `run()` then returns a small summary DataFrame instead of the transformed data and releases it as soon as the output is written; downstream ETLs are unaffected because `@etl_name` references resolve to output paths on disk, never to in-memory results. In incremental mode each processed file is released right after its partitions are written (summary: `file`, `rows` per file), removing the O(total data) accumulation that previously grew with every input file. In concat/merge modes the full frame is released right after `load()` (summary: `rows`), so the orchestrator no longer retains it for the rest of the pipeline run while later ETL steps execute. `_load_incremental` also skips its full-frame copy when the partition column was pre-computed (the normal run path). Written outputs, partitions, and unified state are bit-identical with and without streaming; default stays `false` (backward compatible). Designed for large sources on memory-constrained servers — on a CELESC-sized run (12 monthly consumption files, ~40M-row history, ~2.3GB master table) this removes the memory terms that drove the final dataset build past the available RAM. Tests: `tests/test_source_etl.py::TestStreamResult`.
+
 ## [0.3.9] - 2026-09-22
 
 ### Fixed
