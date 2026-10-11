@@ -143,7 +143,8 @@ models/artifacts
 *.mp4
 
 # Only for developers
-.plans/
+.claude/
+.pi/
 .proyects/
 node_modules/
 .worktrees/
