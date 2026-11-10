@@ -420,6 +420,7 @@ The sample ETL uses the project's own `CustomETL` class (generated in `src/data/
        incremental_partition: "%Y-%m"          # strftime for partition values (default: monthly)
        reprocess: false                        # true = re-read all files; false = only pending
        write_mode: "append"                    # "append" = concat to existing; "replace" = overwrite
+       stream_result: false                    # true = release each file after writing (low-memory mode)
        state_file: ".cache/etl_states/consumos.json"
        # last_processed: "2024-01-01"  # optional: initial cutoff on first run
    ```
@@ -431,6 +432,7 @@ The sample ETL uses the project's own `CustomETL` class (generated in `src/data/
 - `incremental_format`: Optional strftime string for explicit date parsing. When set, `pd.to_datetime(col, format=incremental_format)` is used instead of auto-parsing. Useful for ambiguous date formats like `"15/01/2024"` (DD/MM/YYYY).
 - `incremental_partition`: strftime format string (default `"%Y-%m"`). Controls output partition directory names. Output structure: `output_dir/partition=<value>/data.parquet`. Common values: `"%Y-%m"` → `partition=2024-01/`, `"%Y"` → `partition=2024/`.
 - `partition_by` is **deprecated** in incremental mode. If passed, a deprecation warning is logged and the parameter is ignored. Use `incremental_partition` instead. For concat/merge modes, `partition_by` still works with Hive-style partitioning.
+- `stream_result` (bool, default `false`): when `true`, `run()` returns a small summary instead of the transformed data, releasing it as soon as the output is written. Downstream ETLs are unaffected — `@etl_name` references resolve to output paths on disk, never to in-memory results. In incremental mode each file is released right after its partitions are written (summary: `file`, `rows` per file); in concat/merge modes the frame is released after `load` (summary: `rows`), removing the O(total-data) retention the orchestrator would otherwise hold for the rest of the run. Recommended for large sources on memory-constrained servers.
 
 ### Project Versioning
 
