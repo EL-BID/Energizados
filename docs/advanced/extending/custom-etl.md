@@ -170,6 +170,8 @@ etl:
 
 The `merge_config` section accepts any parameter from pandas `pd.merge()`: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.
 
+> **Tip:** `SourceETL` also supports declarative row filtering (`input[].filter` per source before combining, `params.filter` for the combined frame). Custom ETL classes extending `SourceETL` inherit the `params.filter` parameter; per-input filters on structured input items are only honored by `SourceETL` itself. See [ETL configuration → Row filtering](../../user-guide/configuration/etl.md#row-filtering).
+
 ## Advanced Pattern: Dataset Builder ETL (Long-to-Wide Transformation)
 
 Many fraud detection scenarios require transforming longitudinal consumption data from **long format** (one row per customer-period) to **wide format** (one row per customer with columns for each period like `consumo_1_anterior`, `consumo_2_anterior`, etc.).
