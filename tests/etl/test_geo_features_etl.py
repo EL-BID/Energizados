@@ -94,6 +94,36 @@ def test_too_few_valid_coords_raises(tmp_path):
         etl.transform(raw)
 
 
+def test_too_few_valid_coords_raises_before_geobr_download(tmp_path, monkeypatch):
+    """Coordinate validation must fail fast before any geobr download.
+
+    The 'valid coordinates' error is raised by the clustering precheck; if it
+    runs after the IBGE hierarchy geocoding, a failed geobr download (air-gapped
+    or flaky network, e.g. CI runners) masks it with the download error and the
+    user sees the wrong message.
+    """
+    from energizados.preprocessing.geo_features import _IBGEGeocoder
+
+    def _boom(cls, *args, **kwargs):
+        raise RuntimeError("Failed to download v2 metadata. Check your internet connection.")
+
+    monkeypatch.setattr(_IBGEGeocoder, "geocode_points", classmethod(_boom))
+
+    df = _make_df(n=5, valid=True)  # fewer than minimum 10
+    input_path = str(tmp_path / "input.parquet")
+    df.to_parquet(input_path, index=False)
+    etl = GeoFeaturesETL(
+        name="test",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "out.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+    )
+    raw = etl.extract()
+    with pytest.raises(ETLError, match="valid coordinates"):
+        etl.transform(raw)
+
+
 def test_output_saved_to_disk(tmp_path):
     df = _make_df(n=30)
     _make_etl(tmp_path, df, n_clusters=3)
