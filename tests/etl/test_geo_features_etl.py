@@ -229,7 +229,29 @@ def test_resolve_hierarchy_levels_mixed_languages():
 # --- GeoFeaturesETL with hierarchy_levels list ---
 
 
-def test_hierarchy_levels_list_only_estado(tmp_path):
+@pytest.fixture
+def fake_geocoder(monkeypatch):
+    """Replace the IBGE download path with a deterministic offline geocoder.
+
+    The hierarchy wiring tests assert column selection, not IBGE data, so they
+    must not depend on reaching geobr endpoints (CI runners intermittently fail
+    the download and geobr masks it with confusing network/duckdb errors).
+    Tests that exercise the real geocoder internals (e.g. chunked equivalence)
+    must NOT use this fixture.
+    """
+    from energizados.preprocessing.geo_features import _IBGEGeocoder
+
+    def _fake_geocode_points(cls, lats, lons, cache_dir=None, chunk_size=500_000):
+        n = len(lats)
+        municipios = np.array([f"MUN_{i}" for i in range(n)], dtype=object)
+        ufs = np.array(["SC"] * n, dtype=object)
+        regioes = np.array(["Sul"] * n, dtype=object)
+        return municipios, ufs, regioes
+
+    monkeypatch.setattr(_IBGEGeocoder, "geocode_points", classmethod(_fake_geocode_points))
+
+
+def test_hierarchy_levels_list_only_estado(tmp_path, fake_geocoder):
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
     output_path = str(tmp_path / "output.parquet")
@@ -254,7 +276,7 @@ def test_hierarchy_levels_list_only_estado(tmp_path):
     assert "geo_regiao" not in result.columns
 
 
-def test_hierarchy_levels_list_estado_and_regiao(tmp_path):
+def test_hierarchy_levels_list_estado_and_regiao(tmp_path, fake_geocoder):
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
     output_path = str(tmp_path / "output.parquet")
@@ -303,7 +325,7 @@ def test_hierarchy_levels_empty_list_no_hierarchy_columns(tmp_path):
     assert "geo_regiao" not in result.columns
 
 
-def test_hierarchy_levels_invalid_raises(tmp_path):
+def test_hierarchy_levels_invalid_raises(tmp_path, fake_geocoder):
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
     df.to_parquet(input_path, index=False)
