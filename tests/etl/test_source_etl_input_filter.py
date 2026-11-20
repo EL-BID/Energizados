@@ -247,6 +247,94 @@ class TestSourceETLInputFilter:
 
         assert result["id"].tolist() == [1, 2]
 
+    def test_incremental_second_run_after_watermark_is_noop(self, tmp_path):
+        """Filtered-out rows do not hold back the watermark; the next run is a no-op."""
+        source = _write_parquet(
+            tmp_path,
+            "raw.parquet",
+            {
+                "fecha": pd.to_datetime(["2024-01-01", "2024-01-03"]),
+                "id": [1, 2],
+                "consumo": [10, 0],
+            },
+        )
+        output = tmp_path / "processed"
+        state_file = tmp_path / "state.json"
+        etl = SourceETL(
+            name="noop_next_run",
+            input_paths=[str(source)],
+            input_specs=[_spec(source, {"consumo": {">": 5}})],
+            output_path=str(output),
+            mode="incremental",
+            incremental_key="fecha",
+            state_file=str(state_file),
+        )
+
+        first = etl.run(str(output))
+        assert first["id"].tolist() == [1]
+        assert (
+            "2024-01-03"
+            in json.loads(state_file.read_text(encoding="utf-8"))["last_processed_value"]
+        )
+
+        second = etl.run(str(output))
+
+        assert second.empty
+
+    def test_failed_filtered_run_leaves_previous_output_untouched(self, tmp_path):
+        """A failing filter must not corrupt an already-written output file."""
+        source = _write_parquet(tmp_path, "raw.parquet", {"id": [1], "value": [5]})
+        output = tmp_path / "out.parquet"
+        good = SourceETL(
+            name="write_then_fail",
+            input_paths=[str(source)],
+            output_path=str(output),
+        )
+        good.run()
+        original_bytes = output.read_bytes()
+
+        bad = SourceETL(
+            name="write_then_fail",
+            input_paths=[str(source)],
+            input_specs=[_spec(source, {"missing": 1})],
+            output_path=str(output),
+        )
+
+        with pytest.raises(ETLError, match="input filter"):
+            bad.run()
+
+        assert output.read_bytes() == original_bytes
+
+    def test_merge_side_emptied_by_input_filter_writes_zero_rows(self, tmp_path, caplog):
+        """S4: one merge side emptied by its input filter still writes a 0-row output."""
+        clients = _write_parquet(
+            tmp_path, "clients.parquet", {"id": [1, 2], "zona": ["NORTE", "SUL"]}
+        )
+        consumption = _write_parquet(
+            tmp_path, "consumption.parquet", {"id": [1, 2], "consumo": [100, 200]}
+        )
+        output = tmp_path / "merged.parquet"
+        etl = SourceETL(
+            name="merge_side_empty",
+            input_paths=[str(clients), str(consumption)],
+            input_specs=[
+                _spec(clients, {"zona": "INEXISTENTE"}),
+                _spec(consumption, None),
+            ],
+            output_path=str(output),
+            mode="merge",
+            merge_config={"how": "inner", "on": "id"},
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = etl.run()
+
+        assert result.empty
+        written = pd.read_parquet(output)
+        assert written.empty
+        assert list(written.columns) == ["id", "zona", "consumo"]
+        assert "merge_side_empty" in caplog.text
+
     def test_input_specs_must_align_with_input_paths(self, tmp_path):
         source = _write_parquet(tmp_path, "raw.parquet", {"id": [1]})
 
