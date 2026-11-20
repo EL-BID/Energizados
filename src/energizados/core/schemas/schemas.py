@@ -4,6 +4,23 @@ JSON Schema definitions for configuration validation.
 This module contains the schema definitions for each configuration type.
 """
 
+# One ``input`` list item: legacy strings stay valid; structured items carry an
+# optional row filter applied before concat/merge (SDD §6.1).
+ETL_INPUT_ITEM_SCHEMA = {
+    "oneOf": [
+        {"type": "string"},
+        {
+            "type": "object",
+            "required": ["path"],
+            "additionalProperties": False,
+            "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "filter": {"type": "object"},
+            },
+        },
+    ]
+}
+
 # ETL Configuration Schema
 ETL_SCHEMA = {
     "type": "object",
@@ -21,7 +38,7 @@ ETL_SCHEMA = {
             "enabled": {"type": "boolean", "default": True},
             "description": {"type": "string"},
             "input": {
-                "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]
+                "oneOf": [{"type": "string"}, {"type": "array", "items": ETL_INPUT_ITEM_SCHEMA}]
             },
             "output": {"type": "string"},
             "depends_on": {"type": "array", "items": {"type": "string"}, "default": []},
