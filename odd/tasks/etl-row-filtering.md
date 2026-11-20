@@ -17,7 +17,7 @@ Engram mirror: unavailable in this session; this file is the continuity source o
 - **T1** — S2, S6 — DONE: strict reusable evaluation and ETL-level `SourceETL` filtering across concat/merge/incremental, with focused tests — commit: `2d60d90`.
 - **T2** — S2, S3, S4, S6 — DONE: structured per-input filters, orchestrator metadata resolution, empty-output handling, and focused tests — commit: `d16108e`. Risk: item 3 (structured input and shared empty-extract behavior are consumed by existing ETLs/custom classes).
 - **T3** — S1–S4, S6 — DONE: JSON schema, CLI/service/API validators, dry-run compatibility, template, user docs, AGENTS.md/CLAUDE.md symlink, and CHANGELOG.md, with validation tests — commit: `faed56c`.
-- **T4** — S1–S6 — DONE: independent `gentle-ai-verify` verdict PASS for S1–S6 and all 8 SDD acceptance criteria; full conda suite run; durable regression tests added — commit: pending this closing commit.
+- **T4** — S1–S6 — DONE: independent `gentle-ai-verify` verdict PASS for S1–S6 and all 8 SDD acceptance criteria; full conda suite run; durable regression tests added — commits: `cf623d0` (tests), closing docs commit.
 
 ## Log
 
