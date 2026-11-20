@@ -17,6 +17,10 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import pandas as pd
 
 from energizados.core.exceptions import ETLError
+from energizados.core.utils.columns_filter import (
+    apply_columns_filter,
+    validate_columns_filter,
+)
 from energizados.core.utils.import_utils import import_class
 from energizados.etl.base import BaseETL
 
@@ -43,6 +47,8 @@ class SourceETL(BaseETL):
         input_paths: List with paths to raw data files.
         output_path: Path to save processed data.
         mode: Processing mode ('concat', 'merge', or 'incremental'). Default: 'concat'.
+        filter: Optional ETL-level row filter using the shared ``columns_filter``
+            grammar. Applied after concat/merge and before ``transform_fn``.
         merge_config: Configuration for merge (required if mode='merge').
             Ex: {'how': 'left', 'on': 'id_cliente'}
             Options: how ('left', 'right', 'inner', 'outer'), on (column),
@@ -200,6 +206,7 @@ class SourceETL(BaseETL):
         input_paths: Optional[List[str]] = None,
         output_path: Optional[str] = None,
         mode: str = "concat",
+        filter: Optional[Dict[str, Any]] = None,
         merge_config: Optional[Dict[str, Any]] = None,
         key_column: Optional[str] = None,
         input_params: Optional[Dict[str, Any]] = None,
@@ -223,6 +230,8 @@ class SourceETL(BaseETL):
         self.input_paths = input_paths or []
         self.output_path = output_path
         self.mode = mode.lower() if mode else "concat"
+        self.filter = filter if filter is not None else {}
+        validate_columns_filter(self.filter, context=f"SourceETL '{self.name}' ETL-level filter")
         self.merge_config = merge_config
         self.key_column = key_column or "id_cliente"
         self.input_params = input_params or {}
@@ -1172,6 +1181,21 @@ class SourceETL(BaseETL):
 
         if before_count > after_count:
             logger.info(f"  • Removed {before_count - after_count} empty rows")
+
+        if self.filter:
+            before_filter = len(df)
+            try:
+                df, removed = apply_columns_filter(df, self.filter, strict=True)
+            except Exception as e:
+                raise ETLError(f"SourceETL '{self.name}': ETL-level filter error: {e}") from e
+            logger.info(
+                f"  • ETL '{self.name}' ETL-level filter: kept {len(df):,} of "
+                f"{before_filter:,} records (removed {removed:,})"
+            )
+            if df.empty:
+                logger.warning(
+                    f"SourceETL '{self.name}': ETL-level filter produced an empty dataset"
+                )
 
         # Apply custom transform function if provided
         if self._transform_fn is not None:
