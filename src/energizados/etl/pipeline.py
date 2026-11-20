@@ -45,6 +45,9 @@ class SourceETL(BaseETL):
     Args:
         name: Name of the source (e.g.: 'consumos', 'inspecciones', 'clientes').
         input_paths: List with paths to raw data files.
+        input_specs: Optional resolved ``{path, filter}`` records aligned
+            positionally with ``input_paths``. Supplied by ETLOrchestrator when
+            per-input filters are configured.
         output_path: Path to save processed data.
         mode: Processing mode ('concat', 'merge', or 'incremental'). Default: 'concat'.
         filter: Optional ETL-level row filter using the shared ``columns_filter``
@@ -200,10 +203,15 @@ class SourceETL(BaseETL):
                 # last_processed: "2024-01-01"  # optional: initial cutoff if no state exists
     """
 
+    # Advertised to ETLOrchestrator: this class accepts structured per-input
+    # filters via ``input_specs`` (see ``supports_input_filters`` gating).
+    supports_input_filters = True
+
     def __init__(
         self,
         name: str,
         input_paths: Optional[List[str]] = None,
+        input_specs: Optional[List[Dict[str, Any]]] = None,
         output_path: Optional[str] = None,
         mode: str = "concat",
         filter: Optional[Dict[str, Any]] = None,
@@ -228,6 +236,8 @@ class SourceETL(BaseETL):
     ):
         self.name = name
         self.input_paths = input_paths or []
+        self.input_specs = self._normalize_input_specs(input_specs)
+        self._load_empty_extract = self._has_input_filters
         self.output_path = output_path
         self.mode = mode.lower() if mode else "concat"
         self.filter = filter if filter is not None else {}
@@ -318,6 +328,79 @@ class SourceETL(BaseETL):
             if self.state_file:
                 self._load_state()
 
+    @property
+    def _has_input_filters(self) -> bool:
+        """Whether any resolved input spec carries a per-input filter."""
+        return any(spec["filter"] for spec in self.input_specs)
+
+    def _normalize_input_specs(
+        self, input_specs: Optional[List[Dict[str, Any]]]
+    ) -> List[Dict[str, Any]]:
+        """Validate and align resolved input metadata without keying by path."""
+        if input_specs is None:
+            return [{"path": path, "filter": None} for path in self.input_paths]
+        if len(input_specs) != len(self.input_paths):
+            raise ValueError(
+                f"SourceETL '{self.name}': input_specs and input_paths must have "
+                "the same number of entries"
+            )
+
+        normalized = []
+        for index, (path, spec) in enumerate(zip(self.input_paths, input_specs)):
+            if not isinstance(spec, dict) or set(spec) - {"path", "filter"}:
+                raise ValueError(
+                    f"SourceETL '{self.name}': input_specs[{index}] must contain "
+                    "only 'path' and 'filter'"
+                )
+            if spec.get("path") != path:
+                raise ValueError(
+                    f"SourceETL '{self.name}': input_specs[{index}].path does not "
+                    "match input_paths"
+                )
+            input_filter = spec.get("filter")
+            if input_filter is not None:
+                validate_columns_filter(
+                    input_filter,
+                    context=f"SourceETL '{self.name}' input filter for '{path}'",
+                )
+            normalized.append({"path": path, "filter": input_filter})
+        return normalized
+
+    def _input_filter_for_path(self, path: str, index: Optional[int] = None):
+        """Return positional metadata, falling back to a unique raw_glob match."""
+        if index is not None and index < len(self.input_specs):
+            spec = self.input_specs[index]
+            if spec["path"] == path:
+                return spec["filter"]
+        matches = [spec["filter"] for spec in self.input_specs if spec["path"] == path]
+        if len(matches) > 1:
+            raise ETLError(
+                f"SourceETL '{self.name}': ambiguous per-input filters for '{path}'; "
+                "use resolved input_paths instead of raw_glob"
+            )
+        return matches[0] if matches else None
+
+    def _apply_input_filter(
+        self, df: pd.DataFrame, path: str, input_filter: Optional[Dict[str, Any]]
+    ) -> pd.DataFrame:
+        """Apply one strict input-level filter with path-aware diagnostics."""
+        if not input_filter:
+            return df
+        before_filter = len(df)
+        try:
+            filtered, removed = apply_columns_filter(df, input_filter, strict=True)
+        except Exception as e:
+            raise ETLError(f"SourceETL '{self.name}': input filter for '{path}' error: {e}") from e
+        logger.info(
+            f"  • ETL '{self.name}' input filter '{path}': kept {len(filtered):,} of "
+            f"{before_filter:,} records (removed {removed:,})"
+        )
+        if filtered.empty:
+            logger.warning(
+                f"SourceETL '{self.name}': input filter for '{path}' produced an empty dataset"
+            )
+        return filtered
+
     def extract(self) -> pd.DataFrame:
         """
         Extracts data from specified sources.
@@ -348,7 +431,7 @@ class SourceETL(BaseETL):
         from energizados.core.utils.integrity_pickle import validate_no_traversal
 
         dataframes = []
-        for path in self.input_paths:
+        for path_index, path in enumerate(self.input_paths):
             validate_no_traversal(path, label=f"ETL '{self.name}' input")
             source_file = Path(path)
 
@@ -368,6 +451,9 @@ class SourceETL(BaseETL):
                 else:
                     raise ETLError(f"Unsupported format: {source_file.suffix}")
 
+                df = self._apply_input_filter(
+                    df, path, self._input_filter_for_path(path, path_index)
+                )
                 dataframes.append(df)
                 logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
 
@@ -434,7 +520,7 @@ class SourceETL(BaseETL):
         dataframes = []
         processed_files = []
 
-        for path in input_paths:
+        for path_index, path in enumerate(input_paths):
             validate_no_traversal(path, label=f"ETL '{self.name}' incremental input")
             source_file = Path(path)
 
@@ -456,6 +542,20 @@ class SourceETL(BaseETL):
 
             df = self._read_single_file(path)
 
+            if self._has_input_filters:
+                # Equivalent per-input semantics to the normal run() loop: the
+                # high-water mark is computed from rows surviving the
+                # incremental-key cutoff, before any row-filter level (§6.3).
+                if self.incremental_key:
+                    df = self._filter_by_incremental_key(df)
+                df = self._apply_input_filter(
+                    df, path, self._input_filter_for_path(path, path_index)
+                )
+                if df.empty:
+                    logger.info(f"  • No records after input filter in '{source_file.name}'")
+                    processed_files.append(path)
+                    continue
+
             dataframes.append(df)
             processed_files.append(path)
             logger.info(f"  • Read {len(df)} records from '{source_file.name}'")
@@ -468,8 +568,10 @@ class SourceETL(BaseETL):
         result = pd.concat(dataframes, axis=0, ignore_index=True)
         logger.info(f"  ✓ Incremental extract: {len(result)} records from {len(dataframes)} files")
 
-        # Filter by incremental_key if configured
-        if self.incremental_key:
+        # Filter by incremental_key if configured. The combined-frame cutoff is
+        # the legacy no-filter path; with per-input filters each file already
+        # had its cutoff applied above (before its input filter).
+        if self.incremental_key and not self._has_input_filters:
             result = self._filter_by_incremental_key(result)
 
         # Update state with processed files (flushed to disk only after load succeeds)
@@ -804,7 +906,7 @@ class SourceETL(BaseETL):
         all_results = []
         streamed_rows: List[Dict[str, Any]] = []
 
-        for path in input_paths:
+        for path_index, path in enumerate(input_paths):
             validate_no_traversal(path, label=f"ETL '{self.name}' incremental input")
             source_file = Path(path)
 
@@ -825,6 +927,12 @@ class SourceETL(BaseETL):
 
             if df.empty:
                 logger.info(f"  • No new records in '{source_file.name}'")
+                self._mark_file_processed(path)
+                continue
+
+            df = self._apply_input_filter(df, path, self._input_filter_for_path(path, path_index))
+            if df.empty:
+                logger.info(f"  • No records after input filter in '{source_file.name}'")
                 self._mark_file_processed(path)
                 continue
 
