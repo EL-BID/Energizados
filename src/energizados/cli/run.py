@@ -748,7 +748,9 @@ def _render_etl_plan(orchestrator: "ETLOrchestrator") -> str:
             if len(resolved) > 2:
                 input_str = f"[{resolved[0]}, ... ({len(resolved)} total)]"
             else:
-                input_str = str(resolved)
+                # Render each path plainly: str(list) is a repr() and doubles
+                # backslashes on Windows, which corrupts the display.
+                input_str = ", ".join(str(path) for path in resolved)
         except Exception:
             # Dry-run is display-only: show the raw configured input and let
             # `energizados validate` report the problem before execution.
