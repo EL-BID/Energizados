@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from energizados.core.exceptions import ETLDependencyError
+from energizados.core.exceptions import ETLDependencyError, ETLError
 from energizados.etl.orchestrator import ETLOrchestrator
 
 
@@ -756,3 +756,83 @@ class TestOrchestratorIgnoresOutputBaseDir:
         orchestrator = ETLOrchestrator(configs)
         # Would raise 'unknown dependencies' if output_base_dir were treated as an ETL.
         orchestrator.validate_dependencies()
+
+
+class TestStructuredInputResolution:
+    """Structured input objects preserve filters through path resolution."""
+
+    def test_globs_and_references_broadcast_filters(self, tmp_path):
+        first = tmp_path / "first.csv"
+        second = tmp_path / "second.csv"
+        first.write_text("id\n1\n", encoding="utf-8")
+        second.write_text("id\n2\n", encoding="utf-8")
+        glob_filter = {"zona": "NORTE"}
+        reference_filter = {"value": {">": 0}}
+        configs = {
+            "upstream": {
+                "enabled": True,
+                "input": str(first),
+                "output": "data/upstream.parquet",
+                "depends_on": [],
+            },
+            "downstream": {
+                "enabled": True,
+                "input": [
+                    {"path": str(tmp_path / "*.csv"), "filter": glob_filter},
+                    {"path": "@upstream", "filter": reference_filter},
+                ],
+                "output": str(tmp_path / "out.parquet"),
+                "depends_on": ["upstream"],
+            },
+        }
+        orchestrator = ETLOrchestrator(configs)
+
+        specs = orchestrator.resolve_input_specs("downstream")
+
+        assert specs == [
+            {"path": str(first), "filter": glob_filter},
+            {"path": str(second), "filter": glob_filter},
+            {"path": "data/upstream.parquet", "filter": reference_filter},
+        ]
+        assert orchestrator.resolve_input_paths("downstream") == [
+            str(first),
+            str(second),
+            "data/upstream.parquet",
+        ]
+
+    def test_source_etl_receives_aligned_input_specs(self, tmp_path):
+        source = tmp_path / "raw.csv"
+        source.write_text("id,value\n1,10\n", encoding="utf-8")
+        filter_config = {"value": {">": 0}}
+        configs = {
+            "source": {
+                "enabled": True,
+                "input": [{"path": str(source), "filter": filter_config}],
+                "output": str(tmp_path / "out.parquet"),
+                "custom_class": "energizados.etl.pipeline.SourceETL",
+                "depends_on": [],
+            }
+        }
+        orchestrator = ETLOrchestrator(configs)
+
+        orchestrator.instantiate_etls()
+
+        instance = orchestrator.etl_instances["source"]
+        assert instance.input_paths == [str(source)]
+        assert instance.input_specs == [{"path": str(source), "filter": filter_config}]
+
+    def test_filtered_input_is_rejected_for_unsupported_etl_class(self, tmp_path):
+        source = tmp_path / "raw.csv"
+        source.write_text("id\n1\n", encoding="utf-8")
+        configs = {
+            "clean": {
+                "enabled": True,
+                "input": [{"path": str(source), "filter": {"id": 1}}],
+                "custom_class": "energizados.etl.pipeline.CleanFilesETL",
+                "depends_on": [],
+            }
+        }
+        orchestrator = ETLOrchestrator(configs)
+
+        with pytest.raises(ETLError, match="does not support per-input filters"):
+            orchestrator.instantiate_etls()

@@ -14,9 +14,14 @@ from rich.progress import ProgressColumn
 from rich.text import Text
 
 from energizados.cli.ui import console
-from energizados.core.exceptions import ConfigurationError, PipelineError
+from energizados.core.exceptions import (
+    ConfigurationError,
+    ETLDependencyError,
+    PipelineError,
+)
 from energizados.core.pipeline import ConfigPipelineBuilder
 from energizados.core.utils.memory_sampler import format_bytes
+from energizados.etl.orchestrator import ETLOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -716,6 +721,47 @@ def execute_step(
     return result
 
 
+def _render_etl_plan(orchestrator: "ETLOrchestrator") -> str:
+    """Build the dry-run plan display with resolved input paths.
+
+    Structured inputs (``{path, filter}``) resolve to their concrete paths;
+    malformed entries fall back to the raw configured input so the dry-run
+    display never crashes (errors are reported by ``energizados validate``).
+    """
+    lines = ["\nETL Execution Plan:", "=" * 60]
+
+    if not orchestrator.execution_order:
+        try:
+            orchestrator.build_execution_order()
+        except ETLDependencyError:
+            return "Error: Could not build execution plan (cycle detected)"
+
+    for i, etl_name in enumerate(orchestrator.execution_order):
+        config = orchestrator.etl_configs[etl_name]
+        deps = config.get("depends_on", [])
+        deps_str = f" (deps: {', '.join(deps)})" if deps else ""
+
+        lines.append(f"{i + 1}. {etl_name}{deps_str}")
+
+        try:
+            resolved = orchestrator.resolve_input_paths(etl_name)
+            if len(resolved) > 2:
+                input_str = f"[{resolved[0]}, ... ({len(resolved)} total)]"
+            else:
+                input_str = str(resolved)
+        except Exception:
+            # Dry-run is display-only: show the raw configured input and let
+            # `energizados validate` report the problem before execution.
+            input_str = str(config.get("input", "N/A"))
+
+        lines.append(f"   Input:  {input_str}")
+        output = config.get("output")
+        if output:
+            lines.append(f"   Output: {output}")
+
+    return "\n".join(lines)
+
+
 def execute_etl(
     config_paths: List[str], etl_name: Optional[str] = None, dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -767,7 +813,7 @@ def execute_etl(
         orchestrator = ETLOrchestrator(etl_configs)
 
     if dry_run:
-        console.print(orchestrator.get_execution_plan())
+        console.print(_render_etl_plan(orchestrator))
         console.print("\n[dim]--dry-run: ETLs were not executed --[/]")
         return {}
 
