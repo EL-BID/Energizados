@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Approved — implementation in progress |
+| **Status** | Implemented |
 | **Date** | 2026-11-20 |
 | **Scope** | `energizados.etl` (config surface + `SourceETL` semantics) |
 | **Related** | `CONTEXT.md`, `AGENTS.md` (SourceETL section), `docs/user-guide/configuration/etl.md`, `src/energizados/core/utils/columns_filter.py` |
