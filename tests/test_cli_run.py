@@ -896,32 +896,51 @@ class TestMemoryProfiling:
         assert "peak 5.0GB" in out
         assert "⚠" in out
 
-    def test_print_profiling_table_renders_sorted_rows(self):
-        """The profiling table renders rows sorted by peak (desc)."""
+    def test_print_profiling_table_renders_rows_in_execution_order(self):
+        """The profiling table renders rows in execution (capture) order.
+
+        Rows carry a ``seq`` assigned at capture time: a wrapping step (e.g.
+        ``etl``) starts before its inner ETLs and completes after them, so it
+        must render first. Sorting by peak would put the heaviest ETL on top
+        regardless of when it actually ran.
+        """
         from io import StringIO
 
         from rich.console import Console
 
         from energizados.cli.run import _print_profiling_table
 
+        gb = 1024**3
         rows = [
             (
-                "maestros",
+                "train",
                 {
-                    "rss_start": 500 * 1024**2,
-                    "rss_end": 600 * 1024**2,
-                    "delta": 100 * 1024**2,
-                    "peak": 700 * 1024**2,
+                    "rss_start": 217 * 1024**2,
+                    "rss_end": 3 * gb,
+                    "delta": 3 * gb,
+                    "peak": 9 * gb,
                 },
+                1,
             ),
             (
-                "consumos",
+                "dataset",
                 {
-                    "rss_start": 1 * 1024**3,
-                    "rss_end": 4 * 1024**3,
-                    "delta": 3 * 1024**3,
-                    "peak": 9 * 1024**3,
+                    "rss_start": 2 * gb,
+                    "rss_end": 3 * gb,
+                    "delta": 500 * 1024**2,
+                    "peak": 500 * 1024**2,
                 },
+                3,
+            ),
+            (
+                "negativos",
+                {
+                    "rss_start": 3 * gb,
+                    "rss_end": 4 * gb,
+                    "delta": 500 * 1024**2,
+                    "peak": 9 * gb,
+                },
+                6,
             ),
         ]
         captured = []
@@ -937,11 +956,87 @@ class TestMemoryProfiling:
         text = buf.getvalue()
 
         assert "Memory profile" in text
-        assert "consumos" in text
-        assert "maestros" in text
-        assert "9.0GB" in text  # peak of consumos
-        # consumos (9GB peak) must appear before maestros (700MB peak)
-        assert text.index("consumos") < text.index("maestros")
+        assert "9.0GB" in text  # peaks of train / negativos
+        # Execution order: wrapping step first, then its ETLs in DAG order
+        # (dataset ran before negativos even though negativos peaks higher).
+        assert text.index("train") < text.index("dataset") < text.index("negativos")
+
+    def test_profile_table_follows_execution_order(self):
+        """-vv wiring: the ``etl`` row renders first, then its ETLs in DAG order.
+
+        Simulates the real callback nesting on a mock pipeline: ``etl`` starts
+        first and completes last, while its inner ETL callbacks arrive in
+        between. Sorting by peak would put ``negativos`` (heaviest, tied with
+        ``etl``) first even though it runs last.
+        """
+        import os
+        import tempfile
+        from io import StringIO
+        from pathlib import Path
+
+        from rich.console import Console
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir) / "proj"
+            project_path.mkdir()
+            config_dir = project_path / "config"
+            config_dir.mkdir()
+            (config_dir / "train.yaml").write_text("train:\n  enabled: false\n", encoding="utf-8")
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(project_path)
+                gb = 1024**3
+
+                def mk_metrics(start, end, delta, peak):
+                    return {"rss_start": start, "rss_end": end, "delta": delta, "peak": peak}
+
+                regiones = mk_metrics(230 * 1024**2, 240 * 1024**2, 10 * 1024**2, 240 * 1024**2)
+                negativos = mk_metrics(3 * gb, 4 * gb, 500 * 1024**2, 6 * gb)
+                etl = mk_metrics(200 * 1024**2, 4 * gb, 3 * gb, 6 * gb)
+
+                with patch("energizados.cli.run.ConfigPipelineBuilder") as mock_builder:
+                    mock_pipeline = mock_builder.return_value.build.return_value
+                    mock_pipeline.steps = []
+
+                    def fake_run():
+                        mock_pipeline.on_step_start("ETLStep", 0, 1)
+                        mock_pipeline.on_phase_update("ETLStep", "regiones", 0, 2)
+                        mock_pipeline.on_phase_update("ETLStep", "negativos", 0, 2)
+                        mock_pipeline.on_phase_update(
+                            "ETLStep", "regiones", 100, 2, metrics=regiones
+                        )
+                        mock_pipeline.on_phase_update(
+                            "ETLStep", "negativos", 100, 2, metrics=negativos
+                        )
+                        mock_pipeline.on_step_complete("ETLStep", 0, 1, metrics=etl)
+                        return {}
+
+                    mock_pipeline.run.side_effect = fake_run
+                    mock_builder.return_value.run_dir = None
+                    captured = []
+                    with patch(
+                        "energizados.cli.run.console.print",
+                        side_effect=lambda *a, **k: captured.append(a),
+                    ):
+                        from energizados.cli.run import execute_pipeline
+
+                        execute_pipeline([str(config_dir / "train.yaml")], profile_memory=True)
+
+                buf = StringIO()
+                probe = Console(file=buf, width=120)
+                for args in captured:
+                    probe.print(*args)
+                text = buf.getvalue()
+
+                assert "Memory profile" in text
+                header_idx = text.index("step / etl")
+                # The wrapping step row (after the column header) comes first...
+                assert text.index("etl", header_idx + 1) < text.index("regiones")
+                # ...and ETLs follow in execution order, not by peak
+                # (negativos peaks highest yet runs last).
+                assert text.index("regiones") < text.index("negativos")
+            finally:
+                os.chdir(old_cwd)
 
     def test_execute_pipeline_propagates_profile_memory_flag(self):
         """execute_pipeline(profile_memory=True) sets pipeline.profile_memory=True."""

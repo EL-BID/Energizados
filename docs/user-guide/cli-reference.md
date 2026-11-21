@@ -47,7 +47,7 @@ Executes a pipeline from YAML configuration files.
 - `--etl, -e`: Execute a specific ETL (and its dependencies). Valid only with multiple ETLs.
 - `--dry-run, -d`: Show execution plan without executing anything
 - `--json, -j`: Output results as JSON instead of human-readable format (useful for scripting and CI/CD integration)
-- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG). With `run`, `-vv` also enables memory profiling: per-step RSS sampling (Δ retained + peak shown per step) and a final `Memory profile` table sorted by peak.
+- `--verbose, -v`: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG). With `run`, `-vv` also enables memory profiling: per-step RSS sampling (Δ retained + peak shown per step) and a final `Memory profile` table in execution order (the wrapping `etl` step first, then its ETLs in DAG order).
 - `--name, -n`: Custom run directory name. Without this, auto-generated timestamp is used (e.g., `train-20260318_2209`). Only alphanumeric, dashes, and underscores allowed.
 - `--overwrite, -o`: Overwrite existing output directory if it exists
 - `--log-file, -l`: Save logs to a file (e.g., `output/run.log`)

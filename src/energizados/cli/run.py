@@ -395,7 +395,13 @@ def execute_pipeline(
     step_task_ids: dict = {}
     step_phases: dict = {}
     etl_sub_tasks: dict = {}
-    profile_rows: list = []  # (name, metrics) tuples for the -vv memory table
+    profile_rows: list = []  # (name, metrics, seq) tuples for the -vv memory table
+    seq_counter: list = [0]  # monotonic capture order for the profiling table
+    step_start_seq: dict = {}  # step name -> seq captured at on_step_start
+
+    def next_seq() -> int:
+        seq_counter[0] += 1
+        return seq_counter[0]
 
     def _ensure_section(section: str) -> Progress:
         if section != current_section[0]:
@@ -409,6 +415,7 @@ def execute_pipeline(
         return active_progress[0]
 
     def on_step_start(name: str, i: int, total: int) -> None:
+        step_start_seq[name] = next_seq()
         section = STEP_SECTIONS.get(name, name)
         progress = _ensure_section(section)
 
@@ -449,7 +456,7 @@ def execute_pipeline(
                         )
                         progress.stop_task(task_id)
                         if metrics:
-                            profile_rows.append((phase, metrics))
+                            profile_rows.append((phase, metrics, next_seq()))
             else:
                 phases = step_phases.get(step_name, [])
                 phase_idx = phases.index(phase) if phase in phases else -1
@@ -491,7 +498,12 @@ def execute_pipeline(
                     pass
 
         if metrics:
-            profile_rows.append((STEP_NAMES.get(name, name), metrics))
+            # seq captured at step START so a wrapping step (etl) renders
+            # before its inner ETLs even though it completes after them.
+            seq = step_start_seq.pop(name, None)
+            if seq is None:
+                seq = next_seq()
+            profile_rows.append((STEP_NAMES.get(name, name), metrics, seq))
 
     def on_step_error(name: str, err: BaseException) -> None:
         progress = active_progress[0]
@@ -556,10 +568,13 @@ def _format_mem_inline(metrics: Optional[Dict[str, int]]) -> str:
 
 
 def _print_profiling_table(rows: List[tuple]) -> None:
-    """Print a Rich table of per-step / per-ETL memory usage, sorted by peak.
+    """Print a Rich table of per-step / per-ETL memory usage in execution order.
 
     Rendered after a ``-vv`` run once all steps complete. ``rows`` is a list of
-    ``(label, metrics_dict)`` tuples accumulated by the progress callbacks.
+    ``(label, metrics_dict, seq)`` tuples accumulated by the progress callbacks.
+    ``seq`` is a monotonic number captured at step start, so a wrapping step
+    (``etl``) renders before its inner ETLs even though it completes after
+    them; the ETLs then appear in DAG execution order.
     """
     from rich import box as rich_box
     from rich.table import Table
@@ -576,7 +591,7 @@ def _print_profiling_table(rows: List[tuple]) -> None:
     table.add_column("RSS end", justify="right")
     table.add_column("\u0394 retained", justify="right", style="cyan")
     table.add_column("peak", justify="right", style="yellow")
-    for label, metrics in sorted(rows, key=lambda r: r[1].get("peak", 0), reverse=True):
+    for label, metrics, _seq in sorted(rows, key=lambda r: r[2]):
         table.add_row(
             label,
             format_bytes(metrics.get("rss_start")),

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI: the `-vv` `Memory profile` table now renders in execution order** (the wrapping `etl` step first, then its ETLs in DAG order, then later steps) instead of sorted by peak. Rows carry a monotonic capture sequence assigned at step *start*, so a step that starts before and finishes after its inner ETLs still renders on top; a failed or skipped step simply has no row. Docs and `AGENTS.md` updated accordingly. Pinned by `tests/test_cli_run.py::TestMemoryProfiling`.
+
 ## [0.4.1] - 2026-11-20
 
 ### Added
