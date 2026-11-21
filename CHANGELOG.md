@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CLI: `-vv` filters known third-party DEBUG noise; `-vvv` is now the full-DEBUG level.** `-vv` keeps framework DEBUG (per-ETL/step logs, `-vv` memory profiling) but demotes noisy third-party loggers — currently the `matplotlib` family, whose font-scan `findfont: score(...)` spam polluted every plotting run — to WARNING (console and log file). `-vvv` restores the full DEBUG stream. Help texts, `docs/user-guide/cli-reference.md` updated. Pinned by `tests/test_cli_run.py::TestSetupLoggingThirdPartyNoise`.
+
 - **CLI: the `-vv` `Memory profile` table now renders in execution order** (the wrapping `etl` step first, then its ETLs in DAG order, then later steps) instead of sorted by peak. Rows carry a monotonic capture sequence assigned at step *start*, so a step that starts before and finishes after its inner ETLs still renders on top; a failed or skipped step simply has no row. Docs and `AGENTS.md` updated accordingly. Pinned by `tests/test_cli_run.py::TestMemoryProfiling`.
+
+### Fixed
+
+- **`split.unlabeled_negatives` `@etl_name` references resolve from configuration in standalone train runs.** When the referenced ETL did not execute in the run (no ETL step in context — e.g. a train-only `energizados run`), the reference now falls back to the merged configuration's `etl` outputs, passed to `SplitStep` by `SplitBuilder` as a new optional `etl_output_hints` mapping. The artifact is read from disk in the same `etl_ref` schema contract (train schema wins — extra source columns dropped) and fails loudly with remediation guidance when it is missing. In-run resolution keeps priority: context wins over hints, and a configured-but-not-executed ETL still errors (stale-artifact guard unchanged). Also fixes `SplitBuilder` dropping `cluster_column` from the split config, which broke every `stratified_time` configuration.
 
 ## [0.4.1] - 2026-11-20
 

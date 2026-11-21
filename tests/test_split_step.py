@@ -1145,6 +1145,79 @@ class TestUnlabeledNegativesEtlRef:
 
         assert "source_file" in result.columns, "File mode must keep extra columns"
 
+    def _split_step_with_hints(self, source_path, hints):
+        return SplitStep(
+            input_path="dummy.parquet",
+            target_column="target",
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": source_path,
+                "max_per_cutoff": 1500,
+                "random_state": 42,
+            },
+            etl_output_hints=hints,
+        )
+
+    def test_ref_resolves_from_config_hints_when_etl_not_in_run(
+        self, labeled_df, negatives_parquet
+    ):
+        """Standalone train runs have no ETL in context: the ref must fall
+        back to etl_output_hints (merged-config ETL outputs) and keep the
+        etl_ref schema contract (train schema wins — extra columns dropped)."""
+        path, _ = negatives_parquet
+        unlabeled = pd.read_parquet(path)
+        unlabeled["source_file"] = "etl_run.csv"  # extra column
+        unlabeled.to_parquet(path, index=False)
+
+        split_step = self._split_step_with_hints("@negatives", {"negatives": path})
+        result = split_step._inject_unlabeled_negatives(
+            labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), None
+        )
+
+        assert len(result) == 8, "Expected 8 rows (5 labeled + 3 injected)"
+        assert "source_file" not in result.columns, "etl_ref contract: extras dropped"
+        assert split_step._last_unlabeled_source_mode == "etl_ref"
+        assert split_step._last_unlabeled_source == path
+
+    def test_context_wins_over_hints(self, labeled_df, negatives_parquet, tmp_path):
+        """When the ETL executed in this run, context resolution keeps
+        priority — a stale hint pointing elsewhere must not be used."""
+        path, context = negatives_parquet
+        other = tmp_path / "other.parquet"
+        pd.DataFrame({"id": ["X1"], "feature1": [1.0], "zona": ["Z"]}).to_parquet(
+            other, index=False
+        )
+
+        split_step = self._split_step_with_hints("@negatives", {"negatives": str(other)})
+        result = split_step._inject_unlabeled_negatives(
+            labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), context
+        )
+
+        assert set(result["id"]) == {"A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3"}
+        assert split_step._last_unlabeled_source == path
+
+    def test_hints_missing_file_raises_clear_error(self, labeled_df):
+        """A hint whose artifact does not exist on disk fails loudly with
+        remediation guidance."""
+        split_step = self._split_step_with_hints(
+            "@negatives", {"negatives": "definitely/missing.parquet"}
+        )
+        with pytest.raises(FileNotFoundError) as excinfo:
+            split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), None
+            )
+        message = str(excinfo.value)
+        assert "run the ETL first" in message
+        assert "definitely/missing.parquet" in message
+
+    def test_unknown_ref_without_context_or_hints(self, labeled_df):
+        """No context and no hints — the existing unknown-ref error stands."""
+        split_step = self._split_step_with_hints("@no_such_etl", {})
+        with pytest.raises(ValueError, match="no_such_etl"):
+            split_step._inject_unlabeled_negatives(
+                labeled_df.copy(), pd.DataFrame(), pd.DataFrame(), None
+            )
+
 
 class TestUnlabeledNegativesGuardrails:
     """Zero-cap / date-filter-skip / empty-source WARNING behaviors (both modes)."""

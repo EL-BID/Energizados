@@ -77,3 +77,45 @@ class TestSplitMethodNone:
         assert "test.parquet" in files
         assert ctx["val_path"] is not None
         assert ctx["test_path"] is not None
+
+
+class TestSplitBuilderEtlOutputHints:
+    """SplitBuilder passes merged-config ETL outputs to SplitStep so split-time
+    @etl_name references (e.g. split.unlabeled_negatives.source_path) resolve
+    in standalone train runs that re-use artifacts from a previous ETL run."""
+
+    def test_hints_built_from_global_config(self):
+        from energizados.core.builders.split_builder import SplitBuilder
+
+        builder = SplitBuilder(
+            {"method": "stratified"},
+            global_config={
+                "train": {"input_path": "data.parquet"},
+                "etl": {
+                    "schema_version": 1,
+                    "negativos": {"enabled": True, "output": "data/processed/neg.parquet"},
+                    "clean": {"enabled": True},  # no output -> excluded
+                },
+            },
+        )
+        step = builder.build()
+        assert step.etl_output_hints == {"negativos": "data/processed/neg.parquet"}
+
+    def test_no_etl_section_gives_no_hints(self):
+        from energizados.core.builders.split_builder import SplitBuilder
+
+        builder = SplitBuilder({"method": "stratified"}, global_config={"train": {}})
+        step = builder.build()
+        assert step.etl_output_hints is None
+
+    def test_builder_passes_cluster_column(self):
+        """stratified_time configs need cluster_column — the builder must pass
+        it through (it was dropped, breaking every stratified_time config)."""
+        from energizados.core.builders.split_builder import SplitBuilder
+
+        builder = SplitBuilder(
+            {"method": "stratified_time", "cluster_column": "geo_cluster"},
+            global_config={"train": {"input_path": "data.parquet"}},
+        )
+        step = builder.build()
+        assert step.cluster_column == "geo_cluster"

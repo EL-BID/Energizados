@@ -528,6 +528,8 @@ training:
     # Optional: inject unlabeled negatives as target=0 (reduces selection bias)
     # source_path accepts a literal path OR an "@etl_name" reference resolved at
     # run time against the executed ETLs (e.g. AssumedNegativesETL's output).
+    # Standalone train runs: the reference falls back to the merged
+    # configuration's etl outputs — the artifact is read from disk.
     # unlabeled_negatives:
     #   enabled: true
     #   source_path: "@negatives"  # @etl_name reference OR literal path:

@@ -71,6 +71,7 @@ class SplitStep(PipelineStep):
         save_splits: bool = True,
         geo_stratify: Optional[Dict[str, Any]] = None,
         unlabeled_negatives: Optional[Dict[str, Any]] = None,
+        etl_output_hints: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         self.input_path = input_path
@@ -89,6 +90,7 @@ class SplitStep(PipelineStep):
         self.save_splits = save_splits
         self.geo_stratify = geo_stratify
         self.unlabeled_negatives = unlabeled_negatives
+        self.etl_output_hints = etl_output_hints
 
     def _validate_time_series_config(self) -> None:
         """Validate time_series-specific config. Raises ValueError if invalid."""
@@ -596,6 +598,11 @@ class SplitStep(PipelineStep):
         1. ``context["etl_output_paths"][name]`` → configured output path
         2. ``context["etl_results"]`` membership → the ETL actually executed
         3. ``validate_no_traversal`` on the resolved path
+        4. Unknown to the context (the ETL did not execute in this run — e.g.
+           a standalone train run) → fall back to ``etl_output_hints``, the
+           merged configuration's ETL outputs provided by ``SplitBuilder``.
+           Mode stays ``"etl_ref"`` (same ETL's artifact, same schema
+           contract) with a loud error when the artifact is missing on disk.
 
         Args:
             context: Pipeline context dict (may be None for direct calls).
@@ -620,6 +627,32 @@ class SplitStep(PipelineStep):
         executed = context.get("etl_results", {})
 
         if ref_name not in output_paths:
+            # Fallback: the ETL did not execute in this run (e.g. a standalone
+            # train run re-using artifacts from a previous ETL run). Resolve
+            # the reference against the merged configuration's ETL outputs
+            # (provided by SplitBuilder as etl_output_hints). The in-run
+            # context keeps priority and the etl_ref schema contract is
+            # preserved: the artifact IS the same ETL's output.
+            hints = self.etl_output_hints or {}
+            if ref_name in hints:
+                resolved = hints[ref_name]
+                from energizados.core.utils.integrity_pickle import (
+                    validate_no_traversal,
+                )
+
+                validate_no_traversal(resolved, label="unlabeled_negatives source")
+                if not Path(resolved).exists():
+                    raise FileNotFoundError(
+                        f"Unlabeled negatives source '@{ref_name}' resolved to "
+                        f"'{resolved}' from configuration, but the file does not "
+                        f"exist — run the ETL first (e.g. 'energizados run etl') "
+                        f"or fix the ETL's output path."
+                    )
+                logger.info(
+                    f"Unlabeled negatives '@{ref_name}' resolved from configuration "
+                    f"({resolved}) — the ETL did not execute in this run."
+                )
+                return resolved, "etl_ref"
             available = list(output_paths.keys()) if output_paths else []
             raise ValueError(
                 f"Unknown ETL reference '{source_path}' in "

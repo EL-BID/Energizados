@@ -83,6 +83,18 @@ class SplitBuilder(StepBuilder):
             or "target"
         )
 
+        # ETL output hints: let split-time @etl_name references (e.g.
+        # split.unlabeled_negatives.source_path: "@negativos") resolve from the
+        # merged configuration even when the ETL step is not part of this run
+        # (standalone train runs re-using artifacts from a previous ETL run).
+        # The in-run context (etl_output_paths) keeps priority at run time.
+        etl_section = self.global_config.get("etl") or {}
+        etl_output_hints = {
+            name: cfg["output"]
+            for name, cfg in etl_section.items()
+            if isinstance(cfg, dict) and cfg.get("output")
+        }
+
         return SplitStep(
             input_path=input_path,
             target_column=target_column,
@@ -92,6 +104,7 @@ class SplitBuilder(StepBuilder):
             splits_dir=split_config.get("splits_dir", "data/temp/splits/"),
             method=split_config.get("method", "stratified"),
             group_column=split_config.get("group_column"),
+            cluster_column=split_config.get("cluster_column"),
             date_column=split_config.get("date_column"),
             train_period=split_config.get("train_period"),
             val_period=split_config.get("val_period"),
@@ -99,6 +112,7 @@ class SplitBuilder(StepBuilder):
             save_splits=split_config.get("save_splits", True),
             geo_stratify=split_config.get("geo_stratify"),
             unlabeled_negatives=split_config.get("unlabeled_negatives"),
+            etl_output_hints=etl_output_hints or None,
         )
 
     def is_enabled(self) -> bool:

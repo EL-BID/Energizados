@@ -1154,3 +1154,29 @@ class TestUtf8StdioGuard:
         monkeypatch.setattr("sys.stdout", stream, raising=False)
         _ensure_utf8_stdio()
         assert stream.called == {"encoding": "utf-8", "errors": "replace"}
+
+
+class TestSetupLoggingThirdPartyNoise:
+    """-vv keeps framework DEBUG but demotes known-noisy third-party loggers
+    (matplotlib's font-scan "findfont: score(...)" spam during plotting);
+    -vvv restores full DEBUG everywhere."""
+
+    @pytest.mark.parametrize("name", ["matplotlib", "matplotlib.font_manager"])
+    def test_vv_demotes_matplotlib_to_warning(self, name):
+        _setup_logging(verbose=2)
+        assert logging.getLogger(name).getEffectiveLevel() == logging.WARNING
+
+    def test_vv_root_still_debug(self):
+        _setup_logging(verbose=2)
+        assert logging.getLogger().level == logging.DEBUG
+
+    def test_vvv_restores_full_debug(self):
+        _setup_logging(verbose=2)  # demote first — then -vvv must undo it
+        _setup_logging(verbose=3)
+        assert logging.getLogger("matplotlib").getEffectiveLevel() == logging.DEBUG
+        assert logging.getLogger().level == logging.DEBUG
+
+    def test_info_level_restores_no_demotion(self):
+        _setup_logging(verbose=2)
+        _setup_logging(verbose=1)
+        assert logging.getLogger("matplotlib").getEffectiveLevel() == logging.INFO
