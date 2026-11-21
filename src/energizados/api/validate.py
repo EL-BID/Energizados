@@ -10,6 +10,10 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from energizados.core.exceptions import ConfigurationError
+from energizados.core.schemas.config_validator import (
+    validate_etl_filters,
+    validate_etl_structured_inputs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +207,27 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> N
             )
         else:
             _validate_class_reference(etl_config_item["custom_class"], result, f"etl.{etl_name}")
+
+        # ETL row filters: structured input items and both filter levels.
+        # Shared with the CLI validator and ConfigValidator (SDD §6.6) so the
+        # service layer reports malformed filters before execution with the
+        # same messages the CLI/runtime enforce.
+        for message in validate_etl_structured_inputs(etl_name, etl_config_item):
+            result.errors.append(
+                ConfigError(
+                    field=f"etl.{etl_name}.input",
+                    message=message,
+                    location=f"etl.{etl_name}",
+                )
+            )
+        for message in validate_etl_filters(etl_name, etl_config_item):
+            result.errors.append(
+                ConfigError(
+                    field=f"etl.{etl_name}",
+                    message=message,
+                    location=f"etl.{etl_name}",
+                )
+            )
 
         enabled = etl_config_item.get("enabled", True)
         result.info.append(

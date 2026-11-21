@@ -459,7 +459,17 @@ class BaseETL(ABC):
             df = self.extract()
 
             if len(df) == 0:
-                return df
+                # Legacy behavior: an empty extract skips transform/load entirely.
+                # Opt-in exception (internal, not part of the abstract API):
+                # an ETL that filters its own inputs may legitimately reduce
+                # every input to 0 rows and must still write its 0-row output
+                # with the available schema (SourceETL with per-input filters).
+                if not getattr(self, "_load_empty_extract", False):
+                    return df
+                logger.warning(
+                    f"ETL '{self.name}': extract is empty — writing a 0-row output "
+                    "with the available schema (empty-load opt-in)"
+                )
 
             # Apply sampling if 'sample' parameter was provided
             sample = getattr(self, "sample", None)

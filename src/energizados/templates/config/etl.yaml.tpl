@@ -18,6 +18,49 @@ etl:
     depends_on: []
 
   # ============================================
+  # ROW FILTERING (SourceETL only)
+  # ============================================
+  # Two filter levels are available; both share the columns_filter grammar
+  # (equality, lists, comparison operators, and `_expr` pandas expressions).
+  # Both run with strict error checking: unknown columns/operators or invalid
+  # expressions fail the ETL instead of being skipped.
+  #
+  #   1. Per-input filter (input[].filter): applied to each source BEFORE
+  #      concat/merge. Globs and @etl_name references broadcast the filter to
+  #      every resolved path.
+  #   2. ETL-level filter (params.filter): applied AFTER combining.
+  #
+  # Filtering empties the data? A 0-row output is still written (with a
+  # WARNING). In incremental mode the watermark advances from rows that pass
+  # the incremental-key cutoff BEFORE any filter — rows removed by a filter
+  # are not revisited unless `reprocess: true`.
+  #
+  # consumos_filtered:
+  #   enabled: false
+  #   description: "Concatenates sources with per-input and ETL-level filters"
+  #   input:
+  #     - "data/raw/consumos_2023.csv"              # legacy string (no filter)
+  #     - path: "data/raw/consumos_2024.csv"
+  #       filter:                                   # applied before concat
+  #         zona: ["NORTE", "SUL"]
+  #         consumo_total: {">": 0, "<=": 50000}
+  #     - path: "data/raw/consumos_2025_*.csv"      # globs/@refs are valid
+  #       filter:
+  #         _expr: "tipo_servicio != 'CORTADO'"
+  #   output: "data/processed/consumos_filtered.parquet"
+  #   custom_class: "energizados.etl.pipeline.SourceETL"
+  #   params:
+  #     mode: "concat"
+  #     filter:                                     # applied after concat
+  #       consumo_total: {"<=": 100000}
+  #       _expr: "(zona != 'EXTERIOR') & (consumo_total > 0)"
+  #   depends_on: []
+  #
+  # Note: only SourceETL applies row filters. Custom ETL classes reject
+  # structured per-input filters (input[].filter); params.filter is passed to
+  # them as an ordinary constructor parameter.
+
+  # ============================================
   # ADDITIONAL EXAMPLES (commented out)
   # ============================================
   # Uncomment and adapt as needed

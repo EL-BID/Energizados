@@ -646,6 +646,18 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
         self.unmatched_municipalities_: List[str] = []
         self.matched_municipalities_: List[str] = []
 
+        # Fail fast on insufficient cluster coordinates BEFORE any network work
+        # (the IBGE hierarchy geocoder below downloads shapefiles via geobr), so
+        # coordinate errors are not masked by download failures on air-gapped or
+        # flaky networks.
+        cluster_valid = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
+        n_valid = int(cluster_valid.sum())
+        if self.include_cluster and not self._cluster_loaded_ and n_valid < 10:
+            raise ValueError(
+                f"GeoFeatures: only {n_valid} valid coordinates for clustering. "
+                "Need at least 10."
+            )
+
         if self.hierarchy_levels_ or self.include_target_encoding:
             self.municipio_names_, self.uf_codes_, self.regiao_names_ = (
                 _IBGEGeocoder.geocode_points(lats[valid_mask], lons[valid_mask], self.cache_dir)
@@ -683,13 +695,8 @@ class GeoFeatures(BaseEstimator, TransformerMixin):
             from sklearn.cluster import KMeans
             from sklearn.preprocessing import StandardScaler
 
-            cluster_valid = ~(np.isnan(lats) | np.isnan(lons) | ((lats == 0) & (lons == 0)))
-            n_valid = int(cluster_valid.sum())
-            if n_valid < 10:
-                raise ValueError(
-                    f"GeoFeatures: only {n_valid} valid coordinates for clustering. "
-                    "Need at least 10."
-                )
+            # cluster_valid / n_valid were validated and computed above (fail
+            # fast before the geobr download).
             coords = np.column_stack([lats[cluster_valid], lons[cluster_valid]])
             n_clusters = min(self.n_clusters, n_valid)
             scaler = StandardScaler()

@@ -425,6 +425,37 @@ The sample ETL uses the project's own `CustomETL` class (generated in `src/data/
        # last_processed: "2024-01-01"  # optional: initial cutoff on first run
    ```
 
+**Row filtering (SourceETL only):**
+
+`SourceETL` supports declarative row filtering at two levels. Both use the same `columns_filter` grammar as training/inference (`column: value` equality, `column: [v1, v2]` membership, `column: {">": 0, "<=": 100}` comparison operators (`==`, `!=`, `>`, `>=`, `<`, `<=`, `like`), and `_expr: "pandas query"`), and both run in **strict mode**: a missing column, unknown operator, or invalid `_expr` raises an error identifying the ETL name, the filter level, and the input path — never warn-and-skip. Structural validation happens before execution in both `energizados validate etl` and the service-layer `validate_dict`.
+
+```yaml
+consumos_filtered:
+  enabled: true
+  input:
+    - "data/raw/consumos_2022.csv"                # legacy string — no per-input filter
+    - path: "data/raw/consumos_2023.csv"          # structured item: per-input filter,
+      filter:                                     # applied BEFORE concat/merge
+        zona: ["NORTE", "SUL"]
+        consumo_total: {">": 0, "<=": 50000}
+    - path: "data/raw/consumos_2024_*.csv"        # globs/@etl_name refs broadcast the
+      filter:                                     # filter to every resolved path
+        _expr: "tipo_servicio != 'CORTADO'"
+  output: "data/processed/consumos.parquet"
+  custom_class: "energizados.etl.pipeline.SourceETL"
+  params:
+    mode: "concat"
+    filter:                                       # ETL-level filter, applied AFTER combining
+      consumo_total: {"<=": 100000}
+```
+
+- **Levels:** `input[].filter` (structured input item `{path, filter?}`; `path` required, unknown keys rejected) applies to each input before concat/merge; `params.filter` applies to the combined frame after `dropna(how="all")` and before `transform_fn`. The levels are ANDed by placement. In incremental mode both run after the incremental-key cutoff, before partitions are written.
+- **Positional matching:** the same path may appear more than once with different filters — filters are matched positionally (internal `input_specs` records aligned with `input_paths`), never by path.
+- **Incremental watermarks:** the high-water mark is computed from rows surviving the incremental-key cutoff, **before** either row-filter level. Rows removed by a filter are not revisited on later runs — change a filter and re-read history with `reprocess: true`.
+- **Empty results:** an input or the combined frame emptied by filtering still writes a **0-row output with the available schema** and logs a WARNING (narrow internal opt-in empty-load hook on `BaseETL`, enabled only for filtered `SourceETL`; the legacy empty-extract early return is unchanged otherwise). In incremental mode a file empty after either filter is marked processed, writes no partitions, and logs a WARNING.
+- **Scope:** only `SourceETL` applies row filters. Structured per-input filters configured for another ETL class raise a clear error; `params.filter` is passed to custom classes as an ordinary constructor parameter. Training/inference `columns_filter` behavior (warn-and-skip) is unchanged.
+- `input_specs` is an internal parameter injected by `ETLOrchestrator` when `input[].filter` is configured — do not set it manually.
+
 **Important:**
 
 - When `mode="merge"`, `merge_config` is required. Accepts any `pd.merge()` parameter: `how`, `on`, `left_on`, `right_on`, `left_index`, `right_index`.

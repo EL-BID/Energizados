@@ -652,6 +652,7 @@ def validate(ctx, configs, config_path, json, verbose):
     from energizados.cli.run import merge_configs
     from energizados.cli.ui import print_error, print_info, print_success
     from energizados.cli.validate import validate_config
+    from energizados.core.exceptions import ConfigurationError
 
     try:
         tokens = [t.strip() for raw in configs for t in raw.split(",") if t.strip()]
@@ -674,16 +675,50 @@ def validate(ctx, configs, config_path, json, verbose):
         merged_config = merge_configs(config_paths)
         result = validate_dict(merged_config, "train")  # Use "train" as default type
 
+        # validate_dict validates the default "train" type only; the file-level
+        # pass also covers the remaining sections (e.g. ETL structured inputs
+        # and row filters). Honor both outcomes instead of swallowing errors.
+        try:
+            file_result = validate_config(config_paths, verbose=verbose > 0, raise_on_invalid=False)
+        except ConfigurationError as e:
+            print_error(str(e))
+            print_info("Tip: Fix the configuration errors above and try again")
+            # SystemExit bypasses this command's own `except Exception` handler,
+            # which would otherwise render a duplicate empty error message.
+            raise SystemExit(1)
+
+        if not file_result.is_valid():
+            from energizados.api.validate import ConfigError
+            from energizados.api.validate import ValidationResult as ApiValidationResult
+
+            result = ApiValidationResult(
+                is_valid=False,
+                errors=[
+                    *result.errors,
+                    *(
+                        ConfigError(field="config", message=message)
+                        for message in file_result.errors
+                    ),
+                ],
+                warnings=result.warnings,
+                info=result.info,
+            )
+            if not json:
+                for message in file_result.errors:
+                    print_error(message)
+                print_info("Tip: Fix the configuration errors above and try again")
+                raise SystemExit(1)
+
         if json:
             _output_json(result)
+            if not result.is_valid:
+                raise SystemExit(1)
+        elif not result.is_valid:
+            for error in result.errors:
+                print_error(error.message)
+            print_info("Tip: Fix the configuration errors above and try again")
+            raise SystemExit(1)
         else:
-            # Use existing validation output formatting
-            # Call validate_config for its human output, but ignore errors since we already validated
-            try:
-                validate_config(config_paths, verbose=verbose > 0)
-            except Exception:  # nosec B110
-                # Already validated via API, ignore any errors from formatting
-                pass
             print_success("Configuration is valid")
     except ConfigResolutionError as e:
         print_error(str(e))

@@ -10,12 +10,13 @@ import json
 import logging
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
 from energizados.core.exceptions import ETLDependencyError, ETLError
 from energizados.core.utils import import_class
+from energizados.core.utils.columns_filter import validate_columns_filter
 from energizados.core.utils.memory_sampler import MemorySampler
 
 logger = logging.getLogger(__name__)
@@ -230,37 +231,56 @@ class ETLOrchestrator:
             return None
 
     def resolve_input_paths(self, etl_name: str) -> List[str]:
-        """
-        Resolves the input paths for an ETL.
+        """Resolve configured inputs to the legacy flat list of paths."""
+        return [spec["path"] for spec in self.resolve_input_specs(etl_name)]
 
-        Supports:
-        - Individual files: "data/file.csv"
-        - File list: ["file1.csv", "file2.csv"]
-        - Glob expressions: "*.csv", "data/**/*.parquet"
-        - References to other ETLs: "@etl_name"
-        - Manifest-aware resolution: when both upstream and downstream are
-          incremental, returns only new partitions from the upstream manifest.
+    def resolve_input_specs(self, etl_name: str) -> List[Dict[str, Any]]:
+        """Resolve paths while preserving positional per-input filter metadata.
 
-        Args:
-            etl_name: Name of the ETL
-
-        Returns:
-            List of resolved file paths
-
-        Raises:
-            ETLDependencyError: If a reference points to an unexecuted ETL
-            ETLError: If a file doesn't exist or glob doesn't match
+        String inputs retain their legacy meaning. Structured inputs use
+        ``{path: string, filter: columns_filter}``; a filter is broadcast to
+        every path produced by a glob or ``@etl_name`` reference.
         """
         config = self.etl_configs[etl_name]
         raw_input = config.get("input", [])
 
         if isinstance(raw_input, str):
             raw_input = [raw_input]
+        if not isinstance(raw_input, list):
+            raise ETLError(f"ETL '{etl_name}': input must be a string or a list")
 
         downstream_incremental = self._is_incremental(etl_name)
+        resolved_specs: List[Dict[str, Any]] = []
+        for input_spec in raw_input:
+            if isinstance(input_spec, str):
+                path_spec = input_spec
+                input_filter = None
+            elif isinstance(input_spec, dict):
+                unknown_keys = set(input_spec) - {"path", "filter"}
+                path_spec = input_spec.get("path")
+                if unknown_keys or not isinstance(path_spec, str) or not path_spec:
+                    raise ETLError(
+                        f"ETL '{etl_name}': structured input requires a non-empty "
+                        f"'path' and only allows 'path'/'filter'; got {input_spec}"
+                    )
+                input_filter = input_spec.get("filter")
+                if input_filter is not None:
+                    try:
+                        validate_columns_filter(
+                            input_filter,
+                            context=f"ETL '{etl_name}' input filter for '{path_spec}'",
+                        )
+                    except ValueError as e:
+                        raise ETLError(str(e)) from e
+            else:
+                raise ETLError(
+                    f"ETL '{etl_name}': each input must be a string or a mapping, "
+                    f"got {type(input_spec).__name__}"
+                )
 
-        resolved_paths: List[str] = []
-        for path_spec in raw_input:
+            def append_path(path: str) -> None:
+                resolved_specs.append({"path": path, "filter": input_filter})
+
             # Reference to another ETL (@etl_name)
             if path_spec.startswith("@"):
                 ref_etl = path_spec[1:]
@@ -285,14 +305,11 @@ class ETLOrchestrator:
                             ref_config.get("params", {}).get("state_file")
                         )
                         if manifest and manifest.get("new_partitions"):
-                            # Return specific partition paths
                             for part_val in manifest["new_partitions"]:
-                                partition_path = f"{ref_output}/partition={part_val}/data.parquet"
-                                resolved_paths.append(partition_path)
+                                append_path(f"{ref_output}/partition={part_val}/data.parquet")
                             continue
-                        # No manifest → fall back to full output dir
 
-                    resolved_paths.append(ref_output)
+                    append_path(ref_output)
                 else:
                     raise ETLDependencyError(f"ETL '{etl_name}' references unknown ETL '{ref_etl}'")
 
@@ -301,20 +318,20 @@ class ETLOrchestrator:
                 matched = glob.glob(path_spec, recursive=True)
                 if not matched:
                     raise ETLError(f"ETL '{etl_name}': glob '{path_spec}' did not match any files")
-                resolved_paths.extend(sorted(matched))
+                for path in sorted(matched):
+                    append_path(path)
 
             # Specific file
             else:
-                # Check if this path is the output of an upstream ETL
                 is_upstream_output = any(
                     self.etl_configs.get(upstream, {}).get("output") == path_spec
                     for upstream in self.etl_configs
                 )
                 if not is_upstream_output and not Path(path_spec).exists():
                     raise ETLError(f"ETL '{etl_name}': input file '{path_spec}' does not exist")
-                resolved_paths.append(path_spec)
+                append_path(path_spec)
 
-        return resolved_paths
+        return resolved_specs
 
     def instantiate_etls(self) -> None:
         """
@@ -335,8 +352,17 @@ class ETLOrchestrator:
             etl_class = import_class(config["custom_class"])
             # Copy params to avoid modifying the original config dict
             params = dict(config.get("params", {}))
-            input_paths = self.resolve_input_paths(etl_name)
+            input_specs = self.resolve_input_specs(etl_name)
+            input_paths = [spec["path"] for spec in input_specs]
             output_path = config.get("output")
+
+            if any(spec["filter"] for spec in input_specs):
+                if not getattr(etl_class, "supports_input_filters", False):
+                    raise ETLError(
+                        f"ETL '{etl_name}': {etl_class.__name__} does not support "
+                        "per-input filters; use SourceETL or remove input[].filter"
+                    )
+                params["input_specs"] = input_specs
 
             # Pass name and paths as standard parameters
             params["name"] = etl_name

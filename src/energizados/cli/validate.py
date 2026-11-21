@@ -11,6 +11,10 @@ from typing import Any, Dict, List
 
 from energizados.cli.ui import console
 from energizados.core.exceptions import ConfigurationError
+from energizados.core.schemas.config_validator import (
+    validate_etl_filters,
+    validate_etl_structured_inputs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +78,18 @@ class ValidationResult:
         self.info.append(message)
 
 
-def validate_config(config_paths: List[str], verbose: bool = False) -> ValidationResult:
+def validate_config(
+    config_paths: List[str], verbose: bool = False, raise_on_invalid: bool = True
+) -> ValidationResult:
     """
     Validates one or more YAML configuration files.
 
     Args:
         config_paths: List of paths to configuration files
         verbose: If True, shows complete details
+        raise_on_invalid: If True (default), raise ConfigurationError when the
+            configuration has errors. If False, return the populated result so
+            callers can inspect the errors themselves.
 
     Returns:
         ValidationResult: Validation result
@@ -126,6 +135,10 @@ def validate_config(config_paths: List[str], verbose: bool = False) -> Validatio
 
         if schema_errors:
             for error in schema_errors:
+                if error.message in result.errors:
+                    # Already reported by the section validation (e.g. the
+                    # shared ETL row-filter grammar checks) — avoid duplicates.
+                    continue
                 result.add_error(f"Schema validation: {error}")
 
         if schema_errors and not result.errors:
@@ -141,6 +154,8 @@ def validate_config(config_paths: List[str], verbose: bool = False) -> Validatio
         _print_validation_results(result, merged_config)
 
     if not result.is_valid():
+        if not raise_on_invalid:
+            return result
         raise ConfigurationError(
             f"Validation failed with {len(result.errors)} errors", str(config_paths)
         )
@@ -228,6 +243,15 @@ def _validate_etl_section(config: Dict[str, Any], result: ValidationResult) -> N
             result.add_info("Hint: Use 'energizados.etl.pipeline.SourceETL' or a custom class path")
         else:
             _validate_class_reference(etl_config["custom_class"], result)
+
+        # ETL row filters: structured input items and both filter levels.
+        # Shared with the service-layer ConfigValidator (SDD §6.6) so malformed
+        # filters are reported before execution with the same messages the
+        # runtime enforces.
+        for message in validate_etl_structured_inputs(etl_name, etl_config):
+            result.add_error(message)
+        for message in validate_etl_filters(etl_name, etl_config):
+            result.add_error(message)
 
         enabled = etl_config.get("enabled", True)
         result.add_info(f"ETL '{etl_name}': {'enabled' if enabled else 'disabled'}")

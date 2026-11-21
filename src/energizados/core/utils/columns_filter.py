@@ -6,15 +6,39 @@ pandas query expressions.
 """
 
 import logging
-from typing import Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+_SUPPORTED_OPERATORS = {"==", "!=", ">", ">=", "<", "<=", "like"}
+
+
+def validate_columns_filter(columns_filter: Any, context: str = "columns_filter") -> None:
+    """Validate the structural grammar shared by row-filter configuration surfaces."""
+    if not isinstance(columns_filter, dict):
+        raise ValueError(
+            f"{context}: filter must be a mapping, got {type(columns_filter).__name__}"
+        )
+
+    for column, filter_value in columns_filter.items():
+        if column == "_expr":
+            if not isinstance(filter_value, str):
+                raise ValueError(f"{context}: _expr must be a string")
+            continue
+        if isinstance(filter_value, dict):
+            for operator in filter_value:
+                if operator not in _SUPPORTED_OPERATORS:
+                    raise ValueError(
+                        f"{context}: unknown operator '{operator}' for column '{column}'"
+                    )
+
 
 def apply_columns_filter(
-    data: pd.DataFrame, columns_filter: Dict[str, Union[str, int, float, list, dict]]
+    data: pd.DataFrame,
+    columns_filter: Dict[str, Union[str, int, float, list, dict]],
+    strict: bool = False,
 ) -> Tuple[pd.DataFrame, int]:
     """Apply columns_filter to a DataFrame.
 
@@ -26,6 +50,8 @@ def apply_columns_filter(
     Args:
         data: Input DataFrame to filter.
         columns_filter: Dict mapping column names to filter values.
+        strict: If True, raise on missing columns, unknown operators, or invalid
+            expressions. If False, preserve the legacy warn/log-and-continue behavior.
 
     Returns:
         Tuple of (filtered DataFrame, number of rows removed).
@@ -48,13 +74,18 @@ def apply_columns_filter(
             )
         except Exception as e:
             logger.error(f"  • columns_filter._expr: invalid expression '{expr}': {e}")
+            if strict:
+                raise ValueError(f"columns_filter._expr: invalid expression '{expr}': {e}") from e
         columns_filter_clean = {k: v for k, v in columns_filter.items() if k != "_expr"}
     else:
         columns_filter_clean = columns_filter
 
     for col_name, filter_value in columns_filter_clean.items():
         if col_name not in filtered_data.columns:
-            logger.warning(f"  • columns_filter: column '{col_name}' not found, skipping")
+            message = f"columns_filter: column '{col_name}' not found"
+            if strict:
+                raise ValueError(message)
+            logger.warning(f"  • {message}, skipping")
             continue
 
         if col_name.startswith("_"):
@@ -81,9 +112,10 @@ def apply_columns_filter(
                         .str.contains(op_value, case=False, na=False)
                     ]
                 else:
-                    logger.warning(
-                        f"  • columns_filter.{col_name}: unknown operator '{op}', skipping"
-                    )
+                    message = f"columns_filter.{col_name}: unknown operator '{op}'"
+                    if strict:
+                        raise ValueError(message)
+                    logger.warning(f"  • {message}, skipping")
             logger.info(f"  • columns_filter.{col_name}: operators applied")
             continue
 
