@@ -88,6 +88,7 @@ SPLIT_SCHEMA = {
                 "random_state": {"type": "integer", "default": 42},
                 "date_column": {"type": ["string", "null"]},
                 "id_column": {"type": ["string", "null"]},
+                "sample_weight": {"type": "number", "exclusiveMinimum": 0},
             },
         },
         "geo_stratify": {

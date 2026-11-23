@@ -538,6 +538,9 @@ training:
     #   random_state: 42
     #   date_column: "fecha_inspeccion"
     #   id_column: "contract_id"
+    #   sample_weight: 0.5  # optional PU-style weight: injected rows carry w
+    #                       # (labeled rows 1.0); thread to model.fit as
+    #                       # sample_weight; adapters without support fail loudly
     #
     # Optional: balance geographic representation in train set
     # geo_stratify:

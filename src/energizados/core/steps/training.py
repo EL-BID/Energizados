@@ -5,6 +5,7 @@ Unified training step that combines feature engineering
 and model training to prevent data leakage.
 """
 
+import inspect
 import logging
 import warnings
 from pathlib import Path
@@ -15,7 +16,29 @@ import pandas as pd
 
 from energizados.core.base import PipelineStep
 from energizados.core.exceptions import ConfigurationError
+from energizados.core.steps.split import SAMPLE_WEIGHT_COLUMN
 from energizados.core.utils.integrity_pickle import dump
+
+
+def _fit_accepts_sample_weight(model) -> bool:
+    """True when the model's fit() accepts a sample_weight keyword.
+
+    Accepts explicit parameters and **kwargs-style signatures.
+    """
+    try:
+        sig = inspect.signature(model.fit)
+    except (TypeError, ValueError):
+        return False
+    for param in sig.parameters.values():
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            return True
+        if param.name == "sample_weight" and param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):
+            return True
+    return False
+
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +285,22 @@ class TrainingStep(PipelineStep):
         if test_df is not None:
             logger.info(f"Test shape: {test_df.shape}")
 
+        # PU-style weights: the split step may have marked injected assumed
+        # negatives with a sample_weight column. Pop it before feature
+        # engineering so it never becomes a model feature.
+        sample_weight = None
+        if SAMPLE_WEIGHT_COLUMN in train_df.columns:
+            sample_weight = train_df[SAMPLE_WEIGHT_COLUMN].astype(float)
+            train_df = train_df.drop(columns=[SAMPLE_WEIGHT_COLUMN])
+            logger.info(
+                f"Loaded '{SAMPLE_WEIGHT_COLUMN}' from train split "
+                f"(weighted rows: {(sample_weight != 1.0).sum()})"
+            )
+        for _df_name in ("val_df", "test_df"):
+            _df = val_df if _df_name == "val_df" else test_df
+            if _df is not None and SAMPLE_WEIGHT_COLUMN in _df.columns:
+                _df.drop(columns=[SAMPLE_WEIGHT_COLUMN], inplace=True)
+
         X_train = train_df.drop(columns=[self.target_column])
         y_train = train_df[self.target_column]
         X_val = val_df.drop(columns=[self.target_column]) if val_df is not None else None
@@ -464,6 +503,7 @@ class TrainingStep(PipelineStep):
                 X_train_raw=X_train,
                 X_val_raw=X_val,
                 save_path=self.output_dir / "model.pkl",
+                sample_weight=sample_weight,
             )
         elif self.ensemble_config:
             model, model_path = self._train_ensemble(
@@ -472,6 +512,7 @@ class TrainingStep(PipelineStep):
                 y_train=y_train,
                 X_val=X_val_transformed,
                 y_val=y_val,
+                sample_weight=sample_weight,
             )
         else:
             models_dict, model_paths_dict = self._train_multi_model(
@@ -482,6 +523,7 @@ class TrainingStep(PipelineStep):
                 y_val=y_val,
                 X_train_raw=X_train,
                 X_val_raw=X_val,
+                sample_weight=sample_weight,
             )
 
         self._report_phase(context, "training", 90)
@@ -652,6 +694,7 @@ class TrainingStep(PipelineStep):
         X_train_raw: pd.DataFrame = None,
         X_val_raw: pd.DataFrame = None,
         save_path: Path = None,
+        sample_weight: Optional[pd.Series] = None,
     ):
         """Train one model, save it, and return (model, path).
 
@@ -681,7 +724,18 @@ class TrainingStep(PipelineStep):
             X_val_for_model = X_val
 
         model = model_class(**params)
-        model.fit(X_train_for_model, y_train, X_val=X_val_for_model, y_val=y_val)
+        fit_kwargs: Dict[str, Any] = {}
+        if sample_weight is not None:
+            if not _fit_accepts_sample_weight(model):
+                raise ConfigurationError(
+                    f"Model '{name}' (type: {model_type}) does not support sample_weight. "
+                    "The train split carries unlabeled_negatives.sample_weight weights "
+                    "(PU-style weighting); use a model adapter that accepts sample_weight "
+                    "(e.g. lightgbm) or disable unlabeled_negatives.sample_weight in the "
+                    "split config."
+                )
+            fit_kwargs["sample_weight"] = sample_weight
+        model.fit(X_train_for_model, y_train, X_val=X_val_for_model, y_val=y_val, **fit_kwargs)
 
         # Apply probability calibration if configured
         calibration_config = cfg.get("calibration", {})
@@ -749,6 +803,7 @@ class TrainingStep(PipelineStep):
         y_val: pd.Series,
         X_train_raw: pd.DataFrame = None,
         X_val_raw: pd.DataFrame = None,
+        sample_weight: Optional[pd.Series] = None,
     ) -> tuple[dict[str, Any], dict[str, Path]]:
         """
         Train each model independently for comparison mode.
@@ -773,6 +828,7 @@ class TrainingStep(PipelineStep):
                 X_train_raw=X_train_raw,
                 X_val_raw=X_val_raw,
                 save_path=save_path,
+                sample_weight=sample_weight,
             )
             models_dict[name] = model
             paths_dict[name] = save_path
@@ -790,6 +846,7 @@ class TrainingStep(PipelineStep):
         y_train: pd.Series,
         X_val: pd.DataFrame,
         y_val: pd.Series,
+        sample_weight: Optional[pd.Series] = None,
     ):
         """Train all base models, build and fit the ensemble, return (ensemble, path)."""
         from energizados.modeling.ensemble import EnsembleModel
@@ -813,6 +870,7 @@ class TrainingStep(PipelineStep):
                 X_val=X_val,
                 y_val=y_val,
                 save_path=save_path,
+                sample_weight=sample_weight,
             )
             base_models.append(model)
 
