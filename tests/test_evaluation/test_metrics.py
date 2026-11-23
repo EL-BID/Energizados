@@ -1086,5 +1086,5 @@ class TestSegmentMetricsTopPct:
         for seg_data in seg.values():
             assert set(seg_data["top_pct"].keys()) == {"25pct", "50pct", "75pct"}
             # monotone: hits can only grow with larger k
-            fracs = [seg_data["top_pct"][f"{int(f*100)}pct"]["hits"] for f in (0.25, 0.5, 0.75)]
+            fracs = [seg_data["top_pct"][f"{int(f * 100)}pct"]["hits"] for f in (0.25, 0.5, 0.75)]
             assert fracs[0] <= fracs[1] <= fracs[2]
