@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -2139,6 +2139,9 @@
 <a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="w">    </span><span class="nt">depends_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"consumos"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"clientes"</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p>The <code>merge_config</code> section accepts any parameter from pandas <code>pd.merge()</code>: <code>how</code>, <code>on</code>, <code>left_on</code>, <code>right_on</code>, <code>left_index</code>, <code>right_index</code>.</p>
+<blockquote>
+<p><strong>Tip:</strong> <code>SourceETL</code> also supports declarative row filtering (<code>input[].filter</code> per source before combining, <code>params.filter</code> for the combined frame). Custom ETL classes extending <code>SourceETL</code> inherit the <code>params.filter</code> parameter; per-input filters on structured input items are only honored by <code>SourceETL</code> itself. See <a href="../../../user-guide/configuration/etl/#row-filtering">ETL configuration → Row filtering</a>.</p>
+</blockquote>
 <h2 id="advanced-pattern-dataset-builder-etl-long-to-wide-transformation">Advanced Pattern: Dataset Builder ETL (Long-to-Wide Transformation)<a class="headerlink" href="#advanced-pattern-dataset-builder-etl-long-to-wide-transformation" title="Permanent link">&para;</a></h2>
 <p>Many fraud detection scenarios require transforming longitudinal consumption data from <strong>long format</strong> (one row per customer-period) to <strong>wide format</strong> (one row per customer with columns for each period like <code>consumo_1_anterior</code>, <code>consumo_2_anterior</code>, etc.).</p>
 <p>This is a domain-specific operation that is best implemented as a <strong>custom ETL extending <code>SourceETL</code></strong>. The pattern shown below is based on real production implementations.</p>
@@ -2559,10 +2562,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
