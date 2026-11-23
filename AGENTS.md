@@ -640,6 +640,13 @@ training:
     generate_html_report: true
     generate_json_report: true
     # self_contained: true  # inline Plotly.js in HTML reports for offline/air-gapped use (+~3.5 MB)
+    # segmented_evaluation:
+    #   enabled: true
+    #   by: ["geo_region"]
+    #   min_samples: 30
+    #   threshold_mode: "youden"
+    #   min_positives: 30   # mark low-positive segments reliable:false + caveat (0 = off)
+    #   bootstrap_ci: true  # add per-segment auc_ci95 (percentile bootstrap)
 ```
 
 **Available Preprocessing Transformations:**

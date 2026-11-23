@@ -950,3 +950,87 @@ class TestSegmentMetricsThresholdModes:
             f"expected Youden to produce different thresholds. "
             f"Thresholds: {thresholds}"
         )
+
+
+class TestSegmentMetricsMinPositivesGuard:
+    """min_positives guard: noise trap for low-positive segments (celesc campaign)."""
+
+    def test_low_positive_segments_flagged_unreliable(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, threshold_mode="youden", min_positives=30)
+
+        for seg_data in seg.values():
+            if seg_data["n_positives"] < 30:
+                assert seg_data["reliable"] is False
+                assert "caveat" in seg_data
+                assert "positive" in seg_data["caveat"].lower()
+            else:
+                assert seg_data["reliable"] is True
+
+    def test_guard_disabled_by_default_keeps_output_shape(self, mixed_data_with_segments):
+        """Without min_positives the output has no reliable/caveat keys (backward compat)."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, threshold_mode="youden")
+        for seg_data in seg.values():
+            assert "reliable" not in seg_data
+            assert "caveat" not in seg_data
+
+    def test_metrics_still_reported_when_unreliable(self, mixed_data_with_segments):
+        """The guard adds markers; it must NOT drop the metrics themselves."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_plain = metrics.segment_metrics(segments, threshold_mode="youden")
+        seg_guard = metrics.segment_metrics(segments, threshold_mode="youden", min_positives=30)
+        for seg_val, seg_data in seg_guard.items():
+            for key in ("auc", "precision", "recall", "f1", "threshold", "n_samples"):
+                assert seg_data[key] == seg_plain[seg_val][key]
+
+
+class TestSegmentMetricsBootstrapCI:
+    """bootstrap_ci: 95% CI for per-segment AUC (segmented-metric noise trap)."""
+
+    def test_ci_bracketed_and_valid(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(
+            segments, threshold_mode="youden", bootstrap_ci=True, bootstrap_n=100
+        )
+        for seg_data in seg.values():
+            ci = seg_data.get("auc_ci95")
+            assert ci is not None
+            lo, hi = ci
+            assert 0.0 <= lo <= hi <= 1.0
+
+    def test_ci_contains_point_estimate_when_well_separated(self):
+        """Perfectly separated segment: every bootstrap resample has AUC 1.0."""
+        rng = np.random.default_rng(0)
+        y_true = np.array([0] * 150 + [1] * 150)
+        y_proba = np.concatenate([rng.uniform(0.0, 0.4, 150), rng.uniform(0.6, 1.0, 150)])
+        segments = np.array(["big"] * 300)
+        metrics = Metrics(y_true, (y_proba > 0.5).astype(int), y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, bootstrap_ci=True, bootstrap_n=200)
+        assert seg["big"]["auc"] == 1.0
+        lo, hi = seg["big"]["auc_ci95"]
+        assert lo > 0.999999 and hi <= 1.0 and lo <= hi
+
+    def test_ci_skipped_for_one_class_segments(self):
+        """A segment with a single class cannot have a bootstrap AUC CI."""
+        rng = np.random.default_rng(0)
+        y_true = np.array([0, 1] * 20 + [0] * 20)
+        y_proba = np.concatenate(
+            [rng.uniform(0, 0.4, 20), rng.uniform(0.6, 1, 20), rng.uniform(0, 0.3, 20)]
+        )
+        segments = np.array(["a"] * 40 + ["b"] * 20)
+        metrics = Metrics(y_true, (y_proba > 0.5).astype(int), y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, bootstrap_ci=True, bootstrap_n=50)
+        assert seg["a"]["auc_ci95"] is not None
+        assert seg["b"]["auc_ci95"] is None
+
+    def test_ci_absent_by_default(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments)
+        for seg_data in seg.values():
+            assert "auc_ci95" not in seg_data

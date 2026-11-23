@@ -5,7 +5,7 @@ Provides functions to calculate model evaluation metrics.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,38 @@ from sklearn.metrics import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def bootstrap_auc_ci(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    n_boot: int = 200,
+    alpha: float = 0.05,
+    random_state: int = 42,
+) -> Optional[Tuple[float, float]]:
+    """Percentile bootstrap CI for ROC AUC; None when not computable.
+
+    Returns None for single-class segments or when too few bootstrap
+    resamples contain both classes (metric undefined there).
+    """
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba)
+    if len(y_true) == 0 or len(np.unique(y_true)) < 2:
+        return None
+    rng = np.random.default_rng(random_state)
+    n = len(y_true)
+    scores: List[float] = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        yt = y_true[idx]
+        if len(np.unique(yt)) < 2:
+            continue
+        scores.append(roc_auc_score(yt, y_proba[idx]))
+    if len(scores) < max(30, int(0.3 * n_boot)):
+        return None
+    lo = float(np.percentile(scores, 100 * (alpha / 2)))
+    hi = float(np.percentile(scores, 100 * (1 - alpha / 2)))
+    return [lo, hi]
 
 
 def compute_threshold_metrics(
@@ -277,6 +309,9 @@ class Metrics:
         threshold_mode: str = "global",
         min_samples: int = 1,
         recall_target: float = 0.8,
+        min_positives: int = 0,
+        bootstrap_ci: bool = False,
+        bootstrap_n: int = 200,
     ) -> Dict:
         """
         Calculates metrics broken down by segment (MEJORAS P4-15).
@@ -291,6 +326,15 @@ class Metrics:
                            "segment" = alias for "youden" (optimal per-segment threshold)
             min_samples: Minimum number of samples in a segment to compute metrics
             recall_target: Target recall when threshold_mode="recall_target"
+            min_positives: Minimum positives for a segment to be marked reliable.
+                           0 (default) disables the guard and keeps the output
+                           shape unchanged. When enabled, every segment gains
+                           `reliable` (bool) and, if unreliable, a `caveat`
+                           string; metrics are still reported (markers, never
+                           omissions).
+            bootstrap_ci: When True, add `auc_ci95` (percentile bootstrap CI
+                           of the segment AUC, `bootstrap_n` resamples); None
+                           when the segment or resamples are single-class.
 
         Returns:
             Dict mapping segment_value -> metrics dict with n_samples, n_positives,
@@ -335,9 +379,10 @@ class Metrics:
 
             seg_calc = Metrics(y_true_seg, y_pred_seg, y_proba_seg, seg_threshold)
 
+            n_positives = int(y_true_seg.sum())
             results[str(segment_value)] = {
                 "n_samples": n_samples,
-                "n_positives": int(y_true_seg.sum()),
+                "n_positives": n_positives,
                 "positive_rate": float(y_true_seg.mean()),
                 "auc": seg_calc.auc(),
                 "precision": seg_calc.precision(),
@@ -346,6 +391,19 @@ class Metrics:
                 "threshold": seg_threshold,
                 "threshold_mode": effective_mode,
             }
+            if min_positives > 0:
+                reliable = n_positives >= min_positives
+                results[str(segment_value)]["reliable"] = reliable
+                if not reliable:
+                    results[str(segment_value)]["caveat"] = (
+                        f"n_positives={n_positives} < min_positives={min_positives}: "
+                        "segment metrics are noise-dominated at this size; "
+                        "treat as indicative only"
+                    )
+            if bootstrap_ci:
+                results[str(segment_value)]["auc_ci95"] = bootstrap_auc_ci(
+                    y_true_seg, y_proba_seg, n_boot=bootstrap_n
+                )
 
         return results
 
