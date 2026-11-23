@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-23
+
 ### Added
 
 - **`segmented_evaluation.top_fracs`: operational precision@top-N% per segment (console + JSON + HTML).** Segmented reports now carry the head view the celesc campaign operated on: for each configured fraction (default `[0.05, 0.1, 0.2]`, config-key overridable) every segment reports `top_pct: {"<N>pct": {"k", "precision", "hits"}}` — precision among the top `ceil(frac * n)` scored rows (min 1) and the positives captured there. The per-segment console block gains `prec@20pct=0.82 (28/34)`-style entries and the HTML segmented tables gain a heat-colored `Prec@N% (hits/k)` column per fraction; set `top_fracs: []` to omit the columns. JSON/HTML/plot consumers are unaffected otherwise (additive key). Pinned by `tests/test_evaluation/test_metrics.py::TestSegmentMetricsTopPct` and `tests/test_evaluator.py::TestSegmentedTopPctReporting`.
