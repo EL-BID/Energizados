@@ -13,8 +13,73 @@ import yaml
 
 from energizados.core.exceptions import ConfigurationError
 from energizados.core.schemas.schemas import PIPELINE_CONFIG_SCHEMA
+from energizados.core.utils.columns_filter import validate_columns_filter
 
 logger = logging.getLogger(__name__)
+
+
+def validate_etl_structured_inputs(etl_name: str, etl_config: Any) -> List[str]:
+    """Validate structured ``input`` list items (``{path, filter}``).
+
+    Legacy string items are valid and skipped. Non-string, non-dict items are
+    reported by the JSON schema and skipped here. Returns error messages.
+    """
+    messages: List[str] = []
+    if not isinstance(etl_config, dict):
+        return messages
+    raw_input = etl_config.get("input", [])
+    if not isinstance(raw_input, list):
+        return messages
+    for index, item in enumerate(raw_input):
+        if not isinstance(item, dict):
+            continue
+        unknown_keys = set(item) - {"path", "filter"}
+        path = item.get("path")
+        if unknown_keys or not isinstance(path, str) or not path:
+            messages.append(
+                f"ETL '{etl_name}': structured input requires a non-empty "
+                f"'path' and only allows 'path'/'filter'; got {item}"
+            )
+    return messages
+
+
+def validate_etl_filters(etl_name: str, etl_config: Any) -> List[str]:
+    """Validate the grammar of both ETL row-filter levels.
+
+    Reuses ``validate_columns_filter`` so the CLI validator and the
+    service-layer ``ConfigValidator`` share the operator grammar enforced by
+    ``SourceETL``/``ETLOrchestrator`` instead of duplicating it (SDD §6.6).
+    Returns error messages.
+    """
+    messages: List[str] = []
+    if not isinstance(etl_config, dict):
+        return messages
+
+    raw_input = etl_config.get("input", [])
+    if isinstance(raw_input, list):
+        for item in raw_input:
+            if not isinstance(item, dict):
+                continue
+            input_filter = item.get("filter")
+            if input_filter is None:
+                continue
+            path = item.get("path")
+            path_label = path if isinstance(path, str) and path else "<unknown path>"
+            try:
+                validate_columns_filter(
+                    input_filter, context=f"ETL '{etl_name}' input filter for '{path_label}'"
+                )
+            except ValueError as e:
+                messages.append(str(e))
+
+    params = etl_config.get("params")
+    if isinstance(params, dict) and params.get("filter") is not None:
+        try:
+            validate_columns_filter(params["filter"], context=f"ETL '{etl_name}' ETL-level filter")
+        except ValueError as e:
+            messages.append(str(e))
+
+    return messages
 
 
 class ValidationError:
@@ -114,6 +179,16 @@ class ConfigValidator:
             logger.warning("jsonschema not installed, using basic validation")
             errors.extend(self._basic_validate(config))
 
+        # ETL row-filter grammar (both levels) is not expressible in JSON
+        # Schema; validate it explicitly for service-layer callers (SDD §6.6).
+        etl_config = config.get("etl")
+        if isinstance(etl_config, dict):
+            for name, etl in etl_config.items():
+                if not isinstance(etl, dict):
+                    continue
+                for message in validate_etl_filters(name, etl):
+                    errors.append(ValidationError(f"etl.{name}", message))
+
         return errors
 
     def _basic_validate(self, config: Dict[str, Any]) -> List[ValidationError]:
@@ -177,6 +252,11 @@ class ConfigValidator:
             # Validate depends_on is a list
             if "depends_on" in config and not isinstance(config["depends_on"], list):
                 errors.append(ValidationError(f"etl.{name}.depends_on", "must be a list"))
+
+            # Structured input items ({path, filter}) — the JSON schema covers
+            # this when available; this fallback keeps the same guarantees.
+            for message in validate_etl_structured_inputs(name, config):
+                errors.append(ValidationError(f"etl.{name}.input", message))
 
         return errors
 

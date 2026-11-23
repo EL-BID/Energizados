@@ -43,12 +43,28 @@ def _ensure_utf8_stdio() -> None:
             pass
 
 
+# Third-party loggers whose DEBUG output is framework-unrelated noise
+# (e.g. matplotlib's font-scan "findfont: score(...)" spam while plots render).
+# Demoted to WARNING under -vv; restored to NOTSET (inherit from root) under
+# -vvv and any other verbosity level.
+NOISY_THIRD_PARTY_LOGGERS = ("matplotlib",)
+
+
+def _demote_noisy_loggers(demote: bool) -> None:
+    """Set every known-noisy third-party logger to WARNING (``demote=True``)
+    or NOTSET (``demote=False``, restoring inheritance from the root level)."""
+    level = logging.WARNING if demote else logging.NOTSET
+    for name in NOISY_THIRD_PARTY_LOGGERS:
+        logging.getLogger(name).setLevel(level)
+
+
 def _setup_logging(verbose: int = 0, log_file: Optional[str] = None):
     """
     Configures logging for the CLI.
 
     Args:
-        verbose: Verbosity level (0=WARNING, 1=INFO, 2+=DEBUG)
+        verbose: Verbosity level (0=WARNING, 1=INFO, 2=DEBUG with known
+            third-party noise filtered, 3+=full DEBUG)
         log_file: Optional path to log file. If None, only console logging is used.
     """
     from rich.logging import RichHandler
@@ -61,6 +77,11 @@ def _setup_logging(verbose: int = 0, log_file: Optional[str] = None):
         level = logging.INFO
     else:
         level = logging.DEBUG
+
+    # -vv filters known third-party DEBUG noise (framework-unrelated, e.g.
+    # matplotlib's font-scan "findfont: score(...)" spam during plotting);
+    # -vvv restores the full DEBUG stream.
+    _demote_noisy_loggers(verbose == 2)
 
     # Configure root logger
     root_logger = logging.getLogger()
@@ -365,7 +386,7 @@ def init(ctx, project_name, template, path, copy_from, force, yes):
     "--verbose",
     "-v",
     count=True,
-    help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
+    help="Increase verbosity (-v: INFO, -vv: DEBUG filtered, -vvv: full DEBUG)",
 )
 @click.option(
     "--name",
@@ -403,7 +424,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
     - --log-file, -l: Save logs to file
     - --dry-run: Show the plan without executing
     - --json, -j: Output results as JSON instead of human-readable format
-    - --verbose, -v: Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)
+    - --verbose, -v: Increase verbosity (-v: INFO, -vv: DEBUG filtered, -vvv: full DEBUG)
 
     CONFIGS accepts one or more config names, comma-separated names, or paths.
     Short names resolve to config_dir/*.yaml. Absolute/relative paths are used as-is.
@@ -421,7 +442,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
         energizados run --config-path /custom etl       # Use /custom/etl.yaml
         energizados run /abs/path/custom.yaml            # Use absolute path directly
         energizados run etl -v                         # Run with INFO level logging
-        energizados run etl -vv                        # Run with DEBUG level logging
+        energizados run etl -vv                        # Run with DEBUG (third-party noise filtered)
         energizados run train -n my_experiment          # Run with custom run directory name
         energizados run train -o                       # Overwrite existing output
         energizados run train -l output/run.log        # Save logs to file
@@ -617,7 +638,7 @@ def run(ctx, configs, config_path, step, etl, dry_run, json, verbose, name, over
     "--verbose",
     "-v",
     count=True,
-    help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
+    help="Increase verbosity (-v: INFO, -vv: DEBUG filtered, -vvv: full DEBUG)",
 )
 @click.pass_context
 def validate(ctx, configs, config_path, json, verbose):
@@ -640,7 +661,7 @@ def validate(ctx, configs, config_path, json, verbose):
         energizados validate v0/etl                  # Validate config/v0/etl.yaml
         energizados validate eda                     # Validate config/eda.yaml
         energizados validate etl -v                 # Validate with INFO level logging
-        energizados validate etl -vv                # Validate with DEBUG level logging
+        energizados validate etl -vv                # Validate with DEBUG (third-party noise filtered)
         energizados validate etl --json             # Output validation results as JSON
     """
     # Configure logging (completely disable in JSON mode to avoid polluting JSON output)
@@ -652,6 +673,7 @@ def validate(ctx, configs, config_path, json, verbose):
     from energizados.cli.run import merge_configs
     from energizados.cli.ui import print_error, print_info, print_success
     from energizados.cli.validate import validate_config
+    from energizados.core.exceptions import ConfigurationError
 
     try:
         tokens = [t.strip() for raw in configs for t in raw.split(",") if t.strip()]
@@ -674,16 +696,50 @@ def validate(ctx, configs, config_path, json, verbose):
         merged_config = merge_configs(config_paths)
         result = validate_dict(merged_config, "train")  # Use "train" as default type
 
+        # validate_dict validates the default "train" type only; the file-level
+        # pass also covers the remaining sections (e.g. ETL structured inputs
+        # and row filters). Honor both outcomes instead of swallowing errors.
+        try:
+            file_result = validate_config(config_paths, verbose=verbose > 0, raise_on_invalid=False)
+        except ConfigurationError as e:
+            print_error(str(e))
+            print_info("Tip: Fix the configuration errors above and try again")
+            # SystemExit bypasses this command's own `except Exception` handler,
+            # which would otherwise render a duplicate empty error message.
+            raise SystemExit(1)
+
+        if not file_result.is_valid():
+            from energizados.api.validate import ConfigError
+            from energizados.api.validate import ValidationResult as ApiValidationResult
+
+            result = ApiValidationResult(
+                is_valid=False,
+                errors=[
+                    *result.errors,
+                    *(
+                        ConfigError(field="config", message=message)
+                        for message in file_result.errors
+                    ),
+                ],
+                warnings=result.warnings,
+                info=result.info,
+            )
+            if not json:
+                for message in file_result.errors:
+                    print_error(message)
+                print_info("Tip: Fix the configuration errors above and try again")
+                raise SystemExit(1)
+
         if json:
             _output_json(result)
+            if not result.is_valid:
+                raise SystemExit(1)
+        elif not result.is_valid:
+            for error in result.errors:
+                print_error(error.message)
+            print_info("Tip: Fix the configuration errors above and try again")
+            raise SystemExit(1)
         else:
-            # Use existing validation output formatting
-            # Call validate_config for its human output, but ignore errors since we already validated
-            try:
-                validate_config(config_paths, verbose=verbose > 0)
-            except Exception:  # nosec B110
-                # Already validated via API, ignore any errors from formatting
-                pass
             print_success("Configuration is valid")
     except ConfigResolutionError as e:
         print_error(str(e))
@@ -709,7 +765,7 @@ def validate(ctx, configs, config_path, json, verbose):
     "--verbose",
     "-v",
     count=True,
-    help="Increase verbosity (-v: INFO, -vv/-vvv: DEBUG)",
+    help="Increase verbosity (-v: INFO, -vv: DEBUG filtered, -vvv: full DEBUG)",
 )
 @click.option(
     "--optional",

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI: `-vv` filters known third-party DEBUG noise; `-vvv` is now the full-DEBUG level.** `-vv` keeps framework DEBUG (per-ETL/step logs, `-vv` memory profiling) but demotes noisy third-party loggers — currently the `matplotlib` family, whose font-scan `findfont: score(...)` spam polluted every plotting run — to WARNING (console and log file). `-vvv` restores the full DEBUG stream. Help texts, `docs/user-guide/cli-reference.md` updated. Pinned by `tests/test_cli_run.py::TestSetupLoggingThirdPartyNoise`.
+
+- **CLI: the `-vv` `Memory profile` table now renders in execution order** (the wrapping `etl` step first, then its ETLs in DAG order, then later steps) instead of sorted by peak. Rows carry a monotonic capture sequence assigned at step *start*, so a step that starts before and finishes after its inner ETLs still renders on top; a failed or skipped step simply has no row. Docs and `AGENTS.md` updated accordingly. Pinned by `tests/test_cli_run.py::TestMemoryProfiling`.
+
+### Fixed
+
+- **`split.unlabeled_negatives` `@etl_name` references resolve from configuration in standalone train runs.** When the referenced ETL did not execute in the run (no ETL step in context — e.g. a train-only `energizados run`), the reference now falls back to the merged configuration's `etl` outputs, passed to `SplitStep` by `SplitBuilder` as a new optional `etl_output_hints` mapping. The artifact is read from disk in the same `etl_ref` schema contract (train schema wins — extra source columns dropped) and fails loudly with remediation guidance when it is missing. In-run resolution keeps priority: context wins over hints, and a configured-but-not-executed ETL still errors (stale-artifact guard unchanged). Also fixes `SplitBuilder` dropping `cluster_column` from the split config, which broke every `stratified_time` configuration.
+
+## [0.4.1] - 2026-11-20
+
+### Added
+
+- **`SourceETL`: declarative row filtering at two levels (`input[].filter` + `params.filter`).** ETL entries can now drop records declaratively from `config/etl.yaml`: `input[].filter` (structured input items `{path, filter?}` alongside legacy string items) applies one condition per input **before** concat/merge (globs and `@etl_name` references broadcast the filter to every resolved path; matching is positional, so the same path may appear twice with different filters), and `params.filter` applies one condition to the combined frame **after** `dropna(how="all")` and before `transform_fn`. Both levels reuse the training/inference `columns_filter` grammar (equality, membership lists, comparison operators `== != > >= < <= like`, and `_expr` pandas queries) and both run in **strict mode** — a missing column, unknown operator, or invalid `_expr` raises an error identifying the ETL name, the filter level, and the input path, never warn-and-skip; structural validation happens before execution in `energizados validate etl` and `validate_dict`. In incremental mode both filters run after the incremental-key cutoff, so the high-water mark advances from rows **before** either filter — rows removed by a filter are not revisited unless `reprocess: true`. Empty results are explicit: an input or the combined frame emptied by filtering still writes a 0-row output with the available schema and a WARNING (via a narrow internal opt-in empty-load hook enabled only for filtered `SourceETL`; legacy no-filter behavior, including the empty-extract early return, is unchanged). Only `SourceETL` applies row filters — structured per-input filters on another ETL class raise a clear error, and training/inference `columns_filter` behavior is unchanged. Tests: `tests/etl/test_source_etl_filter.py`, `tests/etl/test_source_etl_input_filter.py`, `tests/etl/test_etl_filter_validation.py`.
+
+### Fixed
+
+- **`GeoFeatures`: coordinate validation now fails fast before the geobr download.** The clustering precheck (`only N valid coordinates for clustering`) ran after the IBGE hierarchy geocoding, so on air-gapped or flaky networks (e.g. CI runners) a failed geobr download — `Failed to download v2 metadata` or duckdb relation errors raised by geobr internals — masked the coordinate error with the wrong message. The precheck now runs before any network work, making the error deterministic and offline; pinned by `tests/etl/test_geo_features_etl.py::test_too_few_valid_coords_raises_before_geobr_download`.
+
 ## [0.4.0] - 2026-10-11
 
 ### Added

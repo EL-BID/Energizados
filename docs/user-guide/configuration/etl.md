@@ -43,7 +43,7 @@ etl:
 | Field | Type | Description |
 |-------|------|-------------|
 | `enabled` | boolean | Whether to execute this ETL |
-| `input` | string or list | Input file path(s) (parquet, CSV, Excel) or `@etl_name` references |
+| `input` | string or list | Input file path(s) (parquet, CSV, Excel) or `@etl_name` references. List items may be strings or `{path, filter}` objects for per-input row filtering (SourceETL only). |
 | `output` | string | Output file path (`CleanFilesETL` can omit this) |
 | `custom_class` | string | Python class implementing `BaseETL` |
 | `depends_on` | list | List of ETL names this ETL depends on |
@@ -220,6 +220,100 @@ These two parameters control independent aspects of incremental processing:
 | `incremental_format` | string | `null` | strftime format to parse `incremental_key` column (e.g. `"%d/%m/%Y"`). If omitted, pandas auto-parses the datetime. |
 | `incremental_partition` | string | `"%Y-%m"` | strftime format to create the `partition` column in incremental mode. Default produces `"YYYY-MM"` values (e.g. `"2024-01"`). |
 | `last_processed` | string | `null` | Initial cutoff value for `incremental_key` on the first run (when no state exists). Accepts ISO date strings, integers, or floats. If `null`, all records are processed on the first run. |
+| `filter` | dict | `null` | ETL-level row filter (see [Row filtering](#row-filtering)). Applied after combining all inputs, before `transform_fn`. SourceETL only. |
+| `input_specs` | list | `null` | Internal: resolved `{path, filter}` records injected by `ETLOrchestrator` when `input[].filter` is configured. Do not set manually. |
+
+## Row filtering
+
+`SourceETL` supports row-level filtering at two levels. Both share the same
+grammar (the `columns_filter` grammar used by training/inference) and both run
+in **strict mode**: unknown columns, unknown operators, or invalid `_expr`
+expressions raise an error identifying the ETL name, the filter level, and the
+input path — they are never silently skipped.
+
+```yaml
+etl:
+  consumos:
+    enabled: true
+    input:
+      # Legacy form: no per-input filter.
+      - "data/raw/consumos_2022.csv"
+
+      # Per-input filter, applied before concat/merge.
+      - path: "data/raw/consumos_2023.csv"
+        filter:
+          zona: ["NORTE", "SUL"]
+          consumo_total: {">": 0, "<=": 50000}
+
+      # Globs are valid; the filter applies to every expanded file.
+      - path: "data/raw/consumos_2024_*.csv"
+        filter:
+          _expr: "tipo_servicio != 'CORTADO'"
+
+      # @etl_name references are valid too; the filter applies to every
+      # path produced by resolving the reference.
+      - path: "@consumos_historicos"
+        filter:
+          estado: "ACTIVO"
+    output: "data/processed/consumos.parquet"
+    custom_class: "energizados.etl.pipeline.SourceETL"
+    params:
+      mode: "concat"
+
+      # ETL-level filter, applied after all inputs are combined.
+      filter:
+        consumo_total: {"<=": 100000}
+        _expr: "(zona != 'EXTERIOR') & (consumo_total > 0)"
+```
+
+### Grammar
+
+Each filter is a mapping with three forms, combinable in one mapping:
+
+- **Equality**: `column: "value"` or `column: ["v1", "v2"]` (keep matching values).
+- **Operators**: `column: {">": 0, "<=": 100}` — allowed operators are
+  `==`, `!=`, `>`, `>=`, `<`, `<=`, `like`.
+- **Expression**: `_expr: "(zona != 'A') & (consumo > 200)"` — a pandas query
+  expression evaluated on the frame.
+
+The same grammar powers `split`/feature-engineering `columns_filter`; only the
+ETL application is strict. Structural validation happens before any data is
+read: `energizados validate etl` and the service-layer `validate_dict` report
+malformed input objects (`path` required, unknown keys rejected) and invalid
+filter grammar at both levels.
+
+### Application order per mode
+
+| Mode | Per-input filters (`input[].filter`) | ETL-level filter (`params.filter`) |
+|------|--------------------------------------|------------------------------------|
+| `concat` | Per input file, before concatenation | After concatenation, before `transform_fn` |
+| `merge` | Per side, before the join | After the join, before `transform_fn` |
+| `incremental` | Per file, after the incremental-key cutoff | After `dropna`, before writing partitions |
+
+Per-input conditions can only reference columns from their own source; the
+ETL-level filter can reference any column in the combined frame. The same path
+may appear more than once with different filters — filters are matched
+positionally, never by path.
+
+### Empty results
+
+- An input reduced to 0 rows stays an empty DataFrame with its schema (WARNING logged).
+- If concat/merge ends up empty after per-input filtering, the ETL still writes a **0-row output with the available schema** (WARNING).
+- If `params.filter` empties a previously non-empty frame, a 0-row output is written (WARNING).
+- In incremental mode, a file empty after either filter is marked processed, writes no partitions, logs a WARNING, and advances state normally.
+
+### Incremental watermarks
+
+The high-water mark is calculated from rows that survive the **incremental-key
+cutoff, before either row-filter level**. Rows discarded by either filter do
+not hold back the watermark and are **not revisited** on later runs — change a
+filter and re-read history with `reprocess: true`.
+
+### Scope
+
+Only `SourceETL` applies row filters. Configuring `input[].filter` for another
+class fails with a clear error; `params.filter` is passed to custom classes as
+an ordinary constructor parameter (ignore it if not supported).
 
 ### Example: CSV with custom read options
 

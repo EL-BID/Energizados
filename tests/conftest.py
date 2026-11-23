@@ -7,6 +7,7 @@ Provides common fixtures for:
 - Temporary directories
 """
 
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -19,6 +20,26 @@ import pytest
 # This allows test fixtures to import classes with "tests." prefix while keeping
 # the production default narrow (only "energizados." and "src.")
 from energizados.core.utils.import_utils import register_allowed_prefix
+
+
+@pytest.fixture(autouse=True)
+def _isolate_root_logger():
+    """Restore root-logger state mutated by tests that invoke the CLI.
+
+    CLI invocations through CliRunner call ``_setup_logging()``, which replaces
+    the root logger's handlers with a RichHandler and never restores them.
+    That residue survives the test, so a later test capturing stdout (e.g. a
+    ``validate --json`` parity check) receives log records written to the
+    ambient RichHandler instead of the JSON output. Snapshot and restore both
+    handlers and level around every test so global logging state cannot leak.
+    """
+
+    root = logging.getLogger()
+    saved_handlers = list(root.handlers)
+    saved_level = root.level
+    yield
+    root.handlers[:] = saved_handlers
+    root.setLevel(saved_level)
 
 
 @pytest.fixture

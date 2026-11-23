@@ -94,6 +94,36 @@ def test_too_few_valid_coords_raises(tmp_path):
         etl.transform(raw)
 
 
+def test_too_few_valid_coords_raises_before_geobr_download(tmp_path, monkeypatch):
+    """Coordinate validation must fail fast before any geobr download.
+
+    The 'valid coordinates' error is raised by the clustering precheck; if it
+    runs after the IBGE hierarchy geocoding, a failed geobr download (air-gapped
+    or flaky network, e.g. CI runners) masks it with the download error and the
+    user sees the wrong message.
+    """
+    from energizados.preprocessing.geo_features import _IBGEGeocoder
+
+    def _boom(cls, *args, **kwargs):
+        raise RuntimeError("Failed to download v2 metadata. Check your internet connection.")
+
+    monkeypatch.setattr(_IBGEGeocoder, "geocode_points", classmethod(_boom))
+
+    df = _make_df(n=5, valid=True)  # fewer than minimum 10
+    input_path = str(tmp_path / "input.parquet")
+    df.to_parquet(input_path, index=False)
+    etl = GeoFeaturesETL(
+        name="test",
+        input_paths=[input_path],
+        output_path=str(tmp_path / "out.parquet"),
+        lat_col="latitude",
+        lon_col="longitude",
+    )
+    raw = etl.extract()
+    with pytest.raises(ETLError, match="valid coordinates"):
+        etl.transform(raw)
+
+
 def test_output_saved_to_disk(tmp_path):
     df = _make_df(n=30)
     _make_etl(tmp_path, df, n_clusters=3)
@@ -199,7 +229,29 @@ def test_resolve_hierarchy_levels_mixed_languages():
 # --- GeoFeaturesETL with hierarchy_levels list ---
 
 
-def test_hierarchy_levels_list_only_estado(tmp_path):
+@pytest.fixture
+def fake_geocoder(monkeypatch):
+    """Replace the IBGE download path with a deterministic offline geocoder.
+
+    The hierarchy wiring tests assert column selection, not IBGE data, so they
+    must not depend on reaching geobr endpoints (CI runners intermittently fail
+    the download and geobr masks it with confusing network/duckdb errors).
+    Tests that exercise the real geocoder internals (e.g. chunked equivalence)
+    must NOT use this fixture.
+    """
+    from energizados.preprocessing.geo_features import _IBGEGeocoder
+
+    def _fake_geocode_points(cls, lats, lons, cache_dir=None, chunk_size=500_000):
+        n = len(lats)
+        municipios = np.array([f"MUN_{i}" for i in range(n)], dtype=object)
+        ufs = np.array(["SC"] * n, dtype=object)
+        regioes = np.array(["Sul"] * n, dtype=object)
+        return municipios, ufs, regioes
+
+    monkeypatch.setattr(_IBGEGeocoder, "geocode_points", classmethod(_fake_geocode_points))
+
+
+def test_hierarchy_levels_list_only_estado(tmp_path, fake_geocoder):
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
     output_path = str(tmp_path / "output.parquet")
@@ -224,7 +276,7 @@ def test_hierarchy_levels_list_only_estado(tmp_path):
     assert "geo_regiao" not in result.columns
 
 
-def test_hierarchy_levels_list_estado_and_regiao(tmp_path):
+def test_hierarchy_levels_list_estado_and_regiao(tmp_path, fake_geocoder):
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
     output_path = str(tmp_path / "output.parquet")
@@ -273,7 +325,7 @@ def test_hierarchy_levels_empty_list_no_hierarchy_columns(tmp_path):
     assert "geo_regiao" not in result.columns
 
 
-def test_hierarchy_levels_invalid_raises(tmp_path):
+def test_hierarchy_levels_invalid_raises(tmp_path, fake_geocoder):
     df = _make_df(n=30)
     input_path = str(tmp_path / "input.parquet")
     df.to_parquet(input_path, index=False)
