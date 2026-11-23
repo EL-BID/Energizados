@@ -312,6 +312,7 @@ class Metrics:
         min_positives: int = 0,
         bootstrap_ci: bool = False,
         bootstrap_n: int = 200,
+        top_fracs: Optional[List[float]] = None,
     ) -> Dict:
         """
         Calculates metrics broken down by segment (MEJORAS P4-15).
@@ -335,6 +336,12 @@ class Metrics:
             bootstrap_ci: When True, add `auc_ci95` (percentile bootstrap CI
                            of the segment AUC, `bootstrap_n` resamples); None
                            when the segment or resamples are single-class.
+            top_fracs: Fractions (e.g. [0.05, 0.1, 0.2]) of each segment's
+                           scored rows to report as an operational head view.
+                           When set, every segment gains `top_pct`:
+                           {"<N>pct": {"k", "precision", "hits"}} where
+                           k = ceil(frac * n) (min 1) and hits = positives
+                           among the top-k scored rows. Absent by default.
 
         Returns:
             Dict mapping segment_value -> metrics dict with n_samples, n_positives,
@@ -404,6 +411,19 @@ class Metrics:
                 results[str(segment_value)]["auc_ci95"] = bootstrap_auc_ci(
                     y_true_seg, y_proba_seg, n_boot=bootstrap_n
                 )
+            if top_fracs:
+                n_rows = len(y_true_seg)
+                order = np.argsort(-y_proba_seg)
+                top_pct = {}
+                for frac in top_fracs:
+                    k = max(1, int(np.ceil(frac * n_rows)))
+                    hits = int(y_true_seg[order[:k]].sum())
+                    top_pct[f"{int(round(frac * 100))}pct"] = {
+                        "k": k,
+                        "precision": hits / k,
+                        "hits": hits,
+                    }
+                results[str(segment_value)]["top_pct"] = top_pct
 
         return results
 

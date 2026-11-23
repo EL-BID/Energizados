@@ -1034,3 +1034,57 @@ class TestSegmentMetricsBootstrapCI:
         seg = metrics.segment_metrics(segments)
         for seg_data in seg.values():
             assert "auc_ci95" not in seg_data
+
+
+class TestSegmentMetricsTopPct:
+    """precision@top-N% per segment — the operational view (celesc campaign)."""
+
+    def test_top_pct_present_when_configured(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.5])
+        for seg_data in seg.values():
+            assert "top_pct" in seg_data
+            assert "50pct" in seg_data["top_pct"]
+
+    def test_top_pct_absent_by_default(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments)
+        for seg_data in seg.values():
+            assert "top_pct" not in seg_data
+
+    def test_top_pct_k_ceil_and_precision(self, mixed_data_with_segments):
+        """Segment A (4 rows, y=[0,1,0,1], proba=[0.2,0.8,0.3,0.7]):
+        frac 0.75 -> k=3 -> top-3 proba [0.8, 0.7, 0.3] -> prec 2/3, hits 2."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.75])
+        a = seg["A"]["top_pct"]["75pct"]
+        assert a["k"] == 3
+        assert a["precision"] == pytest.approx(2 / 3)
+        assert a["hits"] == 2
+        b = seg["B"]["top_pct"]["75pct"]
+        # B: 4 rows, y=[0,1,0,1], proba=[0.3,0.4,0.6,0.9] -> k=3 -> [0.9,0.6,0.4] -> 2/3
+        assert b["k"] == 3
+        assert b["precision"] == pytest.approx(2 / 3)
+        assert b["hits"] == 2
+
+    def test_top_pct_min_one_row(self, mixed_data_with_segments):
+        """Tiny segments: frac*n rounds up to at least 1 row."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.05])
+        # every segment has n>=2 -> k >= 1
+        for seg_data in seg.values():
+            assert seg_data["top_pct"]["5pct"]["k"] >= 1
+
+    def test_multiple_fracs(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.25, 0.5, 0.75])
+        for seg_data in seg.values():
+            assert set(seg_data["top_pct"].keys()) == {"25pct", "50pct", "75pct"}
+            # monotone: hits can only grow with larger k
+            fracs = [seg_data["top_pct"][f"{int(f*100)}pct"]["hits"] for f in (0.25, 0.5, 0.75)]
+            assert fracs[0] <= fracs[1] <= fracs[2]

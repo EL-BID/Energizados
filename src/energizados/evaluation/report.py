@@ -688,6 +688,11 @@ class ReportGenerator:
         sections_html = ""
         for seg_def, seg_data in segmented_metrics.items():
             rows_html = self._build_segmented_table_rows(seg_data)
+            # Operational head columns: one per configured fraction, derived
+            # from the first segment entry (all segments share top_fracs).
+            first = next(iter(seg_data.values()), {})
+            top_keys = list(first.get("top_pct", {}).keys())
+            top_headers = "".join(f"<th>Prec@{k.replace('pct', '')}%</th>" for k in top_keys)
 
             sections_html += f"""
             <h3 style="color:var(--primary);margin-top:20px;">{seg_def}</h3>
@@ -703,7 +708,7 @@ class ReportGenerator:
                             <th>AUC</th>
                             <th>Precision</th>
                             <th>Recall</th>
-                            <th>F1</th>
+                            <th>F1</th>{top_headers}
                         </tr>
                     </thead>
                     <tbody>{rows_html}
@@ -748,6 +753,14 @@ class ReportGenerator:
                     return "heat-mid"
                 return "heat-low"
 
+            top_cells = ""
+            for frac_key, entry in metrics.get("top_pct", {}).items():
+                p_val = entry["precision"]
+                top_cells += (
+                    f'<td class="{_heat_class(p_val)}">'
+                    f'{p_val:.2f} ({entry["hits"]}/{entry["k"]})</td>'
+                )
+
             rows += f"""
                 <tr>
                     <td><strong>{segment_val}</strong></td>
@@ -758,7 +771,7 @@ class ReportGenerator:
                     <td class="{_heat_class(auc)}">{auc:.4f}</td>
                     <td class="{_heat_class(prec)}">{prec:.4f}</td>
                     <td class="{_heat_class(rec)}">{rec:.4f}</td>
-                    <td class="{_heat_class(f1)}">{f1:.4f}</td>
+                    <td class="{_heat_class(f1)}">{f1:.4f}</td>{top_cells}
                 </tr>"""
         return rows
 

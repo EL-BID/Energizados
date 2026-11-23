@@ -283,11 +283,12 @@ class DefaultEvaluator(BaseEvaluator):
             recall_target = seg_config.get("recall_target", 0.8)
             min_positives = int(seg_config.get("min_positives", 0))
             bootstrap_ci = bool(seg_config.get("bootstrap_ci", False))
+            top_fracs = seg_config.get("top_fracs", [0.05, 0.10, 0.20])
 
             logger.info(
                 f"Segmented evaluation: by={seg_by}, threshold_mode={threshold_mode}, "
                 f"min_samples={min_samples}, min_positives={min_positives}, "
-                f"bootstrap_ci={bootstrap_ci}"
+                f"bootstrap_ci={bootstrap_ci}, top_fracs={top_fracs}"
             )
 
             for segment_def in seg_by:
@@ -329,6 +330,7 @@ class DefaultEvaluator(BaseEvaluator):
                     recall_target=recall_target,
                     min_positives=min_positives,
                     bootstrap_ci=bootstrap_ci,
+                    top_fracs=top_fracs,
                 )
 
                 if seg_results:
@@ -349,9 +351,16 @@ class DefaultEvaluator(BaseEvaluator):
                             if seg_data.get("reliable", True)
                             else "  [UNRELIABLE: low positives]"
                         )
+                        top_str = ""
+                        for frac_key, entry in seg_data.get("top_pct", {}).items():
+                            top_str += (
+                                f"  prec@{frac_key}={entry['precision']:.2f} "
+                                f"({entry['hits']}/{entry['k']})"
+                            )
                         logger.info(
                             f"  {seg_val:30s}  n={n:5,}  pos={pos:4}  "
-                            f"AUC={auc:.4f}  thresh={thresh:.4f} ({thresh_mode}){flag}"
+                            f"AUC={auc:.4f}  thresh={thresh:.4f} ({thresh_mode})"
+                            f"{top_str}{flag}"
                         )
                 else:
                     logger.warning(f"No valid segments found for '{display_name}'")
