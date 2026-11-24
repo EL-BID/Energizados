@@ -46,6 +46,12 @@ energizados run etl,train
 
 Contributions are welcome! See [Contributing Guidelines](docs/advanced/contributing.md) for details.
 
+## Contact
+
+For questions or feedback, please reach out to Alexandra, the team's direct point of contact:
+
+📧 [alexandramu@iadb.org](mailto:alexandramu@iadb.org)
+
 ## 📄 License
 
 Licensed under the BID License - see [LICENSE.md](LICENSE.md) for details.
