@@ -155,6 +155,7 @@ class LGBMModelAdapter(BaseModel):
         y: pd.Series,
         X_val: Optional[pd.DataFrame] = None,
         y_val: Optional[pd.Series] = None,
+        sample_weight: Optional[np.ndarray] = None,
     ) -> "LGBMModelAdapter":
         """
         Train the LightGBM model.
@@ -164,11 +165,12 @@ class LGBMModelAdapter(BaseModel):
             y: Training target.
             X_val: Validation features (optional).
             y_val: Validation target (optional).
+            sample_weight: Per-row weights (optional, PU-style weighting).
 
         Returns:
             self: The fitted instance.
         """
-        self._trained_pipeline = self._model.train(X, y, X_val, y_val)
+        self._trained_pipeline = self._model.train(X, y, X_val, y_val, sample_weight=sample_weight)
         self.is_fitted_ = True
         return self
 

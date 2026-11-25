@@ -538,6 +538,9 @@ training:
     #   random_state: 42
     #   date_column: "fecha_inspeccion"
     #   id_column: "contract_id"
+    #   sample_weight: 0.5  # optional PU-style weight: injected rows carry w
+    #                       # (labeled rows 1.0); thread to model.fit as
+    #                       # sample_weight; adapters without support fail loudly
     #
     # Optional: balance geographic representation in train set
     # geo_stratify:
@@ -637,6 +640,13 @@ training:
     generate_html_report: true
     generate_json_report: true
     # self_contained: true  # inline Plotly.js in HTML reports for offline/air-gapped use (+~3.5 MB)
+    # segmented_evaluation:
+    #   enabled: true
+    #   by: ["geo_region"]
+    #   min_samples: 30
+    #   threshold_mode: "youden"
+    #   min_positives: 30   # mark low-positive segments reliable:false + caveat (0 = off)
+    #   bootstrap_ci: true  # add per-segment auc_ci95 (percentile bootstrap)
 ```
 
 **Available Preprocessing Transformations:**

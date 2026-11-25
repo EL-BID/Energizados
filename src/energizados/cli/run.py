@@ -863,7 +863,7 @@ def execute_etl(
             task_id = progress.add_task(f"[yellow]▶ [{idx + 1}/{total}] {name}[/]", total=1)
             etl_tasks[name] = task_id
 
-        def on_etl_complete(name, rows):
+        def on_etl_complete(name, rows, metrics=None):
             task_id = etl_tasks.get(name)
             if task_id is not None:
                 progress.update(

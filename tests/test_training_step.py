@@ -15,6 +15,7 @@ import pandas as pd
 import pytest
 
 from energizados.core.base import BaseModel
+from energizados.core.exceptions import ConfigurationError
 from energizados.core.steps.training import TrainingStep
 
 # ---------------------------------------------------------------------------
@@ -745,3 +746,185 @@ class TestNoHoldoutTraining:
         ctx = step.execute({})  # must not raise; calibration skipped, model ships uncalibrated
         assert ctx["model_path"]
         assert Path(ctx["model_path"]).exists()
+
+
+# ---------------------------------------------------------------------------
+# sample_weight threading (PU-style weights for injected negatives)
+# ---------------------------------------------------------------------------
+
+
+class _DummyWeightedModel(BaseModel):
+    """Dummy model whose fit accepts sample_weight and records it."""
+
+    def __init__(self, proba: float = 0.6, cols_for_model=None, config=None):
+        super().__init__(config)
+        self.proba = proba
+        self.cols_for_model = cols_for_model or []
+        self.captured_weights = None
+        self.captured_cols = None
+
+    def fit(self, X, y, X_val=None, y_val=None, sample_weight=None):
+        self.is_fitted_ = True
+        self.captured_weights = None if sample_weight is None else np.asarray(sample_weight)
+        self.captured_cols = list(X.columns)
+        return self
+
+    def predict(self, X):
+        self.check_fitted()
+        return np.ones(len(X), dtype=int)
+
+    def predict_proba(self, X):
+        self.check_fitted()
+        return np.full(len(X), self.proba)
+
+    def get_raw_model(self):
+        return self
+
+    @classmethod
+    def from_config(cls, config: dict, X_train) -> dict:
+        return {
+            "proba": 0.6,
+            "cols_for_model": X_train.columns.tolist(),
+            "config": {"type": config.get("type", "dummy")},
+        }
+
+
+class TestSampleWeightThreading:
+    """TrainingStep pops the split's sample_weight column and forwards it to fit."""
+
+    @pytest.fixture
+    def weighted_parquet_splits(self, temp_dir):
+        rng = np.random.default_rng(0)
+        n = 40
+        train = pd.DataFrame(
+            {
+                "f1": rng.standard_normal(n),
+                "f2": rng.standard_normal(n),
+                "target": (rng.standard_normal(n) > 0).astype(int),
+            }
+        )
+        weights = np.ones(n)
+        weights[: n // 2] = 0.5
+        train["sample_weight"] = weights
+        val = pd.DataFrame(
+            {
+                "f1": rng.standard_normal(n),
+                "f2": rng.standard_normal(n),
+                "target": (rng.standard_normal(n) > 0).astype(int),
+            }
+        )
+        train_path = temp_dir / "train_w.parquet"
+        val_path = temp_dir / "val_w.parquet"
+        train.to_parquet(train_path)
+        val.to_parquet(val_path)
+        return str(train_path), str(val_path), weights
+
+    def test_real_lgbm_receives_weights(self, temp_dir, weighted_parquet_splits, monkeypatch):
+        import lightgbm as lgb
+
+        train_path, val_path, weights = weighted_parquet_splits
+        captured = {}
+        orig_fit = lgb.LGBMClassifier.fit
+
+        def capturing_fit(self, *args, **kwargs):
+            captured["sample_weight"] = kwargs.get("sample_weight")
+            return orig_fit(self, *args, **kwargs)
+
+        monkeypatch.setattr(lgb.LGBMClassifier, "fit", capturing_fit)
+
+        step = TrainingStep(
+            train_path=train_path,
+            val_path=val_path,
+            models_configs=[
+                {
+                    "type": "lightgbm",
+                    "hyperparams": {"n_estimators": 5, "verbosity": -1},
+                    "sampling": {"method": "none"},
+                }
+            ],
+            feature_engineering_config={"enabled": False},
+            output_dir=str(temp_dir / "models"),
+        )
+        step.execute({})
+
+        assert captured["sample_weight"] is not None
+        np.testing.assert_allclose(np.asarray(captured["sample_weight"]), weights)
+
+    def test_unsupported_model_raises_configuration_error(self, temp_dir, weighted_parquet_splits):
+        train_path, val_path, _ = weighted_parquet_splits
+        DummyCls = _dummy_model_class(0.6)
+
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
+            mock_reg.get.return_value = DummyCls
+            step = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[{"type": "lightgbm", "hyperparams": {}}],
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "models"),
+            )
+            with pytest.raises(ConfigurationError, match="sample_weight"):
+                step.execute({})
+
+    def test_supported_model_receives_weights_and_column_dropped(
+        self, temp_dir, weighted_parquet_splits
+    ):
+        train_path, val_path, weights = weighted_parquet_splits
+
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
+            mock_reg.get.return_value = _DummyWeightedModel
+            step = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[{"type": "lightgbm", "hyperparams": {}}],
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "models"),
+            )
+            result = step.execute({})
+
+        model = result["model"]
+        np.testing.assert_allclose(model.captured_weights, weights)
+        assert "sample_weight" not in model.captured_cols
+
+    def test_ensemble_path_receives_weights(self, temp_dir, weighted_parquet_splits):
+        train_path, val_path, weights = weighted_parquet_splits
+
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
+            mock_reg.get.return_value = _DummyWeightedModel
+            step = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[
+                    {"name": "a", "type": "lightgbm", "hyperparams": {}},
+                    {"name": "b", "type": "catboost", "hyperparams": {}},
+                ],
+                ensemble_config={"method": "soft_voting"},
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "models"),
+            )
+            step.execute({})
+
+        ens_path = temp_dir / "models" / "ensemble.pkl"
+        assert ens_path.exists()
+        from energizados.core.utils.integrity_pickle import load
+
+        ensemble = load(str(ens_path))
+        for base in ensemble.base_models:
+            np.testing.assert_allclose(np.asarray(base.captured_weights), weights)
+
+    def test_no_sample_weight_column_unchanged(self, temp_dir, parquet_splits):
+        """No sample_weight column -> models still receive sample_weight=None."""
+        train_path, val_path = parquet_splits
+
+        with patch("energizados.modeling.registry.ModelRegistry") as mock_reg:
+            mock_reg.get.return_value = _DummyWeightedModel
+            step = TrainingStep(
+                train_path=train_path,
+                val_path=val_path,
+                models_configs=[{"type": "lightgbm", "hyperparams": {}}],
+                feature_engineering_config={"enabled": False},
+                output_dir=str(temp_dir / "models"),
+            )
+            result = step.execute({})
+
+        assert result["model"].captured_weights is None

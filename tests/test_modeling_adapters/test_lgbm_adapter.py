@@ -144,3 +144,36 @@ class TestLGBMModelAdapter:
         adapter = LGBMModelAdapter(cols_for_model=cols, config=config)
 
         assert adapter.config == config
+
+
+class TestLGBMModelAdapterSampleWeight:
+    """Adapter forwards sample_weight to LGBMModel.train (PU-style weighting)."""
+
+    def test_fit_passes_sample_weight(self, synthetic_classification_data):
+        X, y = synthetic_classification_data
+        cols = list(X.columns[:2])
+
+        with patch("energizados.modeling.supervised_models.LGBMModel") as MockLGBM:
+            mock_instance = MagicMock()
+            MockLGBM.return_value = mock_instance
+
+            adapter = LGBMModelAdapter(cols_for_model=cols)
+            adapter.fit(X, y, X_val=X, y_val=y, sample_weight=np.full(len(X), 0.5))
+
+            kwargs = mock_instance.train.call_args.kwargs
+            assert "sample_weight" in kwargs
+            np.testing.assert_allclose(kwargs["sample_weight"], np.full(len(X), 0.5))
+
+    def test_fit_default_has_no_sample_weight(self, synthetic_classification_data):
+        X, y = synthetic_classification_data
+        cols = list(X.columns[:2])
+
+        with patch("energizados.modeling.supervised_models.LGBMModel") as MockLGBM:
+            mock_instance = MagicMock()
+            MockLGBM.return_value = mock_instance
+
+            adapter = LGBMModelAdapter(cols_for_model=cols)
+            adapter.fit(X, y)
+
+            kwargs = mock_instance.train.call_args.kwargs
+            assert kwargs.get("sample_weight") is None

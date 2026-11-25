@@ -1497,3 +1497,178 @@ def test_random_regression(sample_parquet, tmp_path):
     validate_no_traversal(result["train_path"], label="train_path")
     validate_no_traversal(result["val_path"], label="val_path")
     validate_no_traversal(result["test_path"], label="test_path")
+
+
+class TestUnlabeledSampleWeight:
+    """unlabeled_negatives.sample_weight: PU-style weights for injected rows.
+
+    When configured, the train split gains a ``sample_weight`` column:
+    labeled rows carry 1.0, injected assumed negatives carry the configured
+    weight. Val/test are untouched. Absent by default (backward compatible).
+    """
+
+    @pytest.fixture
+    def labeled_df(self):
+        return pd.DataFrame(
+            {
+                "id": ["A1", "A2", "A3", "A4", "A5"],
+                "feature1": [1.0, 2.0, 3.0, 4.0, 5.0],
+                "feature2": ["X", "Y", "X", "Y", "Z"],
+                "target": [0, 1, 0, 1, 0],
+            }
+        )
+
+    @pytest.fixture
+    def unlabeled_df(self):
+        return pd.DataFrame(
+            {
+                "id": ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8"],
+                "feature1": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
+                "feature2": ["X", "Y", "Z", "X", "Y", "Z", "X", "Y"],
+            }
+        )
+
+    def _inject(self, tmp_path, labeled_df, unlabeled_df, extra_cfg):
+        unlabeled_path = tmp_path / "unlabeled.parquet"
+        unlabeled_df.to_parquet(unlabeled_path, index=False)
+        cfg = {
+            "enabled": True,
+            "source_path": str(unlabeled_path),
+            "max_per_cutoff": 5,
+            "random_state": 42,
+        }
+        cfg.update(extra_cfg)
+        return SplitStep(
+            input_path="dummy.parquet",
+            target_column="target",
+            unlabeled_negatives=cfg,
+        )
+
+    def test_sample_weight_column_labeled_and_injected(self, tmp_path, labeled_df, unlabeled_df):
+        split_step = self._inject(tmp_path, labeled_df, unlabeled_df, {"sample_weight": 0.5})
+        val_df = pd.DataFrame({"id": ["V1"], "feature1": [100.0], "target": [0]})
+        test_df = pd.DataFrame({"id": ["T1"], "feature1": [200.0], "target": [0]})
+
+        result = split_step._inject_unlabeled_negatives(labeled_df.copy(), val_df, test_df)
+
+        assert "sample_weight" in result.columns
+        labeled_mask = result["id"].isin(["A1", "A2", "A3", "A4", "A5"])
+        injected_mask = result["id"].isin(["B1", "B2", "B3", "B4", "B5"])
+        assert (result.loc[labeled_mask, "sample_weight"] == 1.0).all()
+        assert (result.loc[injected_mask, "sample_weight"] == 0.5).all()
+        assert split_step._last_unlabeled_sample_weight == 0.5
+
+    def test_no_sample_weight_column_when_not_configured(self, tmp_path, labeled_df, unlabeled_df):
+        split_step = self._inject(tmp_path, labeled_df, unlabeled_df, {})
+        val_df = pd.DataFrame({"id": ["V1"], "feature1": [100.0], "target": [0]})
+        test_df = pd.DataFrame({"id": ["T1"], "feature1": [200.0], "target": [0]})
+
+        result = split_step._inject_unlabeled_negatives(labeled_df.copy(), val_df, test_df)
+
+        assert "sample_weight" not in result.columns
+        assert split_step._last_unlabeled_sample_weight is None
+
+    def test_sample_weight_conflict_raises(self, tmp_path, labeled_df, unlabeled_df):
+        labeled_df = labeled_df.copy()
+        labeled_df["sample_weight"] = 1.0
+        split_step = self._inject(tmp_path, labeled_df, unlabeled_df, {"sample_weight": 0.5})
+        val_df = pd.DataFrame({"id": ["V1"], "feature1": [100.0], "target": [0]})
+        test_df = pd.DataFrame({"id": ["T1"], "feature1": [200.0], "target": [0]})
+
+        with pytest.raises(ValueError, match="sample_weight"):
+            split_step._inject_unlabeled_negatives(labeled_df, val_df, test_df)
+
+    def test_non_positive_sample_weight_raises(self, tmp_path, labeled_df, unlabeled_df):
+        with pytest.raises(ValueError, match="sample_weight"):
+            self._inject(tmp_path, labeled_df, unlabeled_df, {"sample_weight": 0.0})
+
+    def test_metadata_records_sample_weight(self, tmp_path):
+        """split_metadata.json reports the configured weight (None when unset)."""
+        negatives = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=3, freq="ME"),
+                "f1": [float(i) for i in range(3)],
+            }
+        )
+        neg_path = tmp_path / "negatives.parquet"
+        negatives.to_parquet(neg_path, index=False)
+        dataset = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=50, freq="ME"),
+                "f1": np.random.default_rng(42).standard_normal(50),
+                "target": np.random.default_rng(42).integers(0, 2, 50),
+            }
+        )
+        dataset_path = tmp_path / "dataset.parquet"
+        dataset.to_parquet(dataset_path, index=False)
+
+        split_step = SplitStep(
+            input_path=str(dataset_path),
+            target_column="target",
+            method="stratified",
+            test_size=0.2,
+            val_size=0.1,
+            random_state=42,
+            splits_dir=str(tmp_path / "splits"),
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": str(neg_path),
+                "max_per_cutoff": 1500,
+                "random_state": 42,
+                "sample_weight": 0.3,
+            },
+        )
+        split_step.execute({})
+
+        with open(tmp_path / "splits" / "split_metadata.json", encoding="utf-8") as f:
+            metadata = json.load(f)
+        assert metadata["unlabeled_negatives_sample_weight"] == 0.3
+        train = pd.read_parquet(tmp_path / "splits" / "train.parquet")
+        assert "sample_weight" in train.columns
+        val = pd.read_parquet(tmp_path / "splits" / "val.parquet")
+        assert "sample_weight" not in val.columns
+        test = pd.read_parquet(tmp_path / "splits" / "test.parquet")
+        assert "sample_weight" not in test.columns
+
+    def test_metadata_sample_weight_none_when_unset(self, tmp_path):
+        """Injection enabled without the key reports sample_weight None."""
+        negatives = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=3, freq="ME"),
+                "f1": [float(i) for i in range(3)],
+            }
+        )
+        neg_path = tmp_path / "negatives.parquet"
+        negatives.to_parquet(neg_path, index=False)
+        dataset = pd.DataFrame(
+            {
+                "fecha": pd.date_range("2020-01-01", periods=50, freq="ME"),
+                "f1": np.random.default_rng(42).standard_normal(50),
+                "target": np.random.default_rng(42).integers(0, 2, 50),
+            }
+        )
+        dataset_path = tmp_path / "dataset.parquet"
+        dataset.to_parquet(dataset_path, index=False)
+
+        split_step = SplitStep(
+            input_path=str(dataset_path),
+            target_column="target",
+            method="stratified",
+            test_size=0.2,
+            val_size=0.1,
+            random_state=42,
+            splits_dir=str(tmp_path / "splits"),
+            unlabeled_negatives={
+                "enabled": True,
+                "source_path": str(neg_path),
+                "max_per_cutoff": 1500,
+                "random_state": 42,
+            },
+        )
+        split_step.execute({})
+
+        with open(tmp_path / "splits" / "split_metadata.json", encoding="utf-8") as f:
+            metadata = json.load(f)
+        assert metadata["unlabeled_negatives_sample_weight"] is None
+        train = pd.read_parquet(tmp_path / "splits" / "train.parquet")
+        assert "sample_weight" not in train.columns

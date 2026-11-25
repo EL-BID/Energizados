@@ -880,3 +880,103 @@ class TestExecuteUsesResolvedThresholdsDir:
         # Standalone-evaluator case: no model_path resolved → output_dir is the
         # only sensible destination.
         assert (output_dir / "segment_thresholds_zona.json").exists()
+
+
+class TestSegmentedTopPctReporting:
+    """segmented_evaluation.top_fracs: precision@top-N% per segment in the
+    in-memory metrics, the JSON report, and the HTML report (celesc ops view)."""
+
+    @staticmethod
+    def _build_synthetic_dataset(tmp_path):
+        rng = np.random.RandomState(42)
+        high_pos = rng.beta(8, 2, size=30)
+        high_neg = rng.beta(2, 5, size=30)
+        low_pos = rng.beta(5, 5, size=5)
+        low_neg = rng.beta(1, 9, size=55)
+        proba = np.concatenate([high_pos, high_neg, low_pos, low_neg])
+        y_true = np.concatenate([np.ones(30), np.zeros(30), np.ones(5), np.zeros(55)])
+        seg = np.array(["high_prev"] * 60 + ["low_prev"] * 60)
+        feat = rng.random(120)
+        test_data = pd.DataFrame(
+            {"target": y_true.astype(int), "feature1": feat, "geo_region": seg}
+        )
+        test_path = tmp_path / "test.parquet"
+        test_data.to_parquet(test_path)
+        return test_path, proba, y_true, seg
+
+    @staticmethod
+    def _execute(tmp_path, test_path, proba, top_fracs, json_report=False, html_report=False):
+        from energizados.evaluation.evaluator import DefaultEvaluator
+
+        class ProbabilisticMockModel:
+            def __init__(self, probabilities):
+                self._proba = probabilities
+
+            def predict_proba(self, x):
+                return self._proba.copy()
+
+        output_dir = tmp_path / "eval_output"
+        output_dir.mkdir(exist_ok=True)
+        seg_cfg = {
+            "enabled": True,
+            "by": ["geo_region"],
+            "threshold_mode": "youden",
+            "min_samples": 10,
+        }
+        if top_fracs is not None:
+            seg_cfg["top_fracs"] = top_fracs
+        evaluator = DefaultEvaluator(
+            input_path=str(test_path),
+            output_dir=str(output_dir),
+            threshold=0.5,
+            metrics=["auc", "precision", "recall", "f1"],
+            segmented_evaluation=seg_cfg,
+            generate_plots=False,
+            generate_html_report=html_report,
+            generate_json_report=json_report,
+        )
+        model = ProbabilisticMockModel(proba)
+        with patch.object(evaluator, "_load_model", return_value=model):
+            with patch.object(evaluator, "_load_feature_engineering", return_value=None):
+                return evaluator.execute({}), output_dir
+
+    def test_evaluator_metrics_carry_top_pct(self, tmp_path):
+        test_path, proba, y_true, seg = self._build_synthetic_dataset(tmp_path)
+        result, _ = self._execute(tmp_path, test_path, proba, top_fracs=[0.1, 0.2])
+        seg_metrics = result["metrics"]["segmented_metrics"]["geo_region"]
+        for seg_data in seg_metrics.values():
+            assert set(seg_data["top_pct"].keys()) == {"10pct", "20pct"}
+
+    def test_top_pct_defaults_to_5_10_20(self, tmp_path):
+        """Default ON: the operational view ships with the segmented report."""
+        test_path, proba, y_true, seg = self._build_synthetic_dataset(tmp_path)
+        result, _ = self._execute(tmp_path, test_path, proba, top_fracs=None)
+        seg_metrics = result["metrics"]["segmented_metrics"]["geo_region"]
+        for seg_data in seg_metrics.values():
+            assert set(seg_data["top_pct"].keys()) == {"5pct", "10pct", "20pct"}
+
+    def test_json_report_contains_top_pct(self, tmp_path):
+        test_path, proba, y_true, seg = self._build_synthetic_dataset(tmp_path)
+        result, output_dir = self._execute(
+            tmp_path, test_path, proba, top_fracs=[0.2], json_report=True
+        )
+        report = json.loads((output_dir / "evaluation_report.json").read_text())
+        seg_metrics = report["segmented_metrics"]["geo_region"]
+        assert "20pct" in seg_metrics["high_prev"]["top_pct"]
+
+    def test_html_report_contains_top_pct_column(self, tmp_path):
+        test_path, proba, y_true, seg = self._build_synthetic_dataset(tmp_path)
+        result, output_dir = self._execute(
+            tmp_path, test_path, proba, top_fracs=[0.2], html_report=True
+        )
+        html = (output_dir / "evaluation_report.html").read_text()
+        assert "Prec@20%" in html
+
+    def test_html_column_absent_when_top_fracs_empty(self, tmp_path):
+        """top_fracs: [] disables the operational columns."""
+        test_path, proba, y_true, seg = self._build_synthetic_dataset(tmp_path)
+        result, output_dir = self._execute(
+            tmp_path, test_path, proba, top_fracs=[], html_report=True
+        )
+        html = (output_dir / "evaluation_report.html").read_text()
+        assert "Prec@20%" not in html

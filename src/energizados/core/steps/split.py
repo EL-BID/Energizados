@@ -17,6 +17,11 @@ from energizados.core.base import PipelineStep
 
 logger = logging.getLogger(__name__)
 
+#: Column added to the train split when ``unlabeled_negatives.sample_weight``
+#: is configured (PU-style weighting: labeled rows carry 1.0, injected
+#: assumed negatives carry the configured weight).
+SAMPLE_WEIGHT_COLUMN = "sample_weight"
+
 
 class SplitStep(PipelineStep):
     """
@@ -91,6 +96,23 @@ class SplitStep(PipelineStep):
         self.geo_stratify = geo_stratify
         self.unlabeled_negatives = unlabeled_negatives
         self.etl_output_hints = etl_output_hints
+        self._validate_unlabeled_sample_weight()
+
+    def _validate_unlabeled_sample_weight(self) -> None:
+        """Fail fast on a non-numeric or non-positive sample_weight config."""
+        if not self.unlabeled_negatives:
+            return
+        configured = self.unlabeled_negatives.get("sample_weight")
+        if configured is None:
+            return
+        try:
+            configured = float(configured)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"unlabeled_negatives.sample_weight must be a number, got: {configured!r}"
+            )
+        if configured <= 0:
+            raise ValueError(f"unlabeled_negatives.sample_weight must be > 0, got: {configured}")
 
     def _validate_time_series_config(self) -> None:
         """Validate time_series-specific config. Raises ValueError if invalid."""
@@ -377,6 +399,9 @@ class SplitStep(PipelineStep):
                 ),
                 "unlabeled_negatives_labels_assumed": True,
                 "unlabeled_negatives_excluded_by_dedup": getattr(self, "_last_excluded_count", 0),
+                "unlabeled_negatives_sample_weight": getattr(
+                    self, "_last_unlabeled_sample_weight", None
+                ),
                 "new_fraud_rate": (
                     (train_df[self.target_column] == 1).sum() / len(train_df)
                     if len(train_df) > 0
@@ -708,7 +733,13 @@ class SplitStep(PipelineStep):
         """
         # Check if feature is enabled
         if not self.unlabeled_negatives or not self.unlabeled_negatives.get("enabled", False):
+            self._last_unlabeled_sample_weight = None
             return train_df
+
+        self._last_unlabeled_sample_weight = None
+        configured_weight = self.unlabeled_negatives.get("sample_weight")
+        if configured_weight is not None:
+            configured_weight = float(configured_weight)
 
         source_path, source_mode = self._resolve_unlabeled_source(context)
         self._last_unlabeled_source = source_path
@@ -791,6 +822,24 @@ class SplitStep(PipelineStep):
         if len(unlabeled_df) == 0:
             logger.warning("No unlabeled negatives to inject after filtering")
             return train_df
+
+        # PU-style weights: configured weight marks injected rows so the
+        # training step can down-weight assumed negatives at fit time.
+        if configured_weight is not None:
+            if SAMPLE_WEIGHT_COLUMN in train_df.columns:
+                raise ValueError(
+                    f"Column '{SAMPLE_WEIGHT_COLUMN}' already exists in the training data; "
+                    "cannot add unlabeled_negatives.sample_weight weights. "
+                    "Rename the existing column or drop the config key."
+                )
+            train_df = train_df.copy()
+            train_df[SAMPLE_WEIGHT_COLUMN] = 1.0
+            unlabeled_df[SAMPLE_WEIGHT_COLUMN] = configured_weight
+            self._last_unlabeled_sample_weight = configured_weight
+            logger.info(
+                f"sample_weight column added: labeled rows = 1.0, "
+                f"injected rows = {configured_weight}"
+            )
 
         # ETL-ref mode: train schema wins — drop source columns absent from
         # train (external-file mode keeps its pass-through behavior)

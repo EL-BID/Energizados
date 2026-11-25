@@ -6,7 +6,12 @@ Verifies that:
 - User-specified keys outside the hyperparameter search space (e.g. n_jobs)
   are preserved when search_hip is enabled.
 - hyperparams=None is accepted and normalized to an empty dict.
+- sample_weight reaches LGBMClassifier.fit (PU-style weighting support).
 """
+
+import numpy as np
+import pandas as pd
+import pytest
 
 from energizados.modeling.supervised_models import LGBMModel
 
@@ -62,3 +67,81 @@ class TestLGBMModelNJobs:
         """hyperparams=None is normalized to an empty dict."""
         model = LGBMModel(cols_for_model=["a"], hyperparams=None)
         assert model.hyperparams == {}
+
+
+class TestLGBMModelSampleWeight:
+    """sample_weight reaches LGBMClassifier.fit (PU-style weighting)."""
+
+    def _tiny_data(self):
+        rng = np.random.default_rng(7)
+        X = pd.DataFrame({"f1": rng.standard_normal(60), "f2": rng.standard_normal(60)})
+        y = pd.Series((X["f1"] + 0.1 * rng.standard_normal(60) > 0).astype(int))
+        return X, y
+
+    def test_train_passes_sample_weight_to_lgbm(self, monkeypatch):
+        import lightgbm as lgb
+
+        captured = {}
+        orig_fit = lgb.LGBMClassifier.fit
+
+        def capturing_fit(self, *args, **kwargs):
+            captured["sample_weight"] = kwargs.get("sample_weight")
+            return orig_fit(self, *args, **kwargs)
+
+        monkeypatch.setattr(lgb.LGBMClassifier, "fit", capturing_fit)
+
+        X, y = self._tiny_data()
+        weights = pd.Series(np.full(len(X), 0.5))
+        model = LGBMModel(
+            cols_for_model=list(X.columns),
+            hyperparams={"n_estimators": 10, "verbosity": -1},
+            sampling_method="none",
+        )
+        pipe = model.train(X, y, df_val=X, y_val=y, sample_weight=weights)
+        assert pipe is not None
+        assert captured["sample_weight"] is not None
+        np.testing.assert_allclose(np.asarray(captured["sample_weight"]), weights.to_numpy())
+
+    def test_train_without_sample_weight_keeps_behavior(self, monkeypatch):
+        import lightgbm as lgb
+
+        captured = {}
+        orig_fit = lgb.LGBMClassifier.fit
+
+        def capturing_fit(self, *args, **kwargs):
+            captured["sample_weight"] = kwargs.get("sample_weight")
+            return orig_fit(self, *args, **kwargs)
+
+        monkeypatch.setattr(lgb.LGBMClassifier, "fit", capturing_fit)
+
+        X, y = self._tiny_data()
+        model = LGBMModel(
+            cols_for_model=list(X.columns),
+            hyperparams={"n_estimators": 10, "verbosity": -1},
+            sampling_method="none",
+        )
+        model.train(X, y, df_val=X, y_val=y)
+        assert captured["sample_weight"] is None
+
+    def test_sample_weight_with_sampler_raises(self):
+        X, y = self._tiny_data()
+        weights = pd.Series(np.ones(len(X)))
+        model = LGBMModel(
+            cols_for_model=list(X.columns),
+            hyperparams={"n_estimators": 10, "verbosity": -1},
+            sampling_method="undersample",
+        )
+        with pytest.raises(ValueError, match="sample_weight"):
+            model.train(X, y, df_val=X, y_val=y, sample_weight=weights)
+
+    def test_sample_weight_with_search_raises(self):
+        X, y = self._tiny_data()
+        weights = pd.Series(np.ones(len(X)))
+        model = LGBMModel(
+            cols_for_model=list(X.columns),
+            hyperparams={"n_estimators": 10, "verbosity": -1},
+            sampling_method="none",
+            search_hip=True,
+        )
+        with pytest.raises(ValueError, match="sample_weight"):
+            model.train(X, y, df_val=X, y_val=y, sample_weight=weights)

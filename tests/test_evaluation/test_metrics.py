@@ -950,3 +950,141 @@ class TestSegmentMetricsThresholdModes:
             f"expected Youden to produce different thresholds. "
             f"Thresholds: {thresholds}"
         )
+
+
+class TestSegmentMetricsMinPositivesGuard:
+    """min_positives guard: noise trap for low-positive segments (celesc campaign)."""
+
+    def test_low_positive_segments_flagged_unreliable(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, threshold_mode="youden", min_positives=30)
+
+        for seg_data in seg.values():
+            if seg_data["n_positives"] < 30:
+                assert seg_data["reliable"] is False
+                assert "caveat" in seg_data
+                assert "positive" in seg_data["caveat"].lower()
+            else:
+                assert seg_data["reliable"] is True
+
+    def test_guard_disabled_by_default_keeps_output_shape(self, mixed_data_with_segments):
+        """Without min_positives the output has no reliable/caveat keys (backward compat)."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, threshold_mode="youden")
+        for seg_data in seg.values():
+            assert "reliable" not in seg_data
+            assert "caveat" not in seg_data
+
+    def test_metrics_still_reported_when_unreliable(self, mixed_data_with_segments):
+        """The guard adds markers; it must NOT drop the metrics themselves."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg_plain = metrics.segment_metrics(segments, threshold_mode="youden")
+        seg_guard = metrics.segment_metrics(segments, threshold_mode="youden", min_positives=30)
+        for seg_val, seg_data in seg_guard.items():
+            for key in ("auc", "precision", "recall", "f1", "threshold", "n_samples"):
+                assert seg_data[key] == seg_plain[seg_val][key]
+
+
+class TestSegmentMetricsBootstrapCI:
+    """bootstrap_ci: 95% CI for per-segment AUC (segmented-metric noise trap)."""
+
+    def test_ci_bracketed_and_valid(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(
+            segments, threshold_mode="youden", bootstrap_ci=True, bootstrap_n=100
+        )
+        for seg_data in seg.values():
+            ci = seg_data.get("auc_ci95")
+            assert ci is not None
+            lo, hi = ci
+            assert 0.0 <= lo <= hi <= 1.0
+
+    def test_ci_contains_point_estimate_when_well_separated(self):
+        """Perfectly separated segment: every bootstrap resample has AUC 1.0."""
+        rng = np.random.default_rng(0)
+        y_true = np.array([0] * 150 + [1] * 150)
+        y_proba = np.concatenate([rng.uniform(0.0, 0.4, 150), rng.uniform(0.6, 1.0, 150)])
+        segments = np.array(["big"] * 300)
+        metrics = Metrics(y_true, (y_proba > 0.5).astype(int), y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, bootstrap_ci=True, bootstrap_n=200)
+        assert seg["big"]["auc"] == 1.0
+        lo, hi = seg["big"]["auc_ci95"]
+        assert lo > 0.999999 and hi <= 1.0 and lo <= hi
+
+    def test_ci_skipped_for_one_class_segments(self):
+        """A segment with a single class cannot have a bootstrap AUC CI."""
+        rng = np.random.default_rng(0)
+        y_true = np.array([0, 1] * 20 + [0] * 20)
+        y_proba = np.concatenate(
+            [rng.uniform(0, 0.4, 20), rng.uniform(0.6, 1, 20), rng.uniform(0, 0.3, 20)]
+        )
+        segments = np.array(["a"] * 40 + ["b"] * 20)
+        metrics = Metrics(y_true, (y_proba > 0.5).astype(int), y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, bootstrap_ci=True, bootstrap_n=50)
+        assert seg["a"]["auc_ci95"] is not None
+        assert seg["b"]["auc_ci95"] is None
+
+    def test_ci_absent_by_default(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments)
+        for seg_data in seg.values():
+            assert "auc_ci95" not in seg_data
+
+
+class TestSegmentMetricsTopPct:
+    """precision@top-N% per segment — the operational view (celesc campaign)."""
+
+    def test_top_pct_present_when_configured(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.5])
+        for seg_data in seg.values():
+            assert "top_pct" in seg_data
+            assert "50pct" in seg_data["top_pct"]
+
+    def test_top_pct_absent_by_default(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments)
+        for seg_data in seg.values():
+            assert "top_pct" not in seg_data
+
+    def test_top_pct_k_ceil_and_precision(self, mixed_data_with_segments):
+        """Segment A (4 rows, y=[0,1,0,1], proba=[0.2,0.8,0.3,0.7]):
+        frac 0.75 -> k=3 -> top-3 proba [0.8, 0.7, 0.3] -> prec 2/3, hits 2."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.75])
+        a = seg["A"]["top_pct"]["75pct"]
+        assert a["k"] == 3
+        assert a["precision"] == pytest.approx(2 / 3)
+        assert a["hits"] == 2
+        b = seg["B"]["top_pct"]["75pct"]
+        # B: 4 rows, y=[0,1,0,1], proba=[0.3,0.4,0.6,0.9] -> k=3 -> [0.9,0.6,0.4] -> 2/3
+        assert b["k"] == 3
+        assert b["precision"] == pytest.approx(2 / 3)
+        assert b["hits"] == 2
+
+    def test_top_pct_min_one_row(self, mixed_data_with_segments):
+        """Tiny segments: frac*n rounds up to at least 1 row."""
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.05])
+        # every segment has n>=2 -> k >= 1
+        for seg_data in seg.values():
+            assert seg_data["top_pct"]["5pct"]["k"] >= 1
+
+    def test_multiple_fracs(self, mixed_data_with_segments):
+        y_true, y_pred, y_proba, segments = mixed_data_with_segments
+        metrics = Metrics(y_true, y_pred, y_proba, threshold=0.5)
+        seg = metrics.segment_metrics(segments, top_fracs=[0.25, 0.5, 0.75])
+        for seg_data in seg.values():
+            assert set(seg_data["top_pct"].keys()) == {"25pct", "50pct", "75pct"}
+            # monotone: hits can only grow with larger k
+            fracs = [seg_data["top_pct"][f"{int(f * 100)}pct"]["hits"] for f in (0.25, 0.5, 0.75)]
+            assert fracs[0] <= fracs[1] <= fracs[2]

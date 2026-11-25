@@ -88,6 +88,7 @@ SPLIT_SCHEMA = {
                 "random_state": {"type": "integer", "default": 42},
                 "date_column": {"type": ["string", "null"]},
                 "id_column": {"type": ["string", "null"]},
+                "sample_weight": {"type": "number", "exclusiveMinimum": 0},
             },
         },
         "geo_stratify": {
@@ -345,6 +346,15 @@ TRAINING_SCHEMA = {
                                 "files are written. Defaults to the trained "
                                 "model's directory (models/). Set an explicit "
                                 "path to override."
+                            ),
+                        },
+                        "top_fracs": {
+                            "type": "array",
+                            "items": {"type": "number", "minimum": 0, "maximum": 1},
+                            "description": (
+                                "Fractions of each segment's scored rows for "
+                                "the operational head view (prec@top-N% + hits). "
+                                "Defaults to [0.05, 0.1, 0.2]."
                             ),
                         },
                     },

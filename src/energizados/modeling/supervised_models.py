@@ -135,7 +135,7 @@ class LGBMModel:
         else:
             return make_pipeline(lgbm_model_search)
 
-    def train(self, df_train, y_train, df_val=None, y_val=None):
+    def train(self, df_train, y_train, df_val=None, y_val=None, sample_weight=None):
         """Train the LightGBM pipeline.
 
         If no validation set is provided, 10% of the training data is reserved
@@ -146,10 +146,28 @@ class LGBMModel:
             y_train: Training target Series.
             df_val: Validation feature DataFrame (optional).
             y_val: Validation target Series (optional).
+            sample_weight: Per-row weights (optional). Requires a pipeline
+                without a resampler (sampler steps cannot carry row weights)
+                and is unsupported together with hyperparameter search.
 
         Returns:
             imblearn.pipeline.Pipeline: Fitted pipeline with sampler and LGBMClassifier.
         """
+        if sample_weight is not None:
+            sample_weight = np.asarray(sample_weight)
+            if len(sample_weight) != len(df_train):
+                raise ValueError(
+                    f"sample_weight length {len(sample_weight)} does not match "
+                    f"training rows {len(df_train)}"
+                )
+            if self.class_weight is None and self.sampling_method != "none":
+                raise ValueError(
+                    "sample_weight is only supported without resampling "
+                    f"(sampling_method='{self.sampling_method}'); use "
+                    "sampling.method: 'none' or class_weight instead."
+                )
+            if self.search_hip:
+                raise ValueError("sample_weight is not supported together with hyperparam_search.")
         if df_val is None:
             df_train, df_val, y_train, y_val = train_test_split(
                 df_train, y_train, test_size=0.1, random_state=42
@@ -187,6 +205,8 @@ class LGBMModel:
             "categorical_feature": "auto",
             "feature_name": "auto",
         }
+        if sample_weight is not None:
+            fit_params["sample_weight"] = sample_weight
         new_fit_params = {"lgbmclassifier__" + key: fit_params[key] for key in fit_params}
         # Prefix raw YAML params with step name; search_hip returns already-prefixed best_params_
         prefixed_params = {

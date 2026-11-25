@@ -307,6 +307,64 @@ class TestConfigSchemas:
         errors = validator.validate_config(config)
         assert len(errors) == 0, f"unlabeled_negatives config should be valid, got: {errors}"
 
+    def test_split_unlabeled_negatives_sample_weight_valid(self):
+        """sample_weight (PU weight) as positive number passes validation."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "time_series",
+                    "date_column": "fecha_inspeccion",
+                    "train_period": ["2010-01-01", "2017-08-01"],
+                    "val_period": ["2017-09-01", "2017-12-31"],
+                    "test_period": ["2018-01-01", "2018-12-31"],
+                    "unlabeled_negatives": {
+                        "enabled": True,
+                        "source_path": "data/unlabeled.parquet",
+                        "max_per_cutoff": 1500,
+                        "random_state": 42,
+                        "sample_weight": 0.5,
+                    },
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) == 0, f"sample_weight config should be valid, got: {errors}"
+
+    def test_split_unlabeled_negatives_sample_weight_invalid_type(self):
+        """sample_weight must be a number; strings are rejected."""
+        validator = ConfigValidator()
+
+        config = {
+            "train": {
+                "enabled": True,
+                "input_path": "data/test.parquet",
+                "target_column": "target",
+                "split": {
+                    "method": "time_series",
+                    "date_column": "fecha_inspeccion",
+                    "train_period": ["2010-01-01", "2017-08-01"],
+                    "val_period": ["2017-09-01", "2017-12-31"],
+                    "test_period": ["2018-01-01", "2018-12-31"],
+                    "unlabeled_negatives": {
+                        "enabled": True,
+                        "source_path": "data/unlabeled.parquet",
+                        "sample_weight": "half",
+                    },
+                },
+                "models": [{"type": "lightgbm"}],
+            }
+        }
+
+        errors = validator.validate_config(config)
+        assert len(errors) > 0, "string sample_weight should be rejected"
+
     def test_split_unlabeled_negatives_backward_compat(self):
         """Verify that split WITHOUT unlabeled_negatives still passes (backward compatible)."""
         validator = ConfigValidator()
